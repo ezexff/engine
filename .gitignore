@@ -1,0 +1,4 @@
+/build/*
+!build/glfw3.dll
+/data/*
+/tmp/*

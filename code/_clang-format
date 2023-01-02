@@ -1,0 +1,6 @@
+﻿---
+BasedOnStyle: Microsoft
+SortIncludes: 'false'
+SpaceBeforeParens: Never
+
+...
