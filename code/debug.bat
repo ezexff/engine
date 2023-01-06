@@ -4,6 +4,3 @@ CLS
 
 REM main
 call devenv ..\build\win32_engine.exe
-
-REM assets builder tool
-REM call devenv ..\..\handmade\build\test_asset_builder.exe
