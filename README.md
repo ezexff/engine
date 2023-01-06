@@ -31,4 +31,4 @@
 ## Отладка проекта в Visual Studio через debug.bat
 1.  Укажите во второй строке файла [debug.bat](code/debug.bat) свой путь до **vcvarsall.bat**
 2.  Запуск [debug.bat](code/debug.bat) откроет в Visual Studio исполняемый файл **build/win32_engine.exe**
-3.  В обозревателе решений следует изменить рабочий каталог с папки **build** на **data**
+3.  В обозревателе решений следует изменить рабочий каталог с **build** на **data**
