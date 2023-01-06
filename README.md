@@ -26,9 +26,9 @@
 *	Отрисовка игрового мира через OpenGL (перспективная проекция, рендер, зависящий от размеров окна, камера)
 *	Меню настроек в ImGui (режим отображения окна и чувствительность мыши)
 ## Сборка проекта в Visual Studio через build.bat
-1.  Укажите во второй строке файла **build.bat** свой путь до **vcvarsall.bat**
-2.  Запуск **build.bat** скомпилирует исполняемый файл **build/win32_engine.exe**
+1.  Укажите во второй строке файла [build.bat](code/build.bat) свой путь до **vcvarsall.bat**
+2.  Запуск [build.bat](code/build.bat) скомпилирует исполняемый файл **build/win32_engine.exe**
 ## Отладка проекта в Visual Studio через debug.bat
-1.  Укажите во второй строке файла **debug.bat** свой путь до **vcvarsall.bat**
-2.  Запуск **debug.bat** откроет в Visual Studio исполняемый файл **build/win32_engine.exe**
+1.  Укажите во второй строке файла [debug.bat](code/debug.bat) свой путь до **vcvarsall.bat**
+2.  Запуск [debug.bat](code/debug.bat) откроет в Visual Studio исполняемый файл **build/win32_engine.exe**
 3.  В обозревателе решений следует изменить рабочий каталог с папки **build** на **data**
