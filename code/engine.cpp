@@ -1,8 +1,8 @@
 #include "engine.h"
-
 #include "engine_entity.cpp"
-
 #include "engine_world.cpp"
+#include "engine_asset.cpp"
+#include "engine_render.cpp"
 
 // TODO(me): для тестов, удалить
 #include "simpleproject_opengl.cpp"
@@ -27,23 +27,18 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         //
         // NOTE(me): Push game_state structures in memory
         //
+        GameState->Render = PushStruct(&GameState->WorldArena, render);
+        render *Render = GameState->Render;
+        Render->SingleMeshCount = 0;
 
-        GameState->Settings = PushStruct(&GameState->WorldArena, game_settings);
-        game_settings *Settings = GameState->Settings;
+        GameState->Settings = PushStruct(&GameState->WorldArena, app_settings);
+        app_settings *Settings = GameState->Settings;
+        Settings->RBFullscreenIsActive = false;
+        Settings->RBWindowedIsActive = false;
+        Settings->MouseSensitivity = 0.05f;
 
         GameState->Player = PushStruct(&GameState->WorldArena, entity_player);
         entity_player *Player = GameState->Player;
-
-        //
-        // NOTE(me): Init game_state structures
-        //
-
-        Settings->MouseSensitivity = 0.05f;
-
-        // Display Mode radio buttons init
-        Settings->RBFullscreenIsActive = false;
-        Settings->RBWindowedIsActive = false;
-
         Player->Position = V3(0, 0, 0);
         Player->dP = V2(0, 0);
         Player->CameraXRot = 90.0f;
@@ -51,13 +46,86 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Player->CameraYOffset = 0.27f;
 
         //
-        // TODO(me): для тестов, избавиться от всего, что ниже
+        // NOTE(me): Объекты окружения (3d-модели)
         //
+        for(u32 i = 0; i < ArrayCount(GameState->EnvObjects); i++)
+        {
+            GameState->EnvObjects[i] = PushStruct(&GameState->WorldArena, entity_envobject);
+        }
+        // бочка
+        GameState->EnvObjects[0]->Position = V3(0, 0, 0);
+        GameState->EnvObjects[0]->Scale = 0.3f;
+        GameState->EnvObjects[2]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[2]->Angle = 0.0f;
+        GameState->EnvObjects[0]->InstancingCount = 0;
+        GameState->EnvObjects[0]->Model = LoadModel(&GameState->WorldArena, "assets/test_barrel.spm");
+        AddEntityToRender(Render, GameState->EnvObjects[0]);
+
+        // ваза
+        GameState->EnvObjects[1]->Position = V3(1, 0, 0);
+        GameState->EnvObjects[1]->Scale = 0.7f;
+        GameState->EnvObjects[2]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[2]->Angle = 0.0f;
+        GameState->EnvObjects[1]->InstancingCount = 0;
+        GameState->EnvObjects[1]->Model = LoadModel(&GameState->WorldArena, "assets/test_vase.spm");
+        AddEntityToRender(Render, GameState->EnvObjects[1]);
+
+        // дерево
+        GameState->EnvObjects[2]->Position = V3(2, 0, 0);
+        GameState->EnvObjects[2]->Scale = 0.1f;
+        GameState->EnvObjects[2]->Rotate = V3(1, 0, 0);
+        GameState->EnvObjects[2]->Angle = 90.0f;
+        GameState->EnvObjects[2]->InstancingCount = 0;
+        GameState->EnvObjects[2]->Model = LoadModel(&GameState->WorldArena, "assets/test_tree.spm");
+        AddEntityToRender(Render, GameState->EnvObjects[2]);
+
+        //
+        // NOTE(me): Шейдеры и VBO
+        //
+        Render->Shaders[0] = LoadShader("../code/shaders/AnimatedModel.vert", GL_VERTEX_SHADER);
+        Render->Shaders[1] = LoadShader("../code/shaders/AnimatedModel.frag", GL_FRAGMENT_SHADER);
+        LinkShaderProgram(Render);
+
+        InitSingleVBO(&GameState->WorldArena, Render);
+
+        //
+        // NOTE(me): Источники света
+        //
+        // directional light
+        Render->DirLight.Base.Color = V3(1.0f, 1.0f, 1.0f);
+        Render->DirLight.Base.AmbientIntensity = 0.1f;
+        Render->DirLight.Base.DiffuseIntensity = 1.0f;
+        Render->DirLight.WorldDirection = V3(1.0f, 0.0f, 0.0f);
+
+        // point lights
+        Render->PointLightsCount = 1;
+        Render->PointLights = PushArray(&GameState->WorldArena, Render->PointLightsCount, point_light);
+        Render->PointLights[0].Base.Color = V3(0.0f, 0.0f, 1.0f);
+        Render->PointLights[0].Base.AmbientIntensity = 1.0f;
+        Render->PointLights[0].Base.DiffuseIntensity = 1.0f;
+        Render->PointLights[0].WorldPosition = V3(0.0f, 0.0f, 0.0f);
+        Render->PointLights[0].Atten.Constant = 1.0f;
+        Render->PointLights[0].Atten.Linear = 0.1f; // 0.0f
+        Render->PointLights[0].Atten.Exp = 0.0f;    // 0.0f
+
+        // spot lights
+        Render->SpotLightsCount = 1;
+        Render->SpotLights = PushArray(&GameState->WorldArena, Render->SpotLightsCount, spot_light);
+        // Render->SpotLights[0].Base.Base.Color = V3(253.0f/255.0f, 208.0f/255.0f, 35.0f/255.0f);
+        Render->SpotLights[0].Base.Base.Color = V3(1.0f, 0.0f, 0.0f);
+        Render->SpotLights[0].Base.Base.AmbientIntensity = 1.0f;
+        Render->SpotLights[0].Base.Base.DiffuseIntensity = 1.0f;
+        Render->SpotLights[0].Base.WorldPosition = V3(0.0f, 0.0f, 0.0f);
+        Render->SpotLights[0].Base.Atten.Constant = 1.0f;
+        Render->SpotLights[0].Base.Atten.Linear = 0.01f;
+        Render->SpotLights[0].Base.Atten.Exp = 0.0f;
+        Render->SpotLights[0].WorldDirection = V3(0.0f, 0.0f, -1.0f);
+        Render->SpotLights[0].WorldDirection = Normalize(Render->SpotLights[0].WorldDirection);
+        Render->SpotLights[0].Cutoff = 0.9f;
 
         // ImGui Demo Window
-        GameState->ShowDemoWindow = true;
+        GameState->ShowDemoWindow = false;
         GameState->ShowAnotherWindow = false;
-        // GameState->ClearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
         // String example
         // string TestStr = PushString(&GameState->WorldArena, "fdsfsdfss");
@@ -70,7 +138,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     }
 
     // Local pointers for game_state sctructs
-    game_settings *Settings = GameState->Settings;
+    render *Render = GameState->Render;
+    app_settings *Settings = GameState->Settings;
     entity_player *Player = GameState->Player;
 
     //
@@ -202,6 +271,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::Text("CursorPos=%f,%f", Input->MouseX, Input->MouseY);
             ImGui::Text("dtForFrame=%f", Input->dtForFrame);
             ImGui::Text("MOffset=%f,%f", Input->MouseOffsetX, Input->MouseOffsetY);
+            ImGui::Text("SingleVerticesCountSum=%d", Render->SingleVerticesCountSum);
         }
 
         if(ImGui::CollapsingHeader("Settings"))
@@ -239,6 +309,27 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::SliderFloat("##MouseSensitivity", &Settings->MouseSensitivity, 0.0f, 1.0f);
         }
 
+        if(ImGui::CollapsingHeader("Light"))
+        {
+            ImGui::Text("Directional");
+            ImGui::SliderFloat("DLPosX", &Render->DirLight.WorldDirection.x, 0.0f, 100.0f);
+            ImGui::SliderFloat("DLPosY", &Render->DirLight.WorldDirection.y, 0.0f, 100.0f);
+            ImGui::SliderFloat("DLPosZ", &Render->DirLight.WorldDirection.z, 0.0f, 100.0f);
+            ImGui::SliderFloat("DLAmbientIntensity", &Render->DirLight.Base.AmbientIntensity, 0.0f, 1.0f);
+            ImGui::SliderFloat("DLDiffuseIntensity", &Render->DirLight.Base.DiffuseIntensity, 0.0f, 1.0f);
+            ImGui::ColorEdit3("DLColor", (float *)&Render->DirLight.Base.Color.E);
+            ImGui::Spacing();
+            ImGui::Text("Point");
+            ImGui::SliderFloat("PLPosX", &Render->PointLights[0].WorldPosition.x, 0.0f, 100.0f);
+            ImGui::SliderFloat("PLPosY", &Render->PointLights[0].WorldPosition.y, 0.0f, 100.0f);
+            ImGui::SliderFloat("PLPosZ", &Render->PointLights[0].WorldPosition.z, 0.0f, 100.0f);
+            ImGui::Spacing();
+            ImGui::Text("Spot");
+            ImGui::SliderFloat("SLPosX", &Render->SpotLights[0].Base.WorldPosition.x, 0.0f, 100.0f);
+            ImGui::SliderFloat("SLPosY", &Render->SpotLights[0].Base.WorldPosition.y, 0.0f, 100.0f);
+            ImGui::SliderFloat("SLPosZ", &Render->SpotLights[0].Base.WorldPosition.z, 0.0f, 100.0f);
+        }
+
         ImGui::End();
     }
 
@@ -246,17 +337,72 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     // NOTE(me): Game render
     //
 
-    // TODO(me): удалить clearcolor
-    s32 DisplayWidth, DisplayHeight;
+    // проекция (перспективная)
+    /*s32 DisplayWidth, DisplayHeight;
     glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
     glViewport(0, 0, DisplayWidth, DisplayHeight);
-    // glClearColor(0, 0, 0, 0);
+
+    glEnable(GL_DEPTH_TEST);
+    glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, (r32)DisplayWidth, (r32)DisplayHeight, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glDisable(GL_DEPTH_TEST);
+    // glDisable(GL_LIGHTING);
+
+    glTranslatef(DisplayWidth / 2.0f, DisplayHeight / 2.0f, 0);
+    glScalef(55, 55, 1);
+    glBegin(GL_TRIANGLES);
+    glColor3f(1, 0, 0);
+    glVertex2f(0, 1);
+    glColor3f(0, 1, 0);
+    glVertex2f(0.87, -0.5);
+    glColor3f(0, 0, 1);
+    glVertex2f(-0.87, -0.5);
+    glEnd();
+    */
+
+    /*r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
+    r32 FOV = 0.1f; // поле зрения камеры
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+    r32 MatProj[16];
+    glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
+
+    // вид с камеры
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    OGLSetCameraOnPlayer(Player);
+    r32 MatView[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
+
+    // сохраняем мировые матрицы преобразований
+    for(u32 i = 0; i < 4; i++)
+    {
+        for(u32 j = 0; j < 4; j++)
+        {
+            //GameState->World->MatProjection.E[i][j] = MatProj[i * 4 + j];
+            //GameState->World->MatView.E[i][j] = MatView[i * 4 + j];
+        }
+    }*/
+
+    // RenderSingleVBO(Window, Render, Player);
+
+    //s32 DisplayWidth, DisplayHeight;
+    //glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
+    //glViewport(0, 0, DisplayWidth, DisplayHeight);
     glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
     glEnable(GL_DEPTH_TEST);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // проекция (перспективная)
-    r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
+    /*r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
     r32 FOV = 0.1f; // поле зрения камеры
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -284,12 +430,17 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     }
 
     m4x4 WorldMatrix = MatProjection * MatView1;
-    // glLoadMatrixf((const GLfloat *)WorldMatrix.E);
+    //glLoadMatrixf((const GLfloat *)WorldMatrix.E);
 
     glPushMatrix();
-    OGLDrawColoredCube(GameState);
+    OGLDrawColoredCube();
+    //glTranslatef(Render->PointLights[0].WorldPosition.x, Render->PointLights[0].WorldPosition.y,
+    //             Render->PointLights[0].WorldPosition.z);
+    
     OGLDrawLinesOXYZ(V3(0, 0, 1), 1); // World Start Point OXZY
     glPopMatrix();
+    */
+    RenderSingleVBO(Window, Render, Player);
 
     // ImGui rendering
     ImGui::Render();

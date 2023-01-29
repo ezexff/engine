@@ -1,4 +1,7 @@
 #include <windows.h>
+//#define GLEW_STATIC
+//#include <GL/glew.h>
+#include <glad.c>
 #include <GLFW/glfw3.h>
 
 #include "engine_platform.h"
@@ -131,9 +134,11 @@ int main(int, char **)
     // Setup window
     glfwSetErrorCallback(GlfwErrorCallback);
     if(!glfwInit())
-        return 1;
+    {
+        InvalidCodePath;
+    }
 
-        // Decide GL+GLSL versions
+    // Decide GL+GLSL versions
 #if defined(IMGUI_IMPL_OPENGL_ES2)
     // GL ES 2.0 + GLSL 100
     const char *glsl_version = "#version 100";
@@ -149,21 +154,38 @@ int main(int, char **)
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           // Required on Mac
 #else
     // GL 3.0 + GLSL 130
-    const char *glsl_version = "#version 130";
+    const char *glsl_version = "#version 330";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+    //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
     // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
 
     // Create window with graphics context
     GLFWwindow *Window = glfwCreateWindow(1280, 720, "Engine window title", NULL, NULL);
     if(Window == NULL)
-        return 1;
+    {
+        InvalidCodePath;
+    }
     glfwSetCursorPosCallback(Window, CursorPositionCallback);
     glfwSetKeyCallback(Window, KeyCallback);
     glfwMakeContextCurrent(Window);
     glfwSwapInterval(0); // Enable vsync
+
+    // Glad
+    if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        // std::cout << "Failed to initialize OpenGL context" << std::endl;
+        InvalidCodePath;
+    }
+    // GLEW
+    /*glewExperimental = GL_TRUE;
+    GLenum glewError = glewInit();
+    if(glewError != GLEW_OK)
+    {
+        glfwTerminate();
+        exit(EXIT_FAILURE);
+    }*/
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
@@ -260,7 +282,7 @@ int main(int, char **)
                 NewKeyboardController->Buttons[ButtonIndex].EndedDown =
                     OldKeyboardController->Buttons[ButtonIndex].EndedDown;
             }
-            
+
             // Poll and handle events (inputs, window resize, etc.)
             // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use
             // your inputs.

@@ -13,18 +13,19 @@
 #include "engine_intrinsics.h"
 #include "engine_math.h"
 
-#include "engine_entity.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 //#include "ode/ode.h"
 #include "engine_world.h"
-
+#include "engine_asset.h"
+#include "engine_entity.h"
+#include "engine_render.h"
 // TODO(me): на слой платформы?
-//#define STB_IMAGE_IMPLEMENTATION
-//#include "stb_image.h"
 
 global_variable platform_api Platform;
 
-struct game_settings
+struct app_settings
 {
     r32 MouseSensitivity;
 
@@ -37,11 +38,16 @@ struct game_state
 {
     b32 IsInitialized;
 
-    memory_arena WorldArena; // permanent память игры без учёта этой структуры game_state
+    memory_arena WorldArena; // постоянная память
 
-    game_settings *Settings;
+    render *Render;
 
+    app_settings *Settings;
+
+    // TODO(me): объединить все сущности и поместить структуру world?
     entity_player *Player;
+
+    entity_envobject *EnvObjects[10];
 
     // TODO: ODE test
     // m4x4 GeomMatrix;

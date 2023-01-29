@@ -92,7 +92,7 @@ internal void OGLDrawColoredSquare(v4 Color)
 //
 // NOTE(me): Draw cube
 //
-internal void OGLDrawColoredCube(game_state *GameState)
+internal void OGLDrawColoredCube()
 {
     r32 CubeVertices[] = {
         // front
@@ -148,8 +148,6 @@ internal void OGLDrawColoredCube(game_state *GameState)
     glPushMatrix();
 
     glScalef(0.5, 0.5, 0.5);
-    // glRotatef(RotAngle, RotX, RotY, RotZ);
-    // glRotatef(GameState->theta, 1, 0, 0);
     // glRotatef(GameState->theta, 0, 1, 0);
 
     glEnableClientState(GL_VERTEX_ARRAY);
