@@ -1,6 +1,10 @@
 # C++ Game Engine
 Игровой движок, написанный на C++. Проект имеет кросплатформерную структуру (слой платформы и игровой код независимы друг от друга), а так же использует библиотеки [GLFW](https://www.glfw.org/), [ImGui](https://github.com/ocornut/imgui) и [stb_image](https://github.com/nothings/stb).<br><br>
-![C++ Game Engine screenshot](https://i.imgur.com/oZZdn5x.png)<br><br>
+![C++ Game Engine screenshot](https://i.imgur.com/gW81zeb.png)
+<details>
+<summary>Скриншоты прошлых версий</summary>
+<img src="https://i.imgur.com/oZZdn5x.png" alt="C++ Game Engine screenshot">
+</details>
 Реализовано на слое платформы Win32:
 *	Два батника: для компиляции (при помощи MSVC) и отладки (через Visual Studio) C++ кода
 *	Вызов окна с интеграцией OpenGL
