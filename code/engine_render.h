@@ -54,32 +54,34 @@ struct render
     u32 ShaderProgram;
     u32 Shaders[10];
 
-    // Список мешей для рендеринга без инстансинга
-    u32 SingleVerticesCountSum;
-    u32 AnimatedVerticesCountSum;
-    u32 SingleMeshCount;
-    single_mesh *SingleMeshes[256];
-    v3 *SinglePositions[256];
-    r32 *SingleScales[256];
-    v3 *SingleRotations[256];
-    r32 *SingleAngles[256];
-    u32 *SingleInstancingCounters[256];
+    // Single Static Meshes for rendering
+#define SINGLE_STATIC_MESHES_MAX 10
+    u32 SStMeshesCount;
+    single_mesh *SStMeshes[SINGLE_STATIC_MESHES_MAX];
+    v3 *SStPositions[SINGLE_STATIC_MESHES_MAX];
+    r32 *SStScales[SINGLE_STATIC_MESHES_MAX];
+    r32 *SStAngles[SINGLE_STATIC_MESHES_MAX];
+    v3 *SStRotations[SINGLE_STATIC_MESHES_MAX];
+    u32 *SStInstancingCounters[SINGLE_STATIC_MESHES_MAX];
+    u32 SstVerticesCount[256];
+    u32 SStVerticesCountSum;
+
+    // Single Animated Meshes for rendering
 
     // Список моделей для рендеринга без инстансинга
-    //u32 SingleModelCount; // TODO(me): удалить
+    // u32 SingleModelCount; // TODO(me): удалить
 
-    //loaded_model *SingleModel[256];
+    // loaded_model *SingleModel[256];
     // u32 MeshesCount;
     // single_mesh *Meshes;
-    u32 SingleVerticesCount[256];
 
-    u32 SingleVAO;
-    u32 SinglePosVBO;
-    u32 SingleTexCoordsVBO;
-    u32 SingleNormalsVBO;
-    u32 SingleIndicesVBO;
-    u32 SingleBoneIDsVBO;
-    u32 SingleWeightsVBO;
+    u32 SStVAO;
+    u32 SStPosVBO;
+    u32 SStTexCoordsVBO;
+    u32 SStNormalsVBO;
+    u32 SStIndicesVBO;
+    // u32 SStBoneIDsVBO;
+    // u32 SStWeightsVBO;
 
     directional_light DirLight;
     u32 PointLightsCount;

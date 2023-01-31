@@ -29,7 +29,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         //
         GameState->Render = PushStruct(&GameState->WorldArena, render);
         render *Render = GameState->Render;
-        Render->SingleMeshCount = 0;
+        Render->SStMeshesCount = 0;
         Render->Animator.Timer = 1.0f;
 
         GameState->Settings = PushStruct(&GameState->WorldArena, app_settings);
@@ -91,8 +91,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         // бочка
         GameState->EnvObjects[0]->Position = V3(0, 0, 0);
         GameState->EnvObjects[0]->Scale = 0.3f;
-        GameState->EnvObjects[0]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[0]->Angle = 0.0f;
+        GameState->EnvObjects[0]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[0]->InstancingCount = 0;
         GameState->EnvObjects[0]->Model = LoadModel(&GameState->WorldArena, "assets/test_barrel.spm");
         AddEntityToRender(Render, GameState->EnvObjects[0]);
@@ -100,8 +100,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         // ваза
         GameState->EnvObjects[1]->Position = V3(1, 0, 0);
         GameState->EnvObjects[1]->Scale = 0.7f;
-        GameState->EnvObjects[1]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[1]->Angle = 0.0f;
+        GameState->EnvObjects[1]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[1]->InstancingCount = 0;
         GameState->EnvObjects[1]->Model = LoadModel(&GameState->WorldArena, "assets/test_vase.spm");
         AddEntityToRender(Render, GameState->EnvObjects[1]);
@@ -109,8 +109,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         // дерево
         GameState->EnvObjects[2]->Position = V3(2, 0, 0);
         GameState->EnvObjects[2]->Scale = 0.1f;
-        GameState->EnvObjects[2]->Rotate = V3(1, 0, 0);
         GameState->EnvObjects[2]->Angle = 90.0f;
+        GameState->EnvObjects[2]->Rotate = V3(1, 0, 0);
         GameState->EnvObjects[2]->InstancingCount = 0;
         GameState->EnvObjects[2]->Model = LoadModel(&GameState->WorldArena, "assets/test_tree.spm");
         AddEntityToRender(Render, GameState->EnvObjects[2]);
@@ -118,8 +118,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         // куб- маркер позиции точечного источника освещения
         GameState->EnvObjects[3]->Position = V3(0, 0, 0);
         GameState->EnvObjects[3]->Scale = 0.1f;
-        GameState->EnvObjects[3]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[3]->Angle = 0.0f;
+        GameState->EnvObjects[3]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[3]->InstancingCount = 0;
         GameState->EnvObjects[3]->Model = LoadModel(&GameState->WorldArena, "assets/test_cube.spm");
         AddEntityToRender(Render, GameState->EnvObjects[3]);
@@ -127,8 +127,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         // куб-маркер позиции прожектора
         GameState->EnvObjects[4]->Position = V3(0, 0, 0);
         GameState->EnvObjects[4]->Scale = 0.1f;
-        GameState->EnvObjects[4]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[4]->Angle = 0.0f;
+        GameState->EnvObjects[4]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[4]->InstancingCount = 0;
         GameState->EnvObjects[4]->Model = GameState->EnvObjects[3]->Model;
         AddEntityToRender(Render, GameState->EnvObjects[4]);
@@ -136,8 +136,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         // ковбой (анимированный)
         GameState->EnvObjects[5]->Position = V3(0, 1, 0);
         GameState->EnvObjects[5]->Scale = 0.1f;
-        GameState->EnvObjects[5]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[5]->Angle = 0.0f;
+        GameState->EnvObjects[5]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[5]->InstancingCount = 0;
         GameState->EnvObjects[5]->Model = LoadModel(&GameState->WorldArena, "assets/test_cowboy.spm");
         AddEntityToRender(Render, GameState->EnvObjects[5]);
@@ -145,8 +145,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         // страж (анимированный)
         GameState->EnvObjects[6]->Position = V3(1, 1, 0);
         GameState->EnvObjects[6]->Scale = 0.01f;
-        GameState->EnvObjects[6]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[6]->Angle = 0.0f;
+        GameState->EnvObjects[6]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[6]->InstancingCount = 0;
         GameState->EnvObjects[6]->Model = LoadModel(&GameState->WorldArena, "assets/test_guard.spm");
         AddEntityToRender(Render, GameState->EnvObjects[6]);
@@ -248,7 +248,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     GameState->EnvObjects[4]->Position = Render->SpotLights[0].Base.WorldPosition;
 
     // Обработка анимаций
-    if(Render->Animator.Timer > 0.0f)
+    /*if(Render->Animator.Timer > 0.0f)
     {
         for(u32 i = 0; i < Render->SingleMeshCount; i++)
         {
@@ -267,7 +267,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             // Debug->Animator.Timer = 0.0f;
             Render->Animator.Timer = 5.0f; // начинаем проигрывать анимацию заново
         }
-    }
+    }*/
 
     //
     // NOTE(me): ImGui init render
@@ -337,7 +337,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::Text("CursorPos=%f,%f", Input->MouseX, Input->MouseY);
             ImGui::Text("dtForFrame=%f", Input->dtForFrame);
             ImGui::Text("MOffset=%f,%f", Input->MouseOffsetX, Input->MouseOffsetY);
-            ImGui::Text("SingleVerticesCountSum=%d", Render->SingleVerticesCountSum);
+            ImGui::Text("SStMeshesCount=%d", Render->SStMeshesCount);
+            ImGui::Text("SStVerticesCountSum=%d", Render->SStVerticesCountSum);
         }
 
         if(ImGui::CollapsingHeader("Settings"))

@@ -12,8 +12,8 @@ struct entity_envobject
 {
     v3 Position;
     r32 Scale;
-    v3 Rotate;
     r32 Angle;
+    v3 Rotate;
 
     // рендер
     u32 InstancingCount; // 0 - без инстансинга
