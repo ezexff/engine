@@ -96,6 +96,7 @@ void LinkShaderProgram(render *Render)
 void InitSingleVBO(memory_arena *WorldArena, render *Render)
 {
     Render->SingleVerticesCountSum = 0;
+    Render->AnimatedVerticesCountSum = 0;
 
     // получаем общее число вершин и индексов
     for(u32 i = 0; i < Render->SingleMeshCount; i++)
@@ -104,6 +105,11 @@ void InitSingleVBO(memory_arena *WorldArena, render *Render)
 
         Render->SingleVerticesCountSum += Mesh->VerticesCount;
         Render->SingleVerticesCount[i] += Mesh->VerticesCount;
+
+        if(Mesh->WithAnimations)
+        {
+            Render->AnimatedVerticesCountSum += Mesh->VerticesCount;
+        }
     }
 
     // выделение памяти с данными о мешах для отправки в VBO
@@ -112,50 +118,40 @@ void InitSingleVBO(memory_arena *WorldArena, render *Render)
     v3 *Normals = PushArray(WorldArena, Render->SingleVerticesCountSum, v3);
     u32 *Indices = PushArray(WorldArena, Render->SingleVerticesCountSum, u32);
 
-    u32 VerticesCount1 = 0;
+    Render->AnimatedVerticesCountSum = Render->AnimatedVerticesCountSum * 4; // по 4 веса и идентификатора на вершину
+    u32 *BoneIDs = PushArray(WorldArena, Render->AnimatedVerticesCountSum, u32);
+    r32 *Weights = PushArray(WorldArena, Render->AnimatedVerticesCountSum, r32);
 
+    u32 VerticesCountTmp = 0;
     u32 IndicesOffset = 0;
+    u32 BoneIDsAndWeightsCountTmp = 0;
     for(u32 i = 0; i < Render->SingleMeshCount; i++)
     {
         single_mesh *Mesh = Render->SingleMeshes[i];
         for(u32 j = 0; j < Mesh->VerticesCount; j++)
         {
-            Positions[VerticesCount1] = Mesh->Positions[j];
-            TexCoords[VerticesCount1] = Mesh->TexCoords[j];
-            Normals[VerticesCount1] = Mesh->Normals[j];
+            Positions[VerticesCountTmp] = Mesh->Positions[j];
+            TexCoords[VerticesCountTmp] = Mesh->TexCoords[j];
+            Normals[VerticesCountTmp] = Mesh->Normals[j];
 
             u32 Index = Mesh->Indices[j];
             u32 IndexTmp = IndicesOffset + j;
             Indices[IndexTmp] = Index + IndicesOffset;
-            // Indices[VerticesCount1] = Model->Meshes[j].Indices[k];
 
-            VerticesCount1++;
+            VerticesCountTmp++;
+        }
+        if(Mesh->WithAnimations)
+        {
+            u32 BoneIDsAndWeightsCount = Mesh->VerticesCount * 4;
+            for(u32 j = 0; j < BoneIDsAndWeightsCount; j++)
+            {
+                BoneIDs[BoneIDsAndWeightsCountTmp] = Mesh->BoneIDs[j];
+                Weights[BoneIDsAndWeightsCountTmp] = Mesh->Weights[j];
+                BoneIDsAndWeightsCountTmp++;
+            }
         }
         IndicesOffset += Mesh->VerticesCount; // смещение числа вершин после добавления меша
-        /*loaded_model *Model = Render->SingleModel[i];
-        u32 MeshesCount = Model->MeshesCount;
-
-        for(u32 j = 0; j < Model->MeshesCount; j++)
-        {
-            u32 VerticesCountTmp = Model->Meshes[j].VerticesCount;
-            for(u32 k = 0; k < VerticesCountTmp; k++)
-            {
-                Positions[VerticesCount1] = Model->Meshes[j].Positions[k];
-                TexCoords[VerticesCount1] = Model->Meshes[j].TexCoords[k];
-                Normals[VerticesCount1] = Model->Meshes[j].Normals[k];
-
-                u32 Index = Model->Meshes[j].Indices[k];
-                u32 IndexTmp = IndicesOffset + k;
-                Indices[IndexTmp] = Index + IndicesOffset;
-                // Indices[VerticesCount1] = Model->Meshes[j].Indices[k];
-
-                VerticesCount1++;
-            }
-            IndicesOffset += Model->Meshes[j].VerticesCount; // смещение числа вершин после добавления меша
-        }*/
     }
-
-    // Render->VerticesCount = VerticesCount1;
 
     // создаем объект VAO
     glGenVertexArrays(1, &Render->SingleVAO);
@@ -183,6 +179,21 @@ void InitSingleVBO(memory_arena *WorldArena, render *Render)
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * Render->SingleVerticesCountSum, //
                  Indices, GL_STATIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // Unbind VBO
+
+    // если есть анимированные меши в списке
+    if(Render->AnimatedVerticesCountSum > 0)
+    {
+        glGenBuffers(1, &Render->SingleBoneIDsVBO);
+        glGenBuffers(1, &Render->SingleWeightsVBO);
+
+        glBindBuffer(GL_ARRAY_BUFFER, Render->SingleBoneIDsVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(u32) * Render->AnimatedVerticesCountSum, //
+                     BoneIDs, GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ARRAY_BUFFER, Render->SingleWeightsVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(r32) * Render->AnimatedVerticesCountSum, //
+                     Weights, GL_STATIC_DRAW);
+    }
 }
 
 internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player *Player)
@@ -193,6 +204,8 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
     u32 CurrentVerticesCount = 0;
     for(u32 i = 0; i < Render->SingleMeshCount; i++)
     {
+        single_mesh *Mesh = Render->SingleMeshes[i];
+
         // матрица проекции
         s32 DisplayWidth, DisplayHeight;
         glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
@@ -238,7 +251,7 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
         glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gDirectionalLight.Direction"), 1, //
                      LocalDirection.E);
 
-        // передача point lights в шейдер
+        // отправка point lights в шейдер
         glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gNumPointLights"), //
                     Render->PointLightsCount);
         for(u32 j = 0; j < Render->PointLightsCount; j++)
@@ -317,7 +330,6 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
         }
 
         // отправка материала в шейдер
-        single_mesh *Mesh = Render->SingleMeshes[i];
         if(Mesh->WithMaterial)
         {
             glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gMaterial.AmbientColor"), 1, //
@@ -347,6 +359,16 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
             InvalidCodePath;
         }
 
+        // отправка информации о наличии анимаций у меша в шейдер
+        glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithAnimations"), Mesh->WithAnimations);
+
+        // преобразования костей меша во время анимации
+        if(Mesh->WithAnimations)
+        {
+            glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "gBones"), //
+                               Mesh->BonesCount, GL_TRUE, (const GLfloat *)Mesh->FinalTransforms);
+        }
+
         glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithAnimations"), false);
 
         // Связывание VBO позиции
@@ -364,6 +386,19 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
         glEnableVertexAttribArray(2);
         glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0); // нормали
 
+        if(Mesh->WithAnimations)
+        {
+            // Связывание VBO ID костей
+            glBindBuffer(GL_ARRAY_BUFFER, Render->SingleBoneIDsVBO);
+            glEnableVertexAttribArray(5);
+            glVertexAttribIPointer(5, 4, GL_INT, 0, 0);
+            // glVertexAttribPointer(3, 4, GL_UNSIGNED_INT, GL_FALSE, 0, 0);
+
+            // Связывание VBO весов
+            glBindBuffer(GL_ARRAY_BUFFER, Render->SingleWeightsVBO);
+            glEnableVertexAttribArray(6);
+            glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, 0, 0);
+        }
         // Нарисовать модель
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Render->SingleIndicesVBO);
         glDrawArrays(GL_TRIANGLES, CurrentVerticesCount, Render->SingleVerticesCount[i]);
@@ -376,6 +411,12 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
         glDisableVertexAttribArray(0);
         glDisableVertexAttribArray(1);
         glDisableVertexAttribArray(2);
+
+        if(Mesh->WithAnimations)
+        {
+            glDisableVertexAttribArray(5);
+            glDisableVertexAttribArray(6);
+        }
     }
 
     glUseProgram(0);

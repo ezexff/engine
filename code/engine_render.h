@@ -11,7 +11,8 @@
     - TODO(me): каждый меш как отдельная модель или в рендерер помещать только меши?
     - TODO(me): менять позиуию источников света стрелочками через ImGui?
     - TODO(me): рендерить кубик в позиции источника света?
-    - TODO(me): добавить 3д модельку кубика в ассеты
+    - TODO(me): переместить после тестов таймер анимаций из render в envobjects
+    - TODO(me): 2 сингловых VBO: 1 для статичных моделей и 2 для анимированных?
 */
 
 struct base_light
@@ -55,6 +56,7 @@ struct render
 
     // Список мешей для рендеринга без инстансинга
     u32 SingleVerticesCountSum;
+    u32 AnimatedVerticesCountSum;
     u32 SingleMeshCount;
     single_mesh *SingleMeshes[256];
     v3 *SinglePositions[256];
@@ -76,10 +78,14 @@ struct render
     u32 SingleTexCoordsVBO;
     u32 SingleNormalsVBO;
     u32 SingleIndicesVBO;
+    u32 SingleBoneIDsVBO;
+    u32 SingleWeightsVBO;
 
     directional_light DirLight;
     u32 PointLightsCount;
     point_light *PointLights;
     u32 SpotLightsCount;
     spot_light *SpotLights;
+
+    animator Animator;
 };

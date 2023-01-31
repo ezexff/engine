@@ -30,6 +30,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->Render = PushStruct(&GameState->WorldArena, render);
         render *Render = GameState->Render;
         Render->SingleMeshCount = 0;
+        Render->Animator.Timer = 1.0f;
 
         GameState->Settings = PushStruct(&GameState->WorldArena, app_settings);
         app_settings *Settings = GameState->Settings;
@@ -44,49 +45,6 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Player->CameraXRot = 90.0f;
         Player->CameraZRot = -45.0f;
         Player->CameraYOffset = 0.27f;
-
-        //
-        // NOTE(me): Объекты окружения (3d-модели)
-        //
-        for(u32 i = 0; i < ArrayCount(GameState->EnvObjects); i++)
-        {
-            GameState->EnvObjects[i] = PushStruct(&GameState->WorldArena, entity_envobject);
-        }
-        // бочка
-        GameState->EnvObjects[0]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[0]->Scale = 0.3f;
-        GameState->EnvObjects[2]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[2]->Angle = 0.0f;
-        GameState->EnvObjects[0]->InstancingCount = 0;
-        GameState->EnvObjects[0]->Model = LoadModel(&GameState->WorldArena, "assets/test_barrel.spm");
-        AddEntityToRender(Render, GameState->EnvObjects[0]);
-
-        // ваза
-        GameState->EnvObjects[1]->Position = V3(1, 0, 0);
-        GameState->EnvObjects[1]->Scale = 0.7f;
-        GameState->EnvObjects[2]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[2]->Angle = 0.0f;
-        GameState->EnvObjects[1]->InstancingCount = 0;
-        GameState->EnvObjects[1]->Model = LoadModel(&GameState->WorldArena, "assets/test_vase.spm");
-        AddEntityToRender(Render, GameState->EnvObjects[1]);
-
-        // дерево
-        GameState->EnvObjects[2]->Position = V3(2, 0, 0);
-        GameState->EnvObjects[2]->Scale = 0.1f;
-        GameState->EnvObjects[2]->Rotate = V3(1, 0, 0);
-        GameState->EnvObjects[2]->Angle = 90.0f;
-        GameState->EnvObjects[2]->InstancingCount = 0;
-        GameState->EnvObjects[2]->Model = LoadModel(&GameState->WorldArena, "assets/test_tree.spm");
-        AddEntityToRender(Render, GameState->EnvObjects[2]);
-
-        //
-        // NOTE(me): Шейдеры и VBO
-        //
-        Render->Shaders[0] = LoadShader("../code/shaders/AnimatedModel.vert", GL_VERTEX_SHADER);
-        Render->Shaders[1] = LoadShader("../code/shaders/AnimatedModel.frag", GL_FRAGMENT_SHADER);
-        LinkShaderProgram(Render);
-
-        InitSingleVBO(&GameState->WorldArena, Render);
 
         //
         // NOTE(me): Источники света
@@ -122,6 +80,85 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->SpotLights[0].WorldDirection = V3(0.0f, 0.0f, -1.0f);
         Render->SpotLights[0].WorldDirection = Normalize(Render->SpotLights[0].WorldDirection);
         Render->SpotLights[0].Cutoff = 0.9f;
+
+        //
+        // NOTE(me): Объекты окружения (3d-модели)
+        //
+        for(u32 i = 0; i < ArrayCount(GameState->EnvObjects); i++)
+        {
+            GameState->EnvObjects[i] = PushStruct(&GameState->WorldArena, entity_envobject);
+        }
+        // бочка
+        GameState->EnvObjects[0]->Position = V3(0, 0, 0);
+        GameState->EnvObjects[0]->Scale = 0.3f;
+        GameState->EnvObjects[0]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[0]->Angle = 0.0f;
+        GameState->EnvObjects[0]->InstancingCount = 0;
+        GameState->EnvObjects[0]->Model = LoadModel(&GameState->WorldArena, "assets/test_barrel.spm");
+        AddEntityToRender(Render, GameState->EnvObjects[0]);
+
+        // ваза
+        GameState->EnvObjects[1]->Position = V3(1, 0, 0);
+        GameState->EnvObjects[1]->Scale = 0.7f;
+        GameState->EnvObjects[1]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[1]->Angle = 0.0f;
+        GameState->EnvObjects[1]->InstancingCount = 0;
+        GameState->EnvObjects[1]->Model = LoadModel(&GameState->WorldArena, "assets/test_vase.spm");
+        AddEntityToRender(Render, GameState->EnvObjects[1]);
+
+        // дерево
+        GameState->EnvObjects[2]->Position = V3(2, 0, 0);
+        GameState->EnvObjects[2]->Scale = 0.1f;
+        GameState->EnvObjects[2]->Rotate = V3(1, 0, 0);
+        GameState->EnvObjects[2]->Angle = 90.0f;
+        GameState->EnvObjects[2]->InstancingCount = 0;
+        GameState->EnvObjects[2]->Model = LoadModel(&GameState->WorldArena, "assets/test_tree.spm");
+        AddEntityToRender(Render, GameState->EnvObjects[2]);
+
+        // куб- маркер позиции точечного источника освещения
+        GameState->EnvObjects[3]->Position = V3(0, 0, 0);
+        GameState->EnvObjects[3]->Scale = 0.1f;
+        GameState->EnvObjects[3]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[3]->Angle = 0.0f;
+        GameState->EnvObjects[3]->InstancingCount = 0;
+        GameState->EnvObjects[3]->Model = LoadModel(&GameState->WorldArena, "assets/test_cube.spm");
+        AddEntityToRender(Render, GameState->EnvObjects[3]);
+
+        // куб-маркер позиции прожектора
+        GameState->EnvObjects[4]->Position = V3(0, 0, 0);
+        GameState->EnvObjects[4]->Scale = 0.1f;
+        GameState->EnvObjects[4]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[4]->Angle = 0.0f;
+        GameState->EnvObjects[4]->InstancingCount = 0;
+        GameState->EnvObjects[4]->Model = GameState->EnvObjects[3]->Model;
+        AddEntityToRender(Render, GameState->EnvObjects[4]);
+
+        // ковбой (анимированный)
+        GameState->EnvObjects[5]->Position = V3(0, 1, 0);
+        GameState->EnvObjects[5]->Scale = 0.1f;
+        GameState->EnvObjects[5]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[5]->Angle = 0.0f;
+        GameState->EnvObjects[5]->InstancingCount = 0;
+        GameState->EnvObjects[5]->Model = LoadModel(&GameState->WorldArena, "assets/test_cowboy.spm");
+        AddEntityToRender(Render, GameState->EnvObjects[5]);
+
+        // страж (анимированный)
+        GameState->EnvObjects[6]->Position = V3(1, 1, 0);
+        GameState->EnvObjects[6]->Scale = 0.01f;
+        GameState->EnvObjects[6]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[6]->Angle = 0.0f;
+        GameState->EnvObjects[6]->InstancingCount = 0;
+        GameState->EnvObjects[6]->Model = LoadModel(&GameState->WorldArena, "assets/test_guard.spm");
+        AddEntityToRender(Render, GameState->EnvObjects[6]);
+
+        //
+        // NOTE(me): Шейдеры и VBO
+        //
+        Render->Shaders[0] = LoadShader("../code/shaders/AnimatedModel.vert", GL_VERTEX_SHADER);
+        Render->Shaders[1] = LoadShader("../code/shaders/AnimatedModel.frag", GL_FRAGMENT_SHADER);
+        LinkShaderProgram(Render);
+
+        InitSingleVBO(&GameState->WorldArena, Render);
 
         // ImGui Demo Window
         GameState->ShowDemoWindow = false;
@@ -201,6 +238,35 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         {
             GameState->ClearColor.y -= 0.001;
         }*/
+    }
+
+    //
+    // NOTE(me): Physics
+    //
+    // Перемещение кубов-маркеров в положение источников света
+    GameState->EnvObjects[3]->Position = Render->PointLights[0].WorldPosition;
+    GameState->EnvObjects[4]->Position = Render->SpotLights[0].Base.WorldPosition;
+
+    // Обработка анимаций
+    if(Render->Animator.Timer > 0.0f)
+    {
+        for(u32 i = 0; i < Render->SingleMeshCount; i++)
+        {
+            single_mesh *Mesh = Render->SingleMeshes[i];
+            if(Mesh->WithAnimations)
+            {
+                GetBoneTransforms(Mesh, //
+                                  0,    // индекс анимации
+                                  Render->Animator.Timer);
+            }
+        }
+
+        Render->Animator.Timer -= Input->dtForFrame;
+        if(Render->Animator.Timer <= 0.0f)
+        {
+            // Debug->Animator.Timer = 0.0f;
+            Render->Animator.Timer = 5.0f; // начинаем проигрывать анимацию заново
+        }
     }
 
     //
@@ -312,22 +378,22 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         if(ImGui::CollapsingHeader("Light"))
         {
             ImGui::Text("Directional");
-            ImGui::SliderFloat("DLPosX", &Render->DirLight.WorldDirection.x, 0.0f, 100.0f);
-            ImGui::SliderFloat("DLPosY", &Render->DirLight.WorldDirection.y, 0.0f, 100.0f);
-            ImGui::SliderFloat("DLPosZ", &Render->DirLight.WorldDirection.z, 0.0f, 100.0f);
+            ImGui::SliderFloat("DLPosX", &Render->DirLight.WorldDirection.x, -50.0f, 50.0f);
+            ImGui::SliderFloat("DLPosY", &Render->DirLight.WorldDirection.y, -50.0f, 50.0f);
+            ImGui::SliderFloat("DLPosZ", &Render->DirLight.WorldDirection.z, -50.0f, 50.0f);
             ImGui::SliderFloat("DLAmbientIntensity", &Render->DirLight.Base.AmbientIntensity, 0.0f, 1.0f);
             ImGui::SliderFloat("DLDiffuseIntensity", &Render->DirLight.Base.DiffuseIntensity, 0.0f, 1.0f);
             ImGui::ColorEdit3("DLColor", (float *)&Render->DirLight.Base.Color.E);
             ImGui::Spacing();
             ImGui::Text("Point");
-            ImGui::SliderFloat("PLPosX", &Render->PointLights[0].WorldPosition.x, 0.0f, 100.0f);
-            ImGui::SliderFloat("PLPosY", &Render->PointLights[0].WorldPosition.y, 0.0f, 100.0f);
-            ImGui::SliderFloat("PLPosZ", &Render->PointLights[0].WorldPosition.z, 0.0f, 100.0f);
+            ImGui::SliderFloat("PLPosX", &Render->PointLights[0].WorldPosition.x, -50.0f, 50.0f);
+            ImGui::SliderFloat("PLPosY", &Render->PointLights[0].WorldPosition.y, -50.0f, 50.0f);
+            ImGui::SliderFloat("PLPosZ", &Render->PointLights[0].WorldPosition.z, -50.0f, 50.0f);
             ImGui::Spacing();
             ImGui::Text("Spot");
-            ImGui::SliderFloat("SLPosX", &Render->SpotLights[0].Base.WorldPosition.x, 0.0f, 100.0f);
-            ImGui::SliderFloat("SLPosY", &Render->SpotLights[0].Base.WorldPosition.y, 0.0f, 100.0f);
-            ImGui::SliderFloat("SLPosZ", &Render->SpotLights[0].Base.WorldPosition.z, 0.0f, 100.0f);
+            ImGui::SliderFloat("SLPosX", &Render->SpotLights[0].Base.WorldPosition.x, -50.0f, 50.0f);
+            ImGui::SliderFloat("SLPosY", &Render->SpotLights[0].Base.WorldPosition.y, -50.0f, 50.0f);
+            ImGui::SliderFloat("SLPosZ", &Render->SpotLights[0].Base.WorldPosition.z, -50.0f, 50.0f);
         }
 
         ImGui::End();
@@ -394,9 +460,9 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
     // RenderSingleVBO(Window, Render, Player);
 
-    //s32 DisplayWidth, DisplayHeight;
-    //glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
-    //glViewport(0, 0, DisplayWidth, DisplayHeight);
+    // s32 DisplayWidth, DisplayHeight;
+    // glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
+    // glViewport(0, 0, DisplayWidth, DisplayHeight);
     glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
     glEnable(GL_DEPTH_TEST);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -436,7 +502,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     OGLDrawColoredCube();
     //glTranslatef(Render->PointLights[0].WorldPosition.x, Render->PointLights[0].WorldPosition.y,
     //             Render->PointLights[0].WorldPosition.z);
-    
+
     OGLDrawLinesOXYZ(V3(0, 0, 1), 1); // World Start Point OXZY
     glPopMatrix();
     */
