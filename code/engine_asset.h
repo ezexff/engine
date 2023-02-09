@@ -75,6 +75,7 @@ struct single_mesh
     v3 *Normals;
     v3 *Tangents; // Normal mapping
 
+    u32 IndicesCount;
     u32 *Indices;
 
     u32 *BoneIDs; // index1, index2, index3, index4, ...

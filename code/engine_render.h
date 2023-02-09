@@ -13,7 +13,24 @@
     - TODO(me): рендерить кубик в позиции источника света?
     - TODO(me): переместить после тестов таймер анимаций из render в envobjects
     - TODO(me): 2 сингловых VBO: 1 для статичных моделей и 2 для анимированных?
+    - TODO(me): AddEnvObjectsToRender
 */
+
+struct vertex_static
+{
+    v3 Position;
+    v3 Normal;
+    v2 TexCoords;
+};
+
+struct vertex_animated
+{
+    v3 Position;
+    v3 Normal;
+    v2 TexCoords;
+    u32 BoneIDs[4];
+    r32 Weights[4];
+};
 
 struct base_light
 {
@@ -51,38 +68,65 @@ struct spot_light
 
 struct render
 {
+    //
+    // NOTE(me): Shaders
+    //
     u32 ShaderProgram;
     u32 Shaders[10];
 
-    // Single Static Meshes for rendering
-#define SINGLE_STATIC_MESHES_MAX 10
+    //
+    // NOTE(me): Single Static Meshes list for rendering
+    //
+#define SINGLE_STATIC_MESHES_MAX 256
+
+    // меши
     u32 SStMeshesCount;
     single_mesh *SStMeshes[SINGLE_STATIC_MESHES_MAX];
+
+    // атрибуты модели
     v3 *SStPositions[SINGLE_STATIC_MESHES_MAX];
     r32 *SStScales[SINGLE_STATIC_MESHES_MAX];
     r32 *SStAngles[SINGLE_STATIC_MESHES_MAX];
     v3 *SStRotations[SINGLE_STATIC_MESHES_MAX];
     u32 *SStInstancingCounters[SINGLE_STATIC_MESHES_MAX];
-    u32 SstVerticesCount[256];
+
+    // данные для отрисовки
     u32 SStVerticesCountSum;
-
-    // Single Animated Meshes for rendering
-
-    // Список моделей для рендеринга без инстансинга
-    // u32 SingleModelCount; // TODO(me): удалить
-
-    // loaded_model *SingleModel[256];
-    // u32 MeshesCount;
-    // single_mesh *Meshes;
+    u32 SStIndicesCountSum;
+    //u32 SstIndicesCount[SINGLE_STATIC_MESHES_MAX];
 
     u32 SStVAO;
-    u32 SStPosVBO;
-    u32 SStTexCoordsVBO;
-    u32 SStNormalsVBO;
-    u32 SStIndicesVBO;
-    // u32 SStBoneIDsVBO;
-    // u32 SStWeightsVBO;
+    u32 SStVBO;
+    u32 SStEBO;
 
+    //
+    // NOTE(me): Single Animated Meshes list for rendering
+    //
+#define SINGLE_ANIMATED_MESHES_MAX 256
+
+    // меши
+    u32 SAnMeshesCount;
+    single_mesh *SAnMeshes[SINGLE_ANIMATED_MESHES_MAX];
+
+    // атрибуты модели
+    v3 *SAnPositions[SINGLE_ANIMATED_MESHES_MAX];
+    r32 *SAnScales[SINGLE_ANIMATED_MESHES_MAX];
+    r32 *SAnAngles[SINGLE_ANIMATED_MESHES_MAX];
+    v3 *SAnRotations[SINGLE_ANIMATED_MESHES_MAX];
+    u32 *SAnInstancingCounters[SINGLE_ANIMATED_MESHES_MAX];
+
+    // данные для отрисовки
+    u32 SAnVerticesCountSum;
+    u32 SAnIndicesCountSum;
+    //u32 SAnIndicesCount[SINGLE_ANIMATED_MESHES_MAX];
+
+    u32 SAnVAO;
+    u32 SAnVBO;
+    u32 SAnEBO;
+
+    //
+    // NOTE(me): Light
+    //
     directional_light DirLight;
     u32 PointLightsCount;
     point_light *PointLights;

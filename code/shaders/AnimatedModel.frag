@@ -5,7 +5,7 @@ const int MAX_SPOT_LIGHTS = 1;
 
 in vec2 TexCoord0;
 in vec3 Normal0;
-in vec3 Tangent0;
+//in vec3 Tangent0;
 in vec3 LocalPos0; // TODO(me): переименовать
 flat in ivec4 BoneIDs0;
 in vec4 Weights0;
@@ -130,7 +130,7 @@ vec4 CalcSpotLight(SpotLight l, vec3 Normal)
     }
 }
 
-vec3 CalcBumpedNormal()
+/*vec3 CalcBumpedNormal()
 {
     vec3 Normal = normalize(Normal0);
     vec3 Tangent = normalize(Tangent0);
@@ -143,7 +143,7 @@ vec3 CalcBumpedNormal()
     NewNormal = TBN * BumpMapNormal;
     NewNormal = normalize(NewNormal);
     return NewNormal;
-}
+}*/
 
 void main()
 {
@@ -169,6 +169,6 @@ void main()
         // FragColor = texture2D(gSampler, TexCoord0.xy);
     }
 
-    // FragColor = vec4(1.0, 0, 0, 1.0);
-    // FragColor = texture2D(gSampler, TexCoord0.xy);
+    //FragColor = vec4(1.0, 0, 0, 1.0);
+    //FragColor = texture2D(gSampler, TexCoord0.xy);
 }

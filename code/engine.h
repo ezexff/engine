@@ -17,10 +17,10 @@
 #include "stb_image.h"
 
 //#include "ode/ode.h"
-#include "engine_world.h"
 #include "engine_asset.h"
 #include "engine_entity.h"
 #include "engine_render.h"
+#include "engine_world.h"
 // TODO(me): на слой платформы?
 
 global_variable platform_api Platform;
@@ -47,7 +47,8 @@ struct game_state
     // TODO(me): объединить все сущности и поместить структуру world?
     entity_player *Player;
 
-    entity_envobject *EnvObjects[10];
+#define ENV_OBJECTS_MAX 15
+    entity_envobject *EnvObjects[ENV_OBJECTS_MAX];
 
     // TODO: ODE test
     // m4x4 GeomMatrix;

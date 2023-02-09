@@ -336,7 +336,10 @@ loaded_model *LoadModel(memory_arena *WorldArena, char *FileName)
         single_mesh *Mesh = &Result->Meshes[i];
 
         Mesh->Name = ReadStringFromFile(WorldArena, In); // имя меша
+
         fread(&Mesh->VerticesCount, sizeof(u32), 1, In); // число вершин меша
+
+        fread(&Mesh->IndicesCount, sizeof(u32), 1, In); // число индексов меша
 
         // позиции вершин
         Mesh->Positions = PushArray(WorldArena, Mesh->VerticesCount, v3);
@@ -353,12 +356,12 @@ loaded_model *LoadModel(memory_arena *WorldArena, char *FileName)
         // касательные и бикасательные для маппинга нормалей
         Mesh->Tangents = PushArray(WorldArena, Mesh->VerticesCount, v3);
         fread(Mesh->Tangents, sizeof(v3) * Mesh->VerticesCount, 1, In);
-        //Mesh->Bitangents = PushArray(WorldArena, Mesh->VerticesCount * 3, r32);
-        //fread(Mesh->Bitangents, sizeof(r32) * Mesh->VerticesCount * 3, 1, In);
+        // Mesh->Bitangents = PushArray(WorldArena, Mesh->VerticesCount * 3, r32);
+        // fread(Mesh->Bitangents, sizeof(r32) * Mesh->VerticesCount * 3, 1, In);
 
         // индексы
         Mesh->Indices = PushArray(WorldArena, Mesh->VerticesCount, u32);
-        fread(Mesh->Indices, sizeof(u32) * Mesh->VerticesCount, 1, In);
+        fread(Mesh->Indices, sizeof(u32) * Mesh->IndicesCount, 1, In);
 
         // материал
         fread(&Mesh->WithMaterial, sizeof(b32), 1, In);

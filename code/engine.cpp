@@ -1,11 +1,9 @@
 #include "engine.h"
 #include "engine_entity.cpp"
-#include "engine_world.cpp"
 #include "engine_asset.cpp"
+#include "simpleproject_opengl.cpp" // TODO(me): для тестов, удалить
 #include "engine_render.cpp"
-
-// TODO(me): для тестов, удалить
-#include "simpleproject_opengl.cpp"
+#include "engine_world.cpp"
 
 internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, game_input *Input)
 {
@@ -30,13 +28,14 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->Render = PushStruct(&GameState->WorldArena, render);
         render *Render = GameState->Render;
         Render->SStMeshesCount = 0;
+        Render->SAnMeshesCount = 0;
         Render->Animator.Timer = 1.0f;
 
         GameState->Settings = PushStruct(&GameState->WorldArena, app_settings);
         app_settings *Settings = GameState->Settings;
         Settings->RBFullscreenIsActive = false;
         Settings->RBWindowedIsActive = false;
-        Settings->MouseSensitivity = 0.05f;
+        Settings->MouseSensitivity = 50.0;
 
         GameState->Player = PushStruct(&GameState->WorldArena, entity_player);
         entity_player *Player = GameState->Player;
@@ -61,7 +60,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->PointLights[0].Base.Color = V3(0.0f, 0.0f, 1.0f);
         Render->PointLights[0].Base.AmbientIntensity = 1.0f;
         Render->PointLights[0].Base.DiffuseIntensity = 1.0f;
-        Render->PointLights[0].WorldPosition = V3(0.0f, 0.0f, 0.0f);
+        Render->PointLights[0].WorldPosition = V3(0.0f, 0.0f, 1.0f);
         Render->PointLights[0].Atten.Constant = 1.0f;
         Render->PointLights[0].Atten.Linear = 0.1f; // 0.0f
         Render->PointLights[0].Atten.Exp = 0.0f;    // 0.0f
@@ -73,7 +72,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->SpotLights[0].Base.Base.Color = V3(1.0f, 0.0f, 0.0f);
         Render->SpotLights[0].Base.Base.AmbientIntensity = 1.0f;
         Render->SpotLights[0].Base.Base.DiffuseIntensity = 1.0f;
-        Render->SpotLights[0].Base.WorldPosition = V3(0.0f, 0.0f, 0.0f);
+        Render->SpotLights[0].Base.WorldPosition = V3(0.0f, 0.0f, 2.0f);
         Render->SpotLights[0].Base.Atten.Constant = 1.0f;
         Render->SpotLights[0].Base.Atten.Linear = 0.01f;
         Render->SpotLights[0].Base.Atten.Exp = 0.0f;
@@ -88,68 +87,98 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         {
             GameState->EnvObjects[i] = PushStruct(&GameState->WorldArena, entity_envobject);
         }
-        // бочка
+
+        // Террейн
         GameState->EnvObjects[0]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[0]->Scale = 0.3f;
+        GameState->EnvObjects[0]->Scale = 1.0f;
         GameState->EnvObjects[0]->Angle = 0.0f;
         GameState->EnvObjects[0]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[0]->InstancingCount = 0;
-        GameState->EnvObjects[0]->Model = LoadModel(&GameState->WorldArena, "assets/test_barrel.spm");
-        AddEntityToRender(Render, GameState->EnvObjects[0]);
+        GameState->EnvObjects[0]->Model = CreateTerrainModel(&GameState->WorldArena);
 
-        // ваза
-        GameState->EnvObjects[1]->Position = V3(1, 0, 0);
-        GameState->EnvObjects[1]->Scale = 0.7f;
+        // куб- маркер позиции точечного источника освещения
+        GameState->EnvObjects[1]->Position = V3(0, 0, 0);
+        GameState->EnvObjects[1]->Scale = 0.1f;
         GameState->EnvObjects[1]->Angle = 0.0f;
         GameState->EnvObjects[1]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[1]->InstancingCount = 0;
-        GameState->EnvObjects[1]->Model = LoadModel(&GameState->WorldArena, "assets/test_vase.spm");
-        AddEntityToRender(Render, GameState->EnvObjects[1]);
+        GameState->EnvObjects[1]->Model = LoadModel(&GameState->WorldArena, "assets/test_cube.spm");
 
-        // дерево
-        GameState->EnvObjects[2]->Position = V3(2, 0, 0);
+        // куб-маркер позиции прожектора
+        GameState->EnvObjects[2]->Position = V3(0, 0, 0);
         GameState->EnvObjects[2]->Scale = 0.1f;
-        GameState->EnvObjects[2]->Angle = 90.0f;
-        GameState->EnvObjects[2]->Rotate = V3(1, 0, 0);
+        GameState->EnvObjects[2]->Angle = 0.0f;
+        GameState->EnvObjects[2]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[2]->InstancingCount = 0;
-        GameState->EnvObjects[2]->Model = LoadModel(&GameState->WorldArena, "assets/test_tree.spm");
-        AddEntityToRender(Render, GameState->EnvObjects[2]);
+        GameState->EnvObjects[2]->Model = GameState->EnvObjects[1]->Model;
 
-        // куб- маркер позиции точечного источника освещения
-        GameState->EnvObjects[3]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[3]->Scale = 0.1f;
+        // ваза
+        GameState->EnvObjects[3]->Position = V3(3, 3, TerrainGetHeight(GameState->EnvObjects[0], 3, 3));
+        GameState->EnvObjects[3]->Scale = 4.0f;
         GameState->EnvObjects[3]->Angle = 0.0f;
         GameState->EnvObjects[3]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[3]->InstancingCount = 0;
-        GameState->EnvObjects[3]->Model = LoadModel(&GameState->WorldArena, "assets/test_cube.spm");
-        AddEntityToRender(Render, GameState->EnvObjects[3]);
+        GameState->EnvObjects[3]->Model = LoadModel(&GameState->WorldArena, "assets/test_vase.spm");
 
-        // куб-маркер позиции прожектора
-        GameState->EnvObjects[4]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[4]->Scale = 0.1f;
+        // бочка
+        GameState->EnvObjects[4]->Position = V3(1, 1, TerrainGetHeight(GameState->EnvObjects[0], 1, 1));
+        GameState->EnvObjects[4]->Scale = 2.0f;
         GameState->EnvObjects[4]->Angle = 0.0f;
         GameState->EnvObjects[4]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[4]->InstancingCount = 0;
-        GameState->EnvObjects[4]->Model = GameState->EnvObjects[3]->Model;
-        AddEntityToRender(Render, GameState->EnvObjects[4]);
+        GameState->EnvObjects[4]->Model = LoadModel(&GameState->WorldArena, "assets/test_barrel.spm");
+
+        // дерево
+        GameState->EnvObjects[5]->Position = V3(5, 5, TerrainGetHeight(GameState->EnvObjects[0], 5, 5) + 0.1f);
+        GameState->EnvObjects[5]->Scale = 0.4f;
+        GameState->EnvObjects[5]->Angle = 90.0f;
+        GameState->EnvObjects[5]->Rotate = V3(1, 0, 0);
+        GameState->EnvObjects[5]->InstancingCount = 0;
+        GameState->EnvObjects[5]->Model = LoadModel(&GameState->WorldArena, "assets/test_tree.spm");
 
         // ковбой (анимированный)
-        GameState->EnvObjects[5]->Position = V3(0, 1, 0);
-        GameState->EnvObjects[5]->Scale = 0.1f;
-        GameState->EnvObjects[5]->Angle = 0.0f;
-        GameState->EnvObjects[5]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[5]->InstancingCount = 0;
-        GameState->EnvObjects[5]->Model = LoadModel(&GameState->WorldArena, "assets/test_cowboy.spm");
-        AddEntityToRender(Render, GameState->EnvObjects[5]);
-
-        // страж (анимированный)
-        GameState->EnvObjects[6]->Position = V3(1, 1, 0);
-        GameState->EnvObjects[6]->Scale = 0.01f;
+        GameState->EnvObjects[6]->Position = V3(2, 2, TerrainGetHeight(GameState->EnvObjects[0], 2, 2));
+        GameState->EnvObjects[6]->Scale = 0.4f;
         GameState->EnvObjects[6]->Angle = 0.0f;
         GameState->EnvObjects[6]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[6]->InstancingCount = 0;
-        GameState->EnvObjects[6]->Model = LoadModel(&GameState->WorldArena, "assets/test_guard.spm");
-        AddEntityToRender(Render, GameState->EnvObjects[6]);
+        GameState->EnvObjects[6]->Model = LoadModel(&GameState->WorldArena, "assets/test_cowboy.spm");
+
+        GameState->EnvObjects[7]->Position = V3(2, 2 + 3, TerrainGetHeight(GameState->EnvObjects[0], 2, 2 + 3));
+        GameState->EnvObjects[7]->Scale = 0.4f;
+        GameState->EnvObjects[7]->Angle = 0.0f;
+        GameState->EnvObjects[7]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[7]->InstancingCount = 0;
+        GameState->EnvObjects[7]->Model = GameState->EnvObjects[6]->Model;
+
+        GameState->EnvObjects[8]->Position = V3(2, 2 + 6, TerrainGetHeight(GameState->EnvObjects[0], 2, 2 + 6));
+        GameState->EnvObjects[8]->Scale = 0.4f;
+        GameState->EnvObjects[8]->Angle = 0.0f;
+        GameState->EnvObjects[8]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[8]->InstancingCount = 0;
+        GameState->EnvObjects[8]->Model = GameState->EnvObjects[6]->Model;
+
+        // страж (анимированный)
+        GameState->EnvObjects[9]->Position = V3(5, 2, TerrainGetHeight(GameState->EnvObjects[0], 5, 2));
+        GameState->EnvObjects[9]->Scale = 0.1f;
+        GameState->EnvObjects[9]->Angle = 90.0f;
+        GameState->EnvObjects[9]->Rotate = V3(1, 0, 0);
+        GameState->EnvObjects[9]->InstancingCount = 0;
+        GameState->EnvObjects[9]->Model = LoadModel(&GameState->WorldArena, "assets/test_guard.spm");
+
+        GameState->EnvObjects[10]->Position = V3(5 + 3, 2, TerrainGetHeight(GameState->EnvObjects[0], 5 + 3, 2));
+        GameState->EnvObjects[10]->Scale = 0.1f;
+        GameState->EnvObjects[10]->Angle = 90.0f;
+        GameState->EnvObjects[10]->Rotate = V3(1, 0, 0);
+        GameState->EnvObjects[10]->InstancingCount = 0;
+        GameState->EnvObjects[10]->Model = GameState->EnvObjects[9]->Model;
+
+        GameState->EnvObjects[11]->Position = V3(5 + 6, 2, TerrainGetHeight(GameState->EnvObjects[0], 5 + 6, 2));
+        GameState->EnvObjects[11]->Scale = 0.1f;
+        GameState->EnvObjects[11]->Angle = 90.0f;
+        GameState->EnvObjects[11]->Rotate = V3(1, 0, 0);
+        GameState->EnvObjects[11]->InstancingCount = 0;
+        GameState->EnvObjects[11]->Model = GameState->EnvObjects[9]->Model;
 
         //
         // NOTE(me): Шейдеры и VBO
@@ -158,6 +187,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->Shaders[1] = LoadShader("../code/shaders/AnimatedModel.frag", GL_FRAGMENT_SHADER);
         LinkShaderProgram(Render);
 
+        AddEnvObjectsToRender(Render, GameState->EnvObjects);
         InitSingleVBO(&GameState->WorldArena, Render);
 
         // ImGui Demo Window
@@ -184,7 +214,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     //
     if(!Input->ShowMouseCursorMode)
     {
-        RotatePlayerCamera(Player, Input->MouseOffsetX, Input->MouseOffsetY, Settings->MouseSensitivity);
+        RotatePlayerCamera(Player, Input->MouseOffsetX, Input->MouseOffsetY, Settings->MouseSensitivity, Input->dtForFrame);
     }
 
     for(int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)
@@ -193,7 +223,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
         // Player
         // r32 SpeedBuff = Buffs.Speed.Time > 0 ? 0.2f : 0;
-        r32 PlayerSpeed = 10.0f; //+ SpeedBuff; // m/s^2
+        r32 PlayerSpeed = 50.0f; //+ SpeedBuff; // m/s^2
 
         v2 ddP = {};
         if(Controller->MoveUp.EndedDown)
@@ -243,22 +273,21 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     //
     // NOTE(me): Physics
     //
+    // Высота на террейне (ландшафте)
+    Player->Position.z = TerrainGetHeight(GameState->EnvObjects[0], Player->Position.x, Player->Position.y) + 2.7f;
     // Перемещение кубов-маркеров в положение источников света
-    GameState->EnvObjects[3]->Position = Render->PointLights[0].WorldPosition;
-    GameState->EnvObjects[4]->Position = Render->SpotLights[0].Base.WorldPosition;
+    GameState->EnvObjects[1]->Position = Render->PointLights[0].WorldPosition;
+    GameState->EnvObjects[2]->Position = Render->SpotLights[0].Base.WorldPosition;
 
     // Обработка анимаций
-    /*if(Render->Animator.Timer > 0.0f)
+    if(Render->Animator.Timer > 0.0f)
     {
-        for(u32 i = 0; i < Render->SingleMeshCount; i++)
+        for(u32 i = 0; i < Render->SAnMeshesCount; i++)
         {
-            single_mesh *Mesh = Render->SingleMeshes[i];
-            if(Mesh->WithAnimations)
-            {
-                GetBoneTransforms(Mesh, //
-                                  0,    // индекс анимации
-                                  Render->Animator.Timer);
-            }
+            single_mesh *Mesh = Render->SAnMeshes[i];
+            GetBoneTransforms(Mesh, //
+                              0,    // индекс анимации
+                              Render->Animator.Timer);
         }
 
         Render->Animator.Timer -= Input->dtForFrame;
@@ -267,7 +296,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             // Debug->Animator.Timer = 0.0f;
             Render->Animator.Timer = 5.0f; // начинаем проигрывать анимацию заново
         }
-    }*/
+    }
 
     //
     // NOTE(me): ImGui init render
@@ -339,6 +368,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::Text("MOffset=%f,%f", Input->MouseOffsetX, Input->MouseOffsetY);
             ImGui::Text("SStMeshesCount=%d", Render->SStMeshesCount);
             ImGui::Text("SStVerticesCountSum=%d", Render->SStVerticesCountSum);
+            ImGui::Text("SAnMeshesCount=%d", Render->SAnMeshesCount);
+            ImGui::Text("SAnVerticesCountSum=%d", Render->SAnVerticesCountSum);
         }
 
         if(ImGui::CollapsingHeader("Settings"))
@@ -403,112 +434,53 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     //
     // NOTE(me): Game render
     //
-
-    // проекция (перспективная)
-    /*s32 DisplayWidth, DisplayHeight;
+#if 0
+    s32 DisplayWidth, DisplayHeight;
     glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
     glViewport(0, 0, DisplayWidth, DisplayHeight);
-
-    glEnable(GL_DEPTH_TEST);
-    glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, (r32)DisplayWidth, (r32)DisplayHeight, 0, -1, 1);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-    glDisable(GL_DEPTH_TEST);
-    // glDisable(GL_LIGHTING);
-
-    glTranslatef(DisplayWidth / 2.0f, DisplayHeight / 2.0f, 0);
-    glScalef(55, 55, 1);
-    glBegin(GL_TRIANGLES);
-    glColor3f(1, 0, 0);
-    glVertex2f(0, 1);
-    glColor3f(0, 1, 0);
-    glVertex2f(0.87, -0.5);
-    glColor3f(0, 0, 1);
-    glVertex2f(-0.87, -0.5);
-    glEnd();
-    */
-
-    /*r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
-    r32 FOV = 0.1f; // поле зрения камеры
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
-    r32 MatProj[16];
-    glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
-
-    // вид с камеры
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    OGLSetCameraOnPlayer(Player);
-    r32 MatView[16];
-    glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
-
-    // сохраняем мировые матрицы преобразований
-    for(u32 i = 0; i < 4; i++)
-    {
-        for(u32 j = 0; j < 4; j++)
-        {
-            //GameState->World->MatProjection.E[i][j] = MatProj[i * 4 + j];
-            //GameState->World->MatView.E[i][j] = MatView[i * 4 + j];
-        }
-    }*/
-
-    // RenderSingleVBO(Window, Render, Player);
-
-    // s32 DisplayWidth, DisplayHeight;
-    // glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
-    // glViewport(0, 0, DisplayWidth, DisplayHeight);
     glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
     glEnable(GL_DEPTH_TEST);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // проекция (перспективная)
-    /*r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
+    r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
     r32 FOV = 0.1f; // поле зрения камеры
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
-    r32 MatProj[16];
-    glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
 
     // вид с камеры
-    // glMatrixMode(GL_MODELVIEW);
-    // glLoadIdentity();
     OGLSetCameraOnPlayer(Player);
-    r32 MatView[16];
-    glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
 
-    // сохраняем мировые матрицы преобразований для передачи в шейдер
-    m4x4 MatProjection;
-    m4x4 MatView1;
-    for(u32 i = 0; i < 4; i++)
-    {
-        for(u32 j = 0; j < 4; j++)
-        {
-            MatProjection.E[i][j] = MatProj[i * 4 + j];
-            MatView1.E[i][j] = MatView[i * 4 + j];
-        }
-    }
-
-    m4x4 WorldMatrix = MatProjection * MatView1;
-    //glLoadMatrixf((const GLfloat *)WorldMatrix.E);
-
+    glDisable(GL_TEXTURE_2D);
     glPushMatrix();
     OGLDrawColoredCube();
-    //glTranslatef(Render->PointLights[0].WorldPosition.x, Render->PointLights[0].WorldPosition.y,
-    //             Render->PointLights[0].WorldPosition.z);
-
     OGLDrawLinesOXYZ(V3(0, 0, 1), 1); // World Start Point OXZY
     glPopMatrix();
-    */
-    RenderSingleVBO(Window, Render, Player);
 
+    single_mesh *Mesh = &GameState->EnvObjects[0]->Model->Meshes[0];
+    glEnable(GL_TEXTURE_2D);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glVertexPointer(3, GL_FLOAT, 0, Mesh->Positions);
+    glTexCoordPointer(2, GL_FLOAT, 0, Mesh->TexCoords);
+    glColor3f(0.7f, 0.7f, 0.7f); // понижаем яркость текстуры
+    // glColor3f(0.0f, 1.0f, 0.0f); // понижаем яркость текстуры
+    glNormalPointer(GL_FLOAT, 0, Mesh->Normals);
+    glActiveTexture(GL_TEXTURE0 + 0);
+    glBindTexture(GL_TEXTURE_2D, Mesh->Material.Texture); // TODO(me): поменять?
+    glDrawElements(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT, Mesh->Indices);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_NORMAL_ARRAY);
+#else
+    glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
+    glEnable(GL_DEPTH_TEST);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    RenderSingleVBO(Window, Render, Player);
+#endif
     // ImGui rendering
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
