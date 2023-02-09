@@ -214,7 +214,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     //
     if(!Input->ShowMouseCursorMode)
     {
-        RotatePlayerCamera(Player, Input->MouseOffsetX, Input->MouseOffsetY, Settings->MouseSensitivity, Input->dtForFrame);
+        RotatePlayerCamera(Player, Input->MouseOffsetX, Input->MouseOffsetY, Settings->MouseSensitivity);
     }
 
     for(int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)

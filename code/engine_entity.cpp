@@ -1,14 +1,14 @@
-void RotatePlayerCamera(entity_player *Player, r32 ZAngle, r32 XAngle, r32 Sensitivity, r32 dt)
+void RotatePlayerCamera(entity_player *Player, r32 ZAngle, r32 XAngle, r32 Sensitivity)
 {
     // по горизонтали
-    Player->CameraZRot -= ZAngle * Sensitivity * dt;
+    Player->CameraZRot -= ZAngle * Sensitivity;
     if(Player->CameraZRot < 0)
         Player->CameraZRot += 360;
     if(Player->CameraZRot > 360)
         Player->CameraZRot -= 360;
 
     // по вертикали
-    Player->CameraXRot += XAngle * Sensitivity * dt;
+    Player->CameraXRot += XAngle * Sensitivity;
     if(Player->CameraXRot < 0)
         Player->CameraXRot = 0;
     if(Player->CameraXRot > 180)

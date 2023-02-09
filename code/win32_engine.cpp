@@ -262,8 +262,8 @@ int main(int, char **)
             NewInput->MouseZ = 0.0f;
             if(MousePosChanged)
             {
-                NewInput->MouseOffsetX = MouseOffsetX;
-                NewInput->MouseOffsetY = MouseOffsetY;
+                NewInput->MouseOffsetX = MouseOffsetX * Input->dtForFrame;
+                NewInput->MouseOffsetY = MouseOffsetY * Input->dtForFrame;
                 MousePosChanged = false;
             }
             else
