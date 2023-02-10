@@ -271,6 +271,88 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
     //
     glUseProgram(Render->ShaderProgram);
 
+    // область отображения рендера
+    s32 DisplayWidth, DisplayHeight;
+    glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
+    glViewport(0, 0, DisplayWidth, DisplayHeight);
+    r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
+    r32 FOV = 0.1f; // поле зрения камеры
+
+    // отправка позиции камеры (игрока) в шейдер
+    glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gCameraWorldPos"), 1, Player->Position.E);
+
+    // отправка directional light в шейдер
+    glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gDirectionalLight.Base.Color"), 1, //
+                 Render->DirLight.Base.Color.E);
+    glUniform1f(glGetUniformLocation(Render->ShaderProgram, "gDirectionalLight.Base.AmbientIntensity"), //
+                Render->DirLight.Base.AmbientIntensity);
+    glUniform1f(glGetUniformLocation(Render->ShaderProgram, "gDirectionalLight.Base.DiffuseIntensity"), //
+                Render->DirLight.Base.DiffuseIntensity);
+    v3 LocalDirection = Render->DirLight.WorldDirection;
+    glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gDirectionalLight.Direction"), 1, //
+                 LocalDirection.E);
+
+    // отправка point lights в шейдер
+    glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gNumPointLights"), //
+                Render->PointLightsCount);
+    for(u32 i = 0; i < Render->PointLightsCount; i++)
+    {
+        glUniform3fv(glGetUniformLocation(Render->ShaderProgram, Render->PLVarNames[i].VarNames[0]), 1, //
+                     Render->PointLights[i].Base.Color.E);
+
+        glUniform1f(glGetUniformLocation(Render->ShaderProgram, Render->PLVarNames[i].VarNames[1]), //
+                    Render->PointLights[i].Base.AmbientIntensity);
+
+        glUniform1f(glGetUniformLocation(Render->ShaderProgram, Render->PLVarNames[i].VarNames[2]), //
+                    Render->PointLights[i].Base.DiffuseIntensity);                                  //
+
+        glUniform3fv(glGetUniformLocation(Render->ShaderProgram, Render->PLVarNames[i].VarNames[3]), 1, //
+                     Render->PointLights[i].WorldPosition.E);
+
+        glUniform1f(glGetUniformLocation(Render->ShaderProgram, Render->PLVarNames[i].VarNames[4]), //
+                    Render->PointLights[i].Atten.Constant);
+
+        glUniform1f(glGetUniformLocation(Render->ShaderProgram, Render->PLVarNames[i].VarNames[5]), //
+                    Render->PointLights[i].Atten.Linear);
+
+        glUniform1f(glGetUniformLocation(Render->ShaderProgram, Render->PLVarNames[i].VarNames[6]), //
+                    Render->PointLights[i].Atten.Exp);
+    }
+
+    // отправка spot lights в шейдер
+    glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gNumSpotLights"), //
+                Render->SpotLightsCount);
+
+    for(u32 i = 0; i < Render->PointLightsCount; i++)
+    {
+        glUniform3fv(glGetUniformLocation(Render->ShaderProgram, Render->SLVarNames[i].VarNames[0]), 1, //
+                     Render->SpotLights[i].Base.Base.Color.E);
+
+        glUniform1f(glGetUniformLocation(Render->ShaderProgram, Render->SLVarNames[i].VarNames[1]), //
+                    Render->SpotLights[i].Base.Base.AmbientIntensity);
+
+        glUniform1f(glGetUniformLocation(Render->ShaderProgram, Render->SLVarNames[i].VarNames[2]), //
+                    Render->SpotLights[i].Base.Base.DiffuseIntensity);
+
+        glUniform3fv(glGetUniformLocation(Render->ShaderProgram, Render->SLVarNames[i].VarNames[3]), 1, //
+                     Render->SpotLights[i].Base.WorldPosition.E);
+
+        glUniform1f(glGetUniformLocation(Render->ShaderProgram, Render->SLVarNames[i].VarNames[4]), //
+                    Render->SpotLights[i].Base.Atten.Constant);
+
+        glUniform1f(glGetUniformLocation(Render->ShaderProgram, Render->SLVarNames[i].VarNames[5]), //
+                    Render->SpotLights[i].Base.Atten.Linear);
+
+        glUniform1f(glGetUniformLocation(Render->ShaderProgram, Render->SLVarNames[i].VarNames[6]), //
+                    Render->SpotLights[i].Base.Atten.Exp);
+
+        glUniform3fv(glGetUniformLocation(Render->ShaderProgram, Render->SLVarNames[i].VarNames[7]), 1, //
+                     Render->SpotLights[i].WorldDirection.E);
+
+        glUniform1f(glGetUniformLocation(Render->ShaderProgram, Render->SLVarNames[i].VarNames[8]), //
+                    Render->SpotLights[i].Cutoff);
+    }
+
     u32 BaseVertex = 0;
     u32 BaseIndex = 0;
     for(u32 i = 0; i < Render->SStMeshesCount; i++)
@@ -278,11 +360,6 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
         single_mesh *Mesh = Render->SStMeshes[i];
 
         // матрица проекции
-        s32 DisplayWidth, DisplayHeight;
-        glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
-        glViewport(0, 0, DisplayWidth, DisplayHeight);
-        r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
-        r32 FOV = 0.1f; // поле зрения камеры
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
@@ -307,98 +384,6 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
         r32 MatModel[16];
         glGetFloatv(GL_MODELVIEW_MATRIX, MatModel);
         glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE, MatModel);
-
-        // отправка позиции камеры (игрока) в шейдер
-        glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gCameraWorldPos"), 1, Player->Position.E);
-
-        // отправка directional light в шейдер
-        glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gDirectionalLight.Base.Color"), 1, //
-                     Render->DirLight.Base.Color.E);
-        glUniform1f(glGetUniformLocation(Render->ShaderProgram, "gDirectionalLight.Base.AmbientIntensity"), //
-                    Render->DirLight.Base.AmbientIntensity);
-        glUniform1f(glGetUniformLocation(Render->ShaderProgram, "gDirectionalLight.Base.DiffuseIntensity"), //
-                    Render->DirLight.Base.DiffuseIntensity);
-        v3 LocalDirection = Render->DirLight.WorldDirection;
-        glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gDirectionalLight.Direction"), 1, //
-                     LocalDirection.E);
-
-        // отправка point lights в шейдер
-        glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gNumPointLights"), //
-                    Render->PointLightsCount);
-        for(u32 j = 0; j < Render->PointLightsCount; j++)
-        {
-            char TmpName[128];
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Base.Color", j);
-            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, TmpName), 1, //
-                         Render->PointLights[0].Base.Color.E);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Base.AmbientIntensity", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->PointLights[0].Base.AmbientIntensity);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Base.DiffuseIntensity", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->PointLights[0].Base.DiffuseIntensity);        //
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].LocalPos", j);
-            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, TmpName), 1, //
-                         Render->PointLights[0].WorldPosition.E);
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Atten.Constant", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->PointLights[0].Atten.Constant);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Atten.Linear", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->PointLights[0].Atten.Linear);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Atten.Exp", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->PointLights[0].Atten.Exp);
-        }
-
-        // отправка spot lights в шейдер
-        glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gNumSpotLights"), //
-                    Render->SpotLightsCount);
-
-        for(u32 j = 0; j < Render->PointLightsCount; j++)
-        {
-            char TmpName[128];
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Base.Color", j);
-            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, TmpName), 1, //
-                         Render->SpotLights[0].Base.Base.Color.E);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Base.AmbientIntensity", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->SpotLights[0].Base.Base.AmbientIntensity);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Base.DiffuseIntensity", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->SpotLights[0].Base.Base.DiffuseIntensity);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.LocalPos", j);
-            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, TmpName), 1, //
-                         Render->SpotLights[0].Base.WorldPosition.E);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Atten.Constant", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->SpotLights[0].Base.Atten.Constant);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Atten.Linear", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->SpotLights[0].Base.Atten.Linear);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Atten.Exp", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->SpotLights[0].Base.Atten.Exp);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Direction", j);
-            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, TmpName), 1, //
-                         Render->SpotLights[0].WorldDirection.E);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Cutoff", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->SpotLights[0].Cutoff);
-        }
 
         // отправка материала в шейдер
         if(Mesh->WithMaterial)
@@ -446,6 +431,11 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
     //
     // NOTE(me): Rendering Single Animated Meshes
     //
+    // glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
+    // glViewport(0, 0, DisplayWidth, DisplayHeight);
+    // AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
+    // FOV = 0.1f; // поле зрения камеры
+
     BaseVertex = 0;
     BaseIndex = 0;
     // Render->SAnMeshesCount
@@ -454,11 +444,6 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
         single_mesh *Mesh = Render->SAnMeshes[i];
 
         // матрица проекции
-        s32 DisplayWidth, DisplayHeight;
-        glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
-        glViewport(0, 0, DisplayWidth, DisplayHeight);
-        r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
-        r32 FOV = 0.1f; // поле зрения камеры
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
@@ -483,98 +468,6 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
         r32 MatModel[16];
         glGetFloatv(GL_MODELVIEW_MATRIX, MatModel);
         glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE, MatModel);
-
-        // отправка позиции камеры (игрока) в шейдер
-        glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gCameraWorldPos"), 1, Player->Position.E);
-
-        // отправка directional light в шейдер
-        glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gDirectionalLight.Base.Color"), 1, //
-                     Render->DirLight.Base.Color.E);
-        glUniform1f(glGetUniformLocation(Render->ShaderProgram, "gDirectionalLight.Base.AmbientIntensity"), //
-                    Render->DirLight.Base.AmbientIntensity);
-        glUniform1f(glGetUniformLocation(Render->ShaderProgram, "gDirectionalLight.Base.DiffuseIntensity"), //
-                    Render->DirLight.Base.DiffuseIntensity);
-        v3 LocalDirection = Render->DirLight.WorldDirection;
-        glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gDirectionalLight.Direction"), 1, //
-                     LocalDirection.E);
-
-        // отправка point lights в шейдер
-        glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gNumPointLights"), //
-                    Render->PointLightsCount);
-        for(u32 j = 0; j < Render->PointLightsCount; j++)
-        {
-            char TmpName[128];
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Base.Color", j);
-            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, TmpName), 1, //
-                         Render->PointLights[0].Base.Color.E);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Base.AmbientIntensity", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->PointLights[0].Base.AmbientIntensity);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Base.DiffuseIntensity", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->PointLights[0].Base.DiffuseIntensity);        //
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].LocalPos", j);
-            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, TmpName), 1, //
-                         Render->PointLights[0].WorldPosition.E);
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Atten.Constant", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->PointLights[0].Atten.Constant);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Atten.Linear", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->PointLights[0].Atten.Linear);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Atten.Exp", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->PointLights[0].Atten.Exp);
-        }
-
-        // отправка spot lights в шейдер
-        glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gNumSpotLights"), //
-                    Render->SpotLightsCount);
-
-        for(u32 j = 0; j < Render->PointLightsCount; j++)
-        {
-            char TmpName[128];
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Base.Color", j);
-            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, TmpName), 1, //
-                         Render->SpotLights[0].Base.Base.Color.E);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Base.AmbientIntensity", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->SpotLights[0].Base.Base.AmbientIntensity);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Base.DiffuseIntensity", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->SpotLights[0].Base.Base.DiffuseIntensity);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.LocalPos", j);
-            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, TmpName), 1, //
-                         Render->SpotLights[0].Base.WorldPosition.E);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Atten.Constant", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->SpotLights[0].Base.Atten.Constant);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Atten.Linear", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->SpotLights[0].Base.Atten.Linear);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Atten.Exp", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->SpotLights[0].Base.Atten.Exp);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Direction", j);
-            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, TmpName), 1, //
-                         Render->SpotLights[0].WorldDirection.E);
-
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Cutoff", j);
-            glUniform1f(glGetUniformLocation(Render->ShaderProgram, TmpName), //
-                        Render->SpotLights[0].Cutoff);
-        }
 
         // отправка материала в шейдер
         if(Mesh->WithMaterial)

@@ -64,6 +64,32 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->PointLights[0].Atten.Constant = 1.0f;
         Render->PointLights[0].Atten.Linear = 0.1f; // 0.0f
         Render->PointLights[0].Atten.Exp = 0.0f;    // 0.0f
+        // имена переменных point lights для оправки в шейдер
+        Render->PLVarNames = PushArray(&GameState->WorldArena, Render->PointLightsCount, point_light_var_names);
+        for(u32 i = 0; i < Render->PointLightsCount; i++)
+        {
+            char TmpName[128];
+            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Base.Color", i);
+            Render->PLVarNames[i].VarNames[0] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Base.AmbientIntensity", i);
+            Render->PLVarNames[i].VarNames[1] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Base.DiffuseIntensity", i);
+            Render->PLVarNames[i].VarNames[2] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].LocalPos", i);
+            Render->PLVarNames[i].VarNames[3] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Atten.Constant", i);
+            Render->PLVarNames[i].VarNames[4] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Atten.Linear", i);
+            Render->PLVarNames[i].VarNames[5] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Atten.Exp", i);
+            Render->PLVarNames[i].VarNames[6] = PushStringZ(&GameState->WorldArena, TmpName);
+        }
 
         // spot lights
         Render->SpotLightsCount = 1;
@@ -79,6 +105,38 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->SpotLights[0].WorldDirection = V3(0.0f, 0.0f, -1.0f);
         Render->SpotLights[0].WorldDirection = Normalize(Render->SpotLights[0].WorldDirection);
         Render->SpotLights[0].Cutoff = 0.9f;
+        // имена переменных spot lights для оправки в шейдер
+        Render->SLVarNames = PushArray(&GameState->WorldArena, Render->SpotLightsCount, spot_light_var_names);
+        for(u32 i = 0; i < Render->SpotLightsCount; i++)
+        {
+            char TmpName[128];
+            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Base.Color", i);
+            Render->SLVarNames[i].VarNames[0] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Base.AmbientIntensity", i);
+            Render->SLVarNames[i].VarNames[1] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Base.DiffuseIntensity", i);
+            Render->SLVarNames[i].VarNames[2] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.LocalPos", i);
+            Render->SLVarNames[i].VarNames[3] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Atten.Constant", i);
+            Render->SLVarNames[i].VarNames[4] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Atten.Linear", i);
+            Render->SLVarNames[i].VarNames[5] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Atten.Exp", i);
+            Render->SLVarNames[i].VarNames[6] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Direction", i);
+            Render->SLVarNames[i].VarNames[7] = PushStringZ(&GameState->WorldArena, TmpName);
+
+            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Cutoff", i);
+            Render->SLVarNames[i].VarNames[8] = PushStringZ(&GameState->WorldArena, TmpName);
+        }
 
         //
         // NOTE(me): Объекты окружения (3d-модели)
@@ -282,6 +340,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     // Обработка анимаций
     if(Render->Animator.Timer > 0.0f)
     {
+#if 1
         for(u32 i = 0; i < Render->SAnMeshesCount; i++)
         {
             single_mesh *Mesh = Render->SAnMeshes[i];
@@ -289,6 +348,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
                               0,    // индекс анимации
                               Render->Animator.Timer);
         }
+#endif
 
         Render->Animator.Timer -= Input->dtForFrame;
         if(Render->Animator.Timer <= 0.0f)

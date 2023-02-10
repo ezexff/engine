@@ -3,7 +3,7 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary
 CLS
 
 REM Compiler parameters
-SET CommonCompilerFlags=-MTd -nologo -fp:fast -Gm- -GR- -EHa- -Zo -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4456 -FC -Z7 -D_CRT_SECURE_NO_WARNINGS 
+SET CommonCompilerFlags=-O2 -MTd -nologo -fp:fast -Gm- -GR- -EHa- -Zo -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4456 -FC -Z7 -D_CRT_SECURE_NO_WARNINGS
 SET CommonCompilerFlags=-DENGINE_INTERNAL=1 -DENGINE_SLOW=1 -DENGINE_WIN32=1 %CommonCompilerFlags%
 SET CommonLinkerFlags= -incremental:no -opt:ref user32.lib gdi32.lib winmm.lib opengl32.lib "..\code\libs\glfw\lib-vc2022\glfw3dll.lib" /subsystem:windows /ENTRY:mainCRTStartup
 REM "..\code\libs\glew\glew32.lib"

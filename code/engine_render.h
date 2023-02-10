@@ -66,6 +66,16 @@ struct spot_light
     r32 Cutoff;
 };
 
+struct point_light_var_names
+{
+    char *VarNames[7];
+};
+
+struct spot_light_var_names
+{
+    char *VarNames[9];
+};
+
 struct render
 {
     //
@@ -128,10 +138,17 @@ struct render
     // NOTE(me): Light
     //
     directional_light DirLight;
+
     u32 PointLightsCount;
     point_light *PointLights;
+    point_light_var_names *PLVarNames; // имена переменных для передачи в шейдер
+
     u32 SpotLightsCount;
     spot_light *SpotLights;
+    spot_light_var_names *SLVarNames; // имена переменных для передачи в шейдер
 
+    //
+    // NOTE(me): Animations
+    //
     animator Animator;
 };
