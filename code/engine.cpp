@@ -141,7 +141,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         //
         // NOTE(me): Объекты окружения (3d-модели)
         //
-        for(u32 i = 0; i < ArrayCount(GameState->EnvObjects); i++)
+        for(u32 i = 0; i < ENV_OBJECTS_MAX; i++)
         {
             GameState->EnvObjects[i] = PushStruct(&GameState->WorldArena, entity_envobject);
         }
@@ -171,7 +171,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[2]->Model = GameState->EnvObjects[1]->Model;
 
         // ваза
-        GameState->EnvObjects[3]->Position = V3(3, 3, TerrainGetHeight(GameState->EnvObjects[0], 3, 3));
+        GameState->EnvObjects[3]->Position = V3(3, 3, 0);
         GameState->EnvObjects[3]->Scale = 4.0f;
         GameState->EnvObjects[3]->Angle = 0.0f;
         GameState->EnvObjects[3]->Rotate = V3(0, 0, 0);
@@ -179,7 +179,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[3]->Model = LoadModel(&GameState->WorldArena, "assets/test_vase.spm");
 
         // бочка
-        GameState->EnvObjects[4]->Position = V3(1, 1, TerrainGetHeight(GameState->EnvObjects[0], 1, 1));
+        GameState->EnvObjects[4]->Position = V3(1, 1, 0);
         GameState->EnvObjects[4]->Scale = 2.0f;
         GameState->EnvObjects[4]->Angle = 0.0f;
         GameState->EnvObjects[4]->Rotate = V3(0, 0, 0);
@@ -187,7 +187,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[4]->Model = LoadModel(&GameState->WorldArena, "assets/test_barrel.spm");
 
         // дерево
-        GameState->EnvObjects[5]->Position = V3(5, 5, TerrainGetHeight(GameState->EnvObjects[0], 5, 5) + 0.1f);
+        GameState->EnvObjects[5]->Position = V3(5, 5, 0.1f);
         GameState->EnvObjects[5]->Scale = 0.4f;
         GameState->EnvObjects[5]->Angle = 90.0f;
         GameState->EnvObjects[5]->Rotate = V3(1, 0, 0);
@@ -195,21 +195,21 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[5]->Model = LoadModel(&GameState->WorldArena, "assets/test_tree.spm");
 
         // ковбой (анимированный)
-        GameState->EnvObjects[6]->Position = V3(2, 2, TerrainGetHeight(GameState->EnvObjects[0], 2, 2));
+        GameState->EnvObjects[6]->Position = V3(2, 2, 0);
         GameState->EnvObjects[6]->Scale = 0.4f;
         GameState->EnvObjects[6]->Angle = 0.0f;
         GameState->EnvObjects[6]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[6]->InstancingCount = 0;
         GameState->EnvObjects[6]->Model = LoadModel(&GameState->WorldArena, "assets/test_cowboy.spm");
 
-        GameState->EnvObjects[7]->Position = V3(2, 2 + 3, TerrainGetHeight(GameState->EnvObjects[0], 2, 2 + 3));
+        GameState->EnvObjects[7]->Position = V3(2, 2 + 3, 0);
         GameState->EnvObjects[7]->Scale = 0.4f;
         GameState->EnvObjects[7]->Angle = 0.0f;
         GameState->EnvObjects[7]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[7]->InstancingCount = 0;
         GameState->EnvObjects[7]->Model = GameState->EnvObjects[6]->Model;
 
-        GameState->EnvObjects[8]->Position = V3(2, 2 + 6, TerrainGetHeight(GameState->EnvObjects[0], 2, 2 + 6));
+        GameState->EnvObjects[8]->Position = V3(2, 2 + 6, 0);
         GameState->EnvObjects[8]->Scale = 0.4f;
         GameState->EnvObjects[8]->Angle = 0.0f;
         GameState->EnvObjects[8]->Rotate = V3(0, 0, 0);
@@ -217,26 +217,41 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[8]->Model = GameState->EnvObjects[6]->Model;
 
         // страж (анимированный)
-        GameState->EnvObjects[9]->Position = V3(5, 2, TerrainGetHeight(GameState->EnvObjects[0], 5, 2));
+        GameState->EnvObjects[9]->Position = V3(5, 2, 0);
         GameState->EnvObjects[9]->Scale = 0.1f;
         GameState->EnvObjects[9]->Angle = 90.0f;
         GameState->EnvObjects[9]->Rotate = V3(1, 0, 0);
         GameState->EnvObjects[9]->InstancingCount = 0;
         GameState->EnvObjects[9]->Model = LoadModel(&GameState->WorldArena, "assets/test_guard.spm");
 
-        GameState->EnvObjects[10]->Position = V3(5 + 3, 2, TerrainGetHeight(GameState->EnvObjects[0], 5 + 3, 2));
+        GameState->EnvObjects[10]->Position = V3(5 + 3, 2, 0);
         GameState->EnvObjects[10]->Scale = 0.1f;
         GameState->EnvObjects[10]->Angle = 90.0f;
         GameState->EnvObjects[10]->Rotate = V3(1, 0, 0);
         GameState->EnvObjects[10]->InstancingCount = 0;
         GameState->EnvObjects[10]->Model = GameState->EnvObjects[9]->Model;
 
-        GameState->EnvObjects[11]->Position = V3(5 + 6, 2, TerrainGetHeight(GameState->EnvObjects[0], 5 + 6, 2));
+        GameState->EnvObjects[11]->Position = V3(5 + 6, 2, 0);
         GameState->EnvObjects[11]->Scale = 0.1f;
         GameState->EnvObjects[11]->Angle = 90.0f;
         GameState->EnvObjects[11]->Rotate = V3(1, 0, 0);
         GameState->EnvObjects[11]->InstancingCount = 0;
         GameState->EnvObjects[11]->Model = GameState->EnvObjects[9]->Model;
+
+        // высота объектов окружения на ландшафте
+        for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
+        {
+            if(GameState->EnvObjects[i])
+            {
+                GameState->EnvObjects[i]->Position.z += GameState->EnvObjects[i]->Position.z +
+                    TerrainGetHeight(GameState->EnvObjects[0], GameState->EnvObjects[i]->Position.x,
+                                     GameState->EnvObjects[i]->Position.y);
+            }
+            else
+            {
+                break;
+            }
+        }
 
         //
         // NOTE(me): Шейдеры и VBO
