@@ -103,7 +103,7 @@ struct render
     // данные для отрисовки
     u32 SStVerticesCountSum;
     u32 SStIndicesCountSum;
-    //u32 SstIndicesCount[SINGLE_STATIC_MESHES_MAX];
+    // u32 SstIndicesCount[SINGLE_STATIC_MESHES_MAX];
 
     u32 SStVAO;
     u32 SStVBO;
@@ -128,11 +128,15 @@ struct render
     // данные для отрисовки
     u32 SAnVerticesCountSum;
     u32 SAnIndicesCountSum;
-    //u32 SAnIndicesCount[SINGLE_ANIMATED_MESHES_MAX];
+    // u32 SAnIndicesCount[SINGLE_ANIMATED_MESHES_MAX];
 
     u32 SAnVAO;
     u32 SAnVBO;
     u32 SAnEBO;
+
+    u32 *TestSAnVAO;
+    u32 *TestSAnVBO;
+    u32 *TestSAnEBO;
 
     //
     // NOTE(me): Light

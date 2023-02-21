@@ -241,16 +241,10 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         // высота объектов окружения на ландшафте
         for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
         {
-            if(GameState->EnvObjects[i])
-            {
-                GameState->EnvObjects[i]->Position.z += GameState->EnvObjects[i]->Position.z +
-                    TerrainGetHeight(GameState->EnvObjects[0], GameState->EnvObjects[i]->Position.x,
-                                     GameState->EnvObjects[i]->Position.y);
-            }
-            else
-            {
-                break;
-            }
+            GameState->EnvObjects[i]->Position.z +=
+                GameState->EnvObjects[i]->Position.z + TerrainGetHeight(GameState->EnvObjects[0],
+                                                                        GameState->EnvObjects[i]->Position.x,
+                                                                        GameState->EnvObjects[i]->Position.y);
         }
 
         //

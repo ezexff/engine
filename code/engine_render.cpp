@@ -1,3 +1,6 @@
+// TODO(me): Testing Single VBO for Anim Render (1) vs Multiple VBOs for Anim Render (0)
+#define SINGLE_VBO_FOR_ANIM_RENDER 1
+
 internal void AddEnvObjectToRender(render *Render, entity_envobject *EnvObject)
 {
     if(EnvObject->Model)
@@ -189,6 +192,7 @@ void InitSingleVBO(memory_arena *WorldArena, render *Render)
     //
     // NOTE(me): Peparing VBO for Single Animated Meshes
     //
+#if SINGLE_VBO_FOR_ANIM_RENDER
     Render->SAnVerticesCountSum = 0;
     Render->SAnIndicesCountSum = 0;
 
@@ -262,6 +266,74 @@ void InitSingleVBO(memory_arena *WorldArena, render *Render)
                           (void *)offsetof(vertex_animated, Weights));
 
     glBindVertexArray(0);
+
+#else
+    // выделение память под VAO, VBO, EBO
+    Render->TestSAnVAO = PushArray(WorldArena, Render->SAnMeshesCount, u32);
+    Render->TestSAnVBO = PushArray(WorldArena, Render->SAnMeshesCount, u32);
+    Render->TestSAnEBO = PushArray(WorldArena, Render->SAnMeshesCount, u32);
+
+    for(u32 i = 0; i < Render->SAnMeshesCount; i++)
+    {
+        single_mesh *Mesh = Render->SAnMeshes[i];
+
+        // выделение памяти под вершины и индексы
+        vertex_animated *SAnVertices = PushArray(WorldArena, Mesh->VerticesCount, vertex_animated);
+        u32 *SAnIndices = PushArray(WorldArena, Mesh->IndicesCount, u32);
+
+        // заполнение массива вершин
+        u32 BoneIDsAndWeightsCount = 0;
+        for(u32 j = 0; j < Mesh->VerticesCount; j++)
+        {
+            SAnVertices[j].Position = Mesh->Positions[j];
+            SAnVertices[j].Normal = Mesh->Normals[j];
+            SAnVertices[j].TexCoords = Mesh->TexCoords[j];
+            for(u32 k = 0; k < 4; k++)
+            {
+                SAnVertices[j].BoneIDs[k] = Mesh->BoneIDs[BoneIDsAndWeightsCount];
+                SAnVertices[j].Weights[k] = Mesh->Weights[BoneIDsAndWeightsCount];
+                BoneIDsAndWeightsCount++;
+            }
+        }
+        for(u32 j = 0; j < Mesh->IndicesCount; j++)
+        {
+            SAnIndices[j] = Mesh->Indices[j];
+        }
+
+        glGenVertexArrays(1, &Render->TestSAnVAO[i]);
+        glGenBuffers(1, &Render->TestSAnVBO[i]);
+        glGenBuffers(1, &Render->TestSAnEBO[i]);
+
+        glBindVertexArray(Render->TestSAnVAO[i]);
+        glBindBuffer(GL_ARRAY_BUFFER, Render->TestSAnVBO[i]);
+
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_animated) * Mesh->VerticesCount, SAnVertices, GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Render->TestSAnEBO[i]);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * Mesh->IndicesCount, SAnIndices, GL_STATIC_DRAW);
+
+        // Vertex positions
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_animated), (void *)0);
+        // Vertex normals
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_animated),
+                              (void *)offsetof(vertex_animated, Normal));
+        // Vertex texture coords
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_animated),
+                              (void *)offsetof(vertex_animated, TexCoords));
+        // Vertex bones ids
+        glEnableVertexAttribArray(3);
+        glVertexAttribIPointer(3, 4, GL_INT, sizeof(vertex_animated), (void *)offsetof(vertex_animated, BoneIDs));
+        // Vertex weights
+        glEnableVertexAttribArray(4);
+        glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(vertex_animated),
+                              (void *)offsetof(vertex_animated, Weights));
+
+        glBindVertexArray(0);
+    }
+#endif
 }
 
 internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player *Player)
@@ -435,7 +507,7 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
     // glViewport(0, 0, DisplayWidth, DisplayHeight);
     // AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
     // FOV = 0.1f; // поле зрения камеры
-
+#if SINGLE_VBO_FOR_ANIM_RENDER
     BaseVertex = 0;
     BaseIndex = 0;
     // Render->SAnMeshesCount
@@ -516,5 +588,82 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
         BaseVertex += Mesh->VerticesCount;
         BaseIndex += Mesh->IndicesCount;
     }
+
+#else
+
+    for(u32 i = 0; i < Render->SAnMeshesCount; i++)
+    {
+        single_mesh *Mesh = Render->SAnMeshes[i];
+
+        // матрица проекции
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+        r32 MatProj[16];
+        glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
+        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatProj"), 1, GL_FALSE, MatProj);
+
+        // матрица вида с камеры
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        OGLSetCameraOnPlayer(Player);
+        r32 MatView[16];
+        glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
+        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatView"), 1, GL_FALSE, MatView);
+
+        // матрица модели в мировой системе координат
+        glLoadIdentity();
+        glTranslatef(Render->SAnPositions[i]->x, Render->SAnPositions[i]->y, Render->SAnPositions[i]->z);
+        glScalef(Render->SAnScales[i][0], Render->SAnScales[i][0], Render->SAnScales[i][0]);
+        glRotatef(Render->SAnAngles[i][0], Render->SAnRotations[i]->x, Render->SAnRotations[i]->y,
+                  Render->SAnRotations[i]->z);
+        r32 MatModel[16];
+        glGetFloatv(GL_MODELVIEW_MATRIX, MatModel);
+        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE, MatModel);
+
+        // отправка материала в шейдер
+        if(Mesh->WithMaterial)
+        {
+            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gMaterial.AmbientColor"), 1, //
+                         Mesh->Material.Ambient.E);
+
+            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gMaterial.DiffuseColor"), 1, //
+                         Mesh->Material.Diffuse.E);
+
+            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gMaterial.SpecularColor"), 1, //
+                         Mesh->Material.Specular.E);
+
+            if(Mesh->Material.WithTexture)
+            {
+                glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gWithTexture"), true);
+                glActiveTexture(GL_TEXTURE0 + 0);
+                glBindTexture(GL_TEXTURE_2D, Mesh->Material.Texture);
+                glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gSampler"), 0);
+                glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gSamplerSpecularExponent"), 0);
+            }
+            else
+            {
+                glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gWithTexture"), false);
+            }
+        }
+        else
+        {
+            InvalidCodePath;
+        }
+
+        // отправка информации о наличии анимаций у меша в шейдер
+        glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithAnimations"), true);
+
+        // преобразования костей меша во время анимации
+        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "gBones"), //
+                           Mesh->BonesCount, GL_TRUE, (const GLfloat *)Mesh->FinalTransforms);
+
+        // отрисовка меша
+        glBindVertexArray(Render->TestSAnVAO[i]);
+        glDrawElements(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+    }
+
+#endif
     glUseProgram(0);
 }
