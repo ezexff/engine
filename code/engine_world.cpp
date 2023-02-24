@@ -100,41 +100,6 @@ void CreateHill(v3 *Positions, s32 PosX, s32 PosY, s32 PosZ, s32 Radius)
     }
 }
 
-/*b32 IsPosOnMap(r32 x, r32 y)
-{
-    b32 Result;
-
-    Result = ((x >= 0) && (x < TMapW) && (y >= 0) && (y < TMapH));
-
-    return (Result);
-}
-
-void TMapCreateHill(v3 *Positions, s32 x, s32 y, s32 rad, s32 z)
-{
-    for(s32 i = x - rad; i <= x + rad; i++)
-    {
-        for(s32 j = y - rad; j <= y + rad; j++)
-        {
-            if(IsPosOnMap((r32)i, (r32)j))
-            {
-                // TODO(me): избавиться от math.z
-                //r32 len = (r32)sqrt(pow(x - i, 2) + pow(y - j, 2));
-                r32 t1 = (r32)(x - i);
-                r32 t2 = (r32)(y - j);
-                r32 len = SquareRoot(Square(t1) + Square(t2));
-                if(len < rad)
-                {
-                    len = len / rad * (r32)Pi32_2;
-
-                    u32 TmpIndex = i * TMapH + j;
-                    Positions[TmpIndex].z += Cos(len) * z;
-                    // TMap[i][j].z += cos(len) * z;
-                }
-            }
-        }
-    }
-}*/
-
 internal loaded_model *CreateTerrainModel(memory_arena *WorldArena)
 {
     loaded_model *Result = PushStruct(WorldArena, loaded_model);
@@ -201,7 +166,6 @@ internal loaded_model *CreateTerrainModel(memory_arena *WorldArena)
         u32 HillY = rand() % TMapH;
         u32 HillZ = rand() % 10;
         u32 HillRadius = rand() % 50;
-        // CreateHill(World, HillX, HillY, HillZ, HillRadius);
         CreateHill(Mesh->Positions, HillX, HillY, HillZ, HillRadius);
     }
 
@@ -239,6 +203,91 @@ internal loaded_model *CreateTerrainModel(memory_arena *WorldArena)
     Mesh->Material.WithTexture = true;
     Mesh->Material.TextureName = PushString(WorldArena, "pole.png");
     Mesh->Material.Texture = LoadTexture(&Mesh->Material.TextureName);
+
+    return (Result);
+}
+
+internal loaded_model *CreateGrassModel(memory_arena *WorldArena)
+{
+    loaded_model *Result = PushStruct(WorldArena, loaded_model);
+
+    Result->Name = PushString(WorldArena, "GrassModel");
+
+    Result->MeshesCount = 1;
+
+    Result->Meshes = PushArray(WorldArena, Result->MeshesCount, single_mesh);
+
+    single_mesh *Mesh = &Result->Meshes[0];
+
+    Mesh->Name = PushString(WorldArena, "GrassMesh");
+
+    Mesh->VerticesCount = 8;
+
+    Mesh->Positions = PushArray(WorldArena, Mesh->VerticesCount, v3);
+    Mesh->Positions[0] = V3(-0.5, 0, 0);
+    Mesh->Positions[1] = V3(0.5, 0, 0);
+    Mesh->Positions[2] = V3(0.5, 0, 1);
+    Mesh->Positions[3] = V3(-0.5, 0, 1);
+    Mesh->Positions[4] = V3(0, -0.5, 0);
+    Mesh->Positions[5] = V3(0, 0.5, 0);
+    Mesh->Positions[6] = V3(0, 0.5, 1);
+    Mesh->Positions[7] = V3(0, -0.5, 1);
+
+    Mesh->TexCoords = PushArray(WorldArena, Mesh->VerticesCount, v2);
+    Mesh->TexCoords[0] = V2(0, 1);
+    Mesh->TexCoords[1] = V2(1, 1);
+    Mesh->TexCoords[2] = V2(1, 0);
+    Mesh->TexCoords[3] = V2(0, 0);
+    Mesh->TexCoords[4] = V2(0, 1);
+    Mesh->TexCoords[5] = V2(1, 1);
+    Mesh->TexCoords[6] = V2(1, 0);
+    Mesh->TexCoords[7] = V2(0, 0);
+
+    Mesh->IndicesCount = 12;
+    Mesh->Indices = PushArray(WorldArena, Mesh->IndicesCount, u32);
+    Mesh->Indices[0] = 0;
+    Mesh->Indices[1] = 1;
+    Mesh->Indices[2] = 2;
+    Mesh->Indices[3] = 2;
+    Mesh->Indices[4] = 3;
+    Mesh->Indices[5] = 0;
+    Mesh->Indices[6] = 4;
+    Mesh->Indices[7] = 5;
+    Mesh->Indices[8] = 6;
+    Mesh->Indices[9] = 6;
+    Mesh->Indices[10] = 7;
+    Mesh->Indices[11] = 4;
+
+    Mesh->Normals = PushArray(WorldArena, Mesh->VerticesCount, v3);
+    for(u32 i = 0; i < Mesh->VerticesCount; i++)
+    {
+        Mesh->Normals[i] = V3(0, 0, 1);
+    }
+
+    Mesh->WithMaterial = true;
+    Mesh->Material.Ambient = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Mesh->Material.Diffuse = V4(0.1f, 0.35f, 0.1f, 1.0f);
+    Mesh->Material.Specular = V4(0.45f, 0.55f, 0.45f, 1.0f);
+    Mesh->Material.Emission = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Mesh->Material.Shininess = 0.25f;
+
+    Mesh->Material.WithTexture = true;
+    Mesh->Material.TextureName = PushString(WorldArena, "trava.png");
+    Mesh->Material.Texture = LoadTexture(&Mesh->Material.TextureName);
+
+    return (Result);
+}
+
+internal v3 *CreateInstancingTranslations(memory_arena *WorldArena, entity_envobject *Terrain, v3 StartPos, u32 Count)
+{
+    v3 *Result = PushArray(WorldArena, Count, v3);
+
+    for(u32 i = 0; i < Count; i++)
+    {
+        Result[i].x = (r32)(rand() % TMapW);
+        Result[i].y = (r32)(rand() % TMapH);
+        Result[i].z = TerrainGetHeight(Terrain, Result[i].x, Result[i].y);
+    }
 
     return (Result);
 }

@@ -35,6 +35,29 @@ internal void AddEnvObjectToRender(render *Render, entity_envobject *EnvObject)
                 Assert(Render->SAnMeshesCount < SINGLE_ANIMATED_MESHES_MAX);
             }
         }
+        else if(EnvObject->InstancingCount > 0)
+        {
+            loaded_model *Model = EnvObject->Model;
+            for(u32 i = 0; i < Model->MeshesCount; i++)
+            {
+                single_mesh *Mesh = &Model->Meshes[i];
+                if(!Mesh->WithAnimations)
+                {
+                    Render->MStMeshes[Render->MStMeshesCount] = Mesh;
+                    Render->MStPositions[Render->MStMeshesCount] = &EnvObject->Position;
+                    Render->MStScales[Render->MStMeshesCount] = &EnvObject->Scale;
+                    Render->MStRotations[Render->MStMeshesCount] = &EnvObject->Rotate;
+                    Render->MStAngles[Render->MStMeshesCount] = &EnvObject->Angle;
+                    Render->MStInstancingCounters[Render->MStMeshesCount] = &EnvObject->InstancingCount;
+                    Render->MStInstancingTranslations[Render->MStMeshesCount] = EnvObject->InstancingTranslations;
+                    Render->MStMeshesCount++;
+                }
+                else
+                {
+                }
+                Assert(Render->MStMeshesCount < MULTIPLE_STATIC_MESHES_MAX);
+            }
+        }
     }
     else
     {
@@ -125,7 +148,7 @@ void LinkShaderProgram(render *Render)
     }
 }
 
-void InitSingleVBO(memory_arena *WorldArena, render *Render)
+void InitVBOs(memory_arena *WorldArena, render *Render)
 {
     //
     // NOTE(me): Preparing VBO for Single Static Meshes
@@ -334,9 +357,70 @@ void InitSingleVBO(memory_arena *WorldArena, render *Render)
         glBindVertexArray(0);
     }
 #endif
+    //
+    // NOTE(me): Preparing VBO for Multiple Static Meshes
+    //
+    Render->MStVerticesCountSum = 0;
+    Render->MStIndicesCountSum = 0;
+
+    // получаем общее число вершин и индексов
+    for(u32 i = 0; i < Render->MStMeshesCount; i++)
+    {
+        single_mesh *Mesh = Render->MStMeshes[i];
+        Render->MStVerticesCountSum += Mesh->VerticesCount;
+        Render->MStIndicesCountSum += Mesh->IndicesCount;
+    }
+
+    // выделение памяти под вершины и индексы
+    vertex_static *MStVertices = PushArray(WorldArena, Render->MStVerticesCountSum, vertex_static);
+    u32 *MStIndices = PushArray(WorldArena, Render->MStIndicesCountSum, u32);
+
+    // заполнение массива вершин
+    VerticesCountTmp = 0;
+    IndicesCountTmp = 0;
+    for(u32 i = 0; i < Render->MStMeshesCount; i++)
+    {
+        single_mesh *Mesh = Render->MStMeshes[i];
+        for(u32 j = 0; j < Mesh->VerticesCount; j++)
+        {
+            MStVertices[VerticesCountTmp].Position = Mesh->Positions[j];
+            MStVertices[VerticesCountTmp].Normal = Mesh->Normals[j];
+            MStVertices[VerticesCountTmp].TexCoords = Mesh->TexCoords[j];
+            VerticesCountTmp++;
+        }
+        for(u32 j = 0; j < Mesh->IndicesCount; j++)
+        {
+            MStIndices[IndicesCountTmp] = Mesh->Indices[j];
+            IndicesCountTmp++;
+        }
+    }
+
+    glGenVertexArrays(1, &Render->MStVAO);
+    glGenBuffers(1, &Render->MStVBO);
+    glGenBuffers(1, &Render->MStEBO);
+
+    glBindVertexArray(Render->MStVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, Render->MStVBO);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_static) * Render->MStVerticesCountSum, MStVertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Render->MStEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * Render->MStIndicesCountSum, MStIndices, GL_STATIC_DRAW);
+
+    // Vertex positions
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_static), (void *)0);
+    // Vertex normals
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_static), (void *)offsetof(vertex_static, Normal));
+    // Vertex texture coords
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_static), (void *)offsetof(vertex_static, TexCoords));
+
+    glBindVertexArray(0);
 }
 
-internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player *Player)
+internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Player)
 {
     //
     // NOTE(me): Rendering Single Static Meshes
@@ -489,6 +573,8 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
 
         glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithAnimations"), false);
 
+        glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithOffset"), false);
+
         // отрисовка меша
         glBindVertexArray(Render->SStVAO);
         glDrawElementsBaseVertex(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT, (void *)(sizeof(u32) * BaseIndex),
@@ -574,6 +660,8 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
         // отправка информации о наличии анимаций у меша в шейдер
         glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithAnimations"), true);
 
+        glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithOffset"), false);
+
         // преобразования костей меша во время анимации
         glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "gBones"), //
                            Mesh->BonesCount, GL_TRUE, (const GLfloat *)Mesh->FinalTransforms);
@@ -654,6 +742,8 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
         // отправка информации о наличии анимаций у меша в шейдер
         glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithAnimations"), true);
 
+        glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithOffset"), false);
+
         // преобразования костей меша во время анимации
         glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "gBones"), //
                            Mesh->BonesCount, GL_TRUE, (const GLfloat *)Mesh->FinalTransforms);
@@ -665,5 +755,100 @@ internal void RenderSingleVBO(GLFWwindow *Window, render *Render, entity_player 
     }
 
 #endif
+
+    //
+    // NOTE(me): Rendering Multiple Single Meshes
+    //
+    BaseVertex = 0;
+    BaseIndex = 0;
+    for(u32 i = 0; i < Render->MStMeshesCount; i++)
+    {
+        single_mesh *Mesh = Render->MStMeshes[i];
+
+        // матрица проекции
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+        r32 MatProj[16];
+        glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
+        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatProj"), 1, GL_FALSE, MatProj);
+
+        // матрица вида с камеры
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        OGLSetCameraOnPlayer(Player);
+        r32 MatView[16];
+        glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
+        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatView"), 1, GL_FALSE, MatView);
+
+        // матрица модели в мировой системе координат
+        glLoadIdentity();
+        glTranslatef(Render->MStPositions[i]->x, Render->MStPositions[i]->y, Render->MStPositions[i]->z);
+        glScalef(Render->MStScales[i][0], Render->MStScales[i][0], Render->MStScales[i][0]);
+        glRotatef(Render->MStAngles[i][0], Render->MStRotations[i]->x, Render->MStRotations[i]->y,
+                  Render->MStRotations[i]->z);
+        r32 MatModel[16];
+        glGetFloatv(GL_MODELVIEW_MATRIX, MatModel);
+        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE, MatModel);
+
+        // отправка материала в шейдер
+        if(Mesh->WithMaterial)
+        {
+            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gMaterial.AmbientColor"), 1, //
+                         Mesh->Material.Ambient.E);
+
+            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gMaterial.DiffuseColor"), 1, //
+                         Mesh->Material.Diffuse.E);
+
+            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gMaterial.SpecularColor"), 1, //
+                         Mesh->Material.Specular.E);
+
+            if(Mesh->Material.WithTexture)
+            {
+                glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gWithTexture"), true);
+                glActiveTexture(GL_TEXTURE0 + 0);
+                glBindTexture(GL_TEXTURE_2D, Mesh->Material.Texture);
+                glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gSampler"), 0);
+                glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gSamplerSpecularExponent"), 0);
+            }
+            else
+            {
+                glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gWithTexture"), false);
+            }
+        }
+        else
+        {
+            InvalidCodePath;
+        }
+
+        glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithAnimations"), false);
+
+        glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithOffset"), true);
+        // for(u32 j = 0; j < Render->MStInstancingCounters[i][0]; j++)
+        for(u32 j = 0; j < 200; j++)
+        {
+            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, Render->InstancingVarNames[j].VarName), 1, //
+                         Render->MStInstancingTranslations[i][j].E);
+        }
+
+        // отрисовка меша
+        glBindVertexArray(Render->MStVAO);
+        /*glDrawElementsBaseVertex(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT, (void *)(sizeof(u32) * BaseIndex),
+                                 BaseVertex);
+                                 */
+        glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT,
+                                                      (void *)(sizeof(u32) * BaseIndex), //
+                                                      1000,                               //
+                                                      BaseVertex,                        //
+                                                      0);
+        
+        //glDrawArraysInstanced(GL_TRIANGLES, 0, Mesh->VerticesCount, 200);
+        glBindVertexArray(0);
+
+        // смещение к следующему мешу
+        BaseVertex += Mesh->VerticesCount;
+        BaseIndex += Mesh->IndicesCount;
+    }
+
     glUseProgram(0);
 }

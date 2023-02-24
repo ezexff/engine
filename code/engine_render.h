@@ -76,6 +76,11 @@ struct spot_light_var_names
     char *VarNames[9];
 };
 
+struct offset_var_name
+{
+    char *VarName;
+};
+
 struct render
 {
     //
@@ -134,9 +139,37 @@ struct render
     u32 SAnVBO;
     u32 SAnEBO;
 
+    // TODO(me): for testing single vbo vs multiple vbo's performance
     u32 *TestSAnVAO;
     u32 *TestSAnVBO;
     u32 *TestSAnEBO;
+
+#define MULTIPLE_STATIC_MESHES_MAX 256
+
+    // меши
+    u32 MStMeshesCount;
+    single_mesh *MStMeshes[MULTIPLE_STATIC_MESHES_MAX];
+
+    // атрибуты модели
+    v3 *MStPositions[MULTIPLE_STATIC_MESHES_MAX];
+    r32 *MStScales[MULTIPLE_STATIC_MESHES_MAX];
+    r32 *MStAngles[MULTIPLE_STATIC_MESHES_MAX];
+    v3 *MStRotations[MULTIPLE_STATIC_MESHES_MAX];
+    u32 *MStInstancingCounters[MULTIPLE_STATIC_MESHES_MAX];
+    v3 *MStInstancingTranslations[MULTIPLE_STATIC_MESHES_MAX];
+
+    // данные для отрисовки
+    u32 MStVerticesCountSum;
+    u32 MStIndicesCountSum;
+    // u32 SstIndicesCount[SINGLE_STATIC_MESHES_MAX];
+
+    u32 MStVAO;
+    u32 MStVBO;
+    u32 MStEBO;
+
+    u32 MaxInstancingCount;
+    offset_var_name *InstancingVarNames;
+
 
     //
     // NOTE(me): Light

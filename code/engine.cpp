@@ -29,6 +29,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         render *Render = GameState->Render;
         Render->SStMeshesCount = 0;
         Render->SAnMeshesCount = 0;
+        Render->MStMeshesCount = 0;
         Render->Animator.Timer = 1.0f;
 
         GameState->Settings = PushStruct(&GameState->WorldArena, app_settings);
@@ -238,6 +239,17 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[11]->InstancingCount = 0;
         GameState->EnvObjects[11]->Model = GameState->EnvObjects[9]->Model;
 
+        // трава
+        GameState->EnvObjects[12]->Position = V3(0, 0, 0);
+        GameState->EnvObjects[12]->Scale = 1.0f;
+        GameState->EnvObjects[12]->Angle = 0.0f;
+        GameState->EnvObjects[12]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[12]->InstancingCount = 2000;
+        GameState->EnvObjects[12]->InstancingTranslations = CreateInstancingTranslations(
+            &GameState->WorldArena, GameState->EnvObjects[0], GameState->EnvObjects[12]->Position,
+            GameState->EnvObjects[12]->InstancingCount);
+        GameState->EnvObjects[12]->Model = CreateGrassModel(&GameState->WorldArena);
+
         // высота объектов окружения на ландшафте
         for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
         {
@@ -245,6 +257,24 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
                 GameState->EnvObjects[i]->Position.z + TerrainGetHeight(GameState->EnvObjects[0],
                                                                         GameState->EnvObjects[i]->Position.x,
                                                                         GameState->EnvObjects[i]->Position.y);
+        }
+
+        // максимальное число строк instancing смещений для отправки в шейдер
+        Render->MaxInstancingCount = 0;
+        for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
+        {
+            if(GameState->EnvObjects[i]->InstancingCount > Render->MaxInstancingCount)
+            {
+                Render->MaxInstancingCount = GameState->EnvObjects[i]->InstancingCount;
+            }
+        }
+
+        Render->InstancingVarNames = PushArray(&GameState->WorldArena, Render->MaxInstancingCount, offset_var_name);
+        for(u32 i = 0; i < Render->MaxInstancingCount; i++)
+        {
+            char TmpName[128];
+            _snprintf_s(TmpName, sizeof(TmpName), "Offsets[%d]", i);
+            Render->InstancingVarNames[i].VarName = PushStringZ(&GameState->WorldArena, TmpName);
         }
 
         //
@@ -255,7 +285,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         LinkShaderProgram(Render);
 
         AddEnvObjectsToRender(Render, GameState->EnvObjects);
-        InitSingleVBO(&GameState->WorldArena, Render);
+        InitVBOs(&GameState->WorldArena, Render);
 
         // ImGui Demo Window
         GameState->ShowDemoWindow = false;
@@ -439,6 +469,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::Text("SStVerticesCountSum=%d", Render->SStVerticesCountSum);
             ImGui::Text("SAnMeshesCount=%d", Render->SAnMeshesCount);
             ImGui::Text("SAnVerticesCountSum=%d", Render->SAnVerticesCountSum);
+            ImGui::Text("MStMeshesCount=%d", Render->MStMeshesCount);
+            ImGui::Text("MStVerticesCountSum=%d", Render->MStVerticesCountSum);
         }
 
         if(ImGui::CollapsingHeader("Settings"))
@@ -548,7 +580,10 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     glEnable(GL_DEPTH_TEST);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    RenderSingleVBO(Window, Render, Player);
+    glEnable(GL_ALPHA_TEST);
+    glAlphaFunc(GL_GREATER, 0.01f);
+
+    RenderVBOs(Window, Render, Player);
 #endif
     // ImGui rendering
     ImGui::Render();
