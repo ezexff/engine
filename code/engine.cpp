@@ -40,7 +40,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
         GameState->Player = PushStruct(&GameState->WorldArena, entity_player);
         entity_player *Player = GameState->Player;
-        Player->Position = V3(0, 0, 0);
+        Player->Position = V3(5, 5, 0);
         Player->dP = V2(0, 0);
         Player->CameraXRot = 90.0f;
         Player->CameraZRot = -45.0f;
@@ -53,7 +53,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->DirLight.Base.Color = V3(1.0f, 1.0f, 1.0f);
         Render->DirLight.Base.AmbientIntensity = 0.1f;
         Render->DirLight.Base.DiffuseIntensity = 1.0f;
-        Render->DirLight.WorldDirection = V3(1.0f, 0.0f, 0.0f);
+        Render->DirLight.WorldDirection = V3(1.0f, 0.0f, -1.0f);
 
         // point lights
         Render->PointLightsCount = 1;
@@ -148,109 +148,133 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         }
 
         // Террейн
-        GameState->EnvObjects[0]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[0]->Scale = 1.0f;
-        GameState->EnvObjects[0]->Angle = 0.0f;
-        GameState->EnvObjects[0]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[0]->InstancingCount = 0;
-        GameState->EnvObjects[0]->Model = CreateTerrainModel(&GameState->WorldArena);
+        u32 EnvIndex = 0;
+        GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 1.0f;
+        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = CreateTerrainModel(&GameState->WorldArena);
+        EnvIndex++;
 
         // куб- маркер позиции точечного источника освещения
-        GameState->EnvObjects[1]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[1]->Scale = 0.1f;
-        GameState->EnvObjects[1]->Angle = 0.0f;
-        GameState->EnvObjects[1]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[1]->InstancingCount = 0;
-        GameState->EnvObjects[1]->Model = LoadModel(&GameState->WorldArena, "assets/test_cube.spm");
+        GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 0.1f;
+        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_cube.spm");
+        EnvIndex++;
 
         // куб-маркер позиции прожектора
-        GameState->EnvObjects[2]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[2]->Scale = 0.1f;
-        GameState->EnvObjects[2]->Angle = 0.0f;
-        GameState->EnvObjects[2]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[2]->InstancingCount = 0;
-        GameState->EnvObjects[2]->Model = GameState->EnvObjects[1]->Model;
+        GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 0.1f;
+        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = GameState->EnvObjects[1]->Model;
+        EnvIndex++;
 
         // ваза
-        GameState->EnvObjects[3]->Position = V3(3, 3, 0);
-        GameState->EnvObjects[3]->Scale = 4.0f;
-        GameState->EnvObjects[3]->Angle = 0.0f;
-        GameState->EnvObjects[3]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[3]->InstancingCount = 0;
-        GameState->EnvObjects[3]->Model = LoadModel(&GameState->WorldArena, "assets/test_vase.spm");
+        GameState->EnvObjects[EnvIndex]->Position = V3(-7.5, 7.5, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 4.0f;
+        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_vase.spm");
+        EnvIndex++;
 
         // бочка
-        GameState->EnvObjects[4]->Position = V3(1, 1, 0);
-        GameState->EnvObjects[4]->Scale = 2.0f;
-        GameState->EnvObjects[4]->Angle = 0.0f;
-        GameState->EnvObjects[4]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[4]->InstancingCount = 0;
-        GameState->EnvObjects[4]->Model = LoadModel(&GameState->WorldArena, "assets/test_barrel.spm");
+        GameState->EnvObjects[EnvIndex]->Position = V3(-10, -10, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 2.0f;
+        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_barrel.spm");
+        EnvIndex++;
 
         // дерево
-        GameState->EnvObjects[5]->Position = V3(5, 5, 0.1f);
-        GameState->EnvObjects[5]->Scale = 0.4f;
-        GameState->EnvObjects[5]->Angle = 90.0f;
-        GameState->EnvObjects[5]->Rotate = V3(1, 0, 0);
-        GameState->EnvObjects[5]->InstancingCount = 0;
-        GameState->EnvObjects[5]->Model = LoadModel(&GameState->WorldArena, "assets/test_tree.spm");
+        GameState->EnvObjects[EnvIndex]->Position = V3(7.5, 7.5, 0.1f);
+        GameState->EnvObjects[EnvIndex]->Scale = 0.4f;
+        GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_tree.spm");
+        EnvIndex++;
 
         // ковбой (анимированный)
-        GameState->EnvObjects[6]->Position = V3(2, 2, 0);
-        GameState->EnvObjects[6]->Scale = 0.4f;
-        GameState->EnvObjects[6]->Angle = 0.0f;
-        GameState->EnvObjects[6]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[6]->InstancingCount = 0;
-        GameState->EnvObjects[6]->Model = LoadModel(&GameState->WorldArena, "assets/test_cowboy.spm");
+        GameState->EnvObjects[EnvIndex]->Position = V3(7.5, -7.5, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 0.4f;
+        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_cowboy.spm");
+        EnvIndex++;
 
-        GameState->EnvObjects[7]->Position = V3(2, 2 + 3, 0);
-        GameState->EnvObjects[7]->Scale = 0.4f;
-        GameState->EnvObjects[7]->Angle = 0.0f;
-        GameState->EnvObjects[7]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[7]->InstancingCount = 0;
-        GameState->EnvObjects[7]->Model = GameState->EnvObjects[6]->Model;
+        GameState->EnvObjects[EnvIndex]->Position = V3(2, 2 + 3, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 0.4f;
+        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = GameState->EnvObjects[6]->Model;
+        EnvIndex++;
 
-        GameState->EnvObjects[8]->Position = V3(2, 2 + 6, 0);
-        GameState->EnvObjects[8]->Scale = 0.4f;
-        GameState->EnvObjects[8]->Angle = 0.0f;
-        GameState->EnvObjects[8]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[8]->InstancingCount = 0;
-        GameState->EnvObjects[8]->Model = GameState->EnvObjects[6]->Model;
+        GameState->EnvObjects[EnvIndex]->Position = V3(2, 2 + 6, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 0.4f;
+        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = GameState->EnvObjects[6]->Model;
+        EnvIndex++;
 
         // страж (анимированный)
-        GameState->EnvObjects[9]->Position = V3(5, 2, 0);
-        GameState->EnvObjects[9]->Scale = 0.1f;
-        GameState->EnvObjects[9]->Angle = 90.0f;
-        GameState->EnvObjects[9]->Rotate = V3(1, 0, 0);
-        GameState->EnvObjects[9]->InstancingCount = 0;
-        GameState->EnvObjects[9]->Model = LoadModel(&GameState->WorldArena, "assets/test_guard.spm");
+        GameState->EnvObjects[EnvIndex]->Position = V3(5, 2, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 0.1f;
+        GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_guard.spm");
+        EnvIndex++;
 
-        GameState->EnvObjects[10]->Position = V3(5 + 3, 2, 0);
-        GameState->EnvObjects[10]->Scale = 0.1f;
-        GameState->EnvObjects[10]->Angle = 90.0f;
-        GameState->EnvObjects[10]->Rotate = V3(1, 0, 0);
-        GameState->EnvObjects[10]->InstancingCount = 0;
-        GameState->EnvObjects[10]->Model = GameState->EnvObjects[9]->Model;
+        GameState->EnvObjects[EnvIndex]->Position = V3(5 + 3, 2, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 0.1f;
+        GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = GameState->EnvObjects[9]->Model;
+        EnvIndex++;
 
-        GameState->EnvObjects[11]->Position = V3(5 + 6, 2, 0);
-        GameState->EnvObjects[11]->Scale = 0.1f;
-        GameState->EnvObjects[11]->Angle = 90.0f;
-        GameState->EnvObjects[11]->Rotate = V3(1, 0, 0);
-        GameState->EnvObjects[11]->InstancingCount = 0;
-        GameState->EnvObjects[11]->Model = GameState->EnvObjects[9]->Model;
+        GameState->EnvObjects[EnvIndex]->Position = V3(5 + 6, 2, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 0.1f;
+        GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = GameState->EnvObjects[9]->Model;
+        EnvIndex++;
 
         // трава
-        GameState->EnvObjects[12]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[12]->Scale = 1.0f;
-        GameState->EnvObjects[12]->Angle = 0.0f;
-        GameState->EnvObjects[12]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[12]->InstancingCount = 2000;
-        GameState->EnvObjects[12]->InstancingTranslations = CreateInstancingTranslations(
-            &GameState->WorldArena, GameState->EnvObjects[0], GameState->EnvObjects[12]->Position,
-            GameState->EnvObjects[12]->InstancingCount);
-        GameState->EnvObjects[12]->Model = CreateGrassModel(&GameState->WorldArena);
+        GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 1.0f;
+        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 2000;
+        GameState->EnvObjects[EnvIndex]->InstancingTranslations = CreateInstancingTranslations(
+            &GameState->WorldArena, GameState->EnvObjects[0], GameState->EnvObjects[EnvIndex]->Position,
+            GameState->EnvObjects[EnvIndex]->InstancingCount);
+        GameState->EnvObjects[EnvIndex]->Model = CreateGrassModel(&GameState->WorldArena);
+        EnvIndex++;
+
+        // clip texture
+        GameState->EnvObjects[EnvIndex]->Position = V3(-10.0f, -10.0f, 0.0f);
+        GameState->EnvObjects[EnvIndex]->Scale = 10.0f; // diameter
+        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = CreateSquareModel(&GameState->WorldArena);
+        EnvIndex++;
 
         // высота объектов окружения на ландшафте
+        //for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
         for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
         {
             GameState->EnvObjects[i]->Position.z +=

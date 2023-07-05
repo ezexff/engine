@@ -15,6 +15,30 @@ void RotatePlayerCamera(entity_player *Player, r32 ZAngle, r32 XAngle, r32 Sensi
         Player->CameraXRot = 180;
 }
 
+internal b32 TestWall(r32 WallX, r32 RelX, r32 RelY,      //
+                      r32 PlayerDeltaX, r32 PlayerDeltaY, //
+                      r32 *tMin, r32 MinY, r32 MaxY)
+{
+    b32 Hit = false;
+
+    r32 tEpsilon = 0.1f;
+    if(PlayerDeltaX != 0.0f)
+    {
+        r32 tResult = (WallX - RelX) / PlayerDeltaX;
+        r32 Y = RelY + tResult * PlayerDeltaY;
+        if((tResult >= 0.0f) && (*tMin > tResult))
+        {
+            if((Y >= MinY) && (Y <= MaxY))
+            {
+                *tMin = Maximum(0.0f, tResult - tEpsilon);
+                Hit = true;
+            }
+        }
+    }
+
+    return (Hit);
+}
+
 void MovePlayerEOM(entity_player *Player, v2 ddPFromKeys, r32 Speed, r32 dt)
 {
     // Rigid body dynamics (Динамика жесткого тела): F = d/dt (mv)
@@ -44,7 +68,7 @@ void MovePlayerEOM(entity_player *Player, v2 ddPFromKeys, r32 Speed, r32 dt)
     // x" = a  = a
 
     // исправление вектора ускорения при движении по диагонали
-    real32 ddPLength = LengthSq(ddPFromKeys);
+    r32 ddPLength = LengthSq(ddPFromKeys);
     if(ddPLength > 1.0f)
     {
         ddPFromKeys *= (1.0f / SquareRoot(ddPLength));
@@ -63,16 +87,105 @@ void MovePlayerEOM(entity_player *Player, v2 ddPFromKeys, r32 Speed, r32 dt)
     ddP += -1.0f * Player->dP;
 
     // New position: p' = (a/2)*t^2 + vt + p
-    v2 Delta = (0.5f * ddP * Square(dt) + Player->dP * dt);
+    v2 PlayerDelta = (0.5f * ddP * Square(dt) + Player->dP * dt);
 
     // Update velocity: v' = at + v
     Player->dP = ddP * dt + Player->dP;
 
     // Update position
-    v2 OldP = V2(Player->Position.x, Player->Position.y);
-    v2 NewP = OldP + Delta;
-    Player->Position.x = NewP.x;
-    Player->Position.y = NewP.y;
+    // v2 OldPlayerPos = V2(Player->Position.x, Player->Position.y);
+    // v2 NewPlayerPos = OldPlayerPos + PlayerDelta;
+    // Player->Position.x = NewPlayerPos.x;
+    // Player->Position.y = NewPlayerPos.y;
+    v2 NewPlayerPos = V2(Player->Position.x, Player->Position.y);
+
+    // TODO
+    // отрисовать кубы вокруг границ тиррейна и добавить с ними коллизии
+    // высота и ширина на плоскости XY
+
+    // NOTE(me): Minkowski Collision Detection
+    /*func collision(a : Shape, b : Shape)->bool
+    {
+        //
+        // shapes a and b collide if their center point
+        // is inside the minkowski sum shape
+        //
+        let m : Shape = minkowski_sum(a, b);
+        let p : Point = b.center();
+        return m.contains_point(p);
+    }*/
+
+    // границы тиррейна
+    v2 TerrainCenterPos = V2(-10.0f, -10.0f);
+    r32 TerrainSide = 10.0f;
+
+    r32 PlayerWidth = 0.5f;
+    r32 PlayerHeight = 0.5f;
+
+    for(u32 i = 0; i < 4; i++)
+    {
+        r32 tMin = 1.0f;
+        v2 WallNormal = {};
+        u32 HitHighEntityIndex = 0;
+
+        v2 DesiredPosition = NewPlayerPos + PlayerDelta;
+
+        r32 DiameterW = TerrainSide + PlayerWidth;
+        r32 DiameterH = TerrainSide + PlayerHeight;
+
+        v2 MinCorner = -0.5f * V2(DiameterW, DiameterH);
+        v2 MaxCorner = 0.5f * V2(DiameterW, DiameterH);
+
+        v2 Rel = NewPlayerPos - TerrainCenterPos;
+
+#if 1
+        if(TestWall(MinCorner.x, Rel.x, Rel.y,           //
+                    PlayerDelta.x, PlayerDelta.y, &tMin, //
+                    MinCorner.y, MaxCorner.y))
+        {
+            WallNormal = V2(-1, 0);
+            HitHighEntityIndex = 1;
+        }
+
+        if(TestWall(MaxCorner.x, Rel.x, Rel.y,           //
+                    PlayerDelta.x, PlayerDelta.y, &tMin, //
+                    MinCorner.y, MaxCorner.y))
+        {
+            WallNormal = v2{1, 0};
+            HitHighEntityIndex = 1;
+        }
+
+        if(TestWall(MinCorner.y, Rel.y, Rel.x,           //
+                    PlayerDelta.y, PlayerDelta.x, &tMin, //
+                    MinCorner.x, MaxCorner.x))
+        {
+            WallNormal = v2{0, -1};
+            HitHighEntityIndex = 1;
+        }
+
+        if(TestWall(MaxCorner.y, Rel.y, Rel.x,           //
+                    PlayerDelta.y, PlayerDelta.x, &tMin, //
+                    MinCorner.x, MaxCorner.x))
+        {
+            WallNormal = v2{0, 1};
+            HitHighEntityIndex = 1;
+        }
+#endif
+        NewPlayerPos += tMin * PlayerDelta;
+        Player->Position.x = NewPlayerPos.x;
+        Player->Position.y = NewPlayerPos.y;
+        if(HitHighEntityIndex == 1)
+        {
+            Player->dP = Player->dP - 1 * Inner(Player->dP, WallNormal) * WallNormal;
+            PlayerDelta = DesiredPosition - NewPlayerPos;
+            PlayerDelta = PlayerDelta - 1 * Inner(PlayerDelta, WallNormal) * WallNormal;
+        }
+        else
+        {
+            break;
+        }
+
+    }
 }
 
 void OGLSetCameraOnPlayer(entity_player *Player)

@@ -291,3 +291,60 @@ internal v3 *CreateInstancingTranslations(memory_arena *WorldArena, entity_envob
 
     return (Result);
 }
+
+internal loaded_model *CreateSquareModel(memory_arena *WorldArena)
+{
+    loaded_model *Result = PushStruct(WorldArena, loaded_model);
+
+    Result->Name = PushString(WorldArena, "SquareModel");
+
+    Result->MeshesCount = 1;
+
+    Result->Meshes = PushArray(WorldArena, Result->MeshesCount, single_mesh);
+
+    single_mesh *Mesh = &Result->Meshes[0];
+
+    Mesh->Name = PushString(WorldArena, "SquareMesh");
+
+    Mesh->VerticesCount = 4;
+
+    Mesh->Positions = PushArray(WorldArena, Mesh->VerticesCount, v3);
+    Mesh->Positions[0] = V3(-0.5, -0.5, 0);
+    Mesh->Positions[1] = V3(0.5, -0.5, 0);
+    Mesh->Positions[2] = V3(0.5, 0.5, 0);
+    Mesh->Positions[3] = V3(-0.5, 0.5, 0);
+
+    Mesh->TexCoords = PushArray(WorldArena, Mesh->VerticesCount, v2);
+    Mesh->TexCoords[0] = V2(0, 1);
+    Mesh->TexCoords[1] = V2(1, 1);
+    Mesh->TexCoords[2] = V2(1, 0);
+    Mesh->TexCoords[3] = V2(0, 0);
+
+    Mesh->IndicesCount = 6;
+    Mesh->Indices = PushArray(WorldArena, Mesh->IndicesCount, u32);
+    Mesh->Indices[0] = 0;
+    Mesh->Indices[1] = 1;
+    Mesh->Indices[2] = 2;
+    Mesh->Indices[3] = 2;
+    Mesh->Indices[4] = 3;
+    Mesh->Indices[5] = 0;
+
+    Mesh->Normals = PushArray(WorldArena, Mesh->VerticesCount, v3);
+    for(u32 i = 0; i < Mesh->VerticesCount; i++)
+    {
+        Mesh->Normals[i] = V3(0, 0, 1);
+    }
+
+    Mesh->WithMaterial = true;
+    Mesh->Material.Ambient = V4(0.2f, 0.2f, 0.2f, 1.0f);
+    Mesh->Material.Diffuse = V4(0.8f, 0.8f, 0.8f, 1.0f);
+    Mesh->Material.Specular = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Mesh->Material.Emission = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Mesh->Material.Shininess = 0.0f;
+
+    Mesh->Material.WithTexture = true;
+    Mesh->Material.TextureName = PushString(WorldArena, "clip.png");
+    Mesh->Material.Texture = LoadTexture(&Mesh->Material.TextureName);
+
+    return (Result);
+}

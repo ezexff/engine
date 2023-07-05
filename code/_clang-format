@@ -1,6 +1,6 @@
 ﻿---
+Language: Cpp
+AlignAfterOpenBracket: Align
 BasedOnStyle: Microsoft
 SortIncludes: 'false'
 SpaceBeforeParens: Never
-
-...
