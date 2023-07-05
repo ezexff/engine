@@ -1,6 +1,7 @@
 # C++ Game Engine
 Игровой движок, написанный на C++. Проект имеет кросплатформерную структуру (слой платформы и игровой код независимы друг от друга), а так же использует библиотеки [GLFW](https://www.glfw.org/), [ImGui](https://github.com/ocornut/imgui), [Glad](https://github.com/Dav1dde/glad) и [stb_image](https://github.com/nothings/stb).<br><br>
-![C++ Game Engine screenshot](https://i.imgur.com/vRpIoxd.png)
+![C++ Game Engine screenshot 1](https://i.imgur.com/vRpIoxd.png)
+![C++ Game Engine screenshot 2](https://i.imgur.com/icJtm0k.png)
 <details>
 <summary>Скриншоты прошлых версий</summary>
 <img src="https://i.imgur.com/gW81zeb.png" alt="C++ Game Engine screenshot">
@@ -37,6 +38,8 @@
 * Система рендеринга (рендер объектов окружения, списка мешей, через один VBO)
 * Шейдеры для рендера мешей с учётом текстур, материалов, источников освещения
 *	Меню настроек в ImGui (режим отображения окна и чувствительность мыши, параметры источников света)
+*	Тестовая версия инстансинга (для травы)
+*	Тестовая версия обнаружения коллизий
 
 ## Сборка проекта в Visual Studio через build.bat
 1.  Укажите во второй строке файла [build.bat](code/build.bat) свой путь до **vcvarsall.bat**
