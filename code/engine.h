@@ -37,6 +37,8 @@ struct app_settings
 
     b32 RBCappedIsActive;
     b32 RBUncappedIsActive;
+
+    b32 RBVSyncIsActive;
 };
 
 struct game_state

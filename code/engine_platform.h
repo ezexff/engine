@@ -87,11 +87,11 @@ extern "C"
         // TODO(me): переделать?
         game_button_state MouseButtons[PlatformMouseButton_Count];
         r32 MouseX, MouseY, MouseZ;
-        //b32 ShiftDown, AltDown, ControlDown;
+        // b32 ShiftDown, AltDown, ControlDown;
 
         r32 MouseOffsetX, MouseOffsetY;
-        //r32 MouseCenterDiffX, MouseCenterDiffY;
-        //r32 MouseCenterX, MouseCenterY;
+        // r32 MouseCenterDiffX, MouseCenterDiffY;
+        // r32 MouseCenterX, MouseCenterY;
         b32 ShowMouseCursorMode;
 
         bool32 ExecutableReloaded;
@@ -107,6 +107,9 @@ extern "C"
 #define PLATFORM_TOGGLE_FRAMERATE_CAP(name) void name(void)
     typedef PLATFORM_TOGGLE_FRAMERATE_CAP(platform_toggle_framerate_cap);
 
+#define PLATFORM_TOGGLE_VSYNC(name) void name(void)
+    typedef PLATFORM_TOGGLE_VSYNC(platform_toggle_vsync);
+
     typedef struct platform_api
     {
         platform_toggle_fullscreen *ToggleFullscreen;
@@ -114,6 +117,8 @@ extern "C"
         platform_set_framerate *SetFrameRate;
 
         platform_toggle_framerate_cap *ToggleFrameRateCap;
+
+        platform_toggle_vsync *ToggleVSync;
     } platform_api;
 
     typedef struct game_memory

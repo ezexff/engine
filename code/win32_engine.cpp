@@ -17,7 +17,7 @@
 // TODO(me): запаковать все переменные в win32_state структуру?
 global_variable b32 GlobalIsWindowMode = true;
 global_variable b32 GlobalShowMouseCursor = true;
-global_variable b32 MouseCursorInit = true;
+global_variable b32 MouseCursorInited = true;
 global_variable b32 MousePosChanged = false;
 
 game_controller_input *NewKeyboardController;
@@ -27,7 +27,8 @@ global_variable r32 DeltaTime = 0.0f;
 global_variable r32 LastTime = 0.0f;
 
 global_variable b32 GlobalUncappedFrameRate = false;
-global_variable s32 MaximumFrameRate = 60;
+global_variable s32 GlobalMaxFrameRate = 60;
+global_variable b32 GlobalIsVSyncEnabled = false;
 // game_controller_input *KeyboardController = &Input.Controllers[0];
 
 // #pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
@@ -42,12 +43,18 @@ global_variable s32 MaximumFrameRate = 60;
 
 PLATFORM_TOGGLE_FRAMERATE_CAP(PlatformToggleFrameRateCap)
 {
-    GlobalUncappedFrameRate = !GlobalUncappedFrameRate;
+    GlobalUncappedFrameRate = !GlobalUncappedFrameRate;   
+}
+
+PLATFORM_TOGGLE_VSYNC(PlatformToggleVSync)
+{
+    GlobalIsVSyncEnabled = !GlobalIsVSyncEnabled;
+    glfwSwapInterval(GlobalIsVSyncEnabled);
 }
 
 PLATFORM_SET_FRAMERATE(PlatformSetFrameRate)
 {
-    MaximumFrameRate = NewFrameRate;
+    GlobalMaxFrameRate = NewFrameRate;
 }
 
 PLATFORM_TOGGLE_FULLSCREEN(PlatformToggleFullscreen)
@@ -80,11 +87,11 @@ internal void GlfwProcessKey(int32 Key, int32 KeyCode, int32 Action, game_button
 
 internal void CursorPositionCallback(GLFWwindow *Window, double XPos, double YPos)
 {
-    if(MouseCursorInit)
+    if(MouseCursorInited)
     {
         MouseLastX = (r32)XPos;
         MouseLastY = (r32)YPos;
-        MouseCursorInit = false;
+        MouseCursorInited = false;
     }
 
     MouseOffsetX = (r32)XPos - MouseLastX;
@@ -183,7 +190,7 @@ int main(int, char **)
     glfwSetCursorPosCallback(Window, CursorPositionCallback);
     glfwSetKeyCallback(Window, KeyCallback);
     glfwMakeContextCurrent(Window);
-    glfwSwapInterval(0); // Enable vsync
+    glfwSwapInterval(GlobalIsVSyncEnabled); // Enable vsync
 
     // Glad
     if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -250,6 +257,7 @@ int main(int, char **)
     GameMemory.PlatformAPI.ToggleFullscreen = PlatformToggleFullscreen;
     GameMemory.PlatformAPI.SetFrameRate = PlatformSetFrameRate;
     GameMemory.PlatformAPI.ToggleFrameRateCap = PlatformToggleFrameRateCap;
+    GameMemory.PlatformAPI.ToggleVSync = PlatformToggleVSync;
 #endif
 
     Win32State.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
@@ -270,7 +278,7 @@ int main(int, char **)
             r32 CurrentTime = (r32)glfwGetTime();
             DeltaTime = CurrentTime - LastTime;
 
-            r32 MaximumMS = 1.0f / MaximumFrameRate;
+            r32 MaximumMS = 1.0f / GlobalMaxFrameRate;
             if(DeltaTime >= MaximumMS || GlobalUncappedFrameRate)
             {
                 LastTime = CurrentTime;

@@ -40,6 +40,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Settings->NewFrameRate = 60;
         Settings->RBCappedIsActive = true;
         Settings->RBUncappedIsActive = false;
+        Settings->RBVSyncIsActive = false;
 
         GameState->Player = PushStruct(&GameState->WorldArena, entity_player);
         entity_player *Player = GameState->Player;
@@ -547,30 +548,67 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             }
             ImGui::Spacing();
 
-            b32 ChangeFrameRateMode = false;
+            b32 ToggleFrameRateCap = false;
+            b32 ToggleVSync = false;
             ImGui::Text("Change Frame Rate Mode");
             ImGui::SameLine();
             if(ImGui::RadioButton("Capped", Settings->RBCappedIsActive))
             {
-                if(!Settings->RBCappedIsActive) // если rb1 выключена и произошло нажатие
+                if(!Settings->RBCappedIsActive)
                 {
-                    Settings->RBCappedIsActive = true;    // включаем rb1
-                    Settings->RBUncappedIsActive = false; // выключаем rb2
-                    ChangeFrameRateMode = true;
+                    if(Settings->RBUncappedIsActive)
+                    {
+                        ToggleFrameRateCap = true;
+                    }
+                    if(Settings->RBVSyncIsActive)
+                    {
+                        ToggleVSync = true;
+                        ToggleFrameRateCap = true;
+                    }
+                    Settings->RBCappedIsActive = true;
+                    Settings->RBUncappedIsActive = false;
+                    Settings->RBVSyncIsActive = false;
                 }
             }
             ImGui::SameLine();
             if(ImGui::RadioButton("Uncapped", Settings->RBUncappedIsActive))
             {
-                if(!Settings->RBUncappedIsActive) // если rb2 выключена и произошло нажатие
+                if(!Settings->RBUncappedIsActive)
                 {
-                    Settings->RBUncappedIsActive = true; // включаем rb2
-                    Settings->RBCappedIsActive = false;  // выключаем rb2
-                    ChangeFrameRateMode = true;
+                    if(Settings->RBCappedIsActive)
+                    {
+                        ToggleFrameRateCap = true;
+                    }
+                    if(Settings->RBVSyncIsActive)
+                    {
+                        ToggleVSync = true;
+                    }
+                    Settings->RBCappedIsActive = false;
+                    Settings->RBUncappedIsActive = true;
+                    Settings->RBVSyncIsActive = false;
+                }
+            }
+            ImGui::SameLine();
+            if(ImGui::RadioButton("VSync", Settings->RBVSyncIsActive))
+            {
+                if(!Settings->RBVSyncIsActive)
+                {
+                    if(Settings->RBCappedIsActive)
+                    {
+                        ToggleFrameRateCap = true;
+                    }
+                    Settings->RBUncappedIsActive = false;
+                    Settings->RBCappedIsActive = false;
+                    Settings->RBVSyncIsActive = true;
+                    ToggleVSync = true;
                 }
             }
 
-            if(ChangeFrameRateMode)
+            if(ToggleVSync)
+            {
+                Platform.ToggleVSync();
+            }
+            if(ToggleFrameRateCap)
             {
                 Platform.ToggleFrameRateCap();
             }
@@ -692,6 +730,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
     glEnable(GL_ALPHA_TEST);
     glAlphaFunc(GL_GREATER, 0.01f);
+
+    glEnable(GL_NORMALIZE);
 
     RenderVBOs(Window, Render, Player);
 #endif
