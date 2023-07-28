@@ -53,7 +53,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         // NOTE(me): Источники света
         //
         // directional light
-        Render->DirLight.Base.Color = V3(1.0f, 1.0f, 1.0f);
+        Render->DirLight.Base.Color = V3(0.01f, 0.01f, 0.01f);
         Render->DirLight.Base.AmbientIntensity = 0.1f;
         Render->DirLight.Base.DiffuseIntensity = 1.0f;
         Render->DirLight.WorldDirection = V3(1.0f, 0.0f, -1.0f);
@@ -63,8 +63,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->PointLights = PushArray(&GameState->WorldArena, Render->PointLightsCount, point_light);
         Render->PointLights[0].Base.Color = V3(0.0f, 0.0f, 1.0f);
         Render->PointLights[0].Base.AmbientIntensity = 1.0f;
-        Render->PointLights[0].Base.DiffuseIntensity = 1.0f;
-        Render->PointLights[0].WorldPosition = V3(0.0f, 0.0f, 1.0f);
+        Render->PointLights[0].Base.DiffuseIntensity = 4.0f;
+        Render->PointLights[0].WorldPosition = V3(3.0f, 3.0f, 1.0f);
         Render->PointLights[0].Atten.Constant = 1.0f;
         Render->PointLights[0].Atten.Linear = 0.1f; // 0.0f
         Render->PointLights[0].Atten.Exp = 0.0f;    // 0.0f
@@ -102,7 +102,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->SpotLights[0].Base.Base.Color = V3(1.0f, 0.0f, 0.0f);
         Render->SpotLights[0].Base.Base.AmbientIntensity = 1.0f;
         Render->SpotLights[0].Base.Base.DiffuseIntensity = 1.0f;
-        Render->SpotLights[0].Base.WorldPosition = V3(0.0f, 0.0f, 2.0f);
+        Render->SpotLights[0].Base.WorldPosition = V3(3.0f, 10.0f, 2.0f);
         Render->SpotLights[0].Base.Atten.Constant = 1.0f;
         Render->SpotLights[0].Base.Atten.Linear = 0.01f;
         Render->SpotLights[0].Base.Atten.Exp = 0.0f;
@@ -160,20 +160,21 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[EnvIndex]->Model = CreateTerrainModel(&GameState->WorldArena);
         EnvIndex++;
 
-        // куб- маркер позиции точечного источника освещения
+        // маркер позиции точечного источника освещения
         GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 0.1f;
-        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 1.0f;
+        GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
         GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_cube.spm");
+        // GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_cube.spm");
+        GameState->EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(&GameState->WorldArena, "lamp.png");
         EnvIndex++;
 
-        // куб-маркер позиции прожектора
+        // маркер позиции прожектора
         GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 0.1f;
-        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 1.0f;
+        GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
         GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
         GameState->EnvObjects[EnvIndex]->Model = GameState->EnvObjects[1]->Model;
         EnvIndex++;
@@ -590,6 +591,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
         if(ImGui::CollapsingHeader("Light"))
         {
+            /*
             ImGui::Text("Directional");
             ImGui::SliderFloat("DLPosX", &Render->DirLight.WorldDirection.x, -50.0f, 50.0f);
             ImGui::SliderFloat("DLPosY", &Render->DirLight.WorldDirection.y, -50.0f, 50.0f);
@@ -607,6 +609,34 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::SliderFloat("SLPosX", &Render->SpotLights[0].Base.WorldPosition.x, -50.0f, 50.0f);
             ImGui::SliderFloat("SLPosY", &Render->SpotLights[0].Base.WorldPosition.y, -50.0f, 50.0f);
             ImGui::SliderFloat("SLPosZ", &Render->SpotLights[0].Base.WorldPosition.z, -50.0f, 50.0f);
+            */
+
+            ImGui::Text("Directional");
+            ImGui::InputFloat("DLPosX", &Render->DirLight.WorldDirection.x, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("DLPosY", &Render->DirLight.WorldDirection.y, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("DLPosZ", &Render->DirLight.WorldDirection.z, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("DLAmbientIntensity", &Render->DirLight.Base.AmbientIntensity, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("DLDiffuseIntensity", &Render->DirLight.Base.DiffuseIntensity, 0.5, 2, "%.10f", 0);
+            ImGui::ColorEdit3("DLColor", (float *)&Render->DirLight.Base.Color.E);
+            ImGui::Spacing();
+
+            ImGui::Text("Point");
+            ImGui::InputFloat("PLPosX", &Render->PointLights[0].WorldPosition.x, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("PLPosY", &Render->PointLights[0].WorldPosition.y, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("PLPosZ", &Render->PointLights[0].WorldPosition.z, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("PLAmbientIntensity", &Render->PointLights[0].Base.AmbientIntensity, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("PLDiffuseIntensity", &Render->PointLights[0].Base.DiffuseIntensity, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("PLConstant", &Render->PointLights[0].Atten.Constant, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("PLLinear", &Render->PointLights[0].Atten.Linear, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("PLExp", &Render->PointLights[0].Atten.Exp, 0.5, 2, "%.10f", 0);
+            ImGui::ColorEdit3("PLColor", (float *)&Render->PointLights[0].Base.Color.E);
+            ImGui::Spacing();
+
+            ImGui::Text("Spot");
+            ImGui::InputFloat("SLPosX", &Render->SpotLights[0].Base.WorldPosition.x, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("SLPosY", &Render->SpotLights[0].Base.WorldPosition.y, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("SLPosZ", &Render->SpotLights[0].Base.WorldPosition.z, 0.5, 2, "%.10f", 0);
+            ImGui::ColorEdit3("SLColor", (float *)&Render->SpotLights[0].Base.Base.Color.E);
         }
 
         ImGui::End();
