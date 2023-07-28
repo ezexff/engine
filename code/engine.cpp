@@ -35,8 +35,11 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->Settings = PushStruct(&GameState->WorldArena, app_settings);
         app_settings *Settings = GameState->Settings;
         Settings->RBFullscreenIsActive = false;
-        Settings->RBWindowedIsActive = false;
+        Settings->RBWindowedIsActive = true;
         Settings->MouseSensitivity = 50.0;
+        Settings->NewFrameRate = 60;
+        Settings->RBCappedIsActive = true;
+        Settings->RBUncappedIsActive = false;
 
         GameState->Player = PushStruct(&GameState->WorldArena, entity_player);
         entity_player *Player = GameState->Player;
@@ -264,17 +267,29 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[EnvIndex]->Model = CreateGrassModel(&GameState->WorldArena);
         EnvIndex++;
 
-        // clip texture
-        GameState->EnvObjects[EnvIndex]->Position = V3(-10.0f, -10.0f, 0.0f);
-        GameState->EnvObjects[EnvIndex]->Scale = 10.0f; // diameter
+        // clip wall texture
+        GameState->EnvObjects[EnvIndex]->Position = V3(-50.0f, 50.0f, 0.0f);
+        GameState->EnvObjects[EnvIndex]->Scale = 98.0f; // diameter
+        // GameState->EnvObjects[EnvIndex]->Position = V3(-10.0f, -10.0f, 0.0f);
+        // GameState->EnvObjects[EnvIndex]->Scale = 10.0f; // diameter
         GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
         GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        GameState->EnvObjects[EnvIndex]->Model = CreateSquareModel(&GameState->WorldArena);
+        GameState->EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(&GameState->WorldArena, "clip.png");
+        EnvIndex++;
+
+        // clip player texture
+        // GameState->EnvObjects[EnvIndex]->Position = V3(-10.0f, -10.0f, 0.0f);
+        GameState->EnvObjects[EnvIndex]->Position = V3(0.0f, 0.0f, 0.0f);
+        GameState->EnvObjects[EnvIndex]->Scale = 0.05f; // diameter
+        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
+        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(&GameState->WorldArena, "clip.png");
         EnvIndex++;
 
         // высота объектов окружения на ландшафте
-        //for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
+        // for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
         for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
         {
             GameState->EnvObjects[i]->Position.z +=
@@ -399,6 +414,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     // Перемещение кубов-маркеров в положение источников света
     GameState->EnvObjects[1]->Position = Render->PointLights[0].WorldPosition;
     GameState->EnvObjects[2]->Position = Render->SpotLights[0].Base.WorldPosition;
+    GameState->EnvObjects[14]->Position = Player->Position;
 
     // Обработка анимаций
     if(Render->Animator.Timer > 0.0f)
@@ -485,7 +501,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
         if(ImGui::CollapsingHeader("Variables"))
         {
-            ImGui::Text("PlayerPos=%f,%f,%f", Player->Position.x, Player->Position.y, Player->Position.z);
+            ImGui::Text("PlayerPos=%.10f,%.10f,%.10f", Player->Position.x, Player->Position.y, Player->Position.z);
             ImGui::Text("CursorPos=%f,%f", Input->MouseX, Input->MouseY);
             ImGui::Text("dtForFrame=%f", Input->dtForFrame);
             ImGui::Text("MOffset=%f,%f", Input->MouseOffsetX, Input->MouseOffsetY);
@@ -528,8 +544,46 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             }
             ImGui::Spacing();
 
+            b32 ChangeFrameRateMode = false;
+            ImGui::Text("Change Frame Rate Mode");
+            ImGui::SameLine();
+            if(ImGui::RadioButton("Capped", Settings->RBCappedIsActive))
+            {
+                if(!Settings->RBCappedIsActive) // если rb1 выключена и произошло нажатие
+                {
+                    Settings->RBCappedIsActive = true;    // включаем rb1
+                    Settings->RBUncappedIsActive = false; // выключаем rb2
+                    ChangeFrameRateMode = true;
+                }
+            }
+            ImGui::SameLine();
+            if(ImGui::RadioButton("Uncapped", Settings->RBUncappedIsActive))
+            {
+                if(!Settings->RBUncappedIsActive) // если rb2 выключена и произошло нажатие
+                {
+                    Settings->RBUncappedIsActive = true; // включаем rb2
+                    Settings->RBCappedIsActive = false;  // выключаем rb2
+                    ChangeFrameRateMode = true;
+                }
+            }
+
+            if(ChangeFrameRateMode)
+            {
+                Platform.ToggleFrameRateCap();
+            }
+            ImGui::Spacing();
+
+            // TODO(me): vsync/unlimited fps/custom fps???
+            if(Settings->RBCappedIsActive)
+            {
+                ImGui::Text("Set FrameRate");
+                ImGui::SliderInt("##FrameRate", &Settings->NewFrameRate, 60, 240);
+                Platform.SetFrameRate(Settings->NewFrameRate);
+            }
+            ImGui::Spacing();
+
             ImGui::Text("Change Mouse Sensitivity");
-            ImGui::SliderFloat("##MouseSensitivity", &Settings->MouseSensitivity, 0.0f, 1.0f);
+            ImGui::SliderFloat("##MouseSensitivity", &Settings->MouseSensitivity, 0.0f, 100.0f);
         }
 
         if(ImGui::CollapsingHeader("Light"))

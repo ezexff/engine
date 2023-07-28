@@ -1,6 +1,6 @@
 #include <windows.h>
-//#define GLEW_STATIC
-//#include <GL/glew.h>
+// #define GLEW_STATIC
+// #include <GL/glew.h>
 #include <glad.c>
 #include <GLFW/glfw3.h>
 
@@ -24,18 +24,31 @@ game_controller_input *NewKeyboardController;
 global_variable r32 MouseOffsetX, MouseOffsetY;
 global_variable r32 MouseLastX, MouseLastY;
 global_variable r32 DeltaTime = 0.0f;
-global_variable r32 LastFrame = 0.0f;
+global_variable r32 LastTime = 0.0f;
+
+global_variable b32 GlobalUncappedFrameRate = false;
+global_variable s32 MaximumFrameRate = 60;
 // game_controller_input *KeyboardController = &Input.Controllers[0];
 
-//#pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
+// #pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
 
 // [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to maximize ease of testing and
 // compatibility with old VS compilers. To link with VS2010-era libraries, VS2015+ requires linking with
 // legacy_stdio_definitions.lib, which we do using this pragma. Your own project should not be affected, as you are
 // likely to link with a newer binary of GLFW that is adequate for your version of Visual Studio.
-//#if defined(_MSC_VER) && (_MSC_VER >= 1900) && !defined(IMGUI_DISABLE_WIN32_FUNCTIONS)
-//#pragma comment(lib, "legacy_stdio_definitions")
-//#endif
+// #if defined(_MSC_VER) && (_MSC_VER >= 1900) && !defined(IMGUI_DISABLE_WIN32_FUNCTIONS)
+// #pragma comment(lib, "legacy_stdio_definitions")
+// #endif
+
+PLATFORM_TOGGLE_FRAMERATE_CAP(PlatformToggleFrameRateCap)
+{
+    GlobalUncappedFrameRate = !GlobalUncappedFrameRate;
+}
+
+PLATFORM_SET_FRAMERATE(PlatformSetFrameRate)
+{
+    MaximumFrameRate = NewFrameRate;
+}
 
 PLATFORM_TOGGLE_FULLSCREEN(PlatformToggleFullscreen)
 {
@@ -157,8 +170,8 @@ int main(int, char **)
     const char *glsl_version = "#version 330";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-    // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
+    // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
+    //  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
 
     // Create window with graphics context
@@ -235,6 +248,8 @@ int main(int, char **)
 
 #if ENGINE_INTERNAL
     GameMemory.PlatformAPI.ToggleFullscreen = PlatformToggleFullscreen;
+    GameMemory.PlatformAPI.SetFrameRate = PlatformSetFrameRate;
+    GameMemory.PlatformAPI.ToggleFrameRateCap = PlatformToggleFrameRateCap;
 #endif
 
     Win32State.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
@@ -252,52 +267,57 @@ int main(int, char **)
         // Main loop
         while(!glfwWindowShouldClose(Window))
         {
-            r32 CurrentFrame = (r32)glfwGetTime();
-            DeltaTime = CurrentFrame - LastFrame;
-            LastFrame = CurrentFrame;
-            Input->dtForFrame = DeltaTime;
+            r32 CurrentTime = (r32)glfwGetTime();
+            DeltaTime = CurrentTime - LastTime;
 
-            NewInput->MouseX = MouseLastX;
-            NewInput->MouseY = MouseLastY;
-            NewInput->MouseZ = 0.0f;
-            if(MousePosChanged)
+            r32 MaximumMS = 1.0f / MaximumFrameRate;
+            if(DeltaTime >= MaximumMS || GlobalUncappedFrameRate)
             {
-                NewInput->MouseOffsetX = MouseOffsetX * Input->dtForFrame;
-                NewInput->MouseOffsetY = MouseOffsetY * Input->dtForFrame;
-                MousePosChanged = false;
+                LastTime = CurrentTime;
+                Input->dtForFrame = DeltaTime;
+
+                NewInput->MouseX = MouseLastX;
+                NewInput->MouseY = MouseLastY;
+                NewInput->MouseZ = 0.0f;
+                if(MousePosChanged)
+                {
+                    NewInput->MouseOffsetX = MouseOffsetX * Input->dtForFrame;
+                    NewInput->MouseOffsetY = MouseOffsetY * Input->dtForFrame;
+                    MousePosChanged = false;
+                }
+                else
+                {
+                    NewInput->MouseOffsetX = 0.0f;
+                    NewInput->MouseOffsetY = 0.0f;
+                }
+                NewInput->ShowMouseCursorMode = GlobalShowMouseCursor;
+
+                game_controller_input *OldKeyboardController = GetController(OldInput, 0);
+                NewKeyboardController = GetController(NewInput, 0);
+                *NewKeyboardController = {};
+                NewKeyboardController->IsConnected = true;
+                for(int ButtonIndex = 0; ButtonIndex < ArrayCount(NewKeyboardController->Buttons); ++ButtonIndex)
+                {
+                    NewKeyboardController->Buttons[ButtonIndex].EndedDown =
+                        OldKeyboardController->Buttons[ButtonIndex].EndedDown;
+                }
+
+                // Poll and handle events (inputs, window resize, etc.)
+                // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use
+                // your inputs.
+                // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or
+                // clear/overwrite your copy of the mouse data.
+                // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application,
+                // or clear/overwrite your copy of the keyboard data. Generally you may always pass all inputs to dear
+                // imgui, and hide them from your application based on those two flags.
+                glfwPollEvents();
+
+                EngineUpdateAndRender(Window, &GameMemory, NewInput);
+
+                game_input *Temp = NewInput;
+                NewInput = OldInput;
+                OldInput = Temp;
             }
-            else
-            {
-                NewInput->MouseOffsetX = 0.0f;
-                NewInput->MouseOffsetY = 0.0f;
-            }
-            NewInput->ShowMouseCursorMode = GlobalShowMouseCursor;
-
-            game_controller_input *OldKeyboardController = GetController(OldInput, 0);
-            NewKeyboardController = GetController(NewInput, 0);
-            *NewKeyboardController = {};
-            NewKeyboardController->IsConnected = true;
-            for(int ButtonIndex = 0; ButtonIndex < ArrayCount(NewKeyboardController->Buttons); ++ButtonIndex)
-            {
-                NewKeyboardController->Buttons[ButtonIndex].EndedDown =
-                    OldKeyboardController->Buttons[ButtonIndex].EndedDown;
-            }
-
-            // Poll and handle events (inputs, window resize, etc.)
-            // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use
-            // your inputs.
-            // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or
-            // clear/overwrite your copy of the mouse data.
-            // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or
-            // clear/overwrite your copy of the keyboard data. Generally you may always pass all inputs to dear imgui,
-            // and hide them from your application based on those two flags.
-            glfwPollEvents();
-
-            EngineUpdateAndRender(Window, &GameMemory, NewInput);
-
-            game_input *Temp = NewInput;
-            NewInput = OldInput;
-            OldInput = Temp;
         }
     }
 

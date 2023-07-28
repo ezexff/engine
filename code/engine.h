@@ -1,7 +1,6 @@
 /*
     TODO(me): переделать OldKeyboardController?
     TODO(me): поддержка джостика?
-
 */
 
 #include "imgui.h"
@@ -16,12 +15,13 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-//#include "ode/ode.h"
+// #include "ode/ode.h"
 #include "engine_asset.h"
 #include "engine_entity.h"
 #include "engine_render.h"
 #include "engine_world.h"
 // TODO(me): на слой платформы?
+#include "gjk.c"
 
 global_variable platform_api Platform;
 
@@ -32,6 +32,11 @@ struct app_settings
     // Display Mode radio buttons state
     b32 RBFullscreenIsActive;
     b32 RBWindowedIsActive;
+
+    s32 NewFrameRate;
+
+    b32 RBCappedIsActive;
+    b32 RBUncappedIsActive;
 };
 
 struct game_state

@@ -101,9 +101,19 @@ extern "C"
 #define PLATFORM_TOGGLE_FULLSCREEN(name) void name(GLFWwindow *Window)
     typedef PLATFORM_TOGGLE_FULLSCREEN(platform_toggle_fullscreen);
 
+#define PLATFORM_SET_FRAMERATE(name) void name(s32 NewFrameRate)
+    typedef PLATFORM_SET_FRAMERATE(platform_set_framerate);
+
+#define PLATFORM_TOGGLE_FRAMERATE_CAP(name) void name(void)
+    typedef PLATFORM_TOGGLE_FRAMERATE_CAP(platform_toggle_framerate_cap);
+
     typedef struct platform_api
     {
         platform_toggle_fullscreen *ToggleFullscreen;
+
+        platform_set_framerate *SetFrameRate;
+
+        platform_toggle_framerate_cap *ToggleFrameRateCap;
     } platform_api;
 
     typedef struct game_memory

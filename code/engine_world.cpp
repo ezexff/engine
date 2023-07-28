@@ -292,11 +292,11 @@ internal v3 *CreateInstancingTranslations(memory_arena *WorldArena, entity_envob
     return (Result);
 }
 
-internal loaded_model *CreateSquareModel(memory_arena *WorldArena)
+internal loaded_model *CreateTexturedSquareModel(memory_arena *WorldArena, char *TextureName)
 {
     loaded_model *Result = PushStruct(WorldArena, loaded_model);
 
-    Result->Name = PushString(WorldArena, "SquareModel");
+    Result->Name = PushString(WorldArena, "TexturedSquareModel");
 
     Result->MeshesCount = 1;
 
@@ -343,7 +343,7 @@ internal loaded_model *CreateSquareModel(memory_arena *WorldArena)
     Mesh->Material.Shininess = 0.0f;
 
     Mesh->Material.WithTexture = true;
-    Mesh->Material.TextureName = PushString(WorldArena, "clip.png");
+    Mesh->Material.TextureName = PushString(WorldArena, TextureName);
     Mesh->Material.Texture = LoadTexture(&Mesh->Material.TextureName);
 
     return (Result);
