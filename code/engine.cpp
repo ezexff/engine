@@ -43,7 +43,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
         GameState->Player = PushStruct(&GameState->WorldArena, entity_player);
         entity_player *Player = GameState->Player;
-        Player->Position = V3(5, 5, 0);
+        Player->Position = V3(-5, 5, 0);
         Player->dP = V2(0, 0);
         Player->CameraXRot = 90.0f;
         Player->CameraZRot = -45.0f;
@@ -501,7 +501,9 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
         if(ImGui::CollapsingHeader("Variables"))
         {
-            ImGui::Text("PlayerPos=%.10f,%.10f,%.10f", Player->Position.x, Player->Position.y, Player->Position.z);
+            ImGui::InputFloat("Player X", &Player->Position.x, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("Player Y", &Player->Position.y, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("Player Z", &Player->Position.z, 0.5, 2, "%.10f", 0);
             ImGui::Text("CursorPos=%f,%f", Input->MouseX, Input->MouseY);
             ImGui::Text("dtForFrame=%f", Input->dtForFrame);
             ImGui::Text("MOffset=%f,%f", Input->MouseOffsetX, Input->MouseOffsetY);
