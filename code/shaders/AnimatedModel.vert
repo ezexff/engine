@@ -45,21 +45,21 @@ void main()
         BoneTransform += gBones[BoneIDs[3]] * Weights[3];
 
         PosL = BoneTransform * vec4(Position, 1.0);
+
+        BoneIDs0 = BoneIDs;
+        Weights0 = Weights;
     }
 
     if(WithOffset)
     {
         vec3 Offset = Offsets[gl_InstanceID];
-        //vec3 Offset = Offsets[0];
         PosL += vec4(Offset, 0.0);
     }
 
     gl_Position = MatProj * MatView * MatModel * PosL;
     TexCoord0 = TexCoord;
-    //Normal0 = Normal;
+    // Normal0 = Normal;
     Normal0 = (MatModel * vec4(Normal, 0.0)).xyz; // преобразование нормали из локальной в мировую систему координат
     // Tangent0 = (MatModel * vec4(Tangent, 0.0)).xyz;
-    WorldPos0 = (MatModel * vec4(Position, 1.0)).xyz;
-    BoneIDs0 = BoneIDs;
-    Weights0 = Weights;
+    WorldPos0 = (MatModel * PosL).xyz;
 }

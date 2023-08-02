@@ -265,11 +265,18 @@ internal loaded_model *CreateGrassModel(memory_arena *WorldArena)
     }
 
     Mesh->WithMaterial = true;
+    /*
     Mesh->Material.Ambient = V4(0.0f, 0.0f, 0.0f, 1.0f);
     Mesh->Material.Diffuse = V4(0.1f, 0.35f, 0.1f, 1.0f);
     Mesh->Material.Specular = V4(0.45f, 0.55f, 0.45f, 1.0f);
     Mesh->Material.Emission = V4(0.0f, 0.0f, 0.0f, 1.0f);
     Mesh->Material.Shininess = 0.25f;
+     */
+    Mesh->Material.Ambient = V4(0.2f, 0.2f, 0.2f, 1.0f);
+    Mesh->Material.Diffuse = V4(0.8f, 0.8f, 0.8f, 1.0f);
+    Mesh->Material.Specular = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Mesh->Material.Emission = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Mesh->Material.Shininess = 0.0f;
 
     Mesh->Material.WithTexture = true;
     Mesh->Material.TextureName = PushString(WorldArena, "trava.png");
