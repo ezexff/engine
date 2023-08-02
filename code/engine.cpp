@@ -83,7 +83,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Base.DiffuseIntensity", i);
             Render->PLVarNames[i].VarNames[2] = PushStringZ(&GameState->WorldArena, TmpName);
 
-            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].LocalPos", i);
+            _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].WorldPos", i);
             Render->PLVarNames[i].VarNames[3] = PushStringZ(&GameState->WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Atten.Constant", i);
@@ -124,7 +124,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Base.DiffuseIntensity", i);
             Render->SLVarNames[i].VarNames[2] = PushStringZ(&GameState->WorldArena, TmpName);
 
-            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.LocalPos", i);
+            _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.WorldPos", i);
             Render->SLVarNames[i].VarNames[3] = PushStringZ(&GameState->WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Atten.Constant", i);
@@ -233,7 +233,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         EnvIndex++;
 
         // страж (анимированный)
-        GameState->EnvObjects[EnvIndex]->Position = V3(5, 2, 0);
+        GameState->EnvObjects[EnvIndex]->Position = V3(5, 10 + 2, 0);
         GameState->EnvObjects[EnvIndex]->Scale = 0.1f;
         GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
         GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
@@ -241,7 +241,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_guard.spm");
         EnvIndex++;
 
-        GameState->EnvObjects[EnvIndex]->Position = V3(5 + 3, 2, 0);
+        GameState->EnvObjects[EnvIndex]->Position = V3(5 + 3, 10 + 2, 0);
         GameState->EnvObjects[EnvIndex]->Scale = 0.1f;
         GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
         GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
@@ -249,7 +249,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[EnvIndex]->Model = GameState->EnvObjects[9]->Model;
         EnvIndex++;
 
-        GameState->EnvObjects[EnvIndex]->Position = V3(5 + 6, 2, 0);
+        GameState->EnvObjects[EnvIndex]->Position = V3(5 + 6, 10 + 2, 0);
         GameState->EnvObjects[EnvIndex]->Scale = 0.1f;
         GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
         GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
@@ -270,7 +270,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         EnvIndex++;
 
         // clip wall texture
-        GameState->EnvObjects[EnvIndex]->Position = V3(-50.0f, 50.0f, 0.0f);
+        //GameState->EnvObjects[EnvIndex]->Position = V3(-98.0f, 0.0f, 0.0f);
+        GameState->EnvObjects[EnvIndex]->Position = V3(0.0f, 0.0f, 0.0f);
         GameState->EnvObjects[EnvIndex]->Scale = 98.0f; // diameter
         // GameState->EnvObjects[EnvIndex]->Position = V3(-10.0f, -10.0f, 0.0f);
         // GameState->EnvObjects[EnvIndex]->Scale = 10.0f; // diameter
@@ -292,7 +293,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
         // высота объектов окружения на ландшафте
         // for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
-        for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
+        // for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
+        for(u32 i = 3; i < EnvIndex - 2; i++)
         {
             GameState->EnvObjects[i]->Position.z +=
                 GameState->EnvObjects[i]->Position.z + TerrainGetHeight(GameState->EnvObjects[0],
@@ -302,7 +304,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
         // максимальное число строк instancing смещений для отправки в шейдер
         Render->MaxInstancingCount = 0;
-        for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
+        // for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
+        for(u32 i = 3; i < EnvIndex - 2; i++)
         {
             if(GameState->EnvObjects[i]->InstancingCount > Render->MaxInstancingCount)
             {
@@ -416,7 +419,12 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     // Перемещение кубов-маркеров в положение источников света
     GameState->EnvObjects[1]->Position = Render->PointLights[0].WorldPosition;
     GameState->EnvObjects[2]->Position = Render->SpotLights[0].Base.WorldPosition;
-    GameState->EnvObjects[14]->Position = Player->Position;
+    // перемещение клип текстуры игрока
+    GameState->EnvObjects[14]->Position =
+        Player->Position - V3(GameState->EnvObjects[14]->Scale * 0.5f, GameState->EnvObjects[14]->Scale * 0.5f, 0);
+
+    // TODO(me): при просчёте освещения меша не учитывается положение в мировой системе координат
+    GameState->EnvObjects[13]->Position = V3(-98.0f, 0.0f, 0.0f);
 
     // Обработка анимаций
     if(Render->Animator.Timer > 0.0f)

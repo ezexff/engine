@@ -309,10 +309,16 @@ internal loaded_model *CreateTexturedSquareModel(memory_arena *WorldArena, char 
     Mesh->VerticesCount = 4;
 
     Mesh->Positions = PushArray(WorldArena, Mesh->VerticesCount, v3);
+    /*
     Mesh->Positions[0] = V3(-0.5, -0.5, 0);
     Mesh->Positions[1] = V3(0.5, -0.5, 0);
     Mesh->Positions[2] = V3(0.5, 0.5, 0);
     Mesh->Positions[3] = V3(-0.5, 0.5, 0);
+    */
+    Mesh->Positions[0] = V3(0, 0, 0);
+    Mesh->Positions[1] = V3(1, 0, 0);
+    Mesh->Positions[2] = V3(1, 1, 0);
+    Mesh->Positions[3] = V3(0, 1, 0);
 
     Mesh->TexCoords = PushArray(WorldArena, Mesh->VerticesCount, v2);
     Mesh->TexCoords[0] = V2(0, 1);

@@ -13,7 +13,7 @@ layout(location = 4) in vec4 Weights;
 out vec2 TexCoord0;
 out vec3 Normal0;
 // out vec3 Tangent0;
-out vec3 LocalPos0; // TODO(me): переименовать
+out vec3 WorldPos0;
 flat out ivec4 BoneIDs0;
 out vec4 Weights0;
 
@@ -56,11 +56,10 @@ void main()
 
     gl_Position = MatProj * MatView * MatModel * PosL;
     TexCoord0 = TexCoord;
-    // Normal0 = Normal;
+    //Normal0 = Normal;
     Normal0 = (MatModel * vec4(Normal, 0.0)).xyz; // преобразование нормали из локальной в мировую систему координат
     // Tangent0 = (MatModel * vec4(Tangent, 0.0)).xyz;
-    // LocalPos0 = Position;
-    LocalPos0 = (MatModel * vec4(Position, 0.0)).xyz;
+    WorldPos0 = (MatModel * vec4(Position, 1.0)).xyz;
     BoneIDs0 = BoneIDs;
     Weights0 = Weights;
 }

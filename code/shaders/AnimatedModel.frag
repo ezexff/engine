@@ -6,7 +6,7 @@ const int MAX_SPOT_LIGHTS = 1;
 in vec2 TexCoord0;
 in vec3 Normal0;
 //in vec3 Tangent0;
-in vec3 LocalPos0; // TODO(me): переименовать
+in vec3 WorldPos0; // TODO(me): переименовать
 flat in ivec4 BoneIDs0;
 in vec4 Weights0;
 
@@ -35,7 +35,7 @@ struct Attenuation
 struct PointLight
 {
     BaseLight Base;
-    vec3 LocalPos; // TODO(me): переименовать
+    vec3 WorldPos; // TODO(me): переименовать
     Attenuation Atten;
 };
 
@@ -61,7 +61,6 @@ uniform SpotLight gSpotLights[MAX_SPOT_LIGHTS];
 uniform Material gMaterial;                 // completed
 uniform sampler2D gSampler;                 // completed
 uniform sampler2D gSamplerSpecularExponent; // completed
-// uniform vec3 gCameraLocalPos;               // completed
 uniform vec3 gCameraWorldPos; // completed
 uniform bool gWithTexture;    // new
 uniform sampler2D gNormalMap; // bind the normal map before the draw
@@ -80,7 +79,7 @@ vec4 CalcLightInternal(BaseLight Light, vec3 LightDirection, vec3 Normal)
         DiffuseColor =
             vec4(Light.Color, 1.0f) * Light.DiffuseIntensity * vec4(gMaterial.DiffuseColor, 1.0f) * DiffuseFactor;
 
-        vec3 PixelToCamera = normalize(gCameraWorldPos - LocalPos0);
+        vec3 PixelToCamera = normalize(gCameraWorldPos - WorldPos0);
         vec3 LightReflect = normalize(reflect(LightDirection, Normal));
         float SpecularFactor = dot(PixelToCamera, LightReflect);
         if(SpecularFactor > 0)
@@ -103,7 +102,7 @@ vec4 CalcDirectionalLight(vec3 Normal)
 
 vec4 CalcPointLight(PointLight l, vec3 Normal)
 {
-    vec3 LightDirection = LocalPos0 - l.LocalPos;
+    vec3 LightDirection = WorldPos0 - l.WorldPos;
     float Distance = length(LightDirection);
     LightDirection = normalize(LightDirection);
 
@@ -115,7 +114,7 @@ vec4 CalcPointLight(PointLight l, vec3 Normal)
 
 vec4 CalcSpotLight(SpotLight l, vec3 Normal)
 {
-    vec3 LightToPixel = normalize(LocalPos0 - l.Base.LocalPos);
+    vec3 LightToPixel = normalize(WorldPos0 - l.Base.WorldPos);
     float SpotFactor = dot(LightToPixel, l.Direction);
 
     if(SpotFactor > l.Cutoff)
