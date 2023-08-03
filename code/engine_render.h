@@ -167,8 +167,8 @@ struct render
     u32 MStVBO;
     u32 MStEBO;
 
-    u32 MaxInstancingCount;
-    offset_var_name *InstancingVarNames;
+    //u32 MaxInstancingCount;
+    //offset_var_name *InstancingVarNames;
 
 
     //

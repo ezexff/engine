@@ -291,8 +291,10 @@ internal v3 *CreateInstancingTranslations(memory_arena *WorldArena, entity_envob
 
     for(u32 i = 0; i < Count; i++)
     {
-        Result[i].x = (r32)(rand() % TMapW);
-        Result[i].y = (r32)(rand() % TMapH);
+        // Result[i].x = (r32)(rand() % TMapW);
+        // Result[i].y = (r32)(rand() % TMapH);
+        Result[i].x = (r32)(rand()) / (r32)(RAND_MAX / (TMapW - 2));
+        Result[i].y = (r32)(rand()) / (r32)(RAND_MAX / (TMapH - 2));
         Result[i].z = TerrainGetHeight(Terrain, Result[i].x, Result[i].y);
     }
 

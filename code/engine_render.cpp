@@ -395,6 +395,16 @@ void InitVBOs(memory_arena *WorldArena, render *Render)
         }
     }
 
+    // Store instance data in an array buffer
+    u32 InstanceVBO;
+    glGenBuffers(1, &InstanceVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, InstanceVBO);
+    // TODO(me): сделать не только для нулевого элемента (объединить массивы MStInstancingTranslations в один буфер)
+    glBufferData(GL_ARRAY_BUFFER, sizeof(v3) * Render->MStInstancingCounters[0][0],
+                 Render->MStInstancingTranslations[0], GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // Vertex data and attributes
     glGenVertexArrays(1, &Render->MStVAO);
     glGenBuffers(1, &Render->MStVBO);
     glGenBuffers(1, &Render->MStEBO);
@@ -416,6 +426,12 @@ void InitVBOs(memory_arena *WorldArena, render *Render)
     // Vertex texture coords
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_static), (void *)offsetof(vertex_static, TexCoords));
+    // Set instance data
+    glEnableVertexAttribArray(5);
+    glBindBuffer(GL_ARRAY_BUFFER, InstanceVBO); // this attribute comes from a different vertex buffer
+    glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, sizeof(v3), (void *)0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glVertexAttribDivisor(5, 1); // tell OpenGL this is an instanced vertex attribute.
 
     glBindVertexArray(0);
 }
@@ -825,11 +841,11 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
 
         glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithOffset"), true);
         // for(u32 j = 0; j < Render->MStInstancingCounters[i][0]; j++)
-        for(u32 j = 0; j < 200; j++)
+        /*for(u32 j = 0; j < 200; j++)
         {
             glUniform3fv(glGetUniformLocation(Render->ShaderProgram, Render->InstancingVarNames[j].VarName), 1, //
                          Render->MStInstancingTranslations[i][j].E);
-        }
+        }*/
 
         // отрисовка меша
         glBindVertexArray(Render->MStVAO);
@@ -837,12 +853,12 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
                                  BaseVertex);
                                  */
         glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT,
-                                                      (void *)(sizeof(u32) * BaseIndex), //
-                                                      1000,                               //
-                                                      BaseVertex,                        //
+                                                      (void *)(sizeof(u32) * BaseIndex),   //
+                                                      Render->MStInstancingCounters[0][0], // instancing count
+                                                      BaseVertex,                          //
                                                       0);
-        
-        //glDrawArraysInstanced(GL_TRIANGLES, 0, Mesh->VerticesCount, 200);
+
+        // glDrawArraysInstanced(GL_TRIANGLES, 0, Mesh->VerticesCount, 200);
         glBindVertexArray(0);
 
         // смещение к следующему мешу

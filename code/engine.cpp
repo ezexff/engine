@@ -44,7 +44,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
         GameState->Player = PushStruct(&GameState->WorldArena, entity_player);
         entity_player *Player = GameState->Player;
-        Player->Position = V3(-5, 5, 0);
+        Player->Position = V3(5, 5, 0);
         Player->dP = V2(0, 0);
         Player->CameraXRot = 90.0f;
         Player->CameraZRot = -45.0f;
@@ -54,7 +54,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         // NOTE(me): Источники света
         //
         // directional light
-        Render->DirLight.Base.Color = V3(0.01f, 0.01f, 0.01f);
+        //Render->DirLight.Base.Color = V3(0.01f, 0.01f, 0.01f);
+        Render->DirLight.Base.Color = V3(0.5f, 0.5f, 0.5f);
         Render->DirLight.Base.AmbientIntensity = 0.1f;
         Render->DirLight.Base.DiffuseIntensity = 1.0f;
         Render->DirLight.WorldDirection = V3(1.0f, 0.0f, -1.0f);
@@ -65,7 +66,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->PointLights[0].Base.Color = V3(0.0f, 0.0f, 1.0f);
         Render->PointLights[0].Base.AmbientIntensity = 1.0f;
         Render->PointLights[0].Base.DiffuseIntensity = 4.0f;
-        Render->PointLights[0].WorldPosition = V3(3.0f, 3.0f, 1.0f);
+        Render->PointLights[0].WorldPosition = V3(15.0f, 14.0f, 5.0f);
         Render->PointLights[0].Atten.Constant = 1.0f;
         Render->PointLights[0].Atten.Linear = 0.1f; // 0.0f
         Render->PointLights[0].Atten.Exp = 0.0f;    // 0.0f
@@ -103,7 +104,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->SpotLights[0].Base.Base.Color = V3(1.0f, 0.0f, 0.0f);
         Render->SpotLights[0].Base.Base.AmbientIntensity = 1.0f;
         Render->SpotLights[0].Base.Base.DiffuseIntensity = 1.0f;
-        Render->SpotLights[0].Base.WorldPosition = V3(3.0f, 10.0f, 2.0f);
+        Render->SpotLights[0].Base.WorldPosition = V3(5.5f, 5.0f, 12.0f);
         Render->SpotLights[0].Base.Atten.Constant = 1.0f;
         Render->SpotLights[0].Base.Atten.Linear = 0.01f;
         Render->SpotLights[0].Base.Atten.Exp = 0.0f;
@@ -262,7 +263,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[EnvIndex]->Scale = 1.0f;
         GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
         GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 2000;
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 20000;
         GameState->EnvObjects[EnvIndex]->InstancingTranslations = CreateInstancingTranslations(
             &GameState->WorldArena, GameState->EnvObjects[0], GameState->EnvObjects[EnvIndex]->Position,
             GameState->EnvObjects[EnvIndex]->InstancingCount);
@@ -303,7 +304,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         }
 
         // максимальное число строк instancing смещений для отправки в шейдер
-        Render->MaxInstancingCount = 0;
+        /*Render->MaxInstancingCount = 0;
         // for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
         for(u32 i = 3; i < EnvIndex - 2; i++)
         {
@@ -319,7 +320,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             char TmpName[128];
             _snprintf_s(TmpName, sizeof(TmpName), "Offsets[%d]", i);
             Render->InstancingVarNames[i].VarName = PushStringZ(&GameState->WorldArena, TmpName);
-        }
+        }*/
 
         //
         // NOTE(me): Шейдеры и VBO
