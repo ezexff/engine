@@ -10,7 +10,8 @@ layout(location = 2) in vec2 TexCoord;
 layout(location = 3) in ivec4 BoneIDs;
 layout(location = 4) in vec4 Weights;
 
-layout(location = 5) in vec3 TestOffset;
+// layout(location = 5) in vec3 TestOffset;
+layout(location = 5) in mat4 MatModelInstance;
 
 out vec2 TexCoord0;
 out vec3 Normal0;
@@ -32,8 +33,8 @@ const int MAX_BONES = 100;
 uniform mat4 gBones[MAX_BONES];
 
 uniform bool WithOffset;
-//const int MAX_OFFSETS = 200;
-//uniform vec3 Offsets[MAX_OFFSETS];
+// const int MAX_OFFSETS = 200;
+// uniform vec3 Offsets[MAX_OFFSETS];
 
 void main()
 {
@@ -52,16 +53,18 @@ void main()
         Weights0 = Weights;
     }
 
-    if(WithOffset)
-    {
-        //vec3 Offset = Offsets[gl_InstanceID];
-        PosL += vec4(TestOffset, 0.0);
-    }
-
     gl_Position = MatProj * MatView * MatModel * PosL;
+
     TexCoord0 = TexCoord;
     // Normal0 = Normal;
     Normal0 = (MatModel * vec4(Normal, 0.0)).xyz; // преобразование нормали из локальной в мировую систему координат
     // Tangent0 = (MatModel * vec4(Tangent, 0.0)).xyz;
     WorldPos0 = (MatModel * PosL).xyz;
+
+    if(WithOffset)
+    {
+        gl_Position = MatProj * MatView * MatModelInstance * vec4(Position, 1.0);
+        Normal0 = (MatModelInstance * vec4(Normal, 0.0)).xyz;
+        WorldPos0 = (MatModelInstance * PosL).xyz;
+    }
 }

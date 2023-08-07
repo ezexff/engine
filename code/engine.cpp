@@ -54,7 +54,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         // NOTE(me): Источники света
         //
         // directional light
-        //Render->DirLight.Base.Color = V3(0.01f, 0.01f, 0.01f);
+        // Render->DirLight.Base.Color = V3(0.01f, 0.01f, 0.01f);
         Render->DirLight.Base.Color = V3(0.5f, 0.5f, 0.5f);
         Render->DirLight.Base.AmbientIntensity = 0.1f;
         Render->DirLight.Base.DiffuseIntensity = 1.0f;
@@ -182,11 +182,14 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         EnvIndex++;
 
         // ваза
-        GameState->EnvObjects[EnvIndex]->Position = V3(-7.5, 7.5, 0);
+        GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
         GameState->EnvObjects[EnvIndex]->Scale = 4.0f;
         GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
         GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 100;
+        GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices = CreateInstancingTransformMatrices(
+            &GameState->WorldArena, GameState->EnvObjects[0], GameState->EnvObjects[EnvIndex]->InstancingCount,
+            V3(1, 12, 1), V3(0, 0, 0));
         GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_vase.spm");
         EnvIndex++;
 
@@ -200,11 +203,14 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         EnvIndex++;
 
         // дерево
-        GameState->EnvObjects[EnvIndex]->Position = V3(7.5, 7.5, 0.1f);
-        GameState->EnvObjects[EnvIndex]->Scale = 0.4f;
-        GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
+        GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
+        GameState->EnvObjects[EnvIndex]->Scale = 0.4;
+        GameState->EnvObjects[EnvIndex]->Angle = 90;
         GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
         GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        /*GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices = CreateInstancingTransformMatrices(
+            &GameState->WorldArena, GameState->EnvObjects[0], GameState->EnvObjects[EnvIndex]->InstancingCount,
+            V3(0.3, 0.6, 1), V3(90.0f, 0, 0));*/
         GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_tree.spm");
         EnvIndex++;
 
@@ -263,15 +269,15 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[EnvIndex]->Scale = 1.0f;
         GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
         GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 20000;
-        GameState->EnvObjects[EnvIndex]->InstancingTranslations = CreateInstancingTranslations(
-            &GameState->WorldArena, GameState->EnvObjects[0], GameState->EnvObjects[EnvIndex]->Position,
-            GameState->EnvObjects[EnvIndex]->InstancingCount);
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 10000;
+        GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices = CreateInstancingTransformMatrices(
+            &GameState->WorldArena, GameState->EnvObjects[0], GameState->EnvObjects[EnvIndex]->InstancingCount,
+            V3(1, 2, 1), V3(0, 0, 0));
         GameState->EnvObjects[EnvIndex]->Model = CreateGrassModel(&GameState->WorldArena);
         EnvIndex++;
 
         // clip wall texture
-        //GameState->EnvObjects[EnvIndex]->Position = V3(-98.0f, 0.0f, 0.0f);
+        // GameState->EnvObjects[EnvIndex]->Position = V3(-98.0f, 0.0f, 0.0f);
         GameState->EnvObjects[EnvIndex]->Position = V3(0.0f, 0.0f, 0.0f);
         GameState->EnvObjects[EnvIndex]->Scale = 98.0f; // diameter
         // GameState->EnvObjects[EnvIndex]->Position = V3(-10.0f, -10.0f, 0.0f);

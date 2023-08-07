@@ -156,11 +156,13 @@ struct render
     r32 *MStAngles[MULTIPLE_STATIC_MESHES_MAX];
     v3 *MStRotations[MULTIPLE_STATIC_MESHES_MAX];
     u32 *MStInstancingCounters[MULTIPLE_STATIC_MESHES_MAX];
-    v3 *MStInstancingTranslations[MULTIPLE_STATIC_MESHES_MAX];
+    //v3 *MStInstancingTranslations[MULTIPLE_STATIC_MESHES_MAX];
+    m4x4 *MStInstancingTransformMatrices[MULTIPLE_STATIC_MESHES_MAX];
 
     // данные для отрисовки
     u32 MStVerticesCountSum;
     u32 MStIndicesCountSum;
+    u32 MStInstancesCountSum;
     // u32 SstIndicesCount[SINGLE_STATIC_MESHES_MAX];
 
     u32 MStVAO;

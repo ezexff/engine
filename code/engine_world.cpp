@@ -285,6 +285,7 @@ internal loaded_model *CreateGrassModel(memory_arena *WorldArena)
     return (Result);
 }
 
+/*
 internal v3 *CreateInstancingTranslations(memory_arena *WorldArena, entity_envobject *Terrain, v3 StartPos, u32 Count)
 {
     v3 *Result = PushArray(WorldArena, Count, v3);
@@ -296,6 +297,55 @@ internal v3 *CreateInstancingTranslations(memory_arena *WorldArena, entity_envob
         Result[i].x = (r32)(rand()) / (r32)(RAND_MAX / (TMapW - 2));
         Result[i].y = (r32)(rand()) / (r32)(RAND_MAX / (TMapH - 2));
         Result[i].z = TerrainGetHeight(Terrain, Result[i].x, Result[i].y);
+    }
+
+    return (Result);
+}
+*/
+
+internal r32 GetRandomNumberFloat(r32 Min, r32 Max, u32 Precision)
+{
+    r32 Result;
+
+    // получить случайное число как целое число с порядком precision
+    Result = (r32)(rand() % (int)pow(10, Precision));
+
+    // получить вещественное число
+    Result = (r32)(Min + (Result / pow(10, Precision)) * (Max - Min));
+
+    return (Result);
+}
+
+internal m4x4 *CreateInstancingTransformMatrices(memory_arena *WorldArena,  //
+                                                 entity_envobject *Terrain, //
+                                                 u32 Count,                 //
+                                                 v3 ScaleMMP,               // Min, Max, Precision
+                                                 v3 Rotate)
+{
+    m4x4 *Result = PushArray(WorldArena, Count, m4x4);
+
+    for(u32 i = 0; i < Count; i++)
+    {
+        /*
+        r32 Scale = (r32)((u32)ScaleMinMax.x + rand() % ((u32)ScaleMinMax.y - (u32)ScaleMinMax.x + 1));
+        */
+        r32 Scale = GetRandomNumberFloat(ScaleMMP.x, ScaleMMP.y, (u32)ScaleMMP.z);
+        v3 ScaleVec = V3(Scale, Scale, Scale);
+        m4x4 ScalingM = Scaling(ScaleVec);
+
+        m4x4 RotationM = XRotation(Rotate.x) * YRotation(Rotate.y) * ZRotation(Rotate.z);
+        // v4 RotationVec = V4(55, 0, 0, 0);
+        // m4x4 RotationM = Rotation(RotationVec);
+
+        v3 TranslationVec = V3(0, 0, 0);
+        TranslationVec.x = (r32)(rand()) / (r32)(RAND_MAX / (TMapW - 2));
+        TranslationVec.y = (r32)(rand()) / (r32)(RAND_MAX / (TMapH - 2));
+        TranslationVec.z = TerrainGetHeight(Terrain, TranslationVec.x, TranslationVec.y);
+        m4x4 TranslationM = Translation(TranslationVec);
+
+        // Combine the above transformations
+        Result[i] = TranslationM * RotationM * ScalingM;
+        Result[i] = Transpose(Result[i]); // opengl to glsl format
     }
 
     return (Result);

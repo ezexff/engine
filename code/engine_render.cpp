@@ -49,7 +49,9 @@ internal void AddEnvObjectToRender(render *Render, entity_envobject *EnvObject)
                     Render->MStRotations[Render->MStMeshesCount] = &EnvObject->Rotate;
                     Render->MStAngles[Render->MStMeshesCount] = &EnvObject->Angle;
                     Render->MStInstancingCounters[Render->MStMeshesCount] = &EnvObject->InstancingCount;
-                    Render->MStInstancingTranslations[Render->MStMeshesCount] = EnvObject->InstancingTranslations;
+                    // Render->MStInstancingTranslations[Render->MStMeshesCount] = EnvObject->InstancingTranslations;
+                    Render->MStInstancingTransformMatrices[Render->MStMeshesCount] =
+                        EnvObject->InstancingTransformMatrices;
                     Render->MStMeshesCount++;
                 }
                 else
@@ -362,6 +364,7 @@ void InitVBOs(memory_arena *WorldArena, render *Render)
     //
     Render->MStVerticesCountSum = 0;
     Render->MStIndicesCountSum = 0;
+    Render->MStInstancesCountSum = 0;
 
     // получаем общее число вершин и индексов
     for(u32 i = 0; i < Render->MStMeshesCount; i++)
@@ -369,15 +372,19 @@ void InitVBOs(memory_arena *WorldArena, render *Render)
         single_mesh *Mesh = Render->MStMeshes[i];
         Render->MStVerticesCountSum += Mesh->VerticesCount;
         Render->MStIndicesCountSum += Mesh->IndicesCount;
+        Render->MStInstancesCountSum += Render->MStInstancingCounters[i][0];
     }
 
     // выделение памяти под вершины и индексы
     vertex_static *MStVertices = PushArray(WorldArena, Render->MStVerticesCountSum, vertex_static);
     u32 *MStIndices = PushArray(WorldArena, Render->MStIndicesCountSum, u32);
+    // v3 *MStInstancingTranslations = PushArray(WorldArena, Render->MStInstancesCountSum, v3);
+    m4x4 *MStInstancingTransformMatrices = PushArray(WorldArena, Render->MStInstancesCountSum, m4x4);
 
     // заполнение массива вершин
     VerticesCountTmp = 0;
     IndicesCountTmp = 0;
+    u32 InstancesTmp = 0;
     for(u32 i = 0; i < Render->MStMeshesCount; i++)
     {
         single_mesh *Mesh = Render->MStMeshes[i];
@@ -393,6 +400,15 @@ void InitVBOs(memory_arena *WorldArena, render *Render)
             MStIndices[IndicesCountTmp] = Mesh->Indices[j];
             IndicesCountTmp++;
         }
+        if(Render->MStInstancingCounters[i][0] > 0)
+        {
+            for(u32 j = 0; j < Render->MStInstancingCounters[i][0]; j++)
+            {
+                // MStInstancingTranslations[InstancesTmp] = Render->MStInstancingTranslations[i][j];
+                MStInstancingTransformMatrices[InstancesTmp] = Render->MStInstancingTransformMatrices[i][j];
+                InstancesTmp++;
+            }
+        }
     }
 
     // Store instance data in an array buffer
@@ -400,8 +416,8 @@ void InitVBOs(memory_arena *WorldArena, render *Render)
     glGenBuffers(1, &InstanceVBO);
     glBindBuffer(GL_ARRAY_BUFFER, InstanceVBO);
     // TODO(me): сделать не только для нулевого элемента (объединить массивы MStInstancingTranslations в один буфер)
-    glBufferData(GL_ARRAY_BUFFER, sizeof(v3) * Render->MStInstancingCounters[0][0],
-                 Render->MStInstancingTranslations[0], GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(m4x4) * Render->MStInstancesCountSum, MStInstancingTransformMatrices,
+                 GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     // Vertex data and attributes
@@ -427,11 +443,35 @@ void InitVBOs(memory_arena *WorldArena, render *Render)
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_static), (void *)offsetof(vertex_static, TexCoords));
     // Set instance data
+    /*
     glEnableVertexAttribArray(5);
     glBindBuffer(GL_ARRAY_BUFFER, InstanceVBO); // this attribute comes from a different vertex buffer
     glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, sizeof(v3), (void *)0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glVertexAttribDivisor(5, 1); // tell OpenGL this is an instanced vertex attribute.
+    */
+    // set attribute pointers for matrix (4 times vec4)
+    glBindBuffer(GL_ARRAY_BUFFER, InstanceVBO); // this attribute comes from a different vertex buffer
+
+    glEnableVertexAttribArray(5);
+    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(m4x4), (void *)0);
+
+    glEnableVertexAttribArray(6);
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(m4x4), (void *)(1 * sizeof(v4)));
+
+    glEnableVertexAttribArray(7);
+    glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, sizeof(m4x4), (void *)(2 * sizeof(v4)));
+
+    glEnableVertexAttribArray(8);
+    glVertexAttribPointer(8, 4, GL_FLOAT, GL_FALSE, sizeof(m4x4), (void *)(3 * sizeof(v4)));
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // tell OpenGL this is an instanced vertex attribute.
+    glVertexAttribDivisor(5, 1);
+    glVertexAttribDivisor(6, 1);
+    glVertexAttribDivisor(7, 1);
+    glVertexAttribDivisor(8, 1);
 
     glBindVertexArray(0);
 }
@@ -777,6 +817,7 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
     //
     BaseVertex = 0;
     BaseIndex = 0;
+    u32 BaseInstance = 0;
     for(u32 i = 0; i < Render->MStMeshesCount; i++)
     {
         single_mesh *Mesh = Render->MStMeshes[i];
@@ -799,10 +840,42 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
 
         // матрица модели в мировой системе координат
         glLoadIdentity();
-        glTranslatef(Render->MStPositions[i]->x, Render->MStPositions[i]->y, Render->MStPositions[i]->z);
-        glScalef(Render->MStScales[i][0], Render->MStScales[i][0], Render->MStScales[i][0]);
+        // TODO(me): translation*rotation*scale
+
+        //glScalef(Render->MStScales[i][0], Render->MStScales[i][0], Render->MStScales[i][0]);
+        /*
         glRotatef(Render->MStAngles[i][0], Render->MStRotations[i]->x, Render->MStRotations[i]->y,
                   Render->MStRotations[i]->z);
+        glTranslatef(Render->MStPositions[i]->x, Render->MStPositions[i]->y, Render->MStPositions[i]->z);
+        */
+        /*m4x4 Test1;
+        m4x4 Test2;
+        m4x4 Test3;
+        for(u32 j = 0; j < 4; j++)
+        {
+            for(u32 k = 0; k < 4; k++)
+            {
+                Test1.E[i][j] = 0;
+                Test2.E[i][j] = 0;
+            }
+        }
+        Test1.E[0][0] = Render->MStScales[i][0];
+        Test1.E[1][1] = Render->MStScales[i][0];
+        Test1.E[2][2] = Render->MStScales[i][0];
+        Test1.E[3][3] = 1;
+
+        Test2.E[0][0] = 1;
+        Test2.E[1][1] = 1;
+        Test2.E[2][2] = 1;
+        Test2.E[0][3] = Render->MStPositions[i]->x;
+        Test2.E[1][3] = Render->MStPositions[i]->y;
+        Test2.E[2][3] = Render->MStPositions[i]->z;
+        Test2.E[3][3] = 1;
+
+        Test3 = Test1 * Test2;*/
+
+        // glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE,
+        //                   (const GLfloat *)Test3.E);
         r32 MatModel[16];
         glGetFloatv(GL_MODELVIEW_MATRIX, MatModel);
         glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE, MatModel);
@@ -853,10 +926,11 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
                                  BaseVertex);
                                  */
         glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT,
-                                                      (void *)(sizeof(u32) * BaseIndex),   //
-                                                      Render->MStInstancingCounters[0][0], // instancing count
-                                                      BaseVertex,                          //
-                                                      0);
+                                                      (void *)(sizeof(u32) * BaseIndex), //
+                                                      // Render->MStInstancesCountSum, // instancing count
+                                                      Render->MStInstancingCounters[i][0],
+                                                      BaseVertex, //
+                                                      BaseInstance);
 
         // glDrawArraysInstanced(GL_TRIANGLES, 0, Mesh->VerticesCount, 200);
         glBindVertexArray(0);
@@ -864,6 +938,7 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
         // смещение к следующему мешу
         BaseVertex += Mesh->VerticesCount;
         BaseIndex += Mesh->IndicesCount;
+        BaseInstance += Render->MStInstancingCounters[i][0];
     }
 
     glUseProgram(0);

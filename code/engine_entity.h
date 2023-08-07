@@ -17,7 +17,8 @@ struct entity_envobject
 
     // рендер
     u32 InstancingCount; // 0 - без инстансинга
-    v3 *InstancingTranslations;
+    //v3 *InstancingTranslations;
+    m4x4 *InstancingTransformMatrices;
     loaded_model *Model;
     // TODO(me) loaded_texture?
 };
