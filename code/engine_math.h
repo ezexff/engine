@@ -810,6 +810,7 @@ inline m4x4 Scaling(v3 P)
 
 inline m4x4 XRotation(f32 Angle)
 {
+    Angle = Angle * Pi32 / 180;
     f32 c = Cos(Angle);
     f32 s = Sin(Angle);
 
@@ -825,6 +826,7 @@ inline m4x4 XRotation(f32 Angle)
 
 inline m4x4 YRotation(f32 Angle)
 {
+    Angle = Angle * Pi32 / 180;
     f32 c = Cos(Angle);
     f32 s = Sin(Angle);
 
@@ -840,6 +842,7 @@ inline m4x4 YRotation(f32 Angle)
 
 inline m4x4 ZRotation(f32 Angle)
 {
+    Angle = Angle * Pi32 / 180;
     f32 c = Cos(Angle);
     f32 s = Sin(Angle);
 

@@ -303,7 +303,7 @@ internal v3 *CreateInstancingTranslations(memory_arena *WorldArena, entity_envob
 }
 */
 
-internal r32 GetRandomNumberFloat(r32 Min, r32 Max, u32 Precision)
+internal r32 DebugGetRandomNumberR32(r32 Min, r32 Max, u32 Precision)
 {
     r32 Result;
 
@@ -319,23 +319,20 @@ internal r32 GetRandomNumberFloat(r32 Min, r32 Max, u32 Precision)
 internal m4x4 *CreateInstancingTransformMatrices(memory_arena *WorldArena,  //
                                                  entity_envobject *Terrain, //
                                                  u32 Count,                 //
-                                                 v3 ScaleMMP,               // Min, Max, Precision
-                                                 v3 Rotate)
+                                                 v3 SMM,                    // Scale rand() Min, Max, Precision
+                                                 v3 Rotate,                 // Rotate X, Y, Z
+                                                 v3 RYMM)                    // Rotate Y rand() Min, Max, Precision
 {
     m4x4 *Result = PushArray(WorldArena, Count, m4x4);
 
     for(u32 i = 0; i < Count; i++)
     {
-        /*
-        r32 Scale = (r32)((u32)ScaleMinMax.x + rand() % ((u32)ScaleMinMax.y - (u32)ScaleMinMax.x + 1));
-        */
-        r32 Scale = GetRandomNumberFloat(ScaleMMP.x, ScaleMMP.y, (u32)ScaleMMP.z);
+        r32 Scale = DebugGetRandomNumberR32(SMM.x, SMM.y, (u32)SMM.z);
         v3 ScaleVec = V3(Scale, Scale, Scale);
         m4x4 ScalingM = Scaling(ScaleVec);
 
-        m4x4 RotationM = XRotation(Rotate.x) * YRotation(Rotate.y) * ZRotation(Rotate.z);
-        // v4 RotationVec = V4(55, 0, 0, 0);
-        // m4x4 RotationM = Rotation(RotationVec);
+        r32 RotY = DebugGetRandomNumberR32(RYMM.x, RYMM.y, (u32)RYMM.z);
+        m4x4 RotationM = XRotation(Rotate.x) * YRotation(Rotate.y) * ZRotation(Rotate.z) * YRotation(RotY);
 
         v3 TranslationVec = V3(0, 0, 0);
         TranslationVec.x = (r32)(rand()) / (r32)(RAND_MAX / (TMapW - 2));
@@ -343,7 +340,6 @@ internal m4x4 *CreateInstancingTransformMatrices(memory_arena *WorldArena,  //
         TranslationVec.z = TerrainGetHeight(Terrain, TranslationVec.x, TranslationVec.y);
         m4x4 TranslationM = Translation(TranslationVec);
 
-        // Combine the above transformations
         Result[i] = TranslationM * RotationM * ScalingM;
         Result[i] = Transpose(Result[i]); // opengl to glsl format
     }

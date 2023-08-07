@@ -152,6 +152,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             GameState->EnvObjects[i] = PushStruct(&GameState->WorldArena, entity_envobject);
         }
 
+        // TODO(me): избавиться от GameState и оставить только EnvObjects
         // Террейн
         u32 EnvIndex = 0;
         GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
@@ -187,9 +188,13 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
         GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[EnvIndex]->InstancingCount = 100;
-        GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices = CreateInstancingTransformMatrices(
-            &GameState->WorldArena, GameState->EnvObjects[0], GameState->EnvObjects[EnvIndex]->InstancingCount,
-            V3(1, 12, 1), V3(0, 0, 0));
+        GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(&GameState->WorldArena,                           // Memory
+                                              GameState->EnvObjects[0],                         // Terrain
+                                              GameState->EnvObjects[EnvIndex]->InstancingCount, // Amount
+                                              V3(2, 4, 1),  // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),  // Rotate X, Y, Z
+                                              V3(0, 0, 0)); // Rotate Y rand() Min, Max, Precision
         GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_vase.spm");
         EnvIndex++;
 
@@ -198,7 +203,14 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[EnvIndex]->Scale = 2.0f;
         GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
         GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 50;
+        GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(&GameState->WorldArena,                           // Memory
+                                              GameState->EnvObjects[0],                         // Terrain
+                                              GameState->EnvObjects[EnvIndex]->InstancingCount, // Amount
+                                              V3(1.0, 2.0, 1), // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),    // Rotate X, Y, Z
+                                              V3(0, 0, 0));  // Rotate Y rand() Min, Max, Precision
         GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_barrel.spm");
         EnvIndex++;
 
@@ -207,10 +219,14 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[EnvIndex]->Scale = 0.4;
         GameState->EnvObjects[EnvIndex]->Angle = 90;
         GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        /*GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices = CreateInstancingTransformMatrices(
-            &GameState->WorldArena, GameState->EnvObjects[0], GameState->EnvObjects[EnvIndex]->InstancingCount,
-            V3(0.3, 0.6, 1), V3(90.0f, 0, 0));*/
+        GameState->EnvObjects[EnvIndex]->InstancingCount = 10;
+        GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(&GameState->WorldArena,                           // Memory
+                                              GameState->EnvObjects[0],                         // Terrain
+                                              GameState->EnvObjects[EnvIndex]->InstancingCount, // Amount
+                                              V3(0.7, 0.7, 1), // Scale rand() Min, Max, Precision
+                                              V3(90, 0, 0),    // Rotate X, Y, Z
+                                              V3(0, 360, 1));  // Rotate Y rand() Min, Max, Precision
         GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_tree.spm");
         EnvIndex++;
 
@@ -270,9 +286,13 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
         GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
         GameState->EnvObjects[EnvIndex]->InstancingCount = 10000;
-        GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices = CreateInstancingTransformMatrices(
-            &GameState->WorldArena, GameState->EnvObjects[0], GameState->EnvObjects[EnvIndex]->InstancingCount,
-            V3(1, 2, 1), V3(0, 0, 0));
+        GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(&GameState->WorldArena,                           // Memory
+                                              GameState->EnvObjects[0],                         // Terrain
+                                              GameState->EnvObjects[EnvIndex]->InstancingCount, // Amount
+                                              V3(1, 2, 1),  // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),  // Rotate X, Y, Z
+                                              V3(0, 0, 0)); // Rotate Y rand() Min, Max, Precision
         GameState->EnvObjects[EnvIndex]->Model = CreateGrassModel(&GameState->WorldArena);
         EnvIndex++;
 

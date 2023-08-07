@@ -129,7 +129,8 @@ void MovePlayerEOM(entity_player *Player, v2 ddPFromKeys, r32 Speed, r32 dt)
     }
 
     // поворот вектора ускорения в зависимости от направления взгляда игрока
-    r32 Angle = Player->CameraZRot / 180 * Pi32;
+    // r32 Angle = Player->CameraZRot / 180 * Pi32;
+    r32 Angle = Player->CameraZRot * Pi32 / 180;
     v2 ddP = {};
     ddP.x = ddPFromKeys.x * Cos(Angle) - ddPFromKeys.y * Sin(Angle);
     ddP.y = ddPFromKeys.x * Sin(Angle) + ddPFromKeys.y * Cos(Angle);
