@@ -8,6 +8,12 @@ struct entity_player
     r32 CameraYOffset; // высота взгляда
 };
 
+struct entity_clip
+{
+    v2 CenterPos;
+    r32 Side;
+};
+
 struct entity_envobject
 {
     v3 Position;
@@ -17,7 +23,7 @@ struct entity_envobject
 
     // рендер
     u32 InstancingCount; // 0 - без инстансинга
-    //v3 *InstancingTranslations;
+    // v3 *InstancingTranslations;
     m4x4 *InstancingTransformMatrices;
     loaded_model *Model;
     // TODO(me) loaded_texture?

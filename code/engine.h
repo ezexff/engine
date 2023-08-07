@@ -39,6 +39,8 @@ struct app_settings
     b32 RBUncappedIsActive;
 
     b32 RBVSyncIsActive;
+
+    bool ProcessAnimations;
 };
 
 struct game_state
@@ -54,8 +56,11 @@ struct game_state
     // TODO(me): объединить все сущности и поместить структуру world?
     entity_player *Player;
 
+    entity_clip *Clip;
+
 #define ENV_OBJECTS_MAX 15
     entity_envobject *EnvObjects[ENV_OBJECTS_MAX];
+    u32 EnvCount;
 
     // TODO: ODE test
     // m4x4 GeomMatrix;

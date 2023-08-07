@@ -93,7 +93,7 @@ internal b32 TestWall(r32 WallX, r32 RelX, r32 RelY,      //
     return (Hit);
 }*/
 
-void MovePlayerEOM(entity_player *Player, v2 ddPFromKeys, r32 Speed, r32 dt)
+void MovePlayerEOM(entity_player *Player, entity_clip *PlayerClip, v2 ddPFromKeys, r32 Speed, r32 dt)
 {
     // Rigid body dynamics (Динамика жесткого тела): F = d/dt (mv)
     // Physics (Movement): Position = f(t), Velocity = f'(t), Acceleration = f"(t)
@@ -171,8 +171,8 @@ void MovePlayerEOM(entity_player *Player, v2 ddPFromKeys, r32 Speed, r32 dt)
     }*/
 
     // границы тиррейна
-    v2 TerrainCenterPos = V2(-50.0f, 50.0f);
-    r32 TerrainSide = 98.0f;
+    v2 TerrainCenterPos = PlayerClip->CenterPos;
+    r32 TerrainSide = PlayerClip->Side;
     // v2 TerrainCenterPos = V2(-10.0f, -10.0f);
     // r32 TerrainSide = 10.0f;
 

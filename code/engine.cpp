@@ -12,7 +12,6 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     //
     // NOTE(me): Memory init
     //
-
     Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
     game_state *GameState = (game_state *)Memory->PermanentStorage;
 
@@ -21,18 +20,18 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         // установка указателя выделенной памяти после структуры game_state
         InitializeArena(&GameState->WorldArena, Memory->PermanentStorageSize - sizeof(game_state),
                         (uint8 *)Memory->PermanentStorage + sizeof(game_state));
-
+        memory_arena *WorldArena = &GameState->WorldArena;
         //
         // NOTE(me): Push game_state structures in memory
         //
-        GameState->Render = PushStruct(&GameState->WorldArena, render);
+        GameState->Render = PushStruct(WorldArena, render);
         render *Render = GameState->Render;
         Render->SStMeshesCount = 0;
         Render->SAnMeshesCount = 0;
         Render->MStMeshesCount = 0;
         Render->Animator.Timer = 1.0f;
 
-        GameState->Settings = PushStruct(&GameState->WorldArena, app_settings);
+        GameState->Settings = PushStruct(WorldArena, app_settings);
         app_settings *Settings = GameState->Settings;
         Settings->RBFullscreenIsActive = false;
         Settings->RBWindowedIsActive = true;
@@ -41,8 +40,9 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Settings->RBCappedIsActive = true;
         Settings->RBUncappedIsActive = false;
         Settings->RBVSyncIsActive = false;
+        Settings->ProcessAnimations = true;
 
-        GameState->Player = PushStruct(&GameState->WorldArena, entity_player);
+        GameState->Player = PushStruct(WorldArena, entity_player);
         entity_player *Player = GameState->Player;
         Player->Position = V3(5, 5, 0);
         Player->dP = V2(0, 0);
@@ -50,303 +50,287 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Player->CameraZRot = -45.0f;
         Player->CameraYOffset = 0.27f;
 
+        GameState->Clip = PushStruct(WorldArena, entity_clip);
+        entity_clip *PlayerClip = GameState->Clip;
+        PlayerClip->CenterPos = V2(-50.0f, 50.0f);
+        PlayerClip->Side = 100.0f;
+
         //
         // NOTE(me): Источники света
         //
         // directional light
-        // Render->DirLight.Base.Color = V3(0.01f, 0.01f, 0.01f);
-        Render->DirLight.Base.Color = V3(0.5f, 0.5f, 0.5f);
-        Render->DirLight.Base.AmbientIntensity = 0.1f;
-        Render->DirLight.Base.DiffuseIntensity = 1.0f;
-        Render->DirLight.WorldDirection = V3(1.0f, 0.0f, -1.0f);
+        directional_light *DirLight = &Render->DirLight;
+        DirLight->Base.Color = V3(0.5f, 0.5f, 0.5f);
+        DirLight->Base.AmbientIntensity = 0.1f;
+        DirLight->Base.DiffuseIntensity = 1.0f;
+        DirLight->WorldDirection = V3(1.0f, 0.0f, -1.0f);
 
         // point lights
         Render->PointLightsCount = 1;
-        Render->PointLights = PushArray(&GameState->WorldArena, Render->PointLightsCount, point_light);
-        Render->PointLights[0].Base.Color = V3(0.0f, 0.0f, 1.0f);
-        Render->PointLights[0].Base.AmbientIntensity = 1.0f;
-        Render->PointLights[0].Base.DiffuseIntensity = 4.0f;
-        Render->PointLights[0].WorldPosition = V3(15.0f, 14.0f, 5.0f);
-        Render->PointLights[0].Atten.Constant = 1.0f;
-        Render->PointLights[0].Atten.Linear = 0.1f; // 0.0f
-        Render->PointLights[0].Atten.Exp = 0.0f;    // 0.0f
+        Render->PointLights = PushArray(WorldArena, Render->PointLightsCount, point_light);
+        point_light *PointLights = Render->PointLights;
+        PointLights[0].Base.Color = V3(0.0f, 0.0f, 1.0f);
+        PointLights[0].Base.AmbientIntensity = 1.0f;
+        PointLights[0].Base.DiffuseIntensity = 4.0f;
+        PointLights[0].WorldPosition = V3(15.0f, 14.0f, 5.0f);
+        PointLights[0].Atten.Constant = 1.0f;
+        PointLights[0].Atten.Linear = 0.1f; // 0.0f
+        PointLights[0].Atten.Exp = 0.0f;    // 0.0f
         // имена переменных point lights для оправки в шейдер
-        Render->PLVarNames = PushArray(&GameState->WorldArena, Render->PointLightsCount, point_light_var_names);
+        Render->PLVarNames = PushArray(WorldArena, Render->PointLightsCount, point_light_var_names);
         for(u32 i = 0; i < Render->PointLightsCount; i++)
         {
             char TmpName[128];
             _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Base.Color", i);
-            Render->PLVarNames[i].VarNames[0] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->PLVarNames[i].VarNames[0] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Base.AmbientIntensity", i);
-            Render->PLVarNames[i].VarNames[1] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->PLVarNames[i].VarNames[1] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Base.DiffuseIntensity", i);
-            Render->PLVarNames[i].VarNames[2] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->PLVarNames[i].VarNames[2] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].WorldPos", i);
-            Render->PLVarNames[i].VarNames[3] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->PLVarNames[i].VarNames[3] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Atten.Constant", i);
-            Render->PLVarNames[i].VarNames[4] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->PLVarNames[i].VarNames[4] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Atten.Linear", i);
-            Render->PLVarNames[i].VarNames[5] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->PLVarNames[i].VarNames[5] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gPointLights[%d].Atten.Exp", i);
-            Render->PLVarNames[i].VarNames[6] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->PLVarNames[i].VarNames[6] = PushStringZ(WorldArena, TmpName);
         }
 
         // spot lights
         Render->SpotLightsCount = 1;
-        Render->SpotLights = PushArray(&GameState->WorldArena, Render->SpotLightsCount, spot_light);
-        // Render->SpotLights[0].Base.Base.Color = V3(253.0f/255.0f, 208.0f/255.0f, 35.0f/255.0f);
-        Render->SpotLights[0].Base.Base.Color = V3(1.0f, 0.0f, 0.0f);
-        Render->SpotLights[0].Base.Base.AmbientIntensity = 1.0f;
-        Render->SpotLights[0].Base.Base.DiffuseIntensity = 1.0f;
-        Render->SpotLights[0].Base.WorldPosition = V3(5.5f, 5.0f, 12.0f);
-        Render->SpotLights[0].Base.Atten.Constant = 1.0f;
-        Render->SpotLights[0].Base.Atten.Linear = 0.01f;
-        Render->SpotLights[0].Base.Atten.Exp = 0.0f;
-        Render->SpotLights[0].WorldDirection = V3(0.0f, 0.0f, -1.0f);
-        Render->SpotLights[0].WorldDirection = Normalize(Render->SpotLights[0].WorldDirection);
-        Render->SpotLights[0].Cutoff = 0.9f;
+        Render->SpotLights = PushArray(WorldArena, Render->SpotLightsCount, spot_light);
+        spot_light *SpotLights = Render->SpotLights;
+        SpotLights[0].Base.Base.Color = V3(1.0f, 0.0f, 0.0f);
+        SpotLights[0].Base.Base.AmbientIntensity = 1.0f;
+        SpotLights[0].Base.Base.DiffuseIntensity = 1.0f;
+        SpotLights[0].Base.WorldPosition = V3(5.5f, 5.0f, 12.0f);
+        SpotLights[0].Base.Atten.Constant = 1.0f;
+        SpotLights[0].Base.Atten.Linear = 0.01f;
+        SpotLights[0].Base.Atten.Exp = 0.0f;
+        SpotLights[0].WorldDirection = V3(0.0f, 0.0f, -1.0f);
+        SpotLights[0].WorldDirection = Normalize(SpotLights[0].WorldDirection);
+        SpotLights[0].Cutoff = 0.9f;
         // имена переменных spot lights для оправки в шейдер
-        Render->SLVarNames = PushArray(&GameState->WorldArena, Render->SpotLightsCount, spot_light_var_names);
+        Render->SLVarNames = PushArray(WorldArena, Render->SpotLightsCount, spot_light_var_names);
         for(u32 i = 0; i < Render->SpotLightsCount; i++)
         {
             char TmpName[128];
             _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Base.Color", i);
-            Render->SLVarNames[i].VarNames[0] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->SLVarNames[i].VarNames[0] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Base.AmbientIntensity", i);
-            Render->SLVarNames[i].VarNames[1] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->SLVarNames[i].VarNames[1] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Base.DiffuseIntensity", i);
-            Render->SLVarNames[i].VarNames[2] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->SLVarNames[i].VarNames[2] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.WorldPos", i);
-            Render->SLVarNames[i].VarNames[3] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->SLVarNames[i].VarNames[3] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Atten.Constant", i);
-            Render->SLVarNames[i].VarNames[4] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->SLVarNames[i].VarNames[4] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Atten.Linear", i);
-            Render->SLVarNames[i].VarNames[5] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->SLVarNames[i].VarNames[5] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Base.Atten.Exp", i);
-            Render->SLVarNames[i].VarNames[6] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->SLVarNames[i].VarNames[6] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Direction", i);
-            Render->SLVarNames[i].VarNames[7] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->SLVarNames[i].VarNames[7] = PushStringZ(WorldArena, TmpName);
 
             _snprintf_s(TmpName, sizeof(TmpName), "gSpotLights[%d].Cutoff", i);
-            Render->SLVarNames[i].VarNames[8] = PushStringZ(&GameState->WorldArena, TmpName);
+            Render->SLVarNames[i].VarNames[8] = PushStringZ(WorldArena, TmpName);
         }
 
         //
-        // NOTE(me): Объекты окружения (3d-модели)
+        // NOTE(me): Объекты окружения (2d-текстуры и 3d-модели)
         //
         for(u32 i = 0; i < ENV_OBJECTS_MAX; i++)
         {
-            GameState->EnvObjects[i] = PushStruct(&GameState->WorldArena, entity_envobject);
+            GameState->EnvObjects[i] = PushStruct(WorldArena, entity_envobject);
         }
 
         // TODO(me): избавиться от GameState и оставить только EnvObjects
         // Террейн
         u32 EnvIndex = 0;
-        GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 1.0f;
-        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        GameState->EnvObjects[EnvIndex]->Model = CreateTerrainModel(&GameState->WorldArena);
+        entity_envobject **EnvObjects = GameState->EnvObjects;
+        EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->Scale = 1.0f;
+        EnvObjects[EnvIndex]->Angle = 0.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->Model = CreateTerrainModel(WorldArena);
         EnvIndex++;
 
         // маркер позиции точечного источника освещения
-        GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 1.0f;
-        GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        // GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_cube.spm");
-        GameState->EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(&GameState->WorldArena, "lamp.png");
+        EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->Scale = 1.0f;
+        EnvObjects[EnvIndex]->Angle = 90.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 0;
+        // EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_cube.spm");
+        EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(WorldArena, "lamp.png");
         EnvIndex++;
 
         // маркер позиции прожектора
-        GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 1.0f;
-        GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        GameState->EnvObjects[EnvIndex]->Model = GameState->EnvObjects[1]->Model;
+        EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->Scale = 1.0f;
+        EnvObjects[EnvIndex]->Angle = 90.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->Model = EnvObjects[1]->Model;
         EnvIndex++;
 
         // ваза
-        GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 4.0f;
-        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 100;
-        GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(&GameState->WorldArena,                           // Memory
-                                              GameState->EnvObjects[0],                         // Terrain
-                                              GameState->EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(2, 4, 1),  // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),  // Rotate X, Y, Z
+        EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->Scale = 4.0f;
+        EnvObjects[EnvIndex]->Angle = 0.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 100;
+        EnvObjects[EnvIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                            // Memory
+                                              EnvObjects[0],                         // Terrain
+                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
+                                              V3(2, 4, 1),                           // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),                           // Rotate X, Y, Z
                                               V3(0, 0, 0)); // Rotate Y rand() Min, Max, Precision
-        GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_vase.spm");
+        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_vase.spm");
         EnvIndex++;
 
         // бочка
-        GameState->EnvObjects[EnvIndex]->Position = V3(-10, -10, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 2.0f;
-        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 50;
-        GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(&GameState->WorldArena,                           // Memory
-                                              GameState->EnvObjects[0],                         // Terrain
-                                              GameState->EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(1.0, 2.0, 1), // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),    // Rotate X, Y, Z
-                                              V3(0, 0, 0));  // Rotate Y rand() Min, Max, Precision
-        GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_barrel.spm");
+        EnvObjects[EnvIndex]->Position = V3(-10, -10, 0);
+        EnvObjects[EnvIndex]->Scale = 2.0f;
+        EnvObjects[EnvIndex]->Angle = 0.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 50;
+        EnvObjects[EnvIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                            // Memory
+                                              EnvObjects[0],                         // Terrain
+                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
+                                              V3(1.0, 2.0, 1),                       // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),                           // Rotate X, Y, Z
+                                              V3(0, 0, 0)); // Rotate Y rand() Min, Max, Precision
+        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_barrel.spm");
         EnvIndex++;
 
         // дерево
-        GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 0.4;
-        GameState->EnvObjects[EnvIndex]->Angle = 90;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 10;
-        GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(&GameState->WorldArena,                           // Memory
-                                              GameState->EnvObjects[0],                         // Terrain
-                                              GameState->EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(0.7, 0.7, 1), // Scale rand() Min, Max, Precision
-                                              V3(90, 0, 0),    // Rotate X, Y, Z
-                                              V3(0, 360, 1));  // Rotate Y rand() Min, Max, Precision
-        GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_tree.spm");
+        EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->Scale = 0.4;
+        EnvObjects[EnvIndex]->Angle = 90;
+        EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 10;
+        EnvObjects[EnvIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                            // Memory
+                                              EnvObjects[0],                         // Terrain
+                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
+                                              V3(0.7, 0.7, 1),                       // Scale rand() Min, Max, Precision
+                                              V3(90, 0, 0),                          // Rotate X, Y, Z
+                                              V3(0, 360, 1)); // Rotate Y rand() Min, Max, Precision
+        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_tree.spm");
         EnvIndex++;
 
         // ковбой (анимированный)
-        GameState->EnvObjects[EnvIndex]->Position = V3(7.5, -7.5, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 0.4f;
-        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_cowboy.spm");
+        EnvObjects[EnvIndex]->Position = V3(7.5, -7.5, 0);
+        EnvObjects[EnvIndex]->Scale = 0.4f;
+        EnvObjects[EnvIndex]->Angle = 0.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_cowboy.spm");
         EnvIndex++;
 
-        GameState->EnvObjects[EnvIndex]->Position = V3(2, 2 + 3, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 0.4f;
-        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        GameState->EnvObjects[EnvIndex]->Model = GameState->EnvObjects[6]->Model;
+        EnvObjects[EnvIndex]->Position = V3(2, 2 + 3, 0);
+        EnvObjects[EnvIndex]->Scale = 0.4f;
+        EnvObjects[EnvIndex]->Angle = 0.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->Model = EnvObjects[6]->Model;
         EnvIndex++;
 
-        GameState->EnvObjects[EnvIndex]->Position = V3(2, 2 + 6, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 0.4f;
-        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        GameState->EnvObjects[EnvIndex]->Model = GameState->EnvObjects[6]->Model;
+        EnvObjects[EnvIndex]->Position = V3(2, 2 + 6, 0);
+        EnvObjects[EnvIndex]->Scale = 0.4f;
+        EnvObjects[EnvIndex]->Angle = 0.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->Model = EnvObjects[6]->Model;
         EnvIndex++;
 
         // страж (анимированный)
-        GameState->EnvObjects[EnvIndex]->Position = V3(5, 10 + 2, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 0.1f;
-        GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        GameState->EnvObjects[EnvIndex]->Model = LoadModel(&GameState->WorldArena, "assets/test_guard.spm");
+        EnvObjects[EnvIndex]->Position = V3(5, 10 + 2, 0);
+        EnvObjects[EnvIndex]->Scale = 0.1f;
+        EnvObjects[EnvIndex]->Angle = 90.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_guard.spm");
         EnvIndex++;
 
-        GameState->EnvObjects[EnvIndex]->Position = V3(5 + 3, 10 + 2, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 0.1f;
-        GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        GameState->EnvObjects[EnvIndex]->Model = GameState->EnvObjects[9]->Model;
+        EnvObjects[EnvIndex]->Position = V3(5 + 3, 10 + 2, 0);
+        EnvObjects[EnvIndex]->Scale = 0.1f;
+        EnvObjects[EnvIndex]->Angle = 90.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->Model = EnvObjects[9]->Model;
         EnvIndex++;
 
-        GameState->EnvObjects[EnvIndex]->Position = V3(5 + 6, 10 + 2, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 0.1f;
-        GameState->EnvObjects[EnvIndex]->Angle = 90.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        GameState->EnvObjects[EnvIndex]->Model = GameState->EnvObjects[9]->Model;
+        EnvObjects[EnvIndex]->Position = V3(5 + 6, 10 + 2, 0);
+        EnvObjects[EnvIndex]->Scale = 0.1f;
+        EnvObjects[EnvIndex]->Angle = 90.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->Model = EnvObjects[9]->Model;
         EnvIndex++;
 
         // трава
-        GameState->EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->Scale = 1.0f;
-        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 10000;
-        GameState->EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(&GameState->WorldArena,                           // Memory
-                                              GameState->EnvObjects[0],                         // Terrain
-                                              GameState->EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(1, 2, 1),  // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),  // Rotate X, Y, Z
+        EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->Scale = 1.0f;
+        EnvObjects[EnvIndex]->Angle = 0.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 10000;
+        EnvObjects[EnvIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                            // Memory
+                                              EnvObjects[0],                         // Terrain
+                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
+                                              V3(1, 2, 1),                           // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),                           // Rotate X, Y, Z
                                               V3(0, 0, 0)); // Rotate Y rand() Min, Max, Precision
-        GameState->EnvObjects[EnvIndex]->Model = CreateGrassModel(&GameState->WorldArena);
+        EnvObjects[EnvIndex]->Model = CreateGrassModel(WorldArena);
         EnvIndex++;
 
         // clip wall texture
-        // GameState->EnvObjects[EnvIndex]->Position = V3(-98.0f, 0.0f, 0.0f);
-        GameState->EnvObjects[EnvIndex]->Position = V3(0.0f, 0.0f, 0.0f);
-        GameState->EnvObjects[EnvIndex]->Scale = 98.0f; // diameter
-        // GameState->EnvObjects[EnvIndex]->Position = V3(-10.0f, -10.0f, 0.0f);
-        // GameState->EnvObjects[EnvIndex]->Scale = 10.0f; // diameter
-        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        GameState->EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(&GameState->WorldArena, "clip.png");
+        EnvObjects[EnvIndex]->Position = V3(-100.0f, 0.0f, 0.0f);
+        EnvObjects[EnvIndex]->Scale = 100.0f; // diameter
+        EnvObjects[EnvIndex]->Angle = 0.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(WorldArena, "clip.png");
         EnvIndex++;
 
         // clip player texture
-        // GameState->EnvObjects[EnvIndex]->Position = V3(-10.0f, -10.0f, 0.0f);
-        GameState->EnvObjects[EnvIndex]->Position = V3(0.0f, 0.0f, 0.0f);
-        GameState->EnvObjects[EnvIndex]->Scale = 0.05f; // diameter
-        GameState->EnvObjects[EnvIndex]->Angle = 0.0f;
-        GameState->EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        GameState->EnvObjects[EnvIndex]->InstancingCount = 0;
-        GameState->EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(&GameState->WorldArena, "clip.png");
+        EnvObjects[EnvIndex]->Position = V3(0.0f, 0.0f, 0.0f);
+        EnvObjects[EnvIndex]->Scale = 0.05f; // diameter
+        EnvObjects[EnvIndex]->Angle = 0.0f;
+        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
+        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(WorldArena, "clip.png");
         EnvIndex++;
 
+        Assert(EnvIndex >= ENV_OBJECTS_MAX);
+        GameState->EnvCount = EnvIndex - 1;
+
         // высота объектов окружения на ландшафте
-        // for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
-        // for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
-        for(u32 i = 3; i < EnvIndex - 2; i++)
+        for(u32 i = 3; i < GameState->EnvCount - 1; i++)
         {
-            GameState->EnvObjects[i]->Position.z +=
-                GameState->EnvObjects[i]->Position.z + TerrainGetHeight(GameState->EnvObjects[0],
-                                                                        GameState->EnvObjects[i]->Position.x,
-                                                                        GameState->EnvObjects[i]->Position.y);
+            EnvObjects[i]->Position.z +=
+                EnvObjects[i]->Position.z +
+                TerrainGetHeight(EnvObjects[0], EnvObjects[i]->Position.x, EnvObjects[i]->Position.y);
         }
-
-        // максимальное число строк instancing смещений для отправки в шейдер
-        /*Render->MaxInstancingCount = 0;
-        // for(u32 i = 3; i < ENV_OBJECTS_MAX; i++)
-        for(u32 i = 3; i < EnvIndex - 2; i++)
-        {
-            if(GameState->EnvObjects[i]->InstancingCount > Render->MaxInstancingCount)
-            {
-                Render->MaxInstancingCount = GameState->EnvObjects[i]->InstancingCount;
-            }
-        }
-
-        Render->InstancingVarNames = PushArray(&GameState->WorldArena, Render->MaxInstancingCount, offset_var_name);
-        for(u32 i = 0; i < Render->MaxInstancingCount; i++)
-        {
-            char TmpName[128];
-            _snprintf_s(TmpName, sizeof(TmpName), "Offsets[%d]", i);
-            Render->InstancingVarNames[i].VarName = PushStringZ(&GameState->WorldArena, TmpName);
-        }*/
 
         //
         // NOTE(me): Шейдеры и VBO
@@ -355,15 +339,15 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->Shaders[1] = LoadShader("../code/shaders/AnimatedModel.frag", GL_FRAGMENT_SHADER);
         LinkShaderProgram(Render);
 
-        AddEnvObjectsToRender(Render, GameState->EnvObjects);
-        InitVBOs(&GameState->WorldArena, Render);
+        AddEnvObjectsToRender(Render, EnvObjects);
+        InitVBOs(WorldArena, Render);
 
         // ImGui Demo Window
         GameState->ShowDemoWindow = false;
         GameState->ShowAnotherWindow = false;
 
         // String example
-        // string TestStr = PushString(&GameState->WorldArena, "fdsfsdfss");
+        // string TestStr = PushString(WorldArena, "fdsfsdfss");
 
         // Assert example
         // int32 xxx = 1;
@@ -376,6 +360,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     render *Render = GameState->Render;
     app_settings *Settings = GameState->Settings;
     entity_player *Player = GameState->Player;
+    entity_clip *PlayerClip = GameState->Clip;
+    entity_envobject **EnvObjects = GameState->EnvObjects;
 
     //
     // NOTE(me): Inputs
@@ -412,7 +398,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ddP.x = 1.0f;
         }
 
-        MovePlayerEOM(Player, ddP, PlayerSpeed, Input->dtForFrame);
+        MovePlayerEOM(Player, PlayerClip, ddP, PlayerSpeed, Input->dtForFrame);
 
         // x, y, z - система координат камеры
         // Высота игрка на тиррейне
@@ -441,30 +427,28 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     //
     // NOTE(me): Physics
     //
-    // Высота на террейне (ландшафте)
-    Player->Position.z = TerrainGetHeight(GameState->EnvObjects[0], Player->Position.x, Player->Position.y) + 2.7f;
-    // Перемещение кубов-маркеров в положение источников света
-    GameState->EnvObjects[1]->Position = Render->PointLights[0].WorldPosition;
-    GameState->EnvObjects[2]->Position = Render->SpotLights[0].Base.WorldPosition;
-    // перемещение клип текстуры игрока
-    GameState->EnvObjects[14]->Position =
-        Player->Position - V3(GameState->EnvObjects[14]->Scale * 0.5f, GameState->EnvObjects[14]->Scale * 0.5f, 0);
-
-    // TODO(me): при просчёте освещения меша не учитывается положение в мировой системе координат
-    GameState->EnvObjects[13]->Position = V3(-98.0f, 0.0f, 0.0f);
+    // Высота камеры игрока на террейне (ландшафте)
+    Player->Position.z = TerrainGetHeight(EnvObjects[0], Player->Position.x, Player->Position.y) + 2.7f;
+    // Перемещение маркеров источников света
+    EnvObjects[1]->Position = Render->PointLights[0].WorldPosition;
+    EnvObjects[2]->Position = Render->SpotLights[0].Base.WorldPosition;
+    // Перемещение клип текстуры игрока
+    EnvObjects[14]->Position =
+        Player->Position - V3(EnvObjects[14]->Scale * 0.5f, EnvObjects[14]->Scale * 0.5f, 0);
 
     // Обработка анимаций
     if(Render->Animator.Timer > 0.0f)
     {
-#if 1
-        for(u32 i = 0; i < Render->SAnMeshesCount; i++)
+        if(Settings->ProcessAnimations)
         {
-            single_mesh *Mesh = Render->SAnMeshes[i];
-            GetBoneTransforms(Mesh, //
-                              0,    // индекс анимации
-                              Render->Animator.Timer);
+            for(u32 i = 0; i < Render->SAnMeshesCount; i++)
+            {
+                single_mesh *Mesh = Render->SAnMeshes[i];
+                GetBoneTransforms(Mesh, //
+                                  0,    // индекс анимации
+                                  Render->Animator.Timer);
+            }
         }
-#endif
 
         Render->Animator.Timer -= Input->dtForFrame;
         if(Render->Animator.Timer <= 0.0f)
@@ -550,6 +534,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::Text("SAnVerticesCountSum=%d", Render->SAnVerticesCountSum);
             ImGui::Text("MStMeshesCount=%d", Render->MStMeshesCount);
             ImGui::Text("MStVerticesCountSum=%d", Render->MStVerticesCountSum);
+            ImGui::Text("EnvCount=%d", GameState->EnvCount);
         }
 
         if(ImGui::CollapsingHeader("Settings"))
@@ -660,6 +645,9 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
             ImGui::Text("Change Mouse Sensitivity");
             ImGui::SliderFloat("##MouseSensitivity", &Settings->MouseSensitivity, 0.0f, 100.0f);
+            ImGui::Spacing();
+
+            ImGui::Checkbox("Process Animations", &Settings->ProcessAnimations);
         }
 
         if(ImGui::CollapsingHeader("Light"))
@@ -742,7 +730,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     OGLDrawLinesOXYZ(V3(0, 0, 1), 1); // World Start Point OXZY
     glPopMatrix();
 
-    single_mesh *Mesh = &GameState->EnvObjects[0]->Model->Meshes[0];
+    single_mesh *Mesh = &EnvObjects[0]->Model->Meshes[0];
     glEnable(GL_TEXTURE_2D);
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -768,6 +756,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
     glEnable(GL_NORMALIZE);
 
+    RenderPlayerClips(Window, Player, PlayerClip);
     RenderVBOs(Window, Render, Player);
 #endif
     // ImGui rendering

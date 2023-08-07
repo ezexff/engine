@@ -842,7 +842,7 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
         glLoadIdentity();
         // TODO(me): translation*rotation*scale
 
-        //glScalef(Render->MStScales[i][0], Render->MStScales[i][0], Render->MStScales[i][0]);
+        // glScalef(Render->MStScales[i][0], Render->MStScales[i][0], Render->MStScales[i][0]);
         /*
         glRotatef(Render->MStAngles[i][0], Render->MStRotations[i]->x, Render->MStRotations[i]->y,
                   Render->MStRotations[i]->z);
@@ -942,4 +942,76 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
     }
 
     glUseProgram(0);
+}
+
+internal void DrawRectangle(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, r32 Height)
+{
+    r32 CubeVertices[] = {
+        // bot
+        MinX, MinY, 0, // 1
+        MaxX, MinY, 0, // 2
+        MaxX, MaxY, 0, // 3
+        MinX, MaxY, 0, // 4
+        // top
+        MinX, MinY, Height, // 5
+        MaxX, MinY, Height, // 6
+        MaxX, MaxY, Height, // 7
+        MinX, MaxY, Height, // 8
+    };
+
+    u32 CubeIndices[] = {
+
+        0, 1, 1, 2, 2, 3, 3, 0, // bot
+        4, 5, 5, 6, 6, 7, 7, 4, // top
+        0, 4, 3, 7, 1, 5, 2, 6, // side
+    };
+    s32 CubeIndicesCount = ArrayCount(CubeIndices);
+
+    glPushMatrix();
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+
+    glVertexPointer(3, GL_FLOAT, 0, CubeVertices);
+    glColor3f(1, 0, 0);
+    glLineWidth(5);
+    glEnable(GL_LINE_SMOOTH);
+    glDrawElements(GL_LINES, CubeIndicesCount, GL_UNSIGNED_INT, CubeIndices);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+
+    glPopMatrix();
+}
+
+internal void RenderPlayerClips(GLFWwindow *Window, entity_player *Player, entity_clip *PlayerClip)
+{
+    glPushMatrix();
+    s32 DisplayWidth, DisplayHeight;
+    glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
+    glViewport(0, 0, DisplayWidth, DisplayHeight);
+    glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
+    glEnable(GL_DEPTH_TEST);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // проекция (перспективная)
+    r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
+    r32 FOV = 0.1f; // поле зрения камеры
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+
+    // вид с камеры
+    OGLSetCameraOnPlayer(Player);
+
+    glDisable(GL_TEXTURE_2D);
+    glPushMatrix();
+    r32 MinX = PlayerClip->CenterPos.x - 0.5f * PlayerClip->Side;
+    r32 MinY = PlayerClip->CenterPos.y - 0.5f * PlayerClip->Side;
+    r32 MaxX = PlayerClip->CenterPos.x + 0.5f * PlayerClip->Side;
+    r32 MaxY = PlayerClip->CenterPos.y + 0.5f * PlayerClip->Side;
+    DrawRectangle(MinX, MinY, MaxX, MaxY, 2.7);
+    glScalef(5, 5, 5);
+    OGLDrawLinesOXYZ(V3(0, 0, 1), 1); // World Start Point OXZY
+    glPopMatrix();
+
+    glPopMatrix();
 }
