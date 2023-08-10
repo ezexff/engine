@@ -14,21 +14,13 @@ internal void AddEnvObjectToRender(render *Render, entity_envobject *EnvObject)
                 if(!Mesh->WithAnimations)
                 {
                     Render->SStMeshes[Render->SStMeshesCount] = Mesh;
-                    Render->SStPositions[Render->SStMeshesCount] = &EnvObject->Position;
-                    Render->SStScales[Render->SStMeshesCount] = &EnvObject->Scale;
-                    Render->SStRotations[Render->SStMeshesCount] = &EnvObject->Rotate;
-                    Render->SStAngles[Render->SStMeshesCount] = &EnvObject->Angle;
-                    Render->SStInstancingCounters[Render->SStMeshesCount] = &EnvObject->InstancingCount;
+                    Render->SStTransformMatrices[Render->SStMeshesCount] = &EnvObject->TransformMatrix;
                     Render->SStMeshesCount++;
                 }
                 else
                 {
                     Render->SAnMeshes[Render->SAnMeshesCount] = Mesh;
-                    Render->SAnPositions[Render->SAnMeshesCount] = &EnvObject->Position;
-                    Render->SAnScales[Render->SAnMeshesCount] = &EnvObject->Scale;
-                    Render->SAnRotations[Render->SAnMeshesCount] = &EnvObject->Rotate;
-                    Render->SAnAngles[Render->SAnMeshesCount] = &EnvObject->Angle;
-                    Render->SAnInstancingCounters[Render->SAnMeshesCount] = &EnvObject->InstancingCount;
+                    Render->SAnTransformMatrices[Render->SAnMeshesCount] = &EnvObject->TransformMatrix;
                     Render->SAnMeshesCount++;
                 }
                 Assert(Render->SStMeshesCount < SINGLE_STATIC_MESHES_MAX);
@@ -44,12 +36,7 @@ internal void AddEnvObjectToRender(render *Render, entity_envobject *EnvObject)
                 if(!Mesh->WithAnimations)
                 {
                     Render->MStMeshes[Render->MStMeshesCount] = Mesh;
-                    Render->MStPositions[Render->MStMeshesCount] = &EnvObject->Position;
-                    Render->MStScales[Render->MStMeshesCount] = &EnvObject->Scale;
-                    Render->MStRotations[Render->MStMeshesCount] = &EnvObject->Rotate;
-                    Render->MStAngles[Render->MStMeshesCount] = &EnvObject->Angle;
                     Render->MStInstancingCounters[Render->MStMeshesCount] = &EnvObject->InstancingCount;
-                    // Render->MStInstancingTranslations[Render->MStMeshesCount] = EnvObject->InstancingTranslations;
                     Render->MStInstancingTransformMatrices[Render->MStMeshesCount] =
                         EnvObject->InstancingTransformMatrices;
                     Render->MStMeshesCount++;
@@ -378,7 +365,6 @@ void InitVBOs(memory_arena *WorldArena, render *Render)
     // выделение памяти под вершины и индексы
     vertex_static *MStVertices = PushArray(WorldArena, Render->MStVerticesCountSum, vertex_static);
     u32 *MStIndices = PushArray(WorldArena, Render->MStIndicesCountSum, u32);
-    // v3 *MStInstancingTranslations = PushArray(WorldArena, Render->MStInstancesCountSum, v3);
     m4x4 *MStInstancingTransformMatrices = PushArray(WorldArena, Render->MStInstancesCountSum, m4x4);
 
     // заполнение массива вершин
@@ -404,7 +390,6 @@ void InitVBOs(memory_arena *WorldArena, render *Render)
         {
             for(u32 j = 0; j < Render->MStInstancingCounters[i][0]; j++)
             {
-                // MStInstancingTranslations[InstancesTmp] = Render->MStInstancingTranslations[i][j];
                 MStInstancingTransformMatrices[InstancesTmp] = Render->MStInstancingTransformMatrices[i][j];
                 InstancesTmp++;
             }
@@ -415,7 +400,7 @@ void InitVBOs(memory_arena *WorldArena, render *Render)
     u32 InstanceVBO;
     glGenBuffers(1, &InstanceVBO);
     glBindBuffer(GL_ARRAY_BUFFER, InstanceVBO);
-    // TODO(me): сделать не только для нулевого элемента (объединить массивы MStInstancingTranslations в один буфер)
+
     glBufferData(GL_ARRAY_BUFFER, sizeof(m4x4) * Render->MStInstancesCountSum, MStInstancingTransformMatrices,
                  GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -442,15 +427,8 @@ void InitVBOs(memory_arena *WorldArena, render *Render)
     // Vertex texture coords
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_static), (void *)offsetof(vertex_static, TexCoords));
-    // Set instance data
-    /*
-    glEnableVertexAttribArray(5);
-    glBindBuffer(GL_ARRAY_BUFFER, InstanceVBO); // this attribute comes from a different vertex buffer
-    glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, sizeof(v3), (void *)0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glVertexAttribDivisor(5, 1); // tell OpenGL this is an instanced vertex attribute.
-    */
-    // set attribute pointers for matrix (4 times vec4)
+
+    // set instance attribute pointers for matrix (4 times vec4)
     glBindBuffer(GL_ARRAY_BUFFER, InstanceVBO); // this attribute comes from a different vertex buffer
 
     glEnableVertexAttribArray(5);
@@ -479,7 +457,7 @@ void InitVBOs(memory_arena *WorldArena, render *Render)
 internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Player)
 {
     //
-    // NOTE(me): Rendering Single Static Meshes
+    // NOTE(me): Preparing shader to render
     //
     glUseProgram(Render->ShaderProgram);
 
@@ -489,6 +467,22 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
     glViewport(0, 0, DisplayWidth, DisplayHeight);
     r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
     r32 FOV = 0.1f; // поле зрения камеры
+
+    // матрица проекции
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+    r32 MatProj[16];
+    glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
+    glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatProj"), 1, GL_FALSE, MatProj);
+
+    // матрица вида с камеры
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    OGLSetCameraOnPlayer(Player);
+    r32 MatView[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
+    glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatView"), 1, GL_FALSE, MatView);
 
     // отправка позиции камеры (игрока) в шейдер
     glUniform3fv(glGetUniformLocation(Render->ShaderProgram, "gCameraWorldPos"), 1, Player->Position.E);
@@ -534,7 +528,6 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
     // отправка spot lights в шейдер
     glUniform1i(glGetUniformLocation(Render->ShaderProgram, "gNumSpotLights"), //
                 Render->SpotLightsCount);
-
     for(u32 i = 0; i < Render->PointLightsCount; i++)
     {
         glUniform3fv(glGetUniformLocation(Render->ShaderProgram, Render->SLVarNames[i].VarNames[0]), 1, //
@@ -565,37 +558,18 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
                     Render->SpotLights[i].Cutoff);
     }
 
+    //
+    // NOTE(me): Rendering Single Static Meshes
+    //
     u32 BaseVertex = 0;
     u32 BaseIndex = 0;
     for(u32 i = 0; i < Render->SStMeshesCount; i++)
     {
         single_mesh *Mesh = Render->SStMeshes[i];
 
-        // матрица проекции
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
-        r32 MatProj[16];
-        glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
-        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatProj"), 1, GL_FALSE, MatProj);
-
-        // матрица вида с камеры
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-        OGLSetCameraOnPlayer(Player);
-        r32 MatView[16];
-        glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
-        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatView"), 1, GL_FALSE, MatView);
-
         // матрица модели в мировой системе координат
-        glLoadIdentity();
-        glTranslatef(Render->SStPositions[i]->x, Render->SStPositions[i]->y, Render->SStPositions[i]->z);
-        glScalef(Render->SStScales[i][0], Render->SStScales[i][0], Render->SStScales[i][0]);
-        glRotatef(Render->SStAngles[i][0], Render->SStRotations[i]->x, Render->SStRotations[i]->y,
-                  Render->SStRotations[i]->z);
-        r32 MatModel[16];
-        glGetFloatv(GL_MODELVIEW_MATRIX, MatModel);
-        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE, MatModel);
+        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE,
+                           (const GLfloat *)Render->SStTransformMatrices[i]);
 
         // отправка материала в шейдер
         if(Mesh->WithMaterial)
@@ -645,43 +619,16 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
     //
     // NOTE(me): Rendering Single Animated Meshes
     //
-    // glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
-    // glViewport(0, 0, DisplayWidth, DisplayHeight);
-    // AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
-    // FOV = 0.1f; // поле зрения камеры
 #if SINGLE_VBO_FOR_ANIM_RENDER
     BaseVertex = 0;
     BaseIndex = 0;
-    // Render->SAnMeshesCount
     for(u32 i = 0; i < Render->SAnMeshesCount; i++)
     {
         single_mesh *Mesh = Render->SAnMeshes[i];
 
-        // матрица проекции
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
-        r32 MatProj[16];
-        glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
-        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatProj"), 1, GL_FALSE, MatProj);
-
-        // матрица вида с камеры
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-        OGLSetCameraOnPlayer(Player);
-        r32 MatView[16];
-        glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
-        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatView"), 1, GL_FALSE, MatView);
-
         // матрица модели в мировой системе координат
-        glLoadIdentity();
-        glTranslatef(Render->SAnPositions[i]->x, Render->SAnPositions[i]->y, Render->SAnPositions[i]->z);
-        glScalef(Render->SAnScales[i][0], Render->SAnScales[i][0], Render->SAnScales[i][0]);
-        glRotatef(Render->SAnAngles[i][0], Render->SAnRotations[i]->x, Render->SAnRotations[i]->y,
-                  Render->SAnRotations[i]->z);
-        r32 MatModel[16];
-        glGetFloatv(GL_MODELVIEW_MATRIX, MatModel);
-        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE, MatModel);
+        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE,
+                           (const GLfloat *)Render->SAnTransformMatrices[i]);
 
         // отправка материала в шейдер
         if(Mesh->WithMaterial)
@@ -739,31 +686,9 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
     {
         single_mesh *Mesh = Render->SAnMeshes[i];
 
-        // матрица проекции
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
-        r32 MatProj[16];
-        glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
-        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatProj"), 1, GL_FALSE, MatProj);
-
-        // матрица вида с камеры
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-        OGLSetCameraOnPlayer(Player);
-        r32 MatView[16];
-        glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
-        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatView"), 1, GL_FALSE, MatView);
-
         // матрица модели в мировой системе координат
-        glLoadIdentity();
-        glTranslatef(Render->SAnPositions[i]->x, Render->SAnPositions[i]->y, Render->SAnPositions[i]->z);
-        glScalef(Render->SAnScales[i][0], Render->SAnScales[i][0], Render->SAnScales[i][0]);
-        glRotatef(Render->SAnAngles[i][0], Render->SAnRotations[i]->x, Render->SAnRotations[i]->y,
-                  Render->SAnRotations[i]->z);
-        r32 MatModel[16];
-        glGetFloatv(GL_MODELVIEW_MATRIX, MatModel);
-        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE, MatModel);
+        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE,
+                           (const GLfloat *)Render->SAnTransformMatrices[i]);
 
         // отправка материала в шейдер
         if(Mesh->WithMaterial)
@@ -815,70 +740,13 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
     //
     // NOTE(me): Rendering Multiple Single Meshes
     //
+
     BaseVertex = 0;
     BaseIndex = 0;
     u32 BaseInstance = 0;
     for(u32 i = 0; i < Render->MStMeshesCount; i++)
     {
         single_mesh *Mesh = Render->MStMeshes[i];
-
-        // матрица проекции
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
-        r32 MatProj[16];
-        glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
-        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatProj"), 1, GL_FALSE, MatProj);
-
-        // матрица вида с камеры
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-        OGLSetCameraOnPlayer(Player);
-        r32 MatView[16];
-        glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
-        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatView"), 1, GL_FALSE, MatView);
-
-        // матрица модели в мировой системе координат
-        glLoadIdentity();
-        // TODO(me): translation*rotation*scale
-
-        // glScalef(Render->MStScales[i][0], Render->MStScales[i][0], Render->MStScales[i][0]);
-        /*
-        glRotatef(Render->MStAngles[i][0], Render->MStRotations[i]->x, Render->MStRotations[i]->y,
-                  Render->MStRotations[i]->z);
-        glTranslatef(Render->MStPositions[i]->x, Render->MStPositions[i]->y, Render->MStPositions[i]->z);
-        */
-        /*m4x4 Test1;
-        m4x4 Test2;
-        m4x4 Test3;
-        for(u32 j = 0; j < 4; j++)
-        {
-            for(u32 k = 0; k < 4; k++)
-            {
-                Test1.E[i][j] = 0;
-                Test2.E[i][j] = 0;
-            }
-        }
-        Test1.E[0][0] = Render->MStScales[i][0];
-        Test1.E[1][1] = Render->MStScales[i][0];
-        Test1.E[2][2] = Render->MStScales[i][0];
-        Test1.E[3][3] = 1;
-
-        Test2.E[0][0] = 1;
-        Test2.E[1][1] = 1;
-        Test2.E[2][2] = 1;
-        Test2.E[0][3] = Render->MStPositions[i]->x;
-        Test2.E[1][3] = Render->MStPositions[i]->y;
-        Test2.E[2][3] = Render->MStPositions[i]->z;
-        Test2.E[3][3] = 1;
-
-        Test3 = Test1 * Test2;*/
-
-        // glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE,
-        //                   (const GLfloat *)Test3.E);
-        r32 MatModel[16];
-        glGetFloatv(GL_MODELVIEW_MATRIX, MatModel);
-        glUniformMatrix4fv(glGetUniformLocation(Render->ShaderProgram, "MatModel"), 1, GL_FALSE, MatModel);
 
         // отправка материала в шейдер
         if(Mesh->WithMaterial)
@@ -911,28 +779,15 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
         }
 
         glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithAnimations"), false);
-
         glUniform1i(glGetUniformLocation(Render->ShaderProgram, "WithOffset"), true);
-        // for(u32 j = 0; j < Render->MStInstancingCounters[i][0]; j++)
-        /*for(u32 j = 0; j < 200; j++)
-        {
-            glUniform3fv(glGetUniformLocation(Render->ShaderProgram, Render->InstancingVarNames[j].VarName), 1, //
-                         Render->MStInstancingTranslations[i][j].E);
-        }*/
 
         // отрисовка меша
         glBindVertexArray(Render->MStVAO);
-        /*glDrawElementsBaseVertex(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT, (void *)(sizeof(u32) * BaseIndex),
-                                 BaseVertex);
-                                 */
         glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT,
                                                       (void *)(sizeof(u32) * BaseIndex), //
-                                                      // Render->MStInstancesCountSum, // instancing count
                                                       Render->MStInstancingCounters[i][0],
                                                       BaseVertex, //
                                                       BaseInstance);
-
-        // glDrawArraysInstanced(GL_TRIANGLES, 0, Mesh->VerticesCount, 200);
         glBindVertexArray(0);
 
         // смещение к следующему мешу
@@ -984,6 +839,7 @@ internal void DrawRectangle(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, r32 Height)
 
 internal void RenderPlayerClips(GLFWwindow *Window, entity_player *Player, entity_clip *PlayerClip)
 {
+    glLoadIdentity();
     glPushMatrix();
     s32 DisplayWidth, DisplayHeight;
     glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);

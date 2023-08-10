@@ -49,6 +49,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Player->CameraXRot = 90.0f;
         Player->CameraZRot = -45.0f;
         Player->CameraYOffset = 0.27f;
+        Player->Width = 0.5f;
+        Player->Height = 0.5f;
 
         GameState->Clip = PushStruct(WorldArena, entity_clip);
         entity_clip *PlayerClip = GameState->Clip;
@@ -158,42 +160,33 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             GameState->EnvObjects[i] = PushStruct(WorldArena, entity_envobject);
         }
 
-        // TODO(me): избавиться от GameState и оставить только EnvObjects
-        // Террейн
+        // Единичные матрицы объектам окружения
+        for(u32 i = 0; i < ENV_OBJECTS_MAX; i++)
+        {
+            GameState->EnvObjects[i]->TranslateMatrix = Identity();
+            GameState->EnvObjects[i]->RotateMatrix = Identity();
+            GameState->EnvObjects[i]->ScaleMatrix = Identity();
+        }
+
         u32 EnvIndex = 0;
         entity_envobject **EnvObjects = GameState->EnvObjects;
-        EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        EnvObjects[EnvIndex]->Scale = 1.0f;
-        EnvObjects[EnvIndex]->Angle = 0.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        EnvObjects[EnvIndex]->InstancingCount = 0;
+
+        // Террейн
         EnvObjects[EnvIndex]->Model = CreateTerrainModel(WorldArena);
         EnvIndex++;
 
         // маркер позиции точечного источника освещения
-        EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        EnvObjects[EnvIndex]->Scale = 1.0f;
-        EnvObjects[EnvIndex]->Angle = 90.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
-        EnvObjects[EnvIndex]->InstancingCount = 0;
-        // EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_cube.spm");
+        EnvObjects[EnvIndex]->RotateMatrix = XRotation(90);
+        //  EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_cube.spm");
         EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(WorldArena, "lamp.png");
         EnvIndex++;
 
         // маркер позиции прожектора
-        EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        EnvObjects[EnvIndex]->Scale = 1.0f;
-        EnvObjects[EnvIndex]->Angle = 90.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
-        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->RotateMatrix = XRotation(90);
         EnvObjects[EnvIndex]->Model = EnvObjects[1]->Model;
         EnvIndex++;
 
         // ваза
-        EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        EnvObjects[EnvIndex]->Scale = 4.0f;
-        EnvObjects[EnvIndex]->Angle = 0.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
         EnvObjects[EnvIndex]->InstancingCount = 100;
         EnvObjects[EnvIndex]->InstancingTransformMatrices =
             CreateInstancingTransformMatrices(WorldArena,                            // Memory
@@ -201,15 +194,13 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
                                               EnvObjects[EnvIndex]->InstancingCount, // Amount
                                               V3(2, 4, 1),                           // Scale rand() Min, Max, Precision
                                               V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0)); // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 0, 0),  // Rotate X rand() Min, Max, Precision
+                                              V3(0, 0, 0),  // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 0, 0)); // Rotate Z rand() Min, Max, Precision
         EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_vase.spm");
         EnvIndex++;
 
         // бочка
-        EnvObjects[EnvIndex]->Position = V3(-10, -10, 0);
-        EnvObjects[EnvIndex]->Scale = 2.0f;
-        EnvObjects[EnvIndex]->Angle = 0.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
         EnvObjects[EnvIndex]->InstancingCount = 50;
         EnvObjects[EnvIndex]->InstancingTransformMatrices =
             CreateInstancingTransformMatrices(WorldArena,                            // Memory
@@ -217,15 +208,13 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
                                               EnvObjects[EnvIndex]->InstancingCount, // Amount
                                               V3(1.0, 2.0, 1),                       // Scale rand() Min, Max, Precision
                                               V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0)); // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 0, 0),    // Rotate X rand() Min, Max, Precision
+                                              V3(0, 0, 0),    // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 360, 1)); // Rotate Z rand() Min, Max, Precision
         EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_barrel.spm");
         EnvIndex++;
 
         // дерево
-        EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        EnvObjects[EnvIndex]->Scale = 0.4;
-        EnvObjects[EnvIndex]->Angle = 90;
-        EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
         EnvObjects[EnvIndex]->InstancingCount = 10;
         EnvObjects[EnvIndex]->InstancingTransformMatrices =
             CreateInstancingTransformMatrices(WorldArena,                            // Memory
@@ -233,65 +222,48 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
                                               EnvObjects[EnvIndex]->InstancingCount, // Amount
                                               V3(0.7, 0.7, 1),                       // Scale rand() Min, Max, Precision
                                               V3(90, 0, 0),                          // Rotate X, Y, Z
-                                              V3(0, 360, 1)); // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 0, 0),   // Rotate X rand() Min, Max, Precision
+                                              V3(0, 360, 1), // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 0, 0));  // Rotate Z rand() Min, Max, Precision
         EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_tree.spm");
         EnvIndex++;
 
         // ковбой (анимированный)
-        EnvObjects[EnvIndex]->Position = V3(7.5, -7.5, 0);
-        EnvObjects[EnvIndex]->Scale = 0.4f;
-        EnvObjects[EnvIndex]->Angle = 0.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(2, 2, 0));
+        EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.4f);
         EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_cowboy.spm");
         EnvIndex++;
 
-        EnvObjects[EnvIndex]->Position = V3(2, 2 + 3, 0);
-        EnvObjects[EnvIndex]->Scale = 0.4f;
-        EnvObjects[EnvIndex]->Angle = 0.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(2, 2 + 3, 0));
+        EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.4f);
         EnvObjects[EnvIndex]->Model = EnvObjects[6]->Model;
         EnvIndex++;
 
-        EnvObjects[EnvIndex]->Position = V3(2, 2 + 6, 0);
-        EnvObjects[EnvIndex]->Scale = 0.4f;
-        EnvObjects[EnvIndex]->Angle = 0.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(2, 2 + 6, 0));
+        EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.4f);
         EnvObjects[EnvIndex]->Model = EnvObjects[6]->Model;
         EnvIndex++;
 
         // страж (анимированный)
-        EnvObjects[EnvIndex]->Position = V3(5, 10 + 2, 0);
-        EnvObjects[EnvIndex]->Scale = 0.1f;
-        EnvObjects[EnvIndex]->Angle = 90.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
-        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(5, 10 + 2, 0));
+        EnvObjects[EnvIndex]->RotateMatrix = XRotation(90.0f);
+        EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.1f);
         EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_guard.spm");
         EnvIndex++;
 
-        EnvObjects[EnvIndex]->Position = V3(5 + 3, 10 + 2, 0);
-        EnvObjects[EnvIndex]->Scale = 0.1f;
-        EnvObjects[EnvIndex]->Angle = 90.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
-        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(5 + 3, 10 + 2, 0));
+        EnvObjects[EnvIndex]->RotateMatrix = XRotation(90.0f);
+        EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.1f);
         EnvObjects[EnvIndex]->Model = EnvObjects[9]->Model;
         EnvIndex++;
 
-        EnvObjects[EnvIndex]->Position = V3(5 + 6, 10 + 2, 0);
-        EnvObjects[EnvIndex]->Scale = 0.1f;
-        EnvObjects[EnvIndex]->Angle = 90.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(1, 0, 0);
-        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(5 + 6, 10 + 2, 0));
+        EnvObjects[EnvIndex]->RotateMatrix = XRotation(90.0f);
+        EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.1f);
         EnvObjects[EnvIndex]->Model = EnvObjects[9]->Model;
         EnvIndex++;
 
         // трава
-        EnvObjects[EnvIndex]->Position = V3(0, 0, 0);
-        EnvObjects[EnvIndex]->Scale = 1.0f;
-        EnvObjects[EnvIndex]->Angle = 0.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
         EnvObjects[EnvIndex]->InstancingCount = 10000;
         EnvObjects[EnvIndex]->InstancingTransformMatrices =
             CreateInstancingTransformMatrices(WorldArena,                            // Memory
@@ -299,25 +271,20 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
                                               EnvObjects[EnvIndex]->InstancingCount, // Amount
                                               V3(1, 2, 1),                           // Scale rand() Min, Max, Precision
                                               V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0)); // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 0, 0),  // Rotate X rand() Min, Max, Precision
+                                              V3(0, 0, 0),  // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 0, 0)); // Rotate Z rand() Min, Max, Precision
         EnvObjects[EnvIndex]->Model = CreateGrassModel(WorldArena);
         EnvIndex++;
 
         // clip wall texture
-        EnvObjects[EnvIndex]->Position = V3(-100.0f, 0.0f, 0.0f);
-        EnvObjects[EnvIndex]->Scale = 100.0f; // diameter
-        EnvObjects[EnvIndex]->Angle = 0.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(-100.0f, 0.0f, 0.0f));
+        EnvObjects[EnvIndex]->ScaleMatrix = Scaling(100.0f);
         EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(WorldArena, "clip.png");
         EnvIndex++;
 
         // clip player texture
-        EnvObjects[EnvIndex]->Position = V3(0.0f, 0.0f, 0.0f);
-        EnvObjects[EnvIndex]->Scale = 0.05f; // diameter
-        EnvObjects[EnvIndex]->Angle = 0.0f;
-        EnvObjects[EnvIndex]->Rotate = V3(0, 0, 0);
-        EnvObjects[EnvIndex]->InstancingCount = 0;
+        EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.05f);
         EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(WorldArena, "clip.png");
         EnvIndex++;
 
@@ -325,12 +292,12 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvCount = EnvIndex - 1;
 
         // высота объектов окружения на ландшафте
-        for(u32 i = 3; i < GameState->EnvCount - 1; i++)
+        /*for(u32 i = 3; i < GameState->EnvCount - 1; i++)
         {
             EnvObjects[i]->Position.z +=
                 EnvObjects[i]->Position.z +
                 TerrainGetHeight(EnvObjects[0], EnvObjects[i]->Position.x, EnvObjects[i]->Position.y);
-        }
+        }*/
 
         //
         // NOTE(me): Шейдеры и VBO
@@ -430,11 +397,22 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     // Высота камеры игрока на террейне (ландшафте)
     Player->Position.z = TerrainGetHeight(EnvObjects[0], Player->Position.x, Player->Position.y) + 2.7f;
     // Перемещение маркеров источников света
-    EnvObjects[1]->Position = Render->PointLights[0].WorldPosition;
-    EnvObjects[2]->Position = Render->SpotLights[0].Base.WorldPosition;
+    EnvObjects[1]->TranslateMatrix = Translation(Render->PointLights[0].WorldPosition);
+    EnvObjects[2]->TranslateMatrix = Translation(Render->SpotLights[0].Base.WorldPosition);
     // Перемещение клип текстуры игрока
-    EnvObjects[14]->Position =
-        Player->Position - V3(EnvObjects[14]->Scale * 0.5f, EnvObjects[14]->Scale * 0.5f, 0);
+    v3 ClipTextureNewPos = Player->Position - V3(Player->Width * 0.05f, Player->Height * 0.05f, 0);
+    EnvObjects[14]->TranslateMatrix = Translation(ClipTextureNewPos);
+
+    // Формируем матрицы преобразований у объектов окружения
+    for(u32 i = 0; i < GameState->EnvCount + 1; i++)
+    {
+        if(EnvObjects[i]->InstancingCount == 0)
+        {
+            EnvObjects[i]->TransformMatrix =
+                EnvObjects[i]->TranslateMatrix * EnvObjects[i]->RotateMatrix * EnvObjects[i]->ScaleMatrix;
+            EnvObjects[i]->TransformMatrix = Transpose(EnvObjects[i]->TransformMatrix); // opengl to glsl format
+        }
+    }
 
     // Обработка анимаций
     if(Render->Animator.Timer > 0.0f)

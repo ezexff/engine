@@ -53,18 +53,20 @@ void main()
         Weights0 = Weights;
     }
 
-    gl_Position = MatProj * MatView * MatModel * PosL;
-
-    TexCoord0 = TexCoord;
-    // Normal0 = Normal;
-    Normal0 = (MatModel * vec4(Normal, 0.0)).xyz; // преобразование нормали из локальной в мировую систему координат
-    // Tangent0 = (MatModel * vec4(Tangent, 0.0)).xyz;
-    WorldPos0 = (MatModel * PosL).xyz;
-
     if(WithOffset)
     {
         gl_Position = MatProj * MatView * MatModelInstance * vec4(Position, 1.0);
         Normal0 = (MatModelInstance * vec4(Normal, 0.0)).xyz;
         WorldPos0 = (MatModelInstance * PosL).xyz;
     }
+    else
+    {
+        gl_Position = MatProj * MatView * MatModel * PosL;
+        // Normal0 = Normal;
+        Normal0 = (MatModel * vec4(Normal, 0.0)).xyz; // преобразование нормали из локальной в мировую систему координат
+        // Tangent0 = (MatModel * vec4(Tangent, 0.0)).xyz;
+        WorldPos0 = (MatModel * PosL).xyz;
+    }
+
+    TexCoord0 = TexCoord;
 }

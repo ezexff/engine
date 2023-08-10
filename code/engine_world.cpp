@@ -321,24 +321,30 @@ internal m4x4 *CreateInstancingTransformMatrices(memory_arena *WorldArena,  //
                                                  u32 Count,                 //
                                                  v3 SMM,                    // Scale rand() Min, Max, Precision
                                                  v3 Rotate,                 // Rotate X, Y, Z
-                                                 v3 RYMM)                    // Rotate Y rand() Min, Max, Precision
+                                                 v3 RXMM,                   // Rotate X rand() Min, Max, Precision
+                                                 v3 RYMM,                   // Rotate Y rand() Min, Max, Precision
+                                                 v3 RZMM)                   // Rotate Z rand() Min, Max, Precision
 {
     m4x4 *Result = PushArray(WorldArena, Count, m4x4);
 
     for(u32 i = 0; i < Count; i++)
     {
-        r32 Scale = DebugGetRandomNumberR32(SMM.x, SMM.y, (u32)SMM.z);
-        v3 ScaleVec = V3(Scale, Scale, Scale);
-        m4x4 ScalingM = Scaling(ScaleVec);
-
-        r32 RotY = DebugGetRandomNumberR32(RYMM.x, RYMM.y, (u32)RYMM.z);
-        m4x4 RotationM = XRotation(Rotate.x) * YRotation(Rotate.y) * ZRotation(Rotate.z) * YRotation(RotY);
-
         v3 TranslationVec = V3(0, 0, 0);
         TranslationVec.x = (r32)(rand()) / (r32)(RAND_MAX / (TMapW - 2));
         TranslationVec.y = (r32)(rand()) / (r32)(RAND_MAX / (TMapH - 2));
         TranslationVec.z = TerrainGetHeight(Terrain, TranslationVec.x, TranslationVec.y);
         m4x4 TranslationM = Translation(TranslationVec);
+
+        r32 RotX = DebugGetRandomNumberR32(RXMM.x, RXMM.y, (u32)RXMM.z);
+        r32 RotY = DebugGetRandomNumberR32(RYMM.x, RYMM.y, (u32)RYMM.z);
+        r32 RotZ = DebugGetRandomNumberR32(RZMM.x, RZMM.y, (u32)RZMM.z);
+        m4x4 RotationM = XRotation(Rotate.x) * YRotation(Rotate.y) * ZRotation(Rotate.z) //
+                         * XRotation(RotX) * YRotation(RotY) * ZRotation(RotZ);
+
+        r32 Scale = DebugGetRandomNumberR32(SMM.x, SMM.y, (u32)SMM.z);
+        //v3 ScaleVec = V3(Scale, Scale, Scale);
+        //m4x4 ScalingM = Scaling(ScaleVec);
+        m4x4 ScalingM = Scaling(Scale);
 
         Result[i] = TranslationM * RotationM * ScalingM;
         Result[i] = Transpose(Result[i]); // opengl to glsl format

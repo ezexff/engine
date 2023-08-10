@@ -99,11 +99,12 @@ struct render
     single_mesh *SStMeshes[SINGLE_STATIC_MESHES_MAX];
 
     // атрибуты модели
-    v3 *SStPositions[SINGLE_STATIC_MESHES_MAX];
-    r32 *SStScales[SINGLE_STATIC_MESHES_MAX];
-    r32 *SStAngles[SINGLE_STATIC_MESHES_MAX];
-    v3 *SStRotations[SINGLE_STATIC_MESHES_MAX];
-    u32 *SStInstancingCounters[SINGLE_STATIC_MESHES_MAX];
+    // v3 *SStPositions[SINGLE_STATIC_MESHES_MAX];
+    // r32 *SStScales[SINGLE_STATIC_MESHES_MAX];
+    // r32 *SStAngles[SINGLE_STATIC_MESHES_MAX];
+    // v3 *SStRotations[SINGLE_STATIC_MESHES_MAX];
+    m4x4 *SStTransformMatrices[SINGLE_STATIC_MESHES_MAX];
+    // u32 *SStInstancingCounters[SINGLE_STATIC_MESHES_MAX];
 
     // данные для отрисовки
     u32 SStVerticesCountSum;
@@ -124,11 +125,12 @@ struct render
     single_mesh *SAnMeshes[SINGLE_ANIMATED_MESHES_MAX];
 
     // атрибуты модели
-    v3 *SAnPositions[SINGLE_ANIMATED_MESHES_MAX];
-    r32 *SAnScales[SINGLE_ANIMATED_MESHES_MAX];
-    r32 *SAnAngles[SINGLE_ANIMATED_MESHES_MAX];
-    v3 *SAnRotations[SINGLE_ANIMATED_MESHES_MAX];
-    u32 *SAnInstancingCounters[SINGLE_ANIMATED_MESHES_MAX];
+    // v3 *SAnPositions[SINGLE_ANIMATED_MESHES_MAX];
+    // r32 *SAnScales[SINGLE_ANIMATED_MESHES_MAX];
+    // r32 *SAnAngles[SINGLE_ANIMATED_MESHES_MAX];
+    // v3 *SAnRotations[SINGLE_ANIMATED_MESHES_MAX];
+    m4x4 *SAnTransformMatrices[SINGLE_ANIMATED_MESHES_MAX];
+    // u32 *SAnInstancingCounters[SINGLE_ANIMATED_MESHES_MAX];
 
     // данные для отрисовки
     u32 SAnVerticesCountSum;
@@ -151,12 +153,12 @@ struct render
     single_mesh *MStMeshes[MULTIPLE_STATIC_MESHES_MAX];
 
     // атрибуты модели
-    v3 *MStPositions[MULTIPLE_STATIC_MESHES_MAX];
-    r32 *MStScales[MULTIPLE_STATIC_MESHES_MAX];
-    r32 *MStAngles[MULTIPLE_STATIC_MESHES_MAX];
-    v3 *MStRotations[MULTIPLE_STATIC_MESHES_MAX];
+    // v3 *MStPositions[MULTIPLE_STATIC_MESHES_MAX];
+    // r32 *MStScales[MULTIPLE_STATIC_MESHES_MAX];
+    // r32 *MStAngles[MULTIPLE_STATIC_MESHES_MAX];
+    // v3 *MStRotations[MULTIPLE_STATIC_MESHES_MAX];
     u32 *MStInstancingCounters[MULTIPLE_STATIC_MESHES_MAX];
-    //v3 *MStInstancingTranslations[MULTIPLE_STATIC_MESHES_MAX];
+    // v3 *MStInstancingTranslations[MULTIPLE_STATIC_MESHES_MAX];
     m4x4 *MStInstancingTransformMatrices[MULTIPLE_STATIC_MESHES_MAX];
 
     // данные для отрисовки
@@ -169,9 +171,8 @@ struct render
     u32 MStVBO;
     u32 MStEBO;
 
-    //u32 MaxInstancingCount;
-    //offset_var_name *InstancingVarNames;
-
+    // u32 MaxInstancingCount;
+    // offset_var_name *InstancingVarNames;
 
     //
     // NOTE(me): Light

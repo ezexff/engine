@@ -176,9 +176,6 @@ void MovePlayerEOM(entity_player *Player, entity_clip *PlayerClip, v2 ddPFromKey
     // v2 TerrainCenterPos = V2(-10.0f, -10.0f);
     // r32 TerrainSide = 10.0f;
 
-    r32 PlayerWidth = 0.5f;
-    r32 PlayerHeight = 0.5f;
-
     v2 WallNormal = {};
     u32 HitHighEntityIndex = 0;
     // TODO(me):
@@ -217,8 +214,8 @@ void MovePlayerEOM(entity_player *Player, entity_clip *PlayerClip, v2 ddPFromKey
     {
         // r32 tMin = 1.0f;
 
-        r32 DiameterW = TerrainSide + PlayerWidth;
-        r32 DiameterH = TerrainSide + PlayerHeight;
+        r32 DiameterW = TerrainSide + Player->Width;
+        r32 DiameterH = TerrainSide + Player->Height;
 
         v2 MinCorner = -0.5f * V2(DiameterW, DiameterH);
         v2 MaxCorner = 0.5f * V2(DiameterW, DiameterH);

@@ -72,6 +72,7 @@ inline v3 operator*(m4x4 A, v3 P);
 inline v4 operator*(m4x4 A, v4 P);
 inline m4x4 Rotation(v4 P);
 inline m4x4 Identity(void);
+inline m4x4 Scaling(r32 P);
 inline m4x4 Scaling(v3 P);
 inline m4x4 XRotation(f32 Angle);
 inline m4x4 YRotation(f32 Angle);
@@ -796,6 +797,18 @@ inline m4x4 Identity(void)
     return (R);
 }
 
+inline m4x4 Scaling(r32 P)
+{
+    m4x4 R = {
+        {{1 * P, 0, 0, 0}, //
+         {0, 1 * P, 0, 0}, //
+         {0, 0, 1 * P, 0}, //
+         {0, 0, 0, 1}},    //
+    };
+
+    return (R);
+}
+
 inline m4x4 Scaling(v3 P)
 {
     m4x4 R = {
@@ -1049,7 +1062,7 @@ v3 GetLocalDirection(m4x4 World, v3 WorldDirection)
             WorldToLocal.E[i][j] = World.E[j][i];
         }
     }
-    //m4x4 TestWorld = Inversion(World);
+    // m4x4 TestWorld = Inversion(World);
 
     /*WorldB.E[0][3] = 0;
     WorldB.E[1][3] = 0;
