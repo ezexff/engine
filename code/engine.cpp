@@ -292,12 +292,17 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         GameState->EnvCount = EnvIndex - 1;
 
         // высота объектов окружения на ландшафте
-        /*for(u32 i = 3; i < GameState->EnvCount - 1; i++)
+        for(u32 i = 3; i < GameState->EnvCount - 1; i++)
         {
-            EnvObjects[i]->Position.z +=
-                EnvObjects[i]->Position.z +
-                TerrainGetHeight(EnvObjects[0], EnvObjects[i]->Position.x, EnvObjects[i]->Position.y);
-        }*/
+            // EnvObjects[i]->Position.z +=
+            //     EnvObjects[i]->Position.z +
+            //     TerrainGetHeight(EnvObjects[0], EnvObjects[i]->Position.x, EnvObjects[i]->Position.y);
+
+            EnvObjects[i]->TranslateMatrix.E[2][3] +=
+                EnvObjects[i]->TranslateMatrix.E[2][3] + TerrainGetHeight(EnvObjects[0],
+                                                                          EnvObjects[i]->TranslateMatrix.E[0][3],
+                                                                          EnvObjects[i]->TranslateMatrix.E[1][3]);
+        }
 
         //
         // NOTE(me): Шейдеры и VBO
@@ -734,8 +739,32 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
     glEnable(GL_NORMALIZE);
 
-    RenderPlayerClips(Window, Player, PlayerClip);
     RenderVBOs(Window, Render, Player);
+
+    // NOTE(me): Debug elements
+    glDisable(GL_TEXTURE_2D);
+    glLoadIdentity();
+    s32 DisplayWidth, DisplayHeight;
+    glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
+    glViewport(0, 0, DisplayWidth, DisplayHeight);
+    r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
+    r32 FOV = 0.1f; // поле зрения камеры
+
+    // матрица проекции
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+
+    // вид с камеры
+    OGLSetCameraOnPlayer(Player);
+
+    RenderPlayerClips(PlayerClip);
+    RenderLightsPos(Render);
+
+    glPushMatrix();
+    glScalef(5, 5, 5);
+    OGLDrawLinesOXYZ(V3(0, 0, 1), 1); // World Start Point OXYZ
+    glPopMatrix();
 #endif
     // ImGui rendering
     ImGui::Render();

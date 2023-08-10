@@ -799,19 +799,86 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
     glUseProgram(0);
 }
 
-internal void DrawRectangle(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, r32 Height)
+internal void OGLDrawLinesOXYZ(v3 Normal, r32 LineWidth, r32 LineMin = -0.5, r32 LineMax = 0.5, r32 Offset = 0.001)
+{
+    // TODO(me): Add arrows?
+    r32 LineVertices[] = {
+        LineMin, Offset,  Offset,  // 0 - x
+        LineMax, Offset,  Offset,  // 1 - x
+        Offset,  LineMin, Offset,  // 0 - y
+        Offset,  LineMax, Offset,  // 1 - y
+        Offset,  Offset,  LineMin, // 0 - z
+        Offset,  Offset,  LineMax  // 1 - z
+
+    };
+    r32 LineColors[] = {
+        1, 0, 0, // 0 - red
+        1, 0, 0, // 1 - red
+        0, 0, 1, // 0 - green
+        0, 0, 1, // 1 - green
+        0, 1, 0, // 0 - blue
+        0, 1, 0, // 1 - blue
+    };
+
+    glNormal3f(Normal.x, Normal.y, Normal.z);
+    glLineWidth(LineWidth);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+
+    glVertexPointer(3, GL_FLOAT, 0, LineVertices);
+    glColorPointer(3, GL_FLOAT, 0, LineColors);
+    glDrawArrays(GL_LINES, 0, 6);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+
+    glLineWidth(20);
+    r32 ArrowVertices[] = {
+        LineMax,
+        Offset,
+        Offset, // 0 - x
+        LineMax + 0.25f * LineMax,
+        Offset,
+        Offset, // 1 - x
+        Offset,
+        LineMax,
+        Offset, // 0 - y
+        Offset,
+        LineMax + 0.25f * LineMax,
+        Offset, // 1 - y
+        Offset,
+        Offset,
+        LineMax, // 0 - z
+        Offset,
+        Offset,
+        LineMax + 0.25f * LineMax // 1 - z
+
+    };
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+
+    glVertexPointer(3, GL_FLOAT, 0, ArrowVertices);
+    glColorPointer(3, GL_FLOAT, 0, LineColors);
+    glDrawArrays(GL_LINES, 0, 6);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+}
+
+internal void DrawRectangle(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, r32 MinZ, r32 MaxZ, v3 Color, r32 LineWidth)
 {
     r32 CubeVertices[] = {
         // bot
-        MinX, MinY, 0, // 1
-        MaxX, MinY, 0, // 2
-        MaxX, MaxY, 0, // 3
-        MinX, MaxY, 0, // 4
+        MinX, MinY, MinZ, // 1
+        MaxX, MinY, MinZ, // 2
+        MaxX, MaxY, MinZ, // 3
+        MinX, MaxY, MinZ, // 4
         // top
-        MinX, MinY, Height, // 5
-        MaxX, MinY, Height, // 6
-        MaxX, MaxY, Height, // 7
-        MinX, MaxY, Height, // 8
+        MinX, MinY, MaxZ, // 5
+        MaxX, MinY, MaxZ, // 6
+        MaxX, MaxY, MaxZ, // 7
+        MinX, MaxY, MaxZ, // 8
     };
 
     u32 CubeIndices[] = {
@@ -822,52 +889,46 @@ internal void DrawRectangle(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, r32 Height)
     };
     s32 CubeIndicesCount = ArrayCount(CubeIndices);
 
-    glPushMatrix();
-
     glEnableClientState(GL_VERTEX_ARRAY);
 
     glVertexPointer(3, GL_FLOAT, 0, CubeVertices);
-    glColor3f(1, 0, 0);
-    glLineWidth(5);
+    glColor3f(Color.x, Color.y, Color.z);
+    glLineWidth(LineWidth);
     glEnable(GL_LINE_SMOOTH);
     glDrawElements(GL_LINES, CubeIndicesCount, GL_UNSIGNED_INT, CubeIndices);
 
     glDisableClientState(GL_VERTEX_ARRAY);
-
-    glPopMatrix();
 }
 
-internal void RenderPlayerClips(GLFWwindow *Window, entity_player *Player, entity_clip *PlayerClip)
+internal void RenderPlayerClips(entity_clip *PlayerClip)
 {
-    glLoadIdentity();
-    glPushMatrix();
-    s32 DisplayWidth, DisplayHeight;
-    glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
-    glViewport(0, 0, DisplayWidth, DisplayHeight);
-    glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
-    glEnable(GL_DEPTH_TEST);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // проекция (перспективная)
-    r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
-    r32 FOV = 0.1f; // поле зрения камеры
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
-
-    // вид с камеры
-    OGLSetCameraOnPlayer(Player);
-
-    glDisable(GL_TEXTURE_2D);
-    glPushMatrix();
+    // render clip zone
     r32 MinX = PlayerClip->CenterPos.x - 0.5f * PlayerClip->Side;
     r32 MinY = PlayerClip->CenterPos.y - 0.5f * PlayerClip->Side;
     r32 MaxX = PlayerClip->CenterPos.x + 0.5f * PlayerClip->Side;
     r32 MaxY = PlayerClip->CenterPos.y + 0.5f * PlayerClip->Side;
-    DrawRectangle(MinX, MinY, MaxX, MaxY, 2.7);
-    glScalef(5, 5, 5);
-    OGLDrawLinesOXYZ(V3(0, 0, 1), 1); // World Start Point OXZY
-    glPopMatrix();
+    DrawRectangle(MinX, MinY, MaxX, MaxY, 0, 2.7f, V3(1, 0, 0), 5);
+}
 
-    glPopMatrix();
+internal void RenderLightsPos(render *Render)
+{
+    // render point light pos
+    point_light *PointLights = Render->PointLights;
+    r32 MinX = PointLights[0].WorldPosition.x;
+    r32 MinY = PointLights[0].WorldPosition.y - 0.5f;
+    r32 MaxX = PointLights[0].WorldPosition.x + 1.0f;
+    r32 MaxY = PointLights[0].WorldPosition.y + 0.5f;
+    r32 MinZ = PointLights[0].WorldPosition.z;
+    r32 MaxZ = PointLights[0].WorldPosition.z + 1.0f;
+    DrawRectangle(MinX, MinY, MaxX, MaxY, MinZ, MaxZ, V3(1, 1, 0), 5);
+
+    // render spot light pos
+    spot_light *SpotLights = Render->SpotLights;
+    MinX = SpotLights[0].Base.WorldPosition.x;
+    MinY = SpotLights[0].Base.WorldPosition.y - 0.5f;
+    MaxX = SpotLights[0].Base.WorldPosition.x + 1.0f;
+    MaxY = SpotLights[0].Base.WorldPosition.y + 0.5f;
+    MinZ = SpotLights[0].Base.WorldPosition.z;
+    MaxZ = SpotLights[0].Base.WorldPosition.z + 1.0f;
+    DrawRectangle(MinX, MinY, MaxX, MaxY, MinZ, MaxZ, V3(1, 1, 0), 5);
 }
