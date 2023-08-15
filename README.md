@@ -47,10 +47,10 @@
 *	Коллизии (player clip или стена)
 *	Отрисовка вспомогательной информации для разработчика (центр игрового мира, позиции источников света, области коллизий)
 
-## Сборка проекта в Visual Studio через build.bat
+## Сборка проекта через MSVC Compiler при помощи build.bat
 1.  Укажите во второй строке файла [build.bat](code/build.bat) свой путь до **vcvarsall.bat**
 2.  Запуск [build.bat](code/build.bat) скомпилирует исполняемый файл **build/win32_engine.exe**
-## Отладка проекта в Visual Studio через debug.bat
+## Отладка проекта в Visual Studio при помощи debug.bat
 1.  Укажите во второй строке файла [debug.bat](code/debug.bat) свой путь до **vcvarsall.bat**
 2.  Запуск [debug.bat](code/debug.bat) откроет в Visual Studio исполняемый файл **build/win32_engine.exe**
 3.  В обозревателе решений следует изменить рабочий каталог с **build** на **data**
