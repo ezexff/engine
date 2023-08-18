@@ -46,11 +46,12 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         entity_player *Player = GameState->Player;
         Player->Position = V3(5, 5, 0);
         Player->dP = V2(0, 0);
-        Player->CameraXRot = 90.0f;
-        Player->CameraZRot = -45.0f;
+        Player->CameraPitch = 90.0f;
+        Player->CameraYaw = -45.0f;
         Player->CameraYOffset = 0.27f;
         Player->Width = 0.5f;
         Player->Height = 0.5f;
+        Player->CameraPitchInversed = Player->CameraPitch;
 
         GameState->Clip = PushStruct(WorldArena, entity_clip);
         entity_clip *PlayerClip = GameState->Clip;
@@ -307,12 +308,22 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         //
         // NOTE(me): Шейдеры и VBO
         //
-        Render->Shaders[0] = LoadShader("../code/shaders/AnimatedModel.vert", GL_VERTEX_SHADER);
-        Render->Shaders[1] = LoadShader("../code/shaders/AnimatedModel.frag", GL_FRAGMENT_SHADER);
-        LinkShaderProgram(Render);
+        // Render->Shaders[0] = LoadShader("../code/shaders/AnimatedModel.vert", GL_VERTEX_SHADER);
+        // Render->Shaders[1] = LoadShader("../code/shaders/AnimatedModel.frag", GL_FRAGMENT_SHADER);
+        u32 Shader1Vert = LoadShader("../code/shaders/AnimatedModel.vert", GL_VERTEX_SHADER);
+        u32 Shader1Frag = LoadShader("../code/shaders/AnimatedModel.frag", GL_FRAGMENT_SHADER);
+        Render->DefaultShaderProgram = LinkShaderProgram(Shader1Vert, Shader1Frag);
 
+        u32 Shader2Vert = LoadShader("../code/shaders/Water.vert", GL_VERTEX_SHADER);
+        u32 Shader2Frag = LoadShader("../code/shaders/Water.frag", GL_FRAGMENT_SHADER);
+        Render->WaterShaderProgram = LinkShaderProgram(Shader2Vert, Shader2Frag);
+
+        // Добавление объектов окружения в рендерер и создание VBO
         AddEnvObjectsToRender(Render, EnvObjects);
         InitVBOs(WorldArena, Render);
+
+        //
+        InitFBOs(Render);
 
         // ImGui Demo Window
         GameState->ShowDemoWindow = false;
@@ -508,6 +519,9 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::InputFloat("Player X", &Player->Position.x, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("Player Y", &Player->Position.y, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("Player Z", &Player->Position.z, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("CameraPitch", &Player->CameraPitch, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("CameraYaw", &Player->CameraYaw, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("CameraYOffset", &Player->CameraYOffset, 0.5, 2, "%.10f", 0);
             ImGui::Text("CursorPos=%f,%f", Input->MouseX, Input->MouseY);
             ImGui::Text("dtForFrame=%f", Input->dtForFrame);
             ImGui::Text("MOffset=%f,%f", Input->MouseOffsetX, Input->MouseOffsetY);
@@ -689,6 +703,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     //
     // NOTE(me): Game render
     //
+    glfwGetFramebufferSize(Window, &Render->DisplayWidth, &Render->DisplayHeight);
+
 #if 0
     s32 DisplayWidth, DisplayHeight;
     glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
@@ -730,41 +746,43 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisableClientState(GL_NORMAL_ARRAY);
 #else
-    glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
-    glEnable(GL_DEPTH_TEST);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glEnable(GL_ALPHA_TEST);
-    glAlphaFunc(GL_GREATER, 0.01f);
+    glEnable(GL_CLIP_DISTANCE0);
 
-    glEnable(GL_NORMALIZE);
+    // Render Reflection Texture
+    glViewport(0, 0, 1920 / 6, 1080 / 6);
+    r32 WaterZ = -0.5f;
+    Render->CutPlane = V4(0, 0, 1, -WaterZ);
+    // r32 Distance = 2 * ((Player->Position.z + Player->CameraYOffset) - WaterZ);
+    r32 Distance = 2 * ((Player->CameraYOffset) - WaterZ);
+    // Inverse Camera Pitch
+    r32 NormalCameraPitch = Player->CameraPitch;
+    Player->CameraPitch = Player->CameraPitchInversed;
+    // Render
+    glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterReflFBO);
+    RenderScene(Window, Render, Player);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // Inverse Camera Pitch
+    Player->CameraPitch = NormalCameraPitch;
 
-    RenderVBOs(Window, Render, Player);
+    // Render Refraction Texture
+    glViewport(0, 0, (u32)(1920 / 1.5), (u32)(1080 / 1.5));
+    Render->CutPlane = V4(0, 0, -1, WaterZ + 0.5f);
+    glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterRefrFBO);
+    RenderScene(Window, Render, Player);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    // NOTE(me): Debug elements
-    glDisable(GL_TEXTURE_2D);
-    glLoadIdentity();
-    s32 DisplayWidth, DisplayHeight;
-    glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
-    glViewport(0, 0, DisplayWidth, DisplayHeight);
-    r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
-    r32 FOV = 0.1f; // поле зрения камеры
+    // single_mesh *Mesh = &EnvObjects[0]->Model->Meshes[0];
+    // DrawTexturedSquare(Mesh->Material.Texture);
+    glDisable(GL_CLIP_DISTANCE0);
+    glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
+    Render->CutPlane = V4(0, 0, -1, 100000);
+    RenderScene(Window, Render, Player);
+    RenderWater(Window, Render, Player);
+    RenderDebugElements(Render, Player, PlayerClip);
+    //DrawTexturedSquare(Window, Render, Render->WaterReflTexture, 320, 180, V2(340, 200));
+    //DrawTexturedSquare(Window, Render, Render->WaterRefrTexture, 320, 180, V2(1000, 200));
 
-    // матрица проекции
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
-
-    // вид с камеры
-    OGLSetCameraOnPlayer(Player);
-
-    RenderPlayerClips(PlayerClip);
-    RenderLightsPos(Render);
-
-    glPushMatrix();
-    glScalef(5, 5, 5);
-    OGLDrawLinesOXYZ(V3(0, 0, 1), 1); // World Start Point OXYZ
-    glPopMatrix();
 #endif
     // ImGui rendering
     ImGui::Render();

@@ -7,9 +7,11 @@ struct entity_player
     r32 Width;
     r32 Height;
 
-    r32 CameraXRot;    // поворот камеры по горизонтали
-    r32 CameraZRot;    // поворот камеры по вертикали
+    r32 CameraPitch;    // pitch поворот камеры по вертикали
+    r32 CameraYaw;    // yaw поворот камеры по горизонтали
     r32 CameraYOffset; // высота взгляда
+
+    r32 CameraPitchInversed;
 };
 
 struct entity_clip

@@ -169,6 +169,13 @@ internal loaded_model *CreateTerrainModel(memory_arena *WorldArena)
         CreateHill(Mesh->Positions, HillX, HillY, HillZ, HillRadius);
     }
 
+    // создание ямы
+    u32 PitX = 20;
+    u32 PitY = 10;
+    s32 PitZ = -5;
+    u32 PitRadius = 5;
+    CreateHill(Mesh->Positions, PitX, PitY, PitZ, PitRadius);
+
     // заполнение карты нормалей террейна
     Mesh->Normals = PushArray(WorldArena, Mesh->VerticesCount, v3);
     for(u32 i = 0; i < TMapW; i++)
@@ -342,8 +349,8 @@ internal m4x4 *CreateInstancingTransformMatrices(memory_arena *WorldArena,  //
                          * XRotation(RotX) * YRotation(RotY) * ZRotation(RotZ);
 
         r32 Scale = DebugGetRandomNumberR32(SMM.x, SMM.y, (u32)SMM.z);
-        //v3 ScaleVec = V3(Scale, Scale, Scale);
-        //m4x4 ScalingM = Scaling(ScaleVec);
+        // v3 ScaleVec = V3(Scale, Scale, Scale);
+        // m4x4 ScalingM = Scaling(ScaleVec);
         m4x4 ScalingM = Scaling(Scale);
 
         Result[i] = TranslationM * RotationM * ScalingM;

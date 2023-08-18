@@ -83,11 +83,30 @@ struct offset_var_name
 
 struct render
 {
+    // Window W&H
+    s32 DisplayWidth, DisplayHeight;
+    v4 CutPlane;
+
     //
     // NOTE(me): Shaders
     //
-    u32 ShaderProgram;
-    u32 Shaders[10];
+    // water reflection
+    u32 WaterReflFBO;
+    u32 WaterReflTexture;
+    u32 WaterReflDepthRBO;
+
+    // water refraction
+    u32 WaterRefrFBO;
+    u32 WaterRefrTexture;
+    u32 WaterRefractionDepthTexture;
+
+    u32 FBO;
+    u32 TextureColorbuffer;
+    u32 RBO;
+    // u32 ShaderProgram;
+    u32 DefaultShaderProgram;
+    u32 WaterShaderProgram;
+    // u32 Shaders[10];
 
     //
     // NOTE(me): Single Static Meshes list for rendering

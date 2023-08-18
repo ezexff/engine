@@ -1,18 +1,25 @@
 void RotatePlayerCamera(entity_player *Player, r32 ZAngle, r32 XAngle, r32 Sensitivity)
 {
     // по горизонтали
-    Player->CameraZRot -= ZAngle * Sensitivity;
-    if(Player->CameraZRot < 0)
-        Player->CameraZRot += 360;
-    if(Player->CameraZRot > 360)
-        Player->CameraZRot -= 360;
+    Player->CameraYaw -= ZAngle * Sensitivity;
+    if(Player->CameraYaw < 0)
+        Player->CameraYaw += 360;
+    if(Player->CameraYaw > 360)
+        Player->CameraYaw -= 360;
 
     // по вертикали
-    Player->CameraXRot += XAngle * Sensitivity;
-    if(Player->CameraXRot < 0)
-        Player->CameraXRot = 0;
-    if(Player->CameraXRot > 180)
-        Player->CameraXRot = 180;
+    Player->CameraPitch += XAngle * Sensitivity;
+    if(Player->CameraPitch < 0)
+        Player->CameraPitch = 0;
+    if(Player->CameraPitch > 180)
+        Player->CameraPitch = 180;
+
+    // по вертикали (inversed)
+    Player->CameraPitchInversed -= XAngle * Sensitivity;
+    if(Player->CameraPitchInversed < 0)
+        Player->CameraPitchInversed = 0;
+    if(Player->CameraPitchInversed > 180)
+        Player->CameraPitchInversed = 180;
 }
 
 internal bool32 TestWall(real32 WallX, real32 RelX, real32 RelY, real32 PlayerDeltaX, real32 PlayerDeltaY, real32 *tMin,
@@ -129,8 +136,8 @@ void MovePlayerEOM(entity_player *Player, entity_clip *PlayerClip, v2 ddPFromKey
     }
 
     // поворот вектора ускорения в зависимости от направления взгляда игрока
-    // r32 Angle = Player->CameraZRot / 180 * Pi32;
-    r32 Angle = Player->CameraZRot * Pi32 / 180;
+    // r32 Angle = Player->CameraYaw / 180 * Pi32;
+    r32 Angle = Player->CameraYaw * Pi32 / 180;
     v2 ddP = {};
     ddP.x = ddPFromKeys.x * Cos(Angle) - ddPFromKeys.y * Sin(Angle);
     ddP.y = ddPFromKeys.x * Sin(Angle) + ddPFromKeys.y * Cos(Angle);
@@ -392,7 +399,7 @@ void MovePlayerEOM(entity_player *Player, entity_clip *PlayerClip, v2 ddPFromKey
 
 void OGLSetCameraOnPlayer(entity_player *Player)
 {
-    glRotatef(-Player->CameraXRot, 1.0f, 0.0f, 0.0f);
-    glRotatef(-Player->CameraZRot, 0.0f, 0.0f, 1.0f);
+    glRotatef(-Player->CameraPitch, 1.0f, 0.0f, 0.0f);
+    glRotatef(-Player->CameraYaw, 0.0f, 0.0f, 1.0f);
     glTranslatef(-Player->Position.x, -Player->Position.y, -(Player->Position.z + Player->CameraYOffset));
 }

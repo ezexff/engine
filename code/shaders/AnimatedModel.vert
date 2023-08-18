@@ -36,6 +36,8 @@ uniform bool WithOffset;
 // const int MAX_OFFSETS = 200;
 // uniform vec3 Offsets[MAX_OFFSETS];
 
+uniform vec4 CutPlane;
+
 void main()
 {
     vec4 PosL = vec4(Position, 1.0);
@@ -67,6 +69,8 @@ void main()
         // Tangent0 = (MatModel * vec4(Tangent, 0.0)).xyz;
         WorldPos0 = (MatModel * PosL).xyz;
     }
+
+    gl_ClipDistance[0] = dot(vec4(WorldPos0, 1.0), CutPlane);
 
     TexCoord0 = TexCoord;
 }
