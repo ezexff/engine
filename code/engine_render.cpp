@@ -487,9 +487,7 @@ internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Play
     glUniform4fv(glGetUniformLocation(ShaderProg, "CutPlane"), 1, Render->CutPlane.E);
 
     // отправка позиции камеры (игрока) в шейдер
-    v3 CameraPos = V3(Player->Position.x, Player->Position.y, Player->Position.z + Player->CameraYOffset);
-    // glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, Player->Position.E);
-    glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, CameraPos.E);
+    glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, Player->Position.E);
 
     // отправка directional light в шейдер
     glUniform3fv(glGetUniformLocation(ShaderProg, "gDirectionalLight.Base.Color"), 1, //
@@ -961,7 +959,7 @@ internal void DrawColoredRectangle(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, r32 Z
     glDisableClientState(GL_VERTEX_ARRAY);
 }
 
-internal void RenderWater(GLFWwindow *Window, render *Render, entity_player *Player)
+internal void RenderWater(GLFWwindow *Window, render *Render, entity_player *Player, r32 WaterZ)
 {
 #if 1
     u32 ShaderProg = Render->WaterShaderProgram;
@@ -1021,7 +1019,7 @@ internal void RenderWater(GLFWwindow *Window, render *Render, entity_player *Pla
 #endif
 
     r32 PitRadiusDiv2 = 5;
-    r32 WaterZ = -0.5f;
+    // r32 WaterZ = -0.5f;
     r32 MinX = 20 - PitRadiusDiv2;
     r32 MinY = 10 - PitRadiusDiv2;
     r32 MaxX = 20 + PitRadiusDiv2;

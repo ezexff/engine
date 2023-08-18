@@ -48,7 +48,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Player->dP = V2(0, 0);
         Player->CameraPitch = 90.0f;
         Player->CameraYaw = -45.0f;
-        Player->CameraYOffset = 0.27f;
+        Player->CameraZOffset = 2.7f;
         Player->Width = 0.5f;
         Player->Height = 0.5f;
         Player->CameraPitchInversed = Player->CameraPitch;
@@ -411,7 +411,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     // NOTE(me): Physics
     //
     // Высота камеры игрока на террейне (ландшафте)
-    Player->Position.z = TerrainGetHeight(EnvObjects[0], Player->Position.x, Player->Position.y) + 2.7f;
+    Player->Position.z =
+        TerrainGetHeight(EnvObjects[0], Player->Position.x, Player->Position.y) + Player->CameraZOffset;
     // Перемещение маркеров источников света
     EnvObjects[1]->TranslateMatrix = Translation(Render->PointLights[0].WorldPosition);
     EnvObjects[2]->TranslateMatrix = Translation(Render->SpotLights[0].Base.WorldPosition);
@@ -521,7 +522,6 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::InputFloat("Player Z", &Player->Position.z, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("CameraPitch", &Player->CameraPitch, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("CameraYaw", &Player->CameraYaw, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("CameraYOffset", &Player->CameraYOffset, 0.5, 2, "%.10f", 0);
             ImGui::Text("CursorPos=%f,%f", Input->MouseX, Input->MouseY);
             ImGui::Text("dtForFrame=%f", Input->dtForFrame);
             ImGui::Text("MOffset=%f,%f", Input->MouseOffsetX, Input->MouseOffsetY);
@@ -751,10 +751,10 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
     // Render Reflection Texture
     glViewport(0, 0, 1920 / 6, 1080 / 6);
-    r32 WaterZ = -0.5f;
+    r32 WaterZ = 0.0f;
     Render->CutPlane = V4(0, 0, 1, -WaterZ);
-    // r32 Distance = 2 * ((Player->Position.z + Player->CameraYOffset) - WaterZ);
-    r32 Distance = 2 * ((Player->CameraYOffset) - WaterZ);
+    r32 Distance = 2 * (Player->Position.z - WaterZ);
+    Player->Position.z -= Distance;
     // Inverse Camera Pitch
     r32 NormalCameraPitch = Player->CameraPitch;
     Player->CameraPitch = Player->CameraPitchInversed;
@@ -762,12 +762,13 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterReflFBO);
     RenderScene(Window, Render, Player);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    Player->Position.z += Distance;
     // Inverse Camera Pitch
     Player->CameraPitch = NormalCameraPitch;
 
     // Render Refraction Texture
     glViewport(0, 0, (u32)(1920 / 1.5), (u32)(1080 / 1.5));
-    Render->CutPlane = V4(0, 0, -1, WaterZ + 0.5f);
+    Render->CutPlane = V4(0, 0, -1, WaterZ);
     glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterRefrFBO);
     RenderScene(Window, Render, Player);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -778,7 +779,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
     Render->CutPlane = V4(0, 0, -1, 100000);
     RenderScene(Window, Render, Player);
-    RenderWater(Window, Render, Player);
+    RenderWater(Window, Render, Player, WaterZ);
     RenderDebugElements(Render, Player, PlayerClip);
     //DrawTexturedSquare(Window, Render, Render->WaterReflTexture, 320, 180, V2(340, 200));
     //DrawTexturedSquare(Window, Render, Render->WaterRefrTexture, 320, 180, V2(1000, 200));

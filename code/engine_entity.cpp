@@ -401,5 +401,5 @@ void OGLSetCameraOnPlayer(entity_player *Player)
 {
     glRotatef(-Player->CameraPitch, 1.0f, 0.0f, 0.0f);
     glRotatef(-Player->CameraYaw, 0.0f, 0.0f, 1.0f);
-    glTranslatef(-Player->Position.x, -Player->Position.y, -(Player->Position.z + Player->CameraYOffset));
+    glTranslatef(-Player->Position.x, -Player->Position.y, -Player->Position.z);
 }
