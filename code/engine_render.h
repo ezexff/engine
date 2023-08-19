@@ -91,18 +91,25 @@ struct render
     // NOTE(me): Shaders
     //
     // water reflection
+    r32 WaterWaveSpeed;
+    r32 WaterMoveFactor;
+
     u32 WaterReflFBO;
     u32 WaterReflTexture;
     u32 WaterReflDepthRBO;
+    string WaterDUDVTextureName;
+    u32 WaterDUDVTexture;
+    string WaterNormalMapName;
+    u32 WaterNormalMap;
 
     // water refraction
     u32 WaterRefrFBO;
     u32 WaterRefrTexture;
-    u32 WaterRefractionDepthTexture;
+    u32 WaterRefrDepthTexture;
 
-    u32 FBO;
-    u32 TextureColorbuffer;
-    u32 RBO;
+    //u32 FBO;
+    //u32 TextureColorbuffer;
+    //u32 RBO;
     // u32 ShaderProgram;
     u32 DefaultShaderProgram;
     u32 WaterShaderProgram;

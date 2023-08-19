@@ -137,7 +137,7 @@ u32 LinkShaderProgram(u32 ShaderVert, u32 ShaderFrag)
     return (ShaderProgram);
 }
 
-void InitVBOs(memory_arena *WorldArena, render *Render)
+void InitEnvVBOs(memory_arena *WorldArena, render *Render)
 {
     //
     // NOTE(me): Preparing VBO for Single Static Meshes
@@ -454,7 +454,7 @@ void InitVBOs(memory_arena *WorldArena, render *Render)
     glBindVertexArray(0);
 }
 
-internal void RenderVBOs(GLFWwindow *Window, render *Render, entity_player *Player)
+internal void RenderEnvVBOs(GLFWwindow *Window, render *Render, entity_player *Player)
 {
     //
     // NOTE(me): Preparing shader to render
@@ -935,6 +935,7 @@ internal void RenderLightsPos(render *Render)
     DrawRectangularParallelepiped(MinX, MinY, MaxX, MaxY, MinZ, MaxZ, V3(1, 1, 0), 5);
 }
 
+/*
 internal void DrawColoredRectangle(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, r32 Z, v3 Color)
 {
     r32 RectangleVertices[] = {
@@ -958,12 +959,30 @@ internal void DrawColoredRectangle(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, r32 Z
 
     glDisableClientState(GL_VERTEX_ARRAY);
 }
+*/
 
-internal void RenderWater(GLFWwindow *Window, render *Render, entity_player *Player, r32 WaterZ)
+internal void RenderWater(GLFWwindow *Window, render *Render, entity_player *Player, r32 dtForFrame, r32 WaterZ)
 {
 #if 1
     u32 ShaderProg = Render->WaterShaderProgram;
     glUseProgram(ShaderProg);
+
+    //glEnable(GL_BLEND);
+    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    Render->WaterMoveFactor += Render->WaterWaveSpeed * dtForFrame;
+    if(Render->WaterMoveFactor >= 1)
+    {
+        Render->WaterMoveFactor = 0;
+    }
+
+    glUniform3fv(glGetUniformLocation(ShaderProg, "LightPosition"), 1, Render->DirLight.WorldDirection.E);
+
+    glUniform3fv(glGetUniformLocation(ShaderProg, "LightColor"), 1, Render->DirLight.Base.Color.E);
+
+    glUniform3fv(glGetUniformLocation(ShaderProg, "CameraPosition"), 1, Player->Position.E);
+
+    glUniform1f(glGetUniformLocation(ShaderProg, "MoveFactor"), Render->WaterMoveFactor);
 
     glActiveTexture(GL_TEXTURE0 + 0);
     glBindTexture(GL_TEXTURE_2D, Render->WaterReflTexture);
@@ -972,6 +991,18 @@ internal void RenderWater(GLFWwindow *Window, render *Render, entity_player *Pla
     glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_2D, Render->WaterRefrTexture);
     glUniform1i(glGetUniformLocation(ShaderProg, "RefractionTexture"), 1);
+
+    glActiveTexture(GL_TEXTURE0 + 2);
+    glBindTexture(GL_TEXTURE_2D, Render->WaterDUDVTexture);
+    glUniform1i(glGetUniformLocation(ShaderProg, "DUDVMap"), 2);
+
+    glActiveTexture(GL_TEXTURE0 + 3);
+    glBindTexture(GL_TEXTURE_2D, Render->WaterNormalMap);
+    glUniform1i(glGetUniformLocation(ShaderProg, "NormalMap"), 3);
+
+    glActiveTexture(GL_TEXTURE0 + 4);
+    glBindTexture(GL_TEXTURE_2D, Render->WaterRefrDepthTexture);
+    glUniform1i(glGetUniformLocation(ShaderProg, "DepthMap"), 4);
 
     // область отображения рендера
     // glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
@@ -1019,17 +1050,48 @@ internal void RenderWater(GLFWwindow *Window, render *Render, entity_player *Pla
 #endif
 
     r32 PitRadiusDiv2 = 5;
-    // r32 WaterZ = -0.5f;
     r32 MinX = 20 - PitRadiusDiv2;
     r32 MinY = 10 - PitRadiusDiv2;
     r32 MaxX = 20 + PitRadiusDiv2;
     r32 MaxY = 10 + PitRadiusDiv2;
-    DrawColoredRectangle(MinX, MinY, MaxX, MaxY, WaterZ, V3(0, 0, 1));
+
+    r32 RectangleVertices[] = {
+        MinX, MinY, WaterZ, // 0
+        MaxX, MinY, WaterZ, // 1
+        MaxX, MaxY, WaterZ, // 2
+        MinX, MaxY, WaterZ, // 3
+    };
+
+    /*u32 RectangleIndices[] = {
+        0, 1, 3, // 1st triangle
+        1, 2, 3, // 2nd triangle
+    };*/
+    u32 RectangleIndices[] = {
+        0, 1, 2, 3 // 1st triangle
+    };
+    s32 RectangleIndicesCount = ArrayCount(RectangleIndices);
+
+    /*r32 RectangleTexCoords[] = {
+        0, 1, //
+        1, 1, //
+        1, 0, //
+        0, 0  //
+    };*/
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+
+    glVertexPointer(3, GL_FLOAT, 0, RectangleVertices);
+    // glTexCoordPointer(2, GL_FLOAT, 0, RectangleTexCoords);
+    glDrawElements(GL_QUADS, RectangleIndicesCount, GL_UNSIGNED_INT, RectangleIndices);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+
+    //glDisable(GL_BLEND);
 
     glUseProgram(0);
 }
 
-void InitFBOs(render *Render)
+void InitWaterFBOs(render *Render)
 {
     //
     // NOTE(me): Init Reflection Frame Buffer
@@ -1077,13 +1139,13 @@ void InitFBOs(render *Render)
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Render->WaterRefrTexture, 0);
 
     // Create Depth Texture Attachment
-    glGenTextures(1, &Render->WaterRefractionDepthTexture);
-    glBindTexture(GL_TEXTURE_2D, Render->WaterRefractionDepthTexture);
+    glGenTextures(1, &Render->WaterRefrDepthTexture);
+    glBindTexture(GL_TEXTURE_2D, Render->WaterRefrDepthTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, REFRACTION_WIDTH, REFRACTION_HEIGHT, 0, GL_DEPTH_COMPONENT,
                  GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Render->WaterRefractionDepthTexture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Render->WaterRefrDepthTexture, 0);
 
     /*
     u32 SCR_WIDTH = 1280;
@@ -1126,7 +1188,7 @@ void RenderScene(GLFWwindow *Window, render *Render, entity_player *Player)
 
     glEnable(GL_NORMALIZE);
 
-    RenderVBOs(Window, Render, Player);
+    RenderEnvVBOs(Window, Render, Player);
 }
 
 void RenderDebugElements(render *Render, entity_player *Player, entity_clip *PlayerClip)
@@ -1157,8 +1219,20 @@ void RenderDebugElements(render *Render, entity_player *Player, entity_clip *Pla
 
 void DrawTexturedSquare(GLFWwindow *Window, render *Render, u32 Texture, r32 TextureWidth, s32 TextureHeight, v2 Offset)
 {
-    r32 VSquare[] = {-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0};
-    r32 TexSquare[] = {0, 1, 1, 1, 1, 0, 0, 0};
+    r32 VSquare[] = {
+        -1, -1, //
+        0,  1,  //
+        -1, 0,  //
+        1,  1,  //
+        0,  -1, //
+        1,  0   //
+    };
+    r32 TexSquare[] = {
+        0, 1, //
+        1, 1, //
+        1, 0, //
+        0, 0  //
+    };
 
     // Ортогональная проекция и единичная матрица модели
     // glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
