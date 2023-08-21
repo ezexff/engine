@@ -2,6 +2,7 @@
 Игровой движок, написанный на C++. Проект имеет кросплатформерную структуру (слой платформы и игровой код независимы друг от друга), а так же использует библиотеки [GLFW](https://www.glfw.org/), [ImGui](https://github.com/ocornut/imgui), [Glad](https://github.com/Dav1dde/glad) и [stb_image](https://github.com/nothings/stb).<br><br>
 ![C++ Game Engine screenshot](https://i.imgur.com/ue5gFgL.png)
 ![C++ Game Engine screenshot](https://i.imgur.com/BNUPyQj.png)
+![C++ Game Engine screenshot](https://i.imgur.com/lFqbDXQ.png)
 <details>
 <summary>Скриншоты прошлых версий</summary>
 <img src="https://i.imgur.com/icJtm0k.png" alt="C++ Game Engine screenshot">
@@ -48,6 +49,7 @@
 *	Коллизии (player clip или стена)
 *	Отрисовка вспомогательной информации для разработчика (центр игрового мира, позиции источников света, области коллизий)
 *	Вода (FBO+RBO, Water Shader, Clipping Planes, DuDv Texture, Fresnel Effect, Normal Map)
+*	Тени (Shadow Mapping: Depth Map from Depth Buffer, Depth Shader, Shadow Shader, Shadow acne, Peter panning)
 
 ## Сборка проекта через MSVC Compiler при помощи build.bat
 1.  Укажите во второй строке файла [build.bat](code/build.bat) свой путь до **vcvarsall.bat**
