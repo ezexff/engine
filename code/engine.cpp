@@ -265,7 +265,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         EnvIndex++;
 
         // трава
-        EnvObjects[EnvIndex]->InstancingCount = 10000;
+        /*EnvObjects[EnvIndex]->InstancingCount = 10000;
         EnvObjects[EnvIndex]->InstancingTransformMatrices =
             CreateInstancingTransformMatrices(WorldArena,                            // Memory
                                               EnvObjects[0],                         // Terrain
@@ -276,7 +276,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
                                               V3(0, 0, 0),  // Rotate Y rand() Min, Max, Precision
                                               V3(0, 0, 0)); // Rotate Z rand() Min, Max, Precision
         EnvObjects[EnvIndex]->Model = CreateGrassModel(WorldArena);
-        EnvIndex++;
+        EnvIndex++;*/
 
         // clip wall texture
         EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(-100.0f, 0.0f, 0.0f));
@@ -289,7 +289,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(WorldArena, "clip.png");
         EnvIndex++;
 
-        Assert(EnvIndex >= ENV_OBJECTS_MAX);
+        Assert(EnvIndex <= ENV_OBJECTS_MAX);
         GameState->EnvCount = EnvIndex - 1;
 
         // высота объектов окружения на ландшафте
@@ -316,20 +316,41 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         u32 Shader2Frag = LoadShader("../code/shaders/Water.frag", GL_FRAGMENT_SHADER);
         Render->WaterShaderProgram = LinkShaderProgram(Shader2Vert, Shader2Frag);
 
+        u32 Shader3Vert = LoadShader("../code/shaders/DepthMap.vert", GL_VERTEX_SHADER);
+        u32 Shader3Frag = LoadShader("../code/shaders/DepthMap.frag", GL_FRAGMENT_SHADER);
+        Render->DepthMapShaderProgram = LinkShaderProgram(Shader3Vert, Shader3Frag);
+
         // Добавление объектов окружения в рендерер и создание VBO
         AddEnvObjectsToRender(Render, EnvObjects);
         InitEnvVBOs(WorldArena, Render);
 
         // Water FBOs
-        InitWaterFBOs(Render);
+        Render->ReflWidth = 1920;
+        Render->ReflHeight = 1080;
+        Render->RefrWidth = 1920;
+        Render->RefrHeight = 1080;
         Render->WaterWaveSpeed = 0.03f;
         Render->WaterMoveFactor = 0;
-        //Render->WaterDUDVTextureName = PushString(WorldArena, "WaterDUDV.png");
+        // Render->WaterDUDVTextureName = PushString(WorldArena, "WaterDUDV.png");
         Render->WaterDUDVTextureName = PushString(WorldArena, "NewWaterDUDV.png");
         Render->WaterDUDVTexture = LoadTexture(&Render->WaterDUDVTextureName);
-        //Render->WaterNormalMapName = PushString(WorldArena, "WaterNormalMap.png");
+        // Render->WaterNormalMapName = PushString(WorldArena, "WaterNormalMap.png");
         Render->WaterNormalMapName = PushString(WorldArena, "NewWaterNormalMap.png");
         Render->WaterNormalMap = LoadTexture(&Render->WaterNormalMapName);
+        InitWaterFBOs(Render);
+
+        // Shadows FBO
+        Render->DepthMapWidth = 1920;
+        Render->DepthMapHeight = 1080;
+        InitDepthMapFBO(Render);
+
+        // now that we actually created the framebuffer and added all attachments we want to check if it is actually
+        // complete now
+        if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        {
+            InvalidCodePath;
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // ImGui Demo Window
         GameState->ShowDemoWindow = false;
@@ -757,40 +778,44 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     glEnable(GL_CLIP_DISTANCE0);
 
     // Render Reflection Texture
-    glViewport(0, 0, 1920 / 6, 1080 / 6);
+    glViewport(0, 0, Render->ReflWidth, Render->ReflHeight);
     r32 WaterZ = 0.0f;
-    Render->CutPlane = V4(0, 0, 1, -WaterZ);
     r32 Distance = 2 * (Player->Position.z - WaterZ);
     Player->Position.z -= Distance;
-    // Inverse Camera Pitch
     r32 NormalCameraPitch = Player->CameraPitch;
     Player->CameraPitch = Player->CameraPitchInversed;
-    // Render
+    Render->CutPlane = V4(0, 0, 1, -WaterZ);
     glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterReflFBO);
-    RenderScene(Window, Render, Player);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    RenderScene(Window, Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     Player->Position.z += Distance;
-    // Inverse Camera Pitch
     Player->CameraPitch = NormalCameraPitch;
 
     // Render Refraction Texture
-    glViewport(0, 0, (u32)(1920 / 1.5), (u32)(1080 / 1.5));
+    glViewport(0, 0, (u32)(Render->RefrWidth), (u32)(Render->RefrHeight));
     Render->CutPlane = V4(0, 0, -1, WaterZ);
     glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterRefrFBO);
-    RenderScene(Window, Render, Player);
+    RenderScene(Window, Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glDisable(GL_CLIP_DISTANCE0);
+    Render->CutPlane = V4(0, 0, -1, 100000);
+
+    // Render Depth Map
+    glViewport(0, 0, (u32)(Render->DepthMapWidth), (u32)(Render->DepthMapHeight));
+    glBindFramebuffer(GL_FRAMEBUFFER, Render->DepthMapFBO);
+    glCullFace(GL_FRONT);
+    RenderScene(Window, Render, Render->DepthMapShaderProgram, Player, GL_DEPTH_BUFFER_BIT);
+    glCullFace(GL_BACK);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // single_mesh *Mesh = &EnvObjects[0]->Model->Meshes[0];
     //  DrawTexturedSquare(Mesh->Material.Texture);
-    glDisable(GL_CLIP_DISTANCE0);
     glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
-    Render->CutPlane = V4(0, 0, -1, 100000);
-    RenderScene(Window, Render, Player);
+    RenderScene(Window, Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     RenderWater(Window, Render, Player, Input->dtForFrame, WaterZ);
     RenderDebugElements(Render, Player, PlayerClip);
-    // DrawTexturedSquare(Window, Render, Render->WaterReflTexture, 320, 180, V2(340, 200));
-    // DrawTexturedSquare(Window, Render, Render->WaterRefrTexture, 320, 180, V2(1000, 200));
-    // DrawTexturedSquare(Window, Render, Render->WaterDUDVTexture, 320, 180, V2(1000, 200));
+    //DrawTexturedSquare(Window, Render, Render->WaterReflTexture, 320, 180, V2(340, 200));
+    //DrawTexturedSquare(Window, Render, Render->WaterRefrTexture, 320, 180, V2(1000, 200));
+    //DrawTexturedSquare(Window, Render, Render->DepthMap, 320, 180, V2(1550, 200));
 
 #endif
     // ImGui rendering

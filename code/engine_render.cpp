@@ -454,16 +454,41 @@ void InitEnvVBOs(memory_arena *WorldArena, render *Render)
     glBindVertexArray(0);
 }
 
-internal void RenderEnvVBOs(GLFWwindow *Window, render *Render, entity_player *Player)
+internal void RenderEnvVBOs(GLFWwindow *Window, render *Render, u32 ShaderProg, entity_player *Player)
 {
     //
     // NOTE(me): Preparing shader to render
     //
-    u32 ShaderProg = Render->DefaultShaderProgram;
     glUseProgram(ShaderProg);
 
+    glActiveTexture(GL_TEXTURE0 + 1);
+    glBindTexture(GL_TEXTURE_2D, Render->DepthMap);
+    glUniform1i(glGetUniformLocation(ShaderProg, "ShadowMap"), 1);
+
+    // матрица проекции (источник света для теней)
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    // glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+    r32 NearPlane = 1.0f, FarPlane = 37.5f;
+    glOrtho(-10.0f, 10.0f, -10.0f, 10.0f, NearPlane, FarPlane);
+    r32 MatProjShadows[16];
+    glGetFloatv(GL_PROJECTION_MATRIX, MatProjShadows);
+    glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatProjShadows"), 1, GL_FALSE, MatProjShadows);
+
+    // матрица вида (источник света для теней)
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    r32 ShadowLightPitch = 70.0f;
+    r32 ShadowLightYaw = 325.0f;
+    v3 ShadowLightPos = V3(0.0f, 0.0f, 10.0f);
+    glRotatef(-ShadowLightPitch, 1.0f, 0.0f, 0.0f);
+    glRotatef(-ShadowLightYaw, 0.0f, 0.0f, 1.0f);
+    glTranslatef(-ShadowLightPos.x, -ShadowLightPos.y, -ShadowLightPos.z);
+    r32 MatViewShadows[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
+    glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatViewShadows"), 1, GL_FALSE, MatViewShadows);
+
     // область отображения рендера
-    // glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
     r32 AspectRatio = (r32)Render->DisplayWidth / (r32)Render->DisplayHeight;
     r32 FOV = 0.1f; // поле зрения камеры
 
@@ -967,8 +992,8 @@ internal void RenderWater(GLFWwindow *Window, render *Render, entity_player *Pla
     u32 ShaderProg = Render->WaterShaderProgram;
     glUseProgram(ShaderProg);
 
-    //glEnable(GL_BLEND);
-    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // glEnable(GL_BLEND);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     Render->WaterMoveFactor += Render->WaterWaveSpeed * dtForFrame;
     if(Render->WaterMoveFactor >= 1)
@@ -1086,7 +1111,7 @@ internal void RenderWater(GLFWwindow *Window, render *Render, entity_player *Pla
 
     glDisableClientState(GL_VERTEX_ARRAY);
 
-    //glDisable(GL_BLEND);
+    // glDisable(GL_BLEND);
 
     glUseProgram(0);
 }
@@ -1097,12 +1122,11 @@ void InitWaterFBOs(render *Render)
     // NOTE(me): Init Reflection Frame Buffer
     //
 
-    u32 REFLECTION_WIDTH = (u32)(1920 / 6);
-    u32 REFLECTION_HEIGHT = (u32)(1080 / 6);
+    u32 REFLECTION_WIDTH = (u32)(Render->ReflWidth);
+    u32 REFLECTION_HEIGHT = (u32)(Render->ReflHeight);
 
     glGenFramebuffers(1, &Render->WaterReflFBO);
     glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterReflFBO);
-    // glViewport(0, 0, REFLECTION_WIDTH, REFLECTION_HEIGHT);
 
     // Create Texture Attachment
     glGenTextures(1, &Render->WaterReflTexture);
@@ -1123,12 +1147,11 @@ void InitWaterFBOs(render *Render)
     // NOTE(me): Init Refraction Frame Buffer
     //
 
-    u32 REFRACTION_WIDTH = (u32)(1920 / 1.5);
-    u32 REFRACTION_HEIGHT = (u32)(1080 / 1.5);
+    u32 REFRACTION_WIDTH = (u32)(Render->RefrWidth);
+    u32 REFRACTION_HEIGHT = (u32)(Render->RefrHeight);
 
     glGenFramebuffers(1, &Render->WaterRefrFBO);
     glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterRefrFBO);
-    // glViewport(0, 0, REFRACTION_WIDTH, REFRACTION_HEIGHT);
 
     // Create Texture Attachment
     glGenTextures(1, &Render->WaterRefrTexture);
@@ -1146,53 +1169,52 @@ void InitWaterFBOs(render *Render)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Render->WaterRefrDepthTexture, 0);
-
-    /*
-    u32 SCR_WIDTH = 1280;
-    u32 SCR_HEIGHT = 720;
-    // framebuffer configuration
-    glGenFramebuffers(1, &Render->FBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, Render->FBO);
-
-    // create a color attachment texture
-    glGenTextures(1, &Render->TextureColorbuffer);
-    glBindTexture(GL_TEXTURE_2D, Render->TextureColorbuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Render->TextureColorbuffer, 0);
-    // create a renderbuffer object for depth and stencil attachment (we won't be sampling these)
-    glGenRenderbuffers(1, &Render->RBO);
-    glBindRenderbuffer(GL_RENDERBUFFER, Render->RBO);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCR_WIDTH, SCR_HEIGHT);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, Render->RBO);
-    */
-    // now that we actually created the framebuffer and added all attachments we want to check if it is actually
-    // complete now
-    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-    {
-        InvalidCodePath;
-    }
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void RenderScene(GLFWwindow *Window, render *Render, entity_player *Player)
+void InitDepthMapFBO(render *Render)
+{
+    u32 DEPTH_MAP_WIDTH = (u32)(Render->DepthMapWidth);
+    u32 DEPTH_MAP_HEIGHT = (u32)(Render->DepthMapHeight);
+
+    glGenFramebuffers(1, &Render->DepthMapFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, Render->DepthMapFBO);
+
+    // Create Texture Attachment
+    glGenTextures(1, &Render->DepthMap);
+    glBindTexture(GL_TEXTURE_2D, Render->DepthMap);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, DEPTH_MAP_WIDTH, DEPTH_MAP_HEIGHT, 0, GL_DEPTH_COMPONENT,
+                 GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    // Attach Depth Texture to Framebuffer
+    glBindFramebuffer(GL_FRAMEBUFFER, Render->DepthMapFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Render->DepthMap, 0);
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+}
+
+void RenderScene(GLFWwindow *Window, render *Render, u32 ShaderProg, entity_player *Player, GLbitfield glClearMask)
 {
     glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
     glEnable(GL_DEPTH_TEST);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(glClearMask);
 
     glEnable(GL_ALPHA_TEST);
     glAlphaFunc(GL_GREATER, 0.01f);
 
     glEnable(GL_NORMALIZE);
 
-    RenderEnvVBOs(Window, Render, Player);
+    RenderEnvVBOs(Window, Render, ShaderProg, Player);
 }
 
 void RenderDebugElements(render *Render, entity_player *Player, entity_clip *PlayerClip)
 {
+    //glDisable(GL_NORMALIZE);
+    //glDisable(GL_ALPHA_TEST);
     glDisable(GL_TEXTURE_2D);
     glLoadIdentity();
 

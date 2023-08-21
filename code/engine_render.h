@@ -85,15 +85,14 @@ struct render
 {
     // Window W&H
     s32 DisplayWidth, DisplayHeight;
+
     v4 CutPlane;
 
-    //
-    // NOTE(me): Shaders
-    //
     // water reflection
     r32 WaterWaveSpeed;
     r32 WaterMoveFactor;
 
+    s32 ReflWidth, ReflHeight;
     u32 WaterReflFBO;
     u32 WaterReflTexture;
     u32 WaterReflDepthRBO;
@@ -103,17 +102,20 @@ struct render
     u32 WaterNormalMap;
 
     // water refraction
+    s32 RefrWidth, RefrHeight;
     u32 WaterRefrFBO;
     u32 WaterRefrTexture;
     u32 WaterRefrDepthTexture;
 
-    //u32 FBO;
-    //u32 TextureColorbuffer;
-    //u32 RBO;
-    // u32 ShaderProgram;
+    // depth map
+    s32 DepthMapWidth, DepthMapHeight;
+    u32 DepthMapFBO;
+    u32 DepthMap;
+
+    // shaders
     u32 DefaultShaderProgram;
     u32 WaterShaderProgram;
-    // u32 Shaders[10];
+    u32 DepthMapShaderProgram;
 
     //
     // NOTE(me): Single Static Meshes list for rendering

@@ -5,10 +5,11 @@ const int MAX_SPOT_LIGHTS = 1;
 
 in vec2 TexCoord0;
 in vec3 Normal0;
-//in vec3 Tangent0;
-in vec3 WorldPos0; // TODO(me): переименовать
+// in vec3 Tangent0;
+in vec3 WorldPos0;
 flat in ivec4 BoneIDs0;
 in vec4 Weights0;
+in vec4 FragPosLightSpace;
 
 out vec4 FragColor;
 
@@ -35,7 +36,7 @@ struct Attenuation
 struct PointLight
 {
     BaseLight Base;
-    vec3 WorldPos; // TODO(me): переименовать
+    vec3 WorldPos;
     Attenuation Atten;
 };
 
@@ -61,9 +62,11 @@ uniform SpotLight gSpotLights[MAX_SPOT_LIGHTS];
 uniform Material gMaterial;                 // completed
 uniform sampler2D gSampler;                 // completed
 uniform sampler2D gSamplerSpecularExponent; // completed
-uniform vec3 gCameraWorldPos; // completed
-uniform bool gWithTexture;    // new
-uniform sampler2D gNormalMap; // bind the normal map before the draw
+uniform vec3 gCameraWorldPos;               // completed
+uniform bool gWithTexture;                  // new
+// uniform sampler2D gNormalMap; // bind the normal map before the draw
+uniform sampler2D ShadowMap;
+
 
 vec4 CalcLightInternal(BaseLight Light, vec3 LightDirection, vec3 Normal)
 {
@@ -98,6 +101,42 @@ vec4 CalcLightInternal(BaseLight Light, vec3 LightDirection, vec3 Normal)
 vec4 CalcDirectionalLight(vec3 Normal)
 {
     return CalcLightInternal(gDirectionalLight.Base, gDirectionalLight.Direction, Normal);
+}
+
+
+vec4 CalcLightInternalWS(BaseLight Light, vec3 LightDirection, vec3 Normal, float Shadow)
+{
+    vec4 AmbientColor = vec4(Light.Color, 1.0f) * Light.AmbientIntensity * vec4(gMaterial.AmbientColor, 1.0f);
+
+    float DiffuseFactor = dot(Normal, -LightDirection);
+
+    vec4 DiffuseColor = vec4(0, 0, 0, 0);
+    vec4 SpecularColor = vec4(0, 0, 0, 0);
+
+    if(DiffuseFactor > 0)
+    {
+        DiffuseColor =
+            vec4(Light.Color, 1.0f) * Light.DiffuseIntensity * vec4(gMaterial.DiffuseColor, 1.0f) * DiffuseFactor;
+
+        vec3 PixelToCamera = normalize(gCameraWorldPos - WorldPos0);
+        vec3 LightReflect = normalize(reflect(LightDirection, Normal));
+        float SpecularFactor = dot(PixelToCamera, LightReflect);
+        if(SpecularFactor > 0)
+        {
+            float SpecularExponent = texture2D(gSamplerSpecularExponent, TexCoord0).r * 255.0;
+            SpecularFactor = pow(SpecularFactor, SpecularExponent);
+            SpecularColor = vec4(Light.Color, 1.0f) *
+                            Light.DiffuseIntensity * // using the diffuse intensity for diffuse/specular
+                            vec4(gMaterial.SpecularColor, 1.0f) * SpecularFactor;
+        }
+    }
+
+    return (AmbientColor + (1.0 - Shadow) * (DiffuseColor + SpecularColor));
+}
+
+vec4 CalcDirectionalLightWS(vec3 Normal, float Shadow) // with shadow
+{
+    return CalcLightInternalWS(gDirectionalLight.Base, gDirectionalLight.Direction, Normal, Shadow);
 }
 
 vec4 CalcPointLight(PointLight l, vec3 Normal)
@@ -144,11 +183,30 @@ vec4 CalcSpotLight(SpotLight l, vec3 Normal)
     return NewNormal;
 }*/
 
+float ShadowCalculation(vec4 fragPosLightSpace, vec3 Normal)
+{
+    // perform perspective divide
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    // transform to [0,1] range
+    projCoords = projCoords * 0.5 + 0.5;
+    // get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+    float closestDepth = texture(ShadowMap, projCoords.xy).r;
+    // get depth of current fragment from light's perspective
+    float currentDepth = projCoords.z;
+    // check whether current frag pos is in shadow
+    float bias = 0.005;
+    // float bias = max(0.05 * (1.0 - dot(Normal, gDirectionalLight.Direction)), 0.005);
+    float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+
+    return shadow;
+}
+
 void main()
 {
     vec3 Normal = normalize(Normal0);
     // vec3 Normal = CalcBumpedNormal();
-    vec4 TotalLight = CalcDirectionalLight(Normal);
+    float Shadow = ShadowCalculation(FragPosLightSpace, Normal);
+    vec4 TotalLight = CalcDirectionalLightWS(Normal, Shadow);
 
     for(int i = 0; i < gNumPointLights; i++)
     {
@@ -165,9 +223,9 @@ void main()
     if(gWithTexture)
     {
         FragColor = texture2D(gSampler, TexCoord0.xy) * TotalLight;
-        //FragColor = texture2D(gSampler, TexCoord0.xy);
+        // FragColor = texture2D(gSampler, TexCoord0.xy);
     }
 
-    //FragColor = vec4(1.0, 0, 0, 1.0);
-    //FragColor = texture2D(gSampler, TexCoord0.xy);
+    // FragColor = vec4(1.0, 0, 0, 1.0);
+    // FragColor = texture2D(gSampler, TexCoord0.xy);
 }

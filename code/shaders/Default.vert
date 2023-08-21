@@ -19,13 +19,17 @@ out vec3 Normal0;
 out vec3 WorldPos0;
 flat out ivec4 BoneIDs0;
 out vec4 Weights0;
+// shadows test
+out vec4 FragPosLightSpace;
 
 // uniform mat4 gWVP;
 // параметры преобразований
 uniform mat4 MatProj;  // матрица проекции
 uniform mat4 MatView;  // матрица вида
 uniform mat4 MatModel; // матрица модели
-// uniform vec3 ViewPosition; // позиция камеры
+
+uniform mat4 MatProjShadows;
+uniform mat4 MatViewShadows;
 
 uniform bool WithAnimations;
 
@@ -60,6 +64,7 @@ void main()
         gl_Position = MatProj * MatView * MatModelInstance * vec4(Position, 1.0);
         Normal0 = (MatModelInstance * vec4(Normal, 0.0)).xyz;
         WorldPos0 = (MatModelInstance * PosL).xyz;
+        FragPosLightSpace = MatProjShadows * MatViewShadows * MatModelInstance * vec4(Position, 1.0);
     }
     else
     {
@@ -68,6 +73,7 @@ void main()
         Normal0 = (MatModel * vec4(Normal, 0.0)).xyz; // преобразование нормали из локальной в мировую систему координат
         // Tangent0 = (MatModel * vec4(Tangent, 0.0)).xyz;
         WorldPos0 = (MatModel * PosL).xyz;
+        FragPosLightSpace = MatProjShadows * MatViewShadows * MatModel * PosL;
     }
 
     gl_ClipDistance[0] = dot(vec4(WorldPos0, 1.0), CutPlane);
