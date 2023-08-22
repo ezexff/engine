@@ -92,8 +92,9 @@ struct render
     u32 DefaultShaderProgram;
     u32 WaterShaderProgram;
     u32 DepthMapShaderProgram;
+    u32 GrassShaderProgram;
 
-    // Shader cut plane
+    // Shader cut plane (for water refl & refr)
     v4 CutPlane;
 
     //
@@ -132,23 +133,18 @@ struct render
     v3 ShadowLightPos;
 
     //
-    // NOTE(me): Env count
+    // NOTE(me): Environment Objects Rendering System
     //
-    u32 EnvCount;
+    u32 EnvObjectsCount; // число моделей объектов окружения в очереди
 
-    //
-    // NOTE(me): Single Static Meshes list for rendering
-    //
+    // Single Static Meshes list for rendering
 #define SINGLE_STATIC_MESHES_MAX 256
 
-    // меши
     u32 SStMeshesCount;
     single_mesh *SStMeshes[SINGLE_STATIC_MESHES_MAX];
 
-    // атрибуты модели
     m4x4 *SStTransformMatrices[SINGLE_STATIC_MESHES_MAX];
 
-    // данные для отрисовки
     u32 SStVerticesCountSum;
     u32 SStIndicesCountSum;
 
@@ -156,19 +152,14 @@ struct render
     u32 SStVBO;
     u32 SStEBO;
 
-    //
-    // NOTE(me): Single Animated Meshes list for rendering
-    //
+    // Single Animated Meshes list for rendering
 #define SINGLE_ANIMATED_MESHES_MAX 256
 
-    // меши
     u32 SAnMeshesCount;
     single_mesh *SAnMeshes[SINGLE_ANIMATED_MESHES_MAX];
 
-    // атрибуты модели
     m4x4 *SAnTransformMatrices[SINGLE_ANIMATED_MESHES_MAX];
 
-    // данные для отрисовки
     u32 SAnVerticesCountSum;
     u32 SAnIndicesCountSum;
 
@@ -183,15 +174,12 @@ struct render
 
 #define MULTIPLE_STATIC_MESHES_MAX 256
 
-    // меши
     u32 MStMeshesCount;
     single_mesh *MStMeshes[MULTIPLE_STATIC_MESHES_MAX];
 
-    // атрибуты модели
     u32 *MStInstancingCounters[MULTIPLE_STATIC_MESHES_MAX];
     m4x4 *MStInstancingTransformMatrices[MULTIPLE_STATIC_MESHES_MAX];
 
-    // данные для отрисовки
     u32 MStVerticesCountSum;
     u32 MStIndicesCountSum;
     u32 MStInstancesCountSum;
@@ -201,7 +189,27 @@ struct render
     u32 MStEBO;
 
     //
-    // NOTE(me): Light
+    // NOTE(me): Grass Objects Rendering System
+    //
+    u32 GrassObjectsCount; // число моделей объектов окружения в очереди
+#define GRASS_MESHES_MAX 256
+
+    u32 GrMeshesCount;
+    single_mesh *GrMeshes[GRASS_MESHES_MAX];
+
+    u32 *GrInstancingCounters[GRASS_MESHES_MAX];
+    m4x4 *GrInstancingTransformMatrices[GRASS_MESHES_MAX];
+
+    u32 GrVerticesCountSum;
+    u32 GrIndicesCountSum;
+    u32 GrInstancesCountSum;
+
+    u32 GrVAO;
+    u32 GrVBO;
+    u32 GrEBO;
+
+    //
+    // NOTE(me): Light Sources
     //
     directional_light DirLight;
 

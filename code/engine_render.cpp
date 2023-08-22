@@ -69,6 +69,83 @@ u32 LinkShaderProgram(u32 ShaderVert, u32 ShaderFrag)
     return (ShaderProgram);
 }
 
+internal void LightSourcesToShader(render *Render, u32 ShaderProg)
+{
+    // отправка directional light в шейдер
+    glUniform3fv(glGetUniformLocation(ShaderProg, "gDirectionalLight.Base.Color"), 1, //
+                 Render->DirLight.Base.Color.E);
+    glUniform1f(glGetUniformLocation(ShaderProg, "gDirectionalLight.Base.AmbientIntensity"), //
+                Render->DirLight.Base.AmbientIntensity);
+    glUniform1f(glGetUniformLocation(ShaderProg, "gDirectionalLight.Base.DiffuseIntensity"), //
+                Render->DirLight.Base.DiffuseIntensity);
+    v3 LocalDirection = Render->DirLight.WorldDirection;
+    glUniform3fv(glGetUniformLocation(ShaderProg, "gDirectionalLight.Direction"), 1, //
+                 LocalDirection.E);
+
+    // отправка point lights в шейдер
+    glUniform1i(glGetUniformLocation(ShaderProg, "gNumPointLights"), //
+                Render->PointLightsCount);
+    for(u32 i = 0; i < Render->PointLightsCount; i++)
+    {
+        glUniform3fv(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[0]), 1, //
+                     Render->PointLights[i].Base.Color.E);
+
+        glUniform1f(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[1]), //
+                    Render->PointLights[i].Base.AmbientIntensity);
+
+        glUniform1f(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[2]), //
+                    Render->PointLights[i].Base.DiffuseIntensity);                       //
+
+        glUniform3fv(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[3]), 1, //
+                     Render->PointLights[i].WorldPosition.E);
+
+        glUniform1f(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[4]), //
+                    Render->PointLights[i].Atten.Constant);
+
+        glUniform1f(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[5]), //
+                    Render->PointLights[i].Atten.Linear);
+
+        glUniform1f(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[6]), //
+                    Render->PointLights[i].Atten.Exp);
+    }
+
+    // отправка spot lights в шейдер
+    glUniform1i(glGetUniformLocation(ShaderProg, "gNumSpotLights"), //
+                Render->SpotLightsCount);
+    for(u32 i = 0; i < Render->PointLightsCount; i++)
+    {
+        glUniform3fv(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[0]), 1, //
+                     Render->SpotLights[i].Base.Base.Color.E);
+
+        glUniform1f(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[1]), //
+                    Render->SpotLights[i].Base.Base.AmbientIntensity);
+
+        glUniform1f(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[2]), //
+                    Render->SpotLights[i].Base.Base.DiffuseIntensity);
+
+        glUniform3fv(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[3]), 1, //
+                     Render->SpotLights[i].Base.WorldPosition.E);
+
+        glUniform1f(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[4]), //
+                    Render->SpotLights[i].Base.Atten.Constant);
+
+        glUniform1f(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[5]), //
+                    Render->SpotLights[i].Base.Atten.Linear);
+
+        glUniform1f(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[6]), //
+                    Render->SpotLights[i].Base.Atten.Exp);
+
+        glUniform3fv(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[7]), 1, //
+                     Render->SpotLights[i].WorldDirection.E);
+
+        glUniform1f(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[8]), //
+                    Render->SpotLights[i].Cutoff);
+    }
+}
+
+//
+// NOTE(me): Environment Objects Rendering System
+//
 internal void AddEnvObjectToRender(render *Render, entity_envobject *EnvObject)
 {
     if(EnvObject->Model)
@@ -111,6 +188,7 @@ internal void AddEnvObjectToRender(render *Render, entity_envobject *EnvObject)
                 }
                 else
                 {
+                    InvalidCodePath;
                 }
                 Assert(Render->MStMeshesCount < MULTIPLE_STATIC_MESHES_MAX);
             }
@@ -124,7 +202,7 @@ internal void AddEnvObjectToRender(render *Render, entity_envobject *EnvObject)
 
 internal void AddEnvObjectsToRender(render *Render, entity_envobject *EnvObjects[])
 {
-    for(u32 i = 0; i < Render->EnvCount + 1; i++)
+    for(u32 i = 0; i < Render->EnvObjectsCount; i++)
     {
         if(EnvObjects[i]->Model)
         {
@@ -454,7 +532,7 @@ void InitEnvVBOs(memory_arena *WorldArena, render *Render)
     glBindVertexArray(0);
 }
 
-internal void RenderEnvVBOs(GLFWwindow *Window, render *Render, u32 ShaderProg, entity_player *Player)
+internal void RenderEnvVBOs(render *Render, u32 ShaderProg, entity_player *Player)
 {
     //
     // NOTE(me): Preparing shader to render
@@ -511,76 +589,7 @@ internal void RenderEnvVBOs(GLFWwindow *Window, render *Render, u32 ShaderProg, 
     // отправка позиции камеры (игрока) в шейдер
     glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, Player->Position.E);
 
-    // отправка directional light в шейдер
-    glUniform3fv(glGetUniformLocation(ShaderProg, "gDirectionalLight.Base.Color"), 1, //
-                 Render->DirLight.Base.Color.E);
-    glUniform1f(glGetUniformLocation(ShaderProg, "gDirectionalLight.Base.AmbientIntensity"), //
-                Render->DirLight.Base.AmbientIntensity);
-    glUniform1f(glGetUniformLocation(ShaderProg, "gDirectionalLight.Base.DiffuseIntensity"), //
-                Render->DirLight.Base.DiffuseIntensity);
-    v3 LocalDirection = Render->DirLight.WorldDirection;
-    glUniform3fv(glGetUniformLocation(ShaderProg, "gDirectionalLight.Direction"), 1, //
-                 LocalDirection.E);
-
-    // отправка point lights в шейдер
-    glUniform1i(glGetUniformLocation(ShaderProg, "gNumPointLights"), //
-                Render->PointLightsCount);
-    for(u32 i = 0; i < Render->PointLightsCount; i++)
-    {
-        glUniform3fv(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[0]), 1, //
-                     Render->PointLights[i].Base.Color.E);
-
-        glUniform1f(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[1]), //
-                    Render->PointLights[i].Base.AmbientIntensity);
-
-        glUniform1f(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[2]), //
-                    Render->PointLights[i].Base.DiffuseIntensity);                       //
-
-        glUniform3fv(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[3]), 1, //
-                     Render->PointLights[i].WorldPosition.E);
-
-        glUniform1f(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[4]), //
-                    Render->PointLights[i].Atten.Constant);
-
-        glUniform1f(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[5]), //
-                    Render->PointLights[i].Atten.Linear);
-
-        glUniform1f(glGetUniformLocation(ShaderProg, Render->PLVarNames[i].VarNames[6]), //
-                    Render->PointLights[i].Atten.Exp);
-    }
-
-    // отправка spot lights в шейдер
-    glUniform1i(glGetUniformLocation(ShaderProg, "gNumSpotLights"), //
-                Render->SpotLightsCount);
-    for(u32 i = 0; i < Render->PointLightsCount; i++)
-    {
-        glUniform3fv(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[0]), 1, //
-                     Render->SpotLights[i].Base.Base.Color.E);
-
-        glUniform1f(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[1]), //
-                    Render->SpotLights[i].Base.Base.AmbientIntensity);
-
-        glUniform1f(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[2]), //
-                    Render->SpotLights[i].Base.Base.DiffuseIntensity);
-
-        glUniform3fv(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[3]), 1, //
-                     Render->SpotLights[i].Base.WorldPosition.E);
-
-        glUniform1f(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[4]), //
-                    Render->SpotLights[i].Base.Atten.Constant);
-
-        glUniform1f(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[5]), //
-                    Render->SpotLights[i].Base.Atten.Linear);
-
-        glUniform1f(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[6]), //
-                    Render->SpotLights[i].Base.Atten.Exp);
-
-        glUniform3fv(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[7]), 1, //
-                     Render->SpotLights[i].WorldDirection.E);
-
-        glUniform1f(glGetUniformLocation(ShaderProg, Render->SLVarNames[i].VarNames[8]), //
-                    Render->SpotLights[i].Cutoff);
-    }
+    LightSourcesToShader(Render, ShaderProg);
 
     //
     // NOTE(me): Rendering Single Static Meshes
@@ -823,6 +832,289 @@ internal void RenderEnvVBOs(GLFWwindow *Window, render *Render, u32 ShaderProg, 
     glUseProgram(0);
 }
 
+//
+// NOTE(me): Grass Objects Rendering System
+//
+internal void AddGrassObjectToRender(render *Render, entity_grassobject *GrassObject)
+{
+    if(GrassObject->Model)
+    {
+        if(GrassObject->InstancingCount > 0)
+        {
+            loaded_model *Model = GrassObject->Model;
+            for(u32 i = 0; i < Model->MeshesCount; i++)
+            {
+                single_mesh *Mesh = &Model->Meshes[i];
+                if(!Mesh->WithAnimations)
+                {
+                    Render->GrMeshes[Render->GrMeshesCount] = Mesh;
+                    Render->GrInstancingCounters[Render->GrMeshesCount] = &GrassObject->InstancingCount;
+                    Render->GrInstancingTransformMatrices[Render->GrMeshesCount] =
+                        GrassObject->InstancingTransformMatrices;
+                    Render->GrMeshesCount++;
+                }
+                else
+                {
+                    InvalidCodePath;
+                }
+                Assert(Render->GrMeshesCount < GRASS_MESHES_MAX);
+            }
+        }
+        else
+        {
+            InvalidCodePath;
+        }
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+}
+
+internal void AddGrassObjectsToRender(render *Render, entity_grassobject *GrassObjects[])
+{
+    for(u32 i = 0; i < Render->GrassObjectsCount; i++)
+    {
+        if(GrassObjects[i]->Model)
+        {
+            AddGrassObjectToRender(Render, GrassObjects[i]);
+        }
+        else
+        {
+            break;
+        }
+    }
+}
+
+void InitGrassVBO(memory_arena *WorldArena, render *Render)
+{
+    //
+    // NOTE(me): Preparing VBO for Grass Meshes
+    //
+    Render->GrVerticesCountSum = 0;
+    Render->GrIndicesCountSum = 0;
+    Render->GrInstancesCountSum = 0;
+
+    // получаем общее число вершин и индексов
+    for(u32 i = 0; i < Render->GrMeshesCount; i++)
+    {
+        single_mesh *Mesh = Render->GrMeshes[i];
+        Render->GrVerticesCountSum += Mesh->VerticesCount;
+        Render->GrIndicesCountSum += Mesh->IndicesCount;
+        Render->GrInstancesCountSum += Render->GrInstancingCounters[i][0];
+    }
+
+    // выделение памяти под вершины и индексы
+    vertex_static *GrVertices = PushArray(WorldArena, Render->GrVerticesCountSum, vertex_static);
+    u32 *GrIndices = PushArray(WorldArena, Render->GrIndicesCountSum, u32);
+    m4x4 *GrInstancingTransformMatrices = PushArray(WorldArena, Render->GrInstancesCountSum, m4x4);
+
+    // заполнение массива вершин
+    u32 VerticesCountTmp = 0;
+    u32 IndicesCountTmp = 0;
+    u32 InstancesTmp = 0;
+    for(u32 i = 0; i < Render->GrMeshesCount; i++)
+    {
+        single_mesh *Mesh = Render->GrMeshes[i];
+        for(u32 j = 0; j < Mesh->VerticesCount; j++)
+        {
+            GrVertices[VerticesCountTmp].Position = Mesh->Positions[j];
+            GrVertices[VerticesCountTmp].Normal = Mesh->Normals[j];
+            GrVertices[VerticesCountTmp].TexCoords = Mesh->TexCoords[j];
+            VerticesCountTmp++;
+        }
+        for(u32 j = 0; j < Mesh->IndicesCount; j++)
+        {
+            GrIndices[IndicesCountTmp] = Mesh->Indices[j];
+            IndicesCountTmp++;
+        }
+        if(Render->GrInstancingCounters[i][0] > 0)
+        {
+            for(u32 j = 0; j < Render->GrInstancingCounters[i][0]; j++)
+            {
+                GrInstancingTransformMatrices[InstancesTmp] = Render->GrInstancingTransformMatrices[i][j];
+                InstancesTmp++;
+            }
+        }
+    }
+
+    // Store instance data in an array buffer
+    u32 InstanceVBO;
+    glGenBuffers(1, &InstanceVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, InstanceVBO);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(m4x4) * Render->GrInstancesCountSum, GrInstancingTransformMatrices,
+                 GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // Vertex data and attributes
+    glGenVertexArrays(1, &Render->GrVAO);
+    glGenBuffers(1, &Render->GrVBO);
+    glGenBuffers(1, &Render->GrEBO);
+
+    glBindVertexArray(Render->GrVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, Render->GrVBO);
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertex_static) * Render->GrVerticesCountSum, GrVertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Render->GrEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * Render->GrIndicesCountSum, GrIndices, GL_STATIC_DRAW);
+
+    // Vertex positions
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_static), (void *)0);
+    // Vertex normals
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_static), (void *)offsetof(vertex_static, Normal));
+    // Vertex texture coords
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_static), (void *)offsetof(vertex_static, TexCoords));
+
+    // set instance attribute pointers for matrix (4 times vec4)
+    glBindBuffer(GL_ARRAY_BUFFER, InstanceVBO); // this attribute comes from a different vertex buffer
+
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(m4x4), (void *)0);
+
+    glEnableVertexAttribArray(4);
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(m4x4), (void *)(1 * sizeof(v4)));
+
+    glEnableVertexAttribArray(5);
+    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(m4x4), (void *)(2 * sizeof(v4)));
+
+    glEnableVertexAttribArray(6);
+    glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(m4x4), (void *)(3 * sizeof(v4)));
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // tell OpenGL this is an instanced vertex attribute.
+    glVertexAttribDivisor(3, 1);
+    glVertexAttribDivisor(4, 1);
+    glVertexAttribDivisor(5, 1);
+    glVertexAttribDivisor(6, 1);
+
+    glBindVertexArray(0);
+}
+
+internal void RenderGrassVBO(render *Render, entity_player *Player)
+{
+    //
+    // NOTE(me): Preparing shader to render
+    //
+    u32 ShaderProg = Render->GrassShaderProgram;
+    glUseProgram(ShaderProg);
+
+    glActiveTexture(GL_TEXTURE0 + 1);
+    glBindTexture(GL_TEXTURE_2D, Render->DepthMap);
+    glUniform1i(glGetUniformLocation(ShaderProg, "ShadowMap"), 1);
+
+    // матрица проекции (источник света для теней)
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    // glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+    glOrtho(-Render->ShadowMapSize, Render->ShadowMapSize, -Render->ShadowMapSize, Render->ShadowMapSize,
+            Render->NearPlane, Render->FarPlane);
+    r32 MatProjShadows[16];
+    glGetFloatv(GL_PROJECTION_MATRIX, MatProjShadows);
+    glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatProjShadows"), 1, GL_FALSE, MatProjShadows);
+
+    // матрица вида (источник света для теней)
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    glRotatef(-Render->ShadowLightPitch, 1.0f, 0.0f, 0.0f);
+    glRotatef(-Render->ShadowLightYaw, 0.0f, 0.0f, 1.0f);
+    glTranslatef(-Render->ShadowLightPos.x, -Render->ShadowLightPos.y, -Render->ShadowLightPos.z);
+    r32 MatViewShadows[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
+    glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatViewShadows"), 1, GL_FALSE, MatViewShadows);
+
+    // область отображения рендера
+    r32 AspectRatio = (r32)Render->DisplayWidth / (r32)Render->DisplayHeight;
+    r32 FOV = 0.1f; // поле зрения камеры
+
+    // матрица проекции
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+    r32 MatProj[16];
+    glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
+    glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatProj"), 1, GL_FALSE, MatProj);
+
+    // матрица вида с камеры
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    OGLSetCameraOnPlayer(Player);
+    r32 MatView[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
+    glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatView"), 1, GL_FALSE, MatView);
+
+    // отправка позиции камеры (игрока) в шейдер
+    glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, Player->Position.E);
+
+    LightSourcesToShader(Render, ShaderProg);
+
+    //
+    // NOTE(me): Rendering Multiple Single Meshes
+    //
+
+    u32 BaseVertex = 0;
+    u32 BaseIndex = 0;
+    u32 BaseInstance = 0;
+    for(u32 i = 0; i < Render->GrMeshesCount; i++)
+    {
+        single_mesh *Mesh = Render->GrMeshes[i];
+
+        // отправка материала в шейдер
+        if(Mesh->WithMaterial)
+        {
+            glUniform3fv(glGetUniformLocation(ShaderProg, "gMaterial.AmbientColor"), 1, //
+                         Mesh->Material.Ambient.E);
+
+            glUniform3fv(glGetUniformLocation(ShaderProg, "gMaterial.DiffuseColor"), 1, //
+                         Mesh->Material.Diffuse.E);
+
+            glUniform3fv(glGetUniformLocation(ShaderProg, "gMaterial.SpecularColor"), 1, //
+                         Mesh->Material.Specular.E);
+
+            if(Mesh->Material.WithTexture)
+            {
+                glUniform1i(glGetUniformLocation(ShaderProg, "gWithTexture"), true);
+                glActiveTexture(GL_TEXTURE0 + 0);
+                glBindTexture(GL_TEXTURE_2D, Mesh->Material.Texture);
+                glUniform1i(glGetUniformLocation(ShaderProg, "gSampler"), 0);
+                glUniform1i(glGetUniformLocation(ShaderProg, "gSamplerSpecularExponent"), 0);
+            }
+            else
+            {
+                glUniform1i(glGetUniformLocation(ShaderProg, "gWithTexture"), false);
+            }
+        }
+        else
+        {
+            InvalidCodePath;
+        }
+
+        // отрисовка меша
+        glBindVertexArray(Render->GrVAO);
+        glDrawElementsInstancedBaseVertexBaseInstance(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT,
+                                                      (void *)(sizeof(u32) * BaseIndex), //
+                                                      Render->GrInstancingCounters[i][0],
+                                                      BaseVertex, //
+                                                      BaseInstance);
+        glBindVertexArray(0);
+
+        // смещение к следующему мешу
+        BaseVertex += Mesh->VerticesCount;
+        BaseIndex += Mesh->IndicesCount;
+        BaseInstance += Render->GrInstancingCounters[i][0];
+    }
+
+    glUseProgram(0);
+}
+
+//
+// NOTE(me): Other
+//
 internal void OGLDrawLinesOXYZ(v3 Normal, r32 LineWidth, r32 LineMin = -0.5, r32 LineMax = 0.5, r32 Offset = 0.001)
 {
     // TODO(me): Add arrows?
@@ -983,7 +1275,7 @@ internal void DrawColoredRectangle(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, r32 Z
 }
 */
 
-internal void RenderWater(GLFWwindow *Window, render *Render, entity_player *Player, r32 dtForFrame, r32 WaterZ)
+internal void RenderWater(render *Render, entity_player *Player, r32 dtForFrame, r32 WaterZ)
 {
 #if 1
     u32 ShaderProg = Render->WaterShaderProgram;
@@ -1198,7 +1490,7 @@ void InitDepthMapFBO(render *Render)
     glReadBuffer(GL_NONE);
 }
 
-void RenderScene(GLFWwindow *Window, render *Render, u32 ShaderProg, entity_player *Player, GLbitfield glClearMask)
+void RenderScene(render *Render, u32 ShaderProg, entity_player *Player, GLbitfield glClearMask)
 {
     glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
     glEnable(GL_DEPTH_TEST);
@@ -1210,7 +1502,7 @@ void RenderScene(GLFWwindow *Window, render *Render, u32 ShaderProg, entity_play
 
     glEnable(GL_NORMALIZE);
 
-    RenderEnvVBOs(Window, Render, ShaderProg, Player);
+    RenderEnvVBOs(Render, ShaderProg, Player);
 }
 
 void RenderDebugElements(render *Render, entity_player *Player, entity_clip *PlayerClip)
@@ -1241,7 +1533,7 @@ void RenderDebugElements(render *Render, entity_player *Player, entity_clip *Pla
     glPopMatrix();
 }
 
-void DrawTexturedSquare(GLFWwindow *Window, render *Render, u32 Texture, r32 TextureWidth, s32 TextureHeight, v2 Offset)
+void DrawTexturedSquare(render *Render, u32 Texture, r32 TextureWidth, s32 TextureHeight, v2 Offset)
 {
     r32 VSquare[] = {
         -1, -1, //

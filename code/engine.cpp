@@ -275,177 +275,195 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(WorldArena, "clip.png");
         EnvIndex++;
 
-        // трава 1
-        EnvObjects[EnvIndex]->InstancingCount = 150;
-        EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(WorldArena,                            // Memory
-                                              EnvObjects[0],                         // Terrain
-                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(0.05, 0.1, 1),                      // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0),    // Rotate X rand() Min, Max, Precision
-                                              V3(0, 0, 0),    // Rotate Y rand() Min, Max, Precision
-                                              V3(0, 360, 1)); // Rotate Z rand() Min, Max, Precision
-        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_grass1.spm");
-        EnvIndex++;
-
-        // трава 2
-        EnvObjects[EnvIndex]->InstancingCount = 150;
-        EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(WorldArena,                            // Memory
-                                              EnvObjects[0],                         // Terrain
-                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(0.05, 0.1, 1),                      // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0),    // Rotate X rand() Min, Max, Precision
-                                              V3(0, 0, 0),    // Rotate Y rand() Min, Max, Precision
-                                              V3(0, 360, 1)); // Rotate Z rand() Min, Max, Precision
-        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_grass2.spm");
-        EnvIndex++;
-
-        // трава 3
-        EnvObjects[EnvIndex]->InstancingCount = 20000;
-        EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(WorldArena,                            // Memory
-                                              EnvObjects[0],                         // Terrain
-                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(0.05, 0.1, 1),                      // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0),    // Rotate X rand() Min, Max, Precision
-                                              V3(0, 0, 0),    // Rotate Y rand() Min, Max, Precision
-                                              V3(0, 360, 1)); // Rotate Z rand() Min, Max, Precision
-        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_grass3.spm");
-        EnvIndex++;
-
-        // трава 4
-        EnvObjects[EnvIndex]->InstancingCount = 500;
-        EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(WorldArena,                            // Memory
-                                              EnvObjects[0],                         // Terrain
-                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(0.05, 0.1, 1),                      // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0),    // Rotate X rand() Min, Max, Precision
-                                              V3(0, 0, 0),    // Rotate Y rand() Min, Max, Precision
-                                              V3(0, 360, 1)); // Rotate Z rand() Min, Max, Precision
-        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_grass4.spm");
-        EnvIndex++;
-
-        // трава 5
-        EnvObjects[EnvIndex]->InstancingCount = 50;
-        EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(WorldArena,                            // Memory
-                                              EnvObjects[0],                         // Terrain
-                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(0.05, 0.1, 1),                      // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0),    // Rotate X rand() Min, Max, Precision
-                                              V3(0, 0, 0),    // Rotate Y rand() Min, Max, Precision
-                                              V3(0, 360, 1)); // Rotate Z rand() Min, Max, Precision
-        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_grass5.spm");
-        EnvIndex++;
-
-        // трава 6
-        EnvObjects[EnvIndex]->InstancingCount = 20;
-        EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(WorldArena,                            // Memory
-                                              EnvObjects[0],                         // Terrain
-                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(0.05, 0.1, 1),                      // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0),    // Rotate X rand() Min, Max, Precision
-                                              V3(0, 0, 0),    // Rotate Y rand() Min, Max, Precision
-                                              V3(0, 360, 1)); // Rotate Z rand() Min, Max, Precision
-        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_grass6.spm");
-        EnvIndex++;
-
-        // трава 7
-        EnvObjects[EnvIndex]->InstancingCount = 50;
-        EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(WorldArena,                            // Memory
-                                              EnvObjects[0],                         // Terrain
-                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(0.05, 0.1, 1),                      // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0),    // Rotate X rand() Min, Max, Precision
-                                              V3(0, 0, 0),    // Rotate Y rand() Min, Max, Precision
-                                              V3(0, 360, 1)); // Rotate Z rand() Min, Max, Precision
-        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_grass7.spm");
-        EnvIndex++;
-
-        // трава 8
-        EnvObjects[EnvIndex]->InstancingCount = 50;
-        EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(WorldArena,                            // Memory
-                                              EnvObjects[0],                         // Terrain
-                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(0.05, 0.1, 1),                      // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0),    // Rotate X rand() Min, Max, Precision
-                                              V3(0, 0, 0),    // Rotate Y rand() Min, Max, Precision
-                                              V3(0, 360, 1)); // Rotate Z rand() Min, Max, Precision
-        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_grass8.spm");
-        EnvIndex++;
-
-        // трава 9
-        EnvObjects[EnvIndex]->InstancingCount = 20;
-        EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(WorldArena,                            // Memory
-                                              EnvObjects[0],                         // Terrain
-                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(0.05, 0.1, 1),                      // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0),    // Rotate X rand() Min, Max, Precision
-                                              V3(0, 0, 0),    // Rotate Y rand() Min, Max, Precision
-                                              V3(0, 360, 1)); // Rotate Z rand() Min, Max, Precision
-        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_grass9.spm");
-        EnvIndex++;
-
-        // трава 10
-        EnvObjects[EnvIndex]->InstancingCount = 20;
-        EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(WorldArena,                            // Memory
-                                              EnvObjects[0],                         // Terrain
-                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(0.05, 0.1, 1),                      // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0),    // Rotate X rand() Min, Max, Precision
-                                              V3(0, 0, 0),    // Rotate Y rand() Min, Max, Precision
-                                              V3(0, 360, 1)); // Rotate Z rand() Min, Max, Precision
-        EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_grass10.spm");
-        EnvIndex++;
-
         /*
         // трава (старая версия)
         EnvObjects[EnvIndex]->InstancingCount = 500;
         EnvObjects[EnvIndex]->InstancingTransformMatrices =
             CreateInstancingTransformMatrices(WorldArena,                            // Memory
-                                              EnvObjects[0],                         // Terrain
-                                              EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                              V3(2, 3, 1),                           // Scale rand() Min, Max, Precision
-                                              V3(0, 0, 0),                           // Rotate X, Y, Z
-                                              V3(0, 0, 0),  // Rotate X rand() Min, Max, Precision
-                                              V3(0, 0, 0),  // Rotate Y rand() Min, Max, Precision
-                                              V3(0, 0, 0)); // Rotate Z rand() Min, Max, Precision
+                                            EnvObjects[0],                         // Terrain
+                                            EnvObjects[EnvIndex]->InstancingCount, // Amount
+                                            V3(2, 3, 1),                           // Scale rand() Min, Max, Precision
+                                            V3(0, 0, 0),                           // Rotate X, Y, Z
+                                            V3(0, 0, 0),  // Rotate X rand() Min, Max, Precision
+                                            V3(0, 0, 0),  // Rotate Y rand() Min, Max, Precision
+                                            V3(0, 0, 0)); // Rotate Z rand() Min, Max, Precision
         EnvObjects[EnvIndex]->Model = CreateGrassModel(WorldArena);
         EnvIndex++;
         */
 
         Assert(EnvIndex <= ENV_OBJECTS_MAX);
-        Render->EnvCount = EnvIndex - 1;
+        Render->EnvObjectsCount = EnvIndex;
 
-        // высота объектов окружения на ландшафте
-        for(u32 i = 3; i < Render->EnvCount - 1; i++)
+        // TODO(me): нужно ли это? убрать? высота объектов окружения на ландшафте
+        for(u32 i = 3; i < Render->EnvObjectsCount; i++)
         {
-            // EnvObjects[i]->Position.z +=
-            //     EnvObjects[i]->Position.z +
-            //     TerrainGetHeight(EnvObjects[0], EnvObjects[i]->Position.x, EnvObjects[i]->Position.y);
-
             EnvObjects[i]->TranslateMatrix.E[2][3] +=
                 EnvObjects[i]->TranslateMatrix.E[2][3] + TerrainGetHeight(EnvObjects[0],
                                                                           EnvObjects[i]->TranslateMatrix.E[0][3],
                                                                           EnvObjects[i]->TranslateMatrix.E[1][3]);
         }
+
+        // Добавление объектов окружения в рендерер и создание VBO
+        AddEnvObjectsToRender(Render, EnvObjects);
+        InitEnvVBOs(WorldArena, Render);
+
+        //
+        // NOTE(me): Объекты травы
+        //
+        for(u32 i = 0; i < GRASS_OBJECTS_MAX; i++)
+        {
+            GameState->GrassObjects[i] = PushStruct(WorldArena, entity_grassobject);
+        }
+
+        u32 GrassIndex = 0;
+        entity_grassobject **GrassObjects = GameState->GrassObjects;
+
+        // трава 1
+        GrassObjects[GrassIndex]->InstancingCount = 150;
+        GrassObjects[GrassIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                                // Memory
+                                              EnvObjects[0],                             // Terrain
+                                              GrassObjects[GrassIndex]->InstancingCount, // Amount
+                                              V3(0.05, 0.1, 1), // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate X, Y, Z
+                                              V3(0, 0, 0),      // Rotate X rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 360, 1));   // Rotate Z rand() Min, Max, Precision
+        GrassObjects[GrassIndex]->Model = LoadModel(WorldArena, "assets/test_grass1.spm");
+        GrassIndex++;
+
+        // трава 2
+        GrassObjects[GrassIndex]->InstancingCount = 150;
+        GrassObjects[GrassIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                                // Memory
+                                              EnvObjects[0],                             // Terrain
+                                              GrassObjects[GrassIndex]->InstancingCount, // Amount
+                                              V3(0.05, 0.1, 1), // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate X, Y, Z
+                                              V3(0, 0, 0),      // Rotate X rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 360, 1));   // Rotate Z rand() Min, Max, Precision
+        GrassObjects[GrassIndex]->Model = LoadModel(WorldArena, "assets/test_grass2.spm");
+        GrassIndex++;
+
+        // трава 3
+        GrassObjects[GrassIndex]->InstancingCount = 20000;
+        GrassObjects[GrassIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                                // Memory
+                                              EnvObjects[0],                             // Terrain
+                                              GrassObjects[GrassIndex]->InstancingCount, // Amount
+                                              V3(0.05, 0.1, 1), // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate X, Y, Z
+                                              V3(0, 0, 0),      // Rotate X rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 360, 1));   // Rotate Z rand() Min, Max, Precision
+        GrassObjects[GrassIndex]->Model = LoadModel(WorldArena, "assets/test_grass3.spm");
+        GrassIndex++;
+
+        // трава 4
+        GrassObjects[GrassIndex]->InstancingCount = 500;
+        GrassObjects[GrassIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                                // Memory
+                                              EnvObjects[0],                             // Terrain
+                                              GrassObjects[GrassIndex]->InstancingCount, // Amount
+                                              V3(0.05, 0.1, 1), // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate X, Y, Z
+                                              V3(0, 0, 0),      // Rotate X rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 360, 1));   // Rotate Z rand() Min, Max, Precision
+        GrassObjects[GrassIndex]->Model = LoadModel(WorldArena, "assets/test_grass4.spm");
+        GrassIndex++;
+
+        // трава 5
+        GrassObjects[GrassIndex]->InstancingCount = 50;
+        GrassObjects[GrassIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                                // Memory
+                                              EnvObjects[0],                             // Terrain
+                                              GrassObjects[GrassIndex]->InstancingCount, // Amount
+                                              V3(0.05, 0.1, 1), // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate X, Y, Z
+                                              V3(0, 0, 0),      // Rotate X rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 360, 1));   // Rotate Z rand() Min, Max, Precision
+        GrassObjects[GrassIndex]->Model = LoadModel(WorldArena, "assets/test_grass5.spm");
+        GrassIndex++;
+
+        // трава 6
+        GrassObjects[GrassIndex]->InstancingCount = 20;
+        GrassObjects[GrassIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                                // Memory
+                                              EnvObjects[0],                             // Terrain
+                                              GrassObjects[GrassIndex]->InstancingCount, // Amount
+                                              V3(0.05, 0.1, 1), // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate X, Y, Z
+                                              V3(0, 0, 0),      // Rotate X rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 360, 1));   // Rotate Z rand() Min, Max, Precision
+        GrassObjects[GrassIndex]->Model = LoadModel(WorldArena, "assets/test_grass6.spm");
+        GrassIndex++;
+
+        // трава 7
+        GrassObjects[GrassIndex]->InstancingCount = 50;
+        GrassObjects[GrassIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                                // Memory
+                                              EnvObjects[0],                             // Terrain
+                                              GrassObjects[GrassIndex]->InstancingCount, // Amount
+                                              V3(0.05, 0.1, 1), // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate X, Y, Z
+                                              V3(0, 0, 0),      // Rotate X rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 360, 1));   // Rotate Z rand() Min, Max, Precision
+        GrassObjects[GrassIndex]->Model = LoadModel(WorldArena, "assets/test_grass7.spm");
+        GrassIndex++;
+
+        // трава 8
+        GrassObjects[GrassIndex]->InstancingCount = 50;
+        GrassObjects[GrassIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                                // Memory
+                                              EnvObjects[0],                             // Terrain
+                                              GrassObjects[GrassIndex]->InstancingCount, // Amount
+                                              V3(0.05, 0.1, 1), // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate X, Y, Z
+                                              V3(0, 0, 0),      // Rotate X rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 360, 1));   // Rotate Z rand() Min, Max, Precision
+        GrassObjects[GrassIndex]->Model = LoadModel(WorldArena, "assets/test_grass8.spm");
+        GrassIndex++;
+
+        // трава 9
+        GrassObjects[GrassIndex]->InstancingCount = 20;
+        GrassObjects[GrassIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                                // Memory
+                                              EnvObjects[0],                             // Terrain
+                                              GrassObjects[GrassIndex]->InstancingCount, // Amount
+                                              V3(0.05, 0.1, 1), // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate X, Y, Z
+                                              V3(0, 0, 0),      // Rotate X rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 360, 1));   // Rotate Z rand() Min, Max, Precision
+        GrassObjects[GrassIndex]->Model = LoadModel(WorldArena, "assets/test_grass9.spm");
+        GrassIndex++;
+
+        // трава 10
+        GrassObjects[GrassIndex]->InstancingCount = 20;
+        GrassObjects[GrassIndex]->InstancingTransformMatrices =
+            CreateInstancingTransformMatrices(WorldArena,                                // Memory
+                                              EnvObjects[0],                             // Terrain
+                                              GrassObjects[GrassIndex]->InstancingCount, // Amount
+                                              V3(0.05, 0.1, 1), // Scale rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate X, Y, Z
+                                              V3(0, 0, 0),      // Rotate X rand() Min, Max, Precision
+                                              V3(0, 0, 0),      // Rotate Y rand() Min, Max, Precision
+                                              V3(0, 360, 1));   // Rotate Z rand() Min, Max, Precision
+        GrassObjects[GrassIndex]->Model = LoadModel(WorldArena, "assets/test_grass10.spm");
+        GrassIndex++;
+
+        Assert(GrassIndex <= GRASS_OBJECTS_MAX);
+        Render->GrassObjectsCount = GrassIndex;
+
+        // Добавление объектов травы в рендерер и создание VBO
+        AddGrassObjectsToRender(Render, GrassObjects);
+        InitGrassVBO(WorldArena, Render);
 
         //
         // NOTE(me): Шейдеры и VBO
@@ -462,9 +480,9 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         u32 Shader3Frag = LoadShader("../code/shaders/DepthMap.frag", GL_FRAGMENT_SHADER);
         Render->DepthMapShaderProgram = LinkShaderProgram(Shader3Vert, Shader3Frag);
 
-        // Добавление объектов окружения в рендерер и создание VBO
-        AddEnvObjectsToRender(Render, EnvObjects);
-        InitEnvVBOs(WorldArena, Render);
+        u32 Shader4Vert = LoadShader("../code/shaders/Grass.vert", GL_VERTEX_SHADER);
+        u32 Shader4Frag = LoadShader("../code/shaders/Grass.frag", GL_FRAGMENT_SHADER);
+        Render->GrassShaderProgram = LinkShaderProgram(Shader4Vert, Shader4Frag);
 
         //
         // NOTE(me): Water
@@ -612,7 +630,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     EnvObjects[14]->TranslateMatrix = Translation(ClipTextureNewPos);
 
     // Формируем матрицы преобразований у объектов окружения
-    for(u32 i = 0; i < Render->EnvCount + 1; i++)
+    for(u32 i = 0; i < Render->EnvObjectsCount; i++)
     {
         if(EnvObjects[i]->InstancingCount == 0)
         {
@@ -704,27 +722,12 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         ImGui::Begin("Developer Menu");
         ImGui::Text("This is test engine!");
         ImGui::Text("App avg %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::Text("CursorPos=%f,%f", Input->MouseX, Input->MouseY);
+        ImGui::Text("dtForFrame=%f", Input->dtForFrame);
+        ImGui::Text("MouseOffset=%f,%f", Input->MouseOffsetX, Input->MouseOffsetY);
         ImGui::Spacing();
 
-        if(ImGui::CollapsingHeader("Variables"))
-        {
-            ImGui::InputFloat("Player X", &Player->Position.x, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("Player Y", &Player->Position.y, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("CameraZOffset", &Player->CameraZOffset, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("CameraPitch", &Player->CameraPitch, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("CameraYaw", &Player->CameraYaw, 0.5, 2, "%.10f", 0);
-            ImGui::Text("CursorPos=%f,%f", Input->MouseX, Input->MouseY);
-            ImGui::Text("dtForFrame=%f", Input->dtForFrame);
-            ImGui::Text("MOffset=%f,%f", Input->MouseOffsetX, Input->MouseOffsetY);
-            ImGui::Text("SStMeshesCount=%d", Render->SStMeshesCount);
-            ImGui::Text("SStVerticesCountSum=%d", Render->SStVerticesCountSum);
-            ImGui::Text("SAnMeshesCount=%d", Render->SAnMeshesCount);
-            ImGui::Text("SAnVerticesCountSum=%d", Render->SAnVerticesCountSum);
-            ImGui::Text("MStMeshesCount=%d", Render->MStMeshesCount);
-            ImGui::Text("MStVerticesCountSum=%d", Render->MStVerticesCountSum);
-            ImGui::Text("EnvCount=%d", Render->EnvCount);
-        }
-
+        ImGui::SetNextItemOpen(true);
         if(ImGui::CollapsingHeader("Settings"))
         {
             ImGui::Text("Change Display Mode");
@@ -845,57 +848,36 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::Text("Used=%d (Kb)", GameState->WorldArena.Used / 1024);
         }
 
-        if(ImGui::CollapsingHeader("Water"))
+        if(ImGui::CollapsingHeader("Camera"))
         {
-            ImGui::InputFloat("WaterWaveSpeed", &Render->WaterWaveSpeed, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("WaterTiling", &Render->WaterTiling, 0.1, 2, "%.10f", 0);
-            ImGui::InputFloat("WaterWaveStrength", &Render->WaterWaveStrength, 0.1, 2, "%.10f", 0);
-            ImGui::InputFloat("WaterShineDamper", &Render->WaterShineDamper, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("WaterReflectivity", &Render->WaterReflectivity, 0.1, 2, "%.10f", 0);
-            ImGui::Text("WaterReflTexture");
-            ImGui::Image((void *)(intptr_t)Render->WaterReflTexture, ImVec2(1920 / 4, 1080 / 4), //
-                         ImVec2(0, 0), ImVec2(1, -1));
-            ImGui::Text("WaterRefrTexture");
-            ImGui::Image((void *)(intptr_t)Render->WaterRefrTexture, ImVec2(1920 / 4, 1080 / 4), //
-                         ImVec2(0, 0), ImVec2(1, -1));
+            ImGui::InputFloat("Player X", &Player->Position.x, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("Player Y", &Player->Position.y, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("CameraZOffset", &Player->CameraZOffset, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("CameraPitch", &Player->CameraPitch, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("CameraYaw", &Player->CameraYaw, 0.5, 2, "%.10f", 0);
         }
 
-        if(ImGui::CollapsingHeader("Shadows"))
+        if(ImGui::CollapsingHeader("Render"))
         {
-            ImGui::InputFloat("ShadowMapSize", &Render->ShadowMapSize, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("NearPlane", &Render->NearPlane, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("FarPlane", &Render->FarPlane, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("ShadowLightPitch", &Render->ShadowLightPitch, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("ShadowLightYaw", &Render->ShadowLightYaw, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("ShadowLightPosX", &Render->ShadowLightPos.x, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("ShadowLightPosY", &Render->ShadowLightPos.y, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("ShadowLightPosZ", &Render->ShadowLightPos.z, 0.5, 2, "%.10f", 0);
-            ImGui::Text("ShadowMap");
-            ImGui::Image((void *)(intptr_t)Render->DepthMap, ImVec2(1920 / 4, 1080 / 4), ImVec2(0, 0), ImVec2(1, -1));
+            ImGui::Text("Environment Objects Rendering System");
+            ImGui::Text("EnvObjectsCount=%d", Render->EnvObjectsCount);
+            ImGui::Text("SStMeshesCount=%d", Render->SStMeshesCount);
+            ImGui::Text("SStVerticesCountSum=%d", Render->SStVerticesCountSum);
+            ImGui::Text("SAnMeshesCount=%d", Render->SAnMeshesCount);
+            ImGui::Text("SAnVerticesCountSum=%d", Render->SAnVerticesCountSum);
+            ImGui::Text("MStMeshesCount=%d", Render->MStMeshesCount);
+            ImGui::Text("MStVerticesCountSum=%d", Render->MStVerticesCountSum);
+            ImGui::Text("MStInstancesCountSum=%d", Render->MStInstancesCountSum);
+            ImGui::Spacing();
+            ImGui::Text("Grass Objects Rendering System");
+            ImGui::Text("GrassObjectsCount=%d", Render->GrassObjectsCount);
+            ImGui::Text("GrMeshesCount=%d", Render->GrMeshesCount);
+            ImGui::Text("GrVerticesCountSum=%d", Render->GrVerticesCountSum);
+            ImGui::Text("GrInstancesCountSum=%d", Render->GrInstancesCountSum);
         }
 
-        if(ImGui::CollapsingHeader("Light"))
+        if(ImGui::CollapsingHeader("Light Sources"))
         {
-            /*
-            ImGui::Text("Directional");
-            ImGui::SliderFloat("DLPosX", &Render->DirLight.WorldDirection.x, -50.0f, 50.0f);
-            ImGui::SliderFloat("DLPosY", &Render->DirLight.WorldDirection.y, -50.0f, 50.0f);
-            ImGui::SliderFloat("DLPosZ", &Render->DirLight.WorldDirection.z, -50.0f, 50.0f);
-            ImGui::SliderFloat("DLAmbientIntensity", &Render->DirLight.Base.AmbientIntensity, 0.0f, 1.0f);
-            ImGui::SliderFloat("DLDiffuseIntensity", &Render->DirLight.Base.DiffuseIntensity, 0.0f, 1.0f);
-            ImGui::ColorEdit3("DLColor", (float *)&Render->DirLight.Base.Color.E);
-            ImGui::Spacing();
-            ImGui::Text("Point");
-            ImGui::SliderFloat("PLPosX", &Render->PointLights[0].WorldPosition.x, -50.0f, 50.0f);
-            ImGui::SliderFloat("PLPosY", &Render->PointLights[0].WorldPosition.y, -50.0f, 50.0f);
-            ImGui::SliderFloat("PLPosZ", &Render->PointLights[0].WorldPosition.z, -50.0f, 50.0f);
-            ImGui::Spacing();
-            ImGui::Text("Spot");
-            ImGui::SliderFloat("SLPosX", &Render->SpotLights[0].Base.WorldPosition.x, -50.0f, 50.0f);
-            ImGui::SliderFloat("SLPosY", &Render->SpotLights[0].Base.WorldPosition.y, -50.0f, 50.0f);
-            ImGui::SliderFloat("SLPosZ", &Render->SpotLights[0].Base.WorldPosition.z, -50.0f, 50.0f);
-            */
-
             ImGui::Text("Directional");
             ImGui::InputFloat("DLPosX", &Render->DirLight.WorldDirection.x, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("DLPosY", &Render->DirLight.WorldDirection.y, 0.5, 2, "%.10f", 0);
@@ -922,6 +904,35 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::InputFloat("SLPosY", &Render->SpotLights[0].Base.WorldPosition.y, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("SLPosZ", &Render->SpotLights[0].Base.WorldPosition.z, 0.5, 2, "%.10f", 0);
             ImGui::ColorEdit3("SLColor", (float *)&Render->SpotLights[0].Base.Base.Color.E);
+        }
+
+        if(ImGui::CollapsingHeader("Shadows"))
+        {
+            ImGui::InputFloat("ShadowMapSize", &Render->ShadowMapSize, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("NearPlane", &Render->NearPlane, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("FarPlane", &Render->FarPlane, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("ShadowLightPitch", &Render->ShadowLightPitch, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("ShadowLightYaw", &Render->ShadowLightYaw, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("ShadowLightPosX", &Render->ShadowLightPos.x, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("ShadowLightPosY", &Render->ShadowLightPos.y, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("ShadowLightPosZ", &Render->ShadowLightPos.z, 0.5, 2, "%.10f", 0);
+            ImGui::Text("ShadowMap");
+            ImGui::Image((void *)(intptr_t)Render->DepthMap, ImVec2(1920 / 4, 1080 / 4), ImVec2(0, 0), ImVec2(1, -1));
+        }
+
+        if(ImGui::CollapsingHeader("Water"))
+        {
+            ImGui::InputFloat("WaterWaveSpeed", &Render->WaterWaveSpeed, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("WaterTiling", &Render->WaterTiling, 0.1, 2, "%.10f", 0);
+            ImGui::InputFloat("WaterWaveStrength", &Render->WaterWaveStrength, 0.1, 2, "%.10f", 0);
+            ImGui::InputFloat("WaterShineDamper", &Render->WaterShineDamper, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("WaterReflectivity", &Render->WaterReflectivity, 0.1, 2, "%.10f", 0);
+            ImGui::Text("WaterReflTexture");
+            ImGui::Image((void *)(intptr_t)Render->WaterReflTexture, ImVec2(1920 / 4, 1080 / 4), //
+                         ImVec2(0, 0), ImVec2(1, -1));
+            ImGui::Text("WaterRefrTexture");
+            ImGui::Image((void *)(intptr_t)Render->WaterRefrTexture, ImVec2(1920 / 4, 1080 / 4), //
+                         ImVec2(0, 0), ImVec2(1, -1));
         }
 
         ImGui::End();
@@ -985,7 +996,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     Player->CameraPitch = Player->CameraPitchInversed;
     Render->CutPlane = V4(0, 0, 1, -WaterZ);
     glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterReflFBO);
-    RenderScene(Window, Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    RenderScene(Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //RenderGrassVBO(Render, Player);
     Player->Position.z += Distance;
     Player->CameraPitch = NormalCameraPitch;
 
@@ -993,7 +1005,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     glViewport(0, 0, (u32)(Render->RefrWidth), (u32)(Render->RefrHeight));
     Render->CutPlane = V4(0, 0, -1, WaterZ);
     glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterRefrFBO);
-    RenderScene(Window, Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    RenderScene(Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //RenderGrassVBO(Render, Player);
 
     glDisable(GL_CLIP_DISTANCE0);
     Render->CutPlane = V4(0, 0, -1, 100000);
@@ -1002,15 +1015,16 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     glViewport(0, 0, (u32)(Render->DepthMapWidth), (u32)(Render->DepthMapHeight));
     glBindFramebuffer(GL_FRAMEBUFFER, Render->DepthMapFBO);
     glCullFace(GL_FRONT);
-    RenderScene(Window, Render, Render->DepthMapShaderProgram, Player, GL_DEPTH_BUFFER_BIT);
+    RenderScene(Render, Render->DepthMapShaderProgram, Player, GL_DEPTH_BUFFER_BIT);
     glCullFace(GL_BACK);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // single_mesh *Mesh = &EnvObjects[0]->Model->Meshes[0];
     //  DrawTexturedSquare(Mesh->Material.Texture);
     glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
-    RenderScene(Window, Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    RenderWater(Window, Render, Player, Input->dtForFrame, WaterZ);
+    RenderScene(Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    RenderGrassVBO(Render, Player);
+    RenderWater(Render, Player, Input->dtForFrame, WaterZ);
     RenderDebugElements(Render, Player, PlayerClip);
     // DrawTexturedSquare(Window, Render, Render->WaterReflTexture, 320, 180, V2(340, 200));
     // DrawTexturedSquare(Window, Render, Render->WaterRefrTexture, 320, 180, V2(1000, 200));

@@ -27,9 +27,14 @@ struct entity_envobject
     m4x4 ScaleMatrix;
     m4x4 TransformMatrix;
 
-    // рендер
     u32 InstancingCount; // 0 - без инстансинга
     m4x4 *InstancingTransformMatrices;
     loaded_model *Model;
-    // TODO(me) loaded_texture?
+};
+
+struct entity_grassobject
+{
+    u32 InstancingCount;
+    m4x4 *InstancingTransformMatrices;
+    loaded_model *Model;
 };
