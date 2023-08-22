@@ -73,12 +73,12 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->PointLights = PushArray(WorldArena, Render->PointLightsCount, point_light);
         point_light *PointLights = Render->PointLights;
         PointLights[0].Base.Color = V3(0.0f, 0.0f, 1.0f);
-        PointLights[0].Base.AmbientIntensity = 1.0f;
-        PointLights[0].Base.DiffuseIntensity = 4.0f;
-        PointLights[0].WorldPosition = V3(15.0f, 14.0f, 5.0f);
-        PointLights[0].Atten.Constant = 1.0f;
-        PointLights[0].Atten.Linear = 0.1f; // 0.0f
-        PointLights[0].Atten.Exp = 0.0f;    // 0.0f
+        PointLights[0].Base.AmbientIntensity = 0.0f;
+        PointLights[0].Base.DiffuseIntensity = 1.0f;
+        PointLights[0].WorldPosition = V3(4.5f, 9.0f, 3.0f);
+        PointLights[0].Atten.Constant = 0.1f; // 1.0f
+        PointLights[0].Atten.Linear = 0.1f;   // 0.1f, 0.0f
+        PointLights[0].Atten.Exp = 0.0f;      // 0.0f
         // имена переменных point lights для оправки в шейдер
         Render->PLVarNames = PushArray(WorldArena, Render->PointLightsCount, point_light_var_names);
         for(u32 i = 0; i < Render->PointLightsCount; i++)
@@ -271,9 +271,11 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         EnvIndex++;
 
         // clip player texture
-        EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.05f);
+        /*EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(0.0f, 0.0f, 0.0f));
+        EnvObjects[EnvIndex]->ScaleMatrix = Scaling(1.05f);
         EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(WorldArena, "clip.png");
         EnvIndex++;
+        */
 
         /*
         // трава (старая версия)
@@ -627,7 +629,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     EnvObjects[2]->TranslateMatrix = Translation(Render->SpotLights[0].Base.WorldPosition);
     // Перемещение клип текстуры игрока
     v3 ClipTextureNewPos = Player->Position - V3(Player->Width * 0.05f, Player->Height * 0.05f, 0);
-    EnvObjects[14]->TranslateMatrix = Translation(ClipTextureNewPos);
+    EnvObjects[13]->TranslateMatrix = Translation(ClipTextureNewPos);
 
     // Формируем матрицы преобразований у объектов окружения
     for(u32 i = 0; i < Render->EnvObjectsCount; i++)
@@ -862,16 +864,48 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::Text("Environment Objects Rendering System");
             ImGui::Text("EnvObjectsCount=%d", Render->EnvObjectsCount);
             ImGui::Text("SStMeshesCount=%d", Render->SStMeshesCount);
+            if(ImGui::TreeNode("SStMeshes"))
+            {
+                for(u32 i = 0; i < Render->SStMeshesCount; i++)
+                {
+                    ImGui::Text("%d %s", i, (char *)Render->SStMeshes[i]->Name.Data);
+                }
+                ImGui::TreePop();
+            }
             ImGui::Text("SStVerticesCountSum=%d", Render->SStVerticesCountSum);
             ImGui::Text("SAnMeshesCount=%d", Render->SAnMeshesCount);
+            if(ImGui::TreeNode("SAnMeshes"))
+            {
+                for(u32 i = 0; i < Render->SAnMeshesCount; i++)
+                {
+                    ImGui::Text("%d %s", i, (char *)Render->SAnMeshes[i]->Name.Data);
+                }
+                ImGui::TreePop();
+            }
             ImGui::Text("SAnVerticesCountSum=%d", Render->SAnVerticesCountSum);
             ImGui::Text("MStMeshesCount=%d", Render->MStMeshesCount);
+            if(ImGui::TreeNode("MStMeshes"))
+            {
+                for(u32 i = 0; i < Render->MStMeshesCount; i++)
+                {
+                    ImGui::Text("%d %s", i, (char *)Render->MStMeshes[i]->Name.Data);
+                }
+                ImGui::TreePop();
+            }
             ImGui::Text("MStVerticesCountSum=%d", Render->MStVerticesCountSum);
             ImGui::Text("MStInstancesCountSum=%d", Render->MStInstancesCountSum);
             ImGui::Spacing();
             ImGui::Text("Grass Objects Rendering System");
             ImGui::Text("GrassObjectsCount=%d", Render->GrassObjectsCount);
             ImGui::Text("GrMeshesCount=%d", Render->GrMeshesCount);
+            if(ImGui::TreeNode("GrMeshes"))
+            {
+                for(u32 i = 0; i < Render->GrMeshesCount; i++)
+                {
+                    ImGui::Text("%d %s", i, (char *)Render->GrMeshes[i]->Name.Data);
+                }
+                ImGui::TreePop();
+            }
             ImGui::Text("GrVerticesCountSum=%d", Render->GrVerticesCountSum);
             ImGui::Text("GrInstancesCountSum=%d", Render->GrInstancesCountSum);
         }
@@ -893,9 +927,9 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::InputFloat("PLPosZ", &Render->PointLights[0].WorldPosition.z, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("PLAmbientIntensity", &Render->PointLights[0].Base.AmbientIntensity, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("PLDiffuseIntensity", &Render->PointLights[0].Base.DiffuseIntensity, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("PLConstant", &Render->PointLights[0].Atten.Constant, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("PLLinear", &Render->PointLights[0].Atten.Linear, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("PLExp", &Render->PointLights[0].Atten.Exp, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("PLAttConstant", &Render->PointLights[0].Atten.Constant, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("PLAttLinear", &Render->PointLights[0].Atten.Linear, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("PLAttExp", &Render->PointLights[0].Atten.Exp, 0.5, 2, "%.10f", 0);
             ImGui::ColorEdit3("PLColor", (float *)&Render->PointLights[0].Base.Color.E);
             ImGui::Spacing();
 
@@ -997,7 +1031,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     Render->CutPlane = V4(0, 0, 1, -WaterZ);
     glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterReflFBO);
     RenderScene(Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //RenderGrassVBO(Render, Player);
+    // RenderGrassVBO(Render, Player);
     Player->Position.z += Distance;
     Player->CameraPitch = NormalCameraPitch;
 
@@ -1006,7 +1040,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     Render->CutPlane = V4(0, 0, -1, WaterZ);
     glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterRefrFBO);
     RenderScene(Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    //RenderGrassVBO(Render, Player);
+    // RenderGrassVBO(Render, Player);
 
     glDisable(GL_CLIP_DISTANCE0);
     Render->CutPlane = V4(0, 0, -1, 100000);

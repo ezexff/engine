@@ -67,43 +67,6 @@ uniform bool gWithTexture;                  // new
 // uniform sampler2D gNormalMap; // bind the normal map before the draw
 uniform sampler2D ShadowMap;
 
-
-vec4 CalcLightInternal(BaseLight Light, vec3 LightDirection, vec3 Normal)
-{
-    vec4 AmbientColor = vec4(Light.Color, 1.0f) * Light.AmbientIntensity * vec4(gMaterial.AmbientColor, 1.0f);
-
-    float DiffuseFactor = dot(Normal, -LightDirection);
-
-    vec4 DiffuseColor = vec4(0, 0, 0, 0);
-    vec4 SpecularColor = vec4(0, 0, 0, 0);
-
-    if(DiffuseFactor > 0)
-    {
-        DiffuseColor =
-            vec4(Light.Color, 1.0f) * Light.DiffuseIntensity * vec4(gMaterial.DiffuseColor, 1.0f) * DiffuseFactor;
-
-        vec3 PixelToCamera = normalize(gCameraWorldPos - WorldPos0);
-        vec3 LightReflect = normalize(reflect(LightDirection, Normal));
-        float SpecularFactor = dot(PixelToCamera, LightReflect);
-        if(SpecularFactor > 0)
-        {
-            float SpecularExponent = texture2D(gSamplerSpecularExponent, TexCoord0).r * 255.0;
-            SpecularFactor = pow(SpecularFactor, SpecularExponent);
-            SpecularColor = vec4(Light.Color, 1.0f) *
-                            Light.DiffuseIntensity * // using the diffuse intensity for diffuse/specular
-                            vec4(gMaterial.SpecularColor, 1.0f) * SpecularFactor;
-        }
-    }
-
-    return (AmbientColor + DiffuseColor + SpecularColor);
-}
-
-vec4 CalcDirectionalLight(vec3 Normal)
-{
-    return CalcLightInternal(gDirectionalLight.Base, gDirectionalLight.Direction, Normal);
-}
-
-
 vec4 CalcLightInternalWS(BaseLight Light, vec3 LightDirection, vec3 Normal, float Shadow)
 {
     vec4 AmbientColor = vec4(Light.Color, 1.0f) * Light.AmbientIntensity * vec4(gMaterial.AmbientColor, 1.0f);
@@ -139,26 +102,26 @@ vec4 CalcDirectionalLightWS(vec3 Normal, float Shadow) // with shadow
     return CalcLightInternalWS(gDirectionalLight.Base, gDirectionalLight.Direction, Normal, Shadow);
 }
 
-vec4 CalcPointLight(PointLight l, vec3 Normal)
+vec4 CalcPointLight(PointLight l, vec3 Normal, float Shadow)
 {
     vec3 LightDirection = WorldPos0 - l.WorldPos;
     float Distance = length(LightDirection);
     LightDirection = normalize(LightDirection);
 
-    vec4 Color = CalcLightInternal(l.Base, LightDirection, Normal);
+    vec4 Color = CalcLightInternalWS(l.Base, LightDirection, Normal, Shadow);
     float Attenuation = l.Atten.Constant + l.Atten.Linear * Distance + l.Atten.Exp * Distance * Distance;
 
     return Color / Attenuation;
 }
 
-vec4 CalcSpotLight(SpotLight l, vec3 Normal)
+vec4 CalcSpotLight(SpotLight l, vec3 Normal, float Shadow)
 {
     vec3 LightToPixel = normalize(WorldPos0 - l.Base.WorldPos);
     float SpotFactor = dot(LightToPixel, l.Direction);
 
     if(SpotFactor > l.Cutoff)
     {
-        vec4 Color = CalcPointLight(l.Base, Normal);
+        vec4 Color = CalcPointLight(l.Base, Normal, Shadow);
         float SpotLightIntensity = (1.0 - (1.0 - SpotFactor) / (1.0 - l.Cutoff));
         return Color * SpotLightIntensity;
     }
@@ -204,18 +167,21 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 Normal)
 void main()
 {
     vec3 Normal = normalize(Normal0);
+
     // vec3 Normal = CalcBumpedNormal();
+
     float Shadow = ShadowCalculation(FragPosLightSpace, Normal);
+
     vec4 TotalLight = CalcDirectionalLightWS(Normal, Shadow);
 
     for(int i = 0; i < gNumPointLights; i++)
     {
-        //TotalLight += CalcPointLight(gPointLights[i], Normal);
+        TotalLight += CalcPointLight(gPointLights[i], Normal, Shadow);
     }
 
     for(int i = 0; i < gNumSpotLights; i++)
     {
-        //TotalLight += CalcSpotLight(gSpotLights[i], Normal);
+        TotalLight += CalcSpotLight(gSpotLights[i], Normal, Shadow);
     }
 
     FragColor = TotalLight;

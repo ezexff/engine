@@ -20,6 +20,6 @@ void main(void)
     ClipSpace = MatProj * MatView * WorldPosition;
     gl_Position = ClipSpace;
     TextureCoords = vec2(Position.x / 2.0 + 0.5, Position.y / 2.0 + 0.5) * Tiling;
-    ToCameraVector = CameraPosition - WorldPosition.xyz;
-    FromLightVector = WorldPosition.xyz - LightPosition;
+    ToCameraVector = CameraPosition - WorldPosition.xyz; // PixelToCamera
+    FromLightVector = WorldPosition.xyz - LightPosition; // LightDirection
 }
