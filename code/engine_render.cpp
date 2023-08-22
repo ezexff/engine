@@ -1,74 +1,6 @@
 // TODO(me): Testing Single VBO for Anim Render (1) vs Multiple VBOs for Anim Render (0)
 #define SINGLE_VBO_FOR_ANIM_RENDER 1
 
-internal void AddEnvObjectToRender(render *Render, entity_envobject *EnvObject)
-{
-    if(EnvObject->Model)
-    {
-        if(EnvObject->InstancingCount == 0)
-        {
-            loaded_model *Model = EnvObject->Model;
-            for(u32 i = 0; i < Model->MeshesCount; i++)
-            {
-                single_mesh *Mesh = &Model->Meshes[i];
-                if(!Mesh->WithAnimations)
-                {
-                    Render->SStMeshes[Render->SStMeshesCount] = Mesh;
-                    Render->SStTransformMatrices[Render->SStMeshesCount] = &EnvObject->TransformMatrix;
-                    Render->SStMeshesCount++;
-                }
-                else
-                {
-                    Render->SAnMeshes[Render->SAnMeshesCount] = Mesh;
-                    Render->SAnTransformMatrices[Render->SAnMeshesCount] = &EnvObject->TransformMatrix;
-                    Render->SAnMeshesCount++;
-                }
-                Assert(Render->SStMeshesCount < SINGLE_STATIC_MESHES_MAX);
-                Assert(Render->SAnMeshesCount < SINGLE_ANIMATED_MESHES_MAX);
-            }
-        }
-        else if(EnvObject->InstancingCount > 0)
-        {
-            loaded_model *Model = EnvObject->Model;
-            for(u32 i = 0; i < Model->MeshesCount; i++)
-            {
-                single_mesh *Mesh = &Model->Meshes[i];
-                if(!Mesh->WithAnimations)
-                {
-                    Render->MStMeshes[Render->MStMeshesCount] = Mesh;
-                    Render->MStInstancingCounters[Render->MStMeshesCount] = &EnvObject->InstancingCount;
-                    Render->MStInstancingTransformMatrices[Render->MStMeshesCount] =
-                        EnvObject->InstancingTransformMatrices;
-                    Render->MStMeshesCount++;
-                }
-                else
-                {
-                }
-                Assert(Render->MStMeshesCount < MULTIPLE_STATIC_MESHES_MAX);
-            }
-        }
-    }
-    else
-    {
-        InvalidCodePath;
-    }
-}
-
-internal void AddEnvObjectsToRender(render *Render, entity_envobject *EnvObjects[])
-{
-    for(u32 i = 0; i < ENV_OBJECTS_MAX; i++)
-    {
-        if(EnvObjects[i]->Model)
-        {
-            AddEnvObjectToRender(Render, EnvObjects[i]);
-        }
-        else
-        {
-            break;
-        }
-    }
-}
-
 GLuint LoadShader(char *Path, GLuint Type)
 {
     FILE *FileHandle;
@@ -135,6 +67,74 @@ u32 LinkShaderProgram(u32 ShaderVert, u32 ShaderFrag)
     }
 
     return (ShaderProgram);
+}
+
+internal void AddEnvObjectToRender(render *Render, entity_envobject *EnvObject)
+{
+    if(EnvObject->Model)
+    {
+        if(EnvObject->InstancingCount == 0)
+        {
+            loaded_model *Model = EnvObject->Model;
+            for(u32 i = 0; i < Model->MeshesCount; i++)
+            {
+                single_mesh *Mesh = &Model->Meshes[i];
+                if(!Mesh->WithAnimations)
+                {
+                    Render->SStMeshes[Render->SStMeshesCount] = Mesh;
+                    Render->SStTransformMatrices[Render->SStMeshesCount] = &EnvObject->TransformMatrix;
+                    Render->SStMeshesCount++;
+                }
+                else
+                {
+                    Render->SAnMeshes[Render->SAnMeshesCount] = Mesh;
+                    Render->SAnTransformMatrices[Render->SAnMeshesCount] = &EnvObject->TransformMatrix;
+                    Render->SAnMeshesCount++;
+                }
+                Assert(Render->SStMeshesCount < SINGLE_STATIC_MESHES_MAX);
+                Assert(Render->SAnMeshesCount < SINGLE_ANIMATED_MESHES_MAX);
+            }
+        }
+        else if(EnvObject->InstancingCount > 0)
+        {
+            loaded_model *Model = EnvObject->Model;
+            for(u32 i = 0; i < Model->MeshesCount; i++)
+            {
+                single_mesh *Mesh = &Model->Meshes[i];
+                if(!Mesh->WithAnimations)
+                {
+                    Render->MStMeshes[Render->MStMeshesCount] = Mesh;
+                    Render->MStInstancingCounters[Render->MStMeshesCount] = &EnvObject->InstancingCount;
+                    Render->MStInstancingTransformMatrices[Render->MStMeshesCount] =
+                        EnvObject->InstancingTransformMatrices;
+                    Render->MStMeshesCount++;
+                }
+                else
+                {
+                }
+                Assert(Render->MStMeshesCount < MULTIPLE_STATIC_MESHES_MAX);
+            }
+        }
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+}
+
+internal void AddEnvObjectsToRender(render *Render, entity_envobject *EnvObjects[])
+{
+    for(u32 i = 0; i < Render->EnvCount + 1; i++)
+    {
+        if(EnvObjects[i]->Model)
+        {
+            AddEnvObjectToRender(Render, EnvObjects[i]);
+        }
+        else
+        {
+            break;
+        }
+    }
 }
 
 void InitEnvVBOs(memory_arena *WorldArena, render *Render)
@@ -469,8 +469,8 @@ internal void RenderEnvVBOs(GLFWwindow *Window, render *Render, u32 ShaderProg, 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     // glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
-    r32 NearPlane = 1.0f, FarPlane = 37.5f;
-    glOrtho(-10.0f, 10.0f, -10.0f, 10.0f, NearPlane, FarPlane);
+    glOrtho(-Render->ShadowMapSize, Render->ShadowMapSize, -Render->ShadowMapSize, Render->ShadowMapSize,
+            Render->NearPlane, Render->FarPlane);
     r32 MatProjShadows[16];
     glGetFloatv(GL_PROJECTION_MATRIX, MatProjShadows);
     glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatProjShadows"), 1, GL_FALSE, MatProjShadows);
@@ -478,12 +478,9 @@ internal void RenderEnvVBOs(GLFWwindow *Window, render *Render, u32 ShaderProg, 
     // матрица вида (источник света для теней)
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    r32 ShadowLightPitch = 70.0f;
-    r32 ShadowLightYaw = 325.0f;
-    v3 ShadowLightPos = V3(0.0f, 0.0f, 10.0f);
-    glRotatef(-ShadowLightPitch, 1.0f, 0.0f, 0.0f);
-    glRotatef(-ShadowLightYaw, 0.0f, 0.0f, 1.0f);
-    glTranslatef(-ShadowLightPos.x, -ShadowLightPos.y, -ShadowLightPos.z);
+    glRotatef(-Render->ShadowLightPitch, 1.0f, 0.0f, 0.0f);
+    glRotatef(-Render->ShadowLightYaw, 0.0f, 0.0f, 1.0f);
+    glTranslatef(-Render->ShadowLightPos.x, -Render->ShadowLightPos.y, -Render->ShadowLightPos.z);
     r32 MatViewShadows[16];
     glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
     glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatViewShadows"), 1, GL_FALSE, MatViewShadows);
@@ -992,14 +989,19 @@ internal void RenderWater(GLFWwindow *Window, render *Render, entity_player *Pla
     u32 ShaderProg = Render->WaterShaderProgram;
     glUseProgram(ShaderProg);
 
-    // glEnable(GL_BLEND);
-    // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
     Render->WaterMoveFactor += Render->WaterWaveSpeed * dtForFrame;
     if(Render->WaterMoveFactor >= 1)
     {
         Render->WaterMoveFactor = 0;
     }
+
+    glUniform1f(glGetUniformLocation(ShaderProg, "Reflectivity"), Render->WaterReflectivity);
+
+    glUniform1f(glGetUniformLocation(ShaderProg, "ShineDamper"), Render->WaterShineDamper);
+
+    glUniform1f(glGetUniformLocation(ShaderProg, "WaveStrength"), Render->WaterWaveStrength);
+
+    glUniform1f(glGetUniformLocation(ShaderProg, "Tiling"), Render->WaterTiling);
 
     glUniform3fv(glGetUniformLocation(ShaderProg, "LightPosition"), 1, Render->DirLight.WorldDirection.E);
 
@@ -1213,8 +1215,8 @@ void RenderScene(GLFWwindow *Window, render *Render, u32 ShaderProg, entity_play
 
 void RenderDebugElements(render *Render, entity_player *Player, entity_clip *PlayerClip)
 {
-    //glDisable(GL_NORMALIZE);
-    //glDisable(GL_ALPHA_TEST);
+    // glDisable(GL_NORMALIZE);
+    // glDisable(GL_ALPHA_TEST);
     glDisable(GL_TEXTURE_2D);
     glLoadIdentity();
 

@@ -210,12 +210,12 @@ void main()
 
     for(int i = 0; i < gNumPointLights; i++)
     {
-        TotalLight += CalcPointLight(gPointLights[i], Normal);
+        //TotalLight += CalcPointLight(gPointLights[i], Normal);
     }
 
     for(int i = 0; i < gNumSpotLights; i++)
     {
-        TotalLight += CalcSpotLight(gSpotLights[i], Normal);
+        //TotalLight += CalcSpotLight(gSpotLights[i], Normal);
     }
 
     FragColor = TotalLight;

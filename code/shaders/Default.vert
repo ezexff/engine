@@ -61,10 +61,10 @@ void main()
 
     if(WithOffset)
     {
-        gl_Position = MatProj * MatView * MatModelInstance * vec4(Position, 1.0);
+        gl_Position = MatProj * MatView * MatModelInstance * PosL;
         Normal0 = (MatModelInstance * vec4(Normal, 0.0)).xyz;
         WorldPos0 = (MatModelInstance * PosL).xyz;
-        FragPosLightSpace = MatProjShadows * MatViewShadows * MatModelInstance * vec4(Position, 1.0);
+        FragPosLightSpace = MatProjShadows * MatViewShadows * MatModelInstance * PosL;
     }
     else
     {

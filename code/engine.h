@@ -58,9 +58,8 @@ struct game_state
 
     entity_clip *Clip;
 
-#define ENV_OBJECTS_MAX 15
+#define ENV_OBJECTS_MAX 32
     entity_envobject *EnvObjects[ENV_OBJECTS_MAX];
-    u32 EnvCount;
 
     // TODO: ODE test
     // m4x4 GeomMatrix;

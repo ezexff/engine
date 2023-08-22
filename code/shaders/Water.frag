@@ -12,10 +12,9 @@ uniform sampler2D DepthMap;
 uniform vec3 LightColor;
 
 uniform float MoveFactor;
-
-const float WaveStrength = 0.02;
-const float ShineDamper = 20.0;
-const float Reflectivity = 0.6;
+uniform float WaveStrength;
+uniform float ShineDamper;
+uniform float Reflectivity;
 
 out vec4 FragColor;
 

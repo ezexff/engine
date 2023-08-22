@@ -83,15 +83,30 @@ struct offset_var_name
 
 struct render
 {
-    // Window W&H
+    // Render Scene Width & Height
     s32 DisplayWidth, DisplayHeight;
 
+    //
+    // NOTE(me:) Shader programs
+    //
+    u32 DefaultShaderProgram;
+    u32 WaterShaderProgram;
+    u32 DepthMapShaderProgram;
+
+    // Shader cut plane
     v4 CutPlane;
 
-    // water reflection
+    //
+    // NOTE(me): Water
+    //
     r32 WaterWaveSpeed;
     r32 WaterMoveFactor;
+    r32 WaterTiling;
+    r32 WaterWaveStrength;
+    r32 WaterShineDamper;
+    r32 WaterReflectivity;
 
+    // Reflection
     s32 ReflWidth, ReflHeight;
     u32 WaterReflFBO;
     u32 WaterReflTexture;
@@ -101,21 +116,25 @@ struct render
     string WaterNormalMapName;
     u32 WaterNormalMap;
 
-    // water refraction
+    // Refraction
     s32 RefrWidth, RefrHeight;
     u32 WaterRefrFBO;
     u32 WaterRefrTexture;
     u32 WaterRefrDepthTexture;
 
-    // depth map
+    // Depth Map
     s32 DepthMapWidth, DepthMapHeight;
     u32 DepthMapFBO;
     u32 DepthMap;
+    r32 ShadowMapSize;
+    r32 NearPlane, FarPlane;
+    r32 ShadowLightPitch, ShadowLightYaw;
+    v3 ShadowLightPos;
 
-    // shaders
-    u32 DefaultShaderProgram;
-    u32 WaterShaderProgram;
-    u32 DepthMapShaderProgram;
+    //
+    // NOTE(me): Env count
+    //
+    u32 EnvCount;
 
     //
     // NOTE(me): Single Static Meshes list for rendering
@@ -127,17 +146,11 @@ struct render
     single_mesh *SStMeshes[SINGLE_STATIC_MESHES_MAX];
 
     // атрибуты модели
-    // v3 *SStPositions[SINGLE_STATIC_MESHES_MAX];
-    // r32 *SStScales[SINGLE_STATIC_MESHES_MAX];
-    // r32 *SStAngles[SINGLE_STATIC_MESHES_MAX];
-    // v3 *SStRotations[SINGLE_STATIC_MESHES_MAX];
     m4x4 *SStTransformMatrices[SINGLE_STATIC_MESHES_MAX];
-    // u32 *SStInstancingCounters[SINGLE_STATIC_MESHES_MAX];
 
     // данные для отрисовки
     u32 SStVerticesCountSum;
     u32 SStIndicesCountSum;
-    // u32 SstIndicesCount[SINGLE_STATIC_MESHES_MAX];
 
     u32 SStVAO;
     u32 SStVBO;
@@ -153,17 +166,11 @@ struct render
     single_mesh *SAnMeshes[SINGLE_ANIMATED_MESHES_MAX];
 
     // атрибуты модели
-    // v3 *SAnPositions[SINGLE_ANIMATED_MESHES_MAX];
-    // r32 *SAnScales[SINGLE_ANIMATED_MESHES_MAX];
-    // r32 *SAnAngles[SINGLE_ANIMATED_MESHES_MAX];
-    // v3 *SAnRotations[SINGLE_ANIMATED_MESHES_MAX];
     m4x4 *SAnTransformMatrices[SINGLE_ANIMATED_MESHES_MAX];
-    // u32 *SAnInstancingCounters[SINGLE_ANIMATED_MESHES_MAX];
 
     // данные для отрисовки
     u32 SAnVerticesCountSum;
     u32 SAnIndicesCountSum;
-    // u32 SAnIndicesCount[SINGLE_ANIMATED_MESHES_MAX];
 
     u32 SAnVAO;
     u32 SAnVBO;
@@ -181,26 +188,17 @@ struct render
     single_mesh *MStMeshes[MULTIPLE_STATIC_MESHES_MAX];
 
     // атрибуты модели
-    // v3 *MStPositions[MULTIPLE_STATIC_MESHES_MAX];
-    // r32 *MStScales[MULTIPLE_STATIC_MESHES_MAX];
-    // r32 *MStAngles[MULTIPLE_STATIC_MESHES_MAX];
-    // v3 *MStRotations[MULTIPLE_STATIC_MESHES_MAX];
     u32 *MStInstancingCounters[MULTIPLE_STATIC_MESHES_MAX];
-    // v3 *MStInstancingTranslations[MULTIPLE_STATIC_MESHES_MAX];
     m4x4 *MStInstancingTransformMatrices[MULTIPLE_STATIC_MESHES_MAX];
 
     // данные для отрисовки
     u32 MStVerticesCountSum;
     u32 MStIndicesCountSum;
     u32 MStInstancesCountSum;
-    // u32 SstIndicesCount[SINGLE_STATIC_MESHES_MAX];
 
     u32 MStVAO;
     u32 MStVBO;
     u32 MStEBO;
-
-    // u32 MaxInstancingCount;
-    // offset_var_name *InstancingVarNames;
 
     //
     // NOTE(me): Light
@@ -218,5 +216,5 @@ struct render
     //
     // NOTE(me): Animations
     //
-    animator Animator;
+    animator Animator; // timers
 };

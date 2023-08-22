@@ -250,7 +250,7 @@ int main(int, char **)
 #endif
 
     game_memory GameMemory = {};
-    GameMemory.PermanentStorageSize = Megabytes(12);
+    GameMemory.PermanentStorageSize = Megabytes(16);
     GameMemory.TransientStorageSize = Megabytes(1);
 
 #if ENGINE_INTERNAL

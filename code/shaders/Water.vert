@@ -12,8 +12,7 @@ uniform mat4 MatView;
 uniform mat4 MatModel;
 uniform vec3 CameraPosition;
 uniform vec3 LightPosition;
-
-const float Tiling = 0.5;
+uniform float Tiling;
 
 void main(void)
 {
