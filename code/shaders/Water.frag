@@ -3,7 +3,7 @@
 in vec4 ClipSpace;
 in vec2 TextureCoords;
 in vec3 ToCameraVector;
-in vec3 FromLightVector;
+in vec3 FromSunVector;
 uniform sampler2D ReflectionTexture;
 uniform sampler2D RefractionTexture;
 uniform sampler2D DUDVMap;
@@ -59,7 +59,7 @@ void main(void)
     //float RefractiveFactor = dot(ViewVector, Normal);
     RefractiveFactor = pow(RefractiveFactor, 0.5);
 
-    vec3 ReflectedLight = reflect(normalize(FromLightVector), Normal);
+    vec3 ReflectedLight = reflect(normalize(FromSunVector), Normal);
     float Specular = max(dot(ReflectedLight, ViewVector), 0.0);
     Specular = pow(Specular, ShineDamper);
     vec3 SpecularHighlights = LightColor * Specular * Reflectivity;

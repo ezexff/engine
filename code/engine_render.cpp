@@ -542,6 +542,8 @@ internal void RenderEnvVBOs(render *Render, u32 ShaderProg, entity_player *Playe
     //
     glUseProgram(ShaderProg);
 
+    glUniform1f(glGetUniformLocation(ShaderProg, "Bias"), Render->Bias);
+
     glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_2D, Render->DepthMap);
     glUniform1i(glGetUniformLocation(ShaderProg, "ShadowMap"), 1);
@@ -558,9 +560,9 @@ internal void RenderEnvVBOs(render *Render, u32 ShaderProg, entity_player *Playe
     // матрица вида (источник света для теней)
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    glRotatef(-Render->ShadowLightPitch, 1.0f, 0.0f, 0.0f);
-    glRotatef(-Render->ShadowLightYaw, 0.0f, 0.0f, 1.0f);
-    glTranslatef(-Render->ShadowLightPos.x, -Render->ShadowLightPos.y, -Render->ShadowLightPos.z);
+    glRotatef(-Render->ShadowCameraPitch, 1.0f, 0.0f, 0.0f);
+    glRotatef(-Render->ShadowCameraYaw, 0.0f, 0.0f, 1.0f);
+    glTranslatef(-Render->SunPos.x, -Render->SunPos.y, -Render->SunPos.z);
     r32 MatViewShadows[16];
     glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
     glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatViewShadows"), 1, GL_FALSE, MatViewShadows);
@@ -1003,6 +1005,8 @@ internal void RenderGrassVBO(render *Render, entity_player *Player)
     u32 ShaderProg = Render->GrassShaderProgram;
     glUseProgram(ShaderProg);
 
+    glUniform1f(glGetUniformLocation(ShaderProg, "Bias"), Render->Bias);
+
     glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_2D, Render->DepthMap);
     glUniform1i(glGetUniformLocation(ShaderProg, "ShadowMap"), 1);
@@ -1019,9 +1023,9 @@ internal void RenderGrassVBO(render *Render, entity_player *Player)
     // матрица вида (источник света для теней)
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    glRotatef(-Render->ShadowLightPitch, 1.0f, 0.0f, 0.0f);
-    glRotatef(-Render->ShadowLightYaw, 0.0f, 0.0f, 1.0f);
-    glTranslatef(-Render->ShadowLightPos.x, -Render->ShadowLightPos.y, -Render->ShadowLightPos.z);
+    glRotatef(-Render->ShadowCameraPitch, 1.0f, 0.0f, 0.0f);
+    glRotatef(-Render->ShadowCameraYaw, 0.0f, 0.0f, 1.0f);
+    glTranslatef(-Render->SunPos.x, -Render->SunPos.y, -Render->SunPos.z);
     r32 MatViewShadows[16];
     glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
     glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatViewShadows"), 1, GL_FALSE, MatViewShadows);
@@ -1433,7 +1437,9 @@ internal void RenderWater(render *Render, entity_player *Player, r32 dtForFrame,
 
     glUniform1f(glGetUniformLocation(ShaderProg, "Tiling"), Render->WaterTiling);
 
-    glUniform3fv(glGetUniformLocation(ShaderProg, "LightPosition"), 1, Render->DirLight.WorldDirection.E);
+    // glUniform3fv(glGetUniformLocation(ShaderProg, "SunPosition"), 1, Render->DirLight.WorldDirection.E);
+    v3 TestSunPos = V3(-Render->SunPos.x, -Render->SunPos.y, -Render->SunPos.z);
+    glUniform3fv(glGetUniformLocation(ShaderProg, "SunPosition"), 1, TestSunPos.E);
 
     glUniform3fv(glGetUniformLocation(ShaderProg, "LightColor"), 1, Render->DirLight.Base.Color.E);
 
@@ -1592,8 +1598,16 @@ void InitDepthMapFBO(render *Render)
                  GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+#if 1
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+#else
+    // TODO(me): test
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float borderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+#endif
 
     // Attach Depth Texture to Framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, Render->DepthMapFBO);

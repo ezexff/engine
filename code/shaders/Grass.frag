@@ -62,6 +62,7 @@ uniform sampler2D gSamplerSpecularExponent;
 uniform vec3 gCameraWorldPos;
 uniform bool gWithTexture;
 uniform sampler2D ShadowMap;
+uniform float Bias;
 
 vec4 CalcLightInternalWS(BaseLight Light, vec3 LightDirection, vec3 Normal, float Shadow)
 {
@@ -137,10 +138,28 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 Normal)
     float closestDepth = texture(ShadowMap, projCoords.xy).r;
     // get depth of current fragment from light's perspective
     float currentDepth = projCoords.z;
+    // calculate bias (based on depth map resolution and slope)
+    //vec3 normal = normalize(Normal0);
+    //vec3 lightDir = normalize(gDirectionalLight.Direction - WorldPos0);
+    //float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
     // check whether current frag pos is in shadow
-    float bias = 0.005;
-    // float bias = max(0.05 * (1.0 - dot(Normal, gDirectionalLight.Direction)), 0.005);
-    float shadow = currentDepth - bias > closestDepth ? 1.0 : 0.0;
+    // float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
+    // PCF
+    float shadow = 0.0;
+    vec2 texelSize = 1.0 / textureSize(ShadowMap, 0);
+    for(int x = -1; x <= 1; ++x)
+    {
+        for(int y = -1; y <= 1; ++y)
+        {
+            float pcfDepth = texture(ShadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+            shadow += currentDepth - Bias > pcfDepth ? 1.0 : 0.0;
+        }
+    }
+    shadow /= 9.0;
+
+    // keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
+    if(projCoords.z > 1.0)
+        shadow = 0.0;
 
     return shadow;
 }

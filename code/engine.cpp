@@ -30,6 +30,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->SStMeshesCount = 0;
         Render->SAnMeshesCount = 0;
         Render->MStMeshesCount = 0;
+        Render->GrMeshesCount = 0;
         Render->Animator.Timer = 1.0f;
 
         GameState->Settings = PushStruct(WorldArena, app_settings);
@@ -68,6 +69,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         DirLight->Base.AmbientIntensity = 0.1f;
         DirLight->Base.DiffuseIntensity = 1.0f;
         DirLight->WorldDirection = V3(1.0f, 1.0f, -1.0f);
+        // DirLight->WorldDirection = V3(3.0f, 6.0f, -73.5f);
 
         // point lights
         Render->PointLightsCount = 1;
@@ -496,15 +498,18 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->ShadowMapSize = 68.0f;
         Render->NearPlane = 50.0f;
         Render->FarPlane = 144.0f;
-        Render->ShadowLightPitch = 51.5f;
-        Render->ShadowLightYaw = 317.0f;
-        Render->ShadowLightPos = V3(-3.0f, -6.0f, 73.5f);
+        Render->ShadowCameraPitch = 51.5f;
+        Render->ShadowCameraYaw = 317.0f;
+        // That SunPos vector from origin to sun pos (camera view)
+        // Need be inverted if want from sun to surface direction
+        Render->SunPos = V3(-3.0f, -6.0f, 73.5f);
+        Render->Bias = 0.005f;
         /*Render->ShadowMapSize = 10.0f;
         Render->NearPlane = 0.0f;
         Render->FarPlane = 100.0f;
-        Render->ShadowLightPitch = 65.0f;
-        Render->ShadowLightYaw = 315.0f;
-        Render->ShadowLightPos = V3(-10.0f, -10.0f, 10.0f);*/
+        Render->ShadowCameraPitch = 65.0f;
+        Render->ShadowCameraYaw = 315.0f;
+        Render->SunPos = V3(-10.0f, -10.0f, 10.0f);*/
         InitDepthMapFBO(Render);
         if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         {
@@ -957,11 +962,12 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::InputFloat("ShadowMapSize", &Render->ShadowMapSize, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("NearPlane", &Render->NearPlane, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("FarPlane", &Render->FarPlane, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("ShadowLightPitch", &Render->ShadowLightPitch, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("ShadowLightYaw", &Render->ShadowLightYaw, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("ShadowLightPosX", &Render->ShadowLightPos.x, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("ShadowLightPosY", &Render->ShadowLightPos.y, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("ShadowLightPosZ", &Render->ShadowLightPos.z, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("ShadowCameraPitch", &Render->ShadowCameraPitch, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("ShadowCameraYaw", &Render->ShadowCameraYaw, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("SunPosX", &Render->SunPos.x, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("SunPosY", &Render->SunPos.y, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("SunPosZ", &Render->SunPos.z, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("Bias", &Render->Bias, 0.001, 2, "%.10f", 0);
             ImGui::Text("ShadowMap");
             ImGui::Image((void *)(intptr_t)Render->DepthMap, ImVec2(1920 / 4, 1080 / 4), ImVec2(0, 0), ImVec2(1, -1));
         }

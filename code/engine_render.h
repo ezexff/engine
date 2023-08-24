@@ -89,7 +89,7 @@ struct render
     r32 FOV;
 
     //
-    // NOTE(me:) Shader programs
+    // NOTE(me): Shader programs
     //
     u32 DefaultShaderProgram;
     u32 WaterShaderProgram;
@@ -125,14 +125,17 @@ struct render
     u32 WaterRefrTexture;
     u32 WaterRefrDepthTexture;
 
-    // Depth Map
+    //
+    // NOTE(me): Shadows (Depth Map)
+    //
     s32 DepthMapWidth, DepthMapHeight;
     u32 DepthMapFBO;
     u32 DepthMap;
     r32 ShadowMapSize;
     r32 NearPlane, FarPlane;
-    r32 ShadowLightPitch, ShadowLightYaw;
-    v3 ShadowLightPos;
+    r32 ShadowCameraPitch, ShadowCameraYaw;
+    v3 SunPos;
+    r32 Bias;
 
     //
     // NOTE(me): Environment Objects Rendering System
