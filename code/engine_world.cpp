@@ -372,7 +372,7 @@ internal loaded_model *CreateTexturedSquareModel(memory_arena *WorldArena, char 
 
     single_mesh *Mesh = &Result->Meshes[0];
 
-    Mesh->Name = PushString(WorldArena, "SquareMesh");
+    Mesh->Name = PushString(WorldArena, TextureName);
 
     Mesh->VerticesCount = 4;
 

@@ -26,6 +26,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         //
         GameState->Render = PushStruct(WorldArena, render);
         render *Render = GameState->Render;
+        Render->FOV = 0.1f;
         Render->SStMeshesCount = 0;
         Render->SAnMeshesCount = 0;
         Render->MStMeshesCount = 0;
@@ -176,17 +177,6 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         EnvObjects[EnvIndex]->Model = CreateTerrainModel(WorldArena);
         EnvIndex++;
 
-        // маркер позиции точечного источника освещения
-        EnvObjects[EnvIndex]->RotateMatrix = XRotation(90);
-        //  EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_cube.spm");
-        EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(WorldArena, "lamp.png");
-        EnvIndex++;
-
-        // маркер позиции прожектора
-        EnvObjects[EnvIndex]->RotateMatrix = XRotation(90);
-        EnvObjects[EnvIndex]->Model = EnvObjects[1]->Model;
-        EnvIndex++;
-
         // ваза
         EnvObjects[EnvIndex]->InstancingCount = 100;
         EnvObjects[EnvIndex]->InstancingTransformMatrices =
@@ -230,19 +220,19 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         EnvIndex++;
 
         // ковбой (анимированный)
-        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(2, 2, 0));
+        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(2, 3, 0));
         EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.4f);
         EnvObjects[EnvIndex]->Model = LoadModel(WorldArena, "assets/test_cowboy.spm");
         EnvIndex++;
 
-        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(2, 2 + 3, 0));
+        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(2, 3 + 3, 0));
         EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.4f);
-        EnvObjects[EnvIndex]->Model = EnvObjects[6]->Model;
+        EnvObjects[EnvIndex]->Model = EnvObjects[EnvIndex - 1]->Model;
         EnvIndex++;
 
-        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(2, 2 + 6, 0));
+        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(2, 3 + 6, 0));
         EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.4f);
-        EnvObjects[EnvIndex]->Model = EnvObjects[6]->Model;
+        EnvObjects[EnvIndex]->Model = EnvObjects[EnvIndex - 1]->Model;
         EnvIndex++;
 
         // страж (анимированный)
@@ -255,27 +245,14 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(5 + 3, 10 + 2, 0));
         EnvObjects[EnvIndex]->RotateMatrix = XRotation(90.0f);
         EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.1f);
-        EnvObjects[EnvIndex]->Model = EnvObjects[9]->Model;
+        EnvObjects[EnvIndex]->Model = EnvObjects[EnvIndex - 1]->Model;
         EnvIndex++;
 
         EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(5 + 6, 10 + 2, 0));
         EnvObjects[EnvIndex]->RotateMatrix = XRotation(90.0f);
         EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.1f);
-        EnvObjects[EnvIndex]->Model = EnvObjects[9]->Model;
+        EnvObjects[EnvIndex]->Model = EnvObjects[EnvIndex - 1]->Model;
         EnvIndex++;
-
-        // clip wall texture
-        EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(-100.0f, 0.0f, 0.0f));
-        EnvObjects[EnvIndex]->ScaleMatrix = Scaling(100.0f);
-        EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(WorldArena, "clip.png");
-        EnvIndex++;
-
-        // clip player texture
-        /*EnvObjects[EnvIndex]->TranslateMatrix = Translation(V3(0.0f, 0.0f, 0.0f));
-        EnvObjects[EnvIndex]->ScaleMatrix = Scaling(1.05f);
-        EnvObjects[EnvIndex]->Model = CreateTexturedSquareModel(WorldArena, "clip.png");
-        EnvIndex++;
-        */
 
         /*
         // трава (старая версия)
@@ -297,7 +274,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->EnvObjectsCount = EnvIndex;
 
         // TODO(me): нужно ли это? убрать? высота объектов окружения на ландшафте
-        for(u32 i = 3; i < Render->EnvObjectsCount; i++)
+        for(u32 i = 1; i < Render->EnvObjectsCount; i++)
         {
             EnvObjects[i]->TranslateMatrix.E[2][3] +=
                 EnvObjects[i]->TranslateMatrix.E[2][3] + TerrainGetHeight(EnvObjects[0],
@@ -514,8 +491,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         //
         // NOTE(me): Shadows
         //
-        Render->DepthMapWidth = 1920 * 2;
-        Render->DepthMapHeight = 1080 * 2;
+        Render->DepthMapWidth = 1920 * 4;
+        Render->DepthMapHeight = 1080 * 4;
         Render->ShadowMapSize = 68.0f;
         Render->NearPlane = 50.0f;
         Render->FarPlane = 144.0f;
@@ -535,9 +512,23 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+        //
+        // NOTE(me): Textures for Debug Elements
+        //
+        Render->ClipTextureName = PushString(WorldArena, "clip.png");
+        Render->ClipTexture = LoadTexture(&Render->ClipTextureName);
+        Render->LightgTextureName = PushString(WorldArena, "lamp.png");
+        Render->LightTexture = LoadTexture(&Render->LightgTextureName);
+
         // ImGui Demo Window
         GameState->ShowDemoWindow = false;
         GameState->ShowAnotherWindow = false;
+
+        // TODO(me): удалить?
+        Log.AddLog("[test] Hello %d world\n", 123);
+        Log.AddLog("[test] 567657657\n");
+        Log.AddLog("[test] 1\n");
+        Log.AddLog("[test] 2\n");
 
         // String example
         // string TestStr = PushString(WorldArena, "fdsfsdfss");
@@ -555,6 +546,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     entity_player *Player = GameState->Player;
     entity_clip *PlayerClip = GameState->Clip;
     entity_envobject **EnvObjects = GameState->EnvObjects;
+    entity_grassobject **GrassObjects = GameState->GrassObjects;
 
     //
     // NOTE(me): Inputs
@@ -625,11 +617,11 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         TerrainGetHeight(EnvObjects[0], Player->Position.x, Player->Position.y) + Player->CameraZOffset;
     // Player->Position.z = Player->CameraZOffset;
     //  Перемещение маркеров источников света
-    EnvObjects[1]->TranslateMatrix = Translation(Render->PointLights[0].WorldPosition);
-    EnvObjects[2]->TranslateMatrix = Translation(Render->SpotLights[0].Base.WorldPosition);
+    // EnvObjects[1]->TranslateMatrix = Translation(Render->PointLights[0].WorldPosition);
+    // EnvObjects[2]->TranslateMatrix = Translation(Render->SpotLights[0].Base.WorldPosition);
     // Перемещение клип текстуры игрока
-    v3 ClipTextureNewPos = Player->Position - V3(Player->Width * 0.05f, Player->Height * 0.05f, 0);
-    EnvObjects[13]->TranslateMatrix = Translation(ClipTextureNewPos);
+    // v3 ClipTextureNewPos = Player->Position - V3(Player->Width * 0.05f, Player->Height * 0.05f, 0);
+    // EnvObjects[13]->TranslateMatrix = Translation(ClipTextureNewPos);
 
     // Формируем матрицы преобразований у объектов окружения
     for(u32 i = 0; i < Render->EnvObjectsCount; i++)
@@ -859,10 +851,31 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::InputFloat("CameraYaw", &Player->CameraYaw, 0.5, 2, "%.10f", 0);
         }
 
+        if(ImGui::CollapsingHeader("Entities"))
+        {
+            ImGui::Text("EnvObjectsCount=%d", Render->EnvObjectsCount);
+            if(ImGui::TreeNode("EnvObjects"))
+            {
+                for(u32 i = 0; i < Render->EnvObjectsCount; i++)
+                {
+                    ImGui::Text("%d %s", i, (char *)EnvObjects[i]->Model->Name.Data);
+                }
+                ImGui::TreePop();
+            }
+            ImGui::Text("GrassObjectsCount=%d", Render->GrassObjectsCount);
+            if(ImGui::TreeNode("GrassObjects"))
+            {
+                for(u32 i = 0; i < Render->GrassObjectsCount; i++)
+                {
+                    ImGui::Text("%d %s", i, (char *)GrassObjects[i]->Model->Name.Data);
+                }
+                ImGui::TreePop();
+            }
+        }
+
         if(ImGui::CollapsingHeader("Render"))
         {
             ImGui::Text("Environment Objects Rendering System");
-            ImGui::Text("EnvObjectsCount=%d", Render->EnvObjectsCount);
             ImGui::Text("SStMeshesCount=%d", Render->SStMeshesCount);
             if(ImGui::TreeNode("SStMeshes"))
             {
@@ -896,7 +909,6 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::Text("MStInstancesCountSum=%d", Render->MStInstancesCountSum);
             ImGui::Spacing();
             ImGui::Text("Grass Objects Rendering System");
-            ImGui::Text("GrassObjectsCount=%d", Render->GrassObjectsCount);
             ImGui::Text("GrMeshesCount=%d", Render->GrMeshesCount);
             if(ImGui::TreeNode("GrMeshes"))
             {
@@ -972,10 +984,17 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         ImGui::End();
     }
 
+    // NOTE(me): Draw Log App
+    if(Input->ShowMouseCursorMode)
+    {
+        Log.Draw("Log");
+    }
+
     //
     // NOTE(me): Game render
     //
     glfwGetFramebufferSize(Window, &Render->DisplayWidth, &Render->DisplayHeight);
+    Render->AspectRatio = (r32)Render->DisplayWidth / (r32)Render->DisplayHeight;
 
 #if 0
     s32 DisplayWidth, DisplayHeight;
@@ -1053,16 +1072,16 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     glCullFace(GL_BACK);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    // single_mesh *Mesh = &EnvObjects[0]->Model->Meshes[0];
-    //  DrawTexturedSquare(Mesh->Material.Texture);
+    // Render Game
     glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
     RenderScene(Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     RenderGrassVBO(Render, Player);
     RenderWater(Render, Player, Input->dtForFrame, WaterZ);
     RenderDebugElements(Render, Player, PlayerClip);
-    // DrawTexturedSquare(Window, Render, Render->WaterReflTexture, 320, 180, V2(340, 200));
-    // DrawTexturedSquare(Window, Render, Render->WaterRefrTexture, 320, 180, V2(1000, 200));
-    // DrawTexturedSquare(Window, Render, Render->DepthMap, 320, 180, V2(1550, 200));
+    // DrawOrthoTexturedRectangle(Render, Render->WaterReflTexture, 320, 180, V2(340, 200));
+    // DrawOrthoTexturedRectangle(Render, Render->WaterRefrTexture, 320, 180, V2(1000, 200));
+    // DrawOrthoTexturedRectangle(Render, Render->DepthMap, 320, 180, V2(1550, 200));
+    // DrawOrthoTexturedRectangle(Render, Render->ClipTexture, 320, 180, V2(1550, 200));
 
 #endif
     // ImGui rendering

@@ -1,6 +1,9 @@
 // TODO(me): Testing Single VBO for Anim Render (1) vs Multiple VBOs for Anim Render (0)
 #define SINGLE_VBO_FOR_ANIM_RENDER 1
 
+//
+// NOTE(me): Shaders
+//
 GLuint LoadShader(char *Path, GLuint Type)
 {
     FILE *FileHandle;
@@ -33,13 +36,13 @@ GLuint LoadShader(char *Path, GLuint Type)
 
     // проверка компиляции шейдера
     GLint Ok;
-    GLchar Log[2000];
+    GLchar LogInfo[2000];
     glGetShaderiv(Shader, GL_COMPILE_STATUS, &Ok);
     if(!Ok)
     {
-        glGetShaderInfoLog(Shader, 2000, NULL, Log);
-        _snprintf_s(Log, sizeof(Log), "%s\n", Log);
-        OutputDebugStringA(Log);
+        glGetShaderInfoLog(Shader, 2000, NULL, LogInfo);
+        _snprintf_s(LogInfo, sizeof(LogInfo), "%s\n", LogInfo);
+        OutputDebugStringA(LogInfo);
         InvalidCodePath;
     }
 
@@ -56,13 +59,13 @@ u32 LinkShaderProgram(u32 ShaderVert, u32 ShaderFrag)
 
     // ошибка линковки шейдера
     GLint Ok;
-    GLchar Log[2000];
+    GLchar LogInfo[2000];
     glGetProgramiv(ShaderProgram, GL_LINK_STATUS, &Ok);
     if(!Ok)
     {
-        glGetProgramInfoLog(ShaderProgram, 2000, NULL, Log);
-        _snprintf_s(Log, sizeof(Log), "%s\n", Log);
-        OutputDebugStringA(Log);
+        glGetProgramInfoLog(ShaderProgram, 2000, NULL, LogInfo);
+        _snprintf_s(LogInfo, sizeof(LogInfo), "%s\n", LogInfo);
+        OutputDebugStringA(LogInfo);
         InvalidCodePath;
     }
 
@@ -546,7 +549,6 @@ internal void RenderEnvVBOs(render *Render, u32 ShaderProg, entity_player *Playe
     // матрица проекции (источник света для теней)
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    // glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
     glOrtho(-Render->ShadowMapSize, Render->ShadowMapSize, -Render->ShadowMapSize, Render->ShadowMapSize,
             Render->NearPlane, Render->FarPlane);
     r32 MatProjShadows[16];
@@ -563,14 +565,11 @@ internal void RenderEnvVBOs(render *Render, u32 ShaderProg, entity_player *Playe
     glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
     glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatViewShadows"), 1, GL_FALSE, MatViewShadows);
 
-    // область отображения рендера
-    r32 AspectRatio = (r32)Render->DisplayWidth / (r32)Render->DisplayHeight;
-    r32 FOV = 0.1f; // поле зрения камеры
-
     // матрица проекции
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+    glFrustum(-Render->AspectRatio * Render->FOV, Render->AspectRatio * Render->FOV, //
+              -Render->FOV, Render->FOV, Render->FOV * 2, 1000);
     r32 MatProj[16];
     glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
     glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatProj"), 1, GL_FALSE, MatProj);
@@ -1011,7 +1010,6 @@ internal void RenderGrassVBO(render *Render, entity_player *Player)
     // матрица проекции (источник света для теней)
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    // glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
     glOrtho(-Render->ShadowMapSize, Render->ShadowMapSize, -Render->ShadowMapSize, Render->ShadowMapSize,
             Render->NearPlane, Render->FarPlane);
     r32 MatProjShadows[16];
@@ -1028,14 +1026,11 @@ internal void RenderGrassVBO(render *Render, entity_player *Player)
     glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
     glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatViewShadows"), 1, GL_FALSE, MatViewShadows);
 
-    // область отображения рендера
-    r32 AspectRatio = (r32)Render->DisplayWidth / (r32)Render->DisplayHeight;
-    r32 FOV = 0.1f; // поле зрения камеры
-
     // матрица проекции
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+    glFrustum(-Render->AspectRatio * Render->FOV, Render->AspectRatio * Render->FOV, //
+              -Render->FOV, Render->FOV, Render->FOV * 2, 1000);
     r32 MatProj[16];
     glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
     glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatProj"), 1, GL_FALSE, MatProj);
@@ -1110,11 +1105,65 @@ internal void RenderGrassVBO(render *Render, entity_player *Player)
     }
 
     glUseProgram(0);
+    glActiveTexture(GL_TEXTURE0);
 }
 
 //
 // NOTE(me): Other
 //
+void DrawOrthoTexturedRectangle(render *Render, u32 Texture, r32 TextureWidth, s32 TextureHeight, v2 Offset)
+{
+    // glDisable(GL_DEPTH_TEST);
+
+    r32 VRectangle[] = {
+        -1, -1, //
+        0,  1,  //
+        -1, 0,  //
+        1,  1,  //
+        0,  -1, //
+        1,  0   //
+    };
+
+    r32 TexRectangle[] = {
+        0, 1, //
+        1, 1, //
+        1, 0, //
+        0, 0  //
+    };
+
+    // Ортогональная проекция и единичная матрица модели
+    // glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, Render->DisplayWidth - 1, Render->DisplayHeight - 1, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    // glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glPushMatrix();
+    glTranslatef(Offset.x, Offset.y, 0);
+
+    glScalef((r32)TextureWidth, (r32)TextureHeight, 0);
+
+    glEnable(GL_TEXTURE_2D);
+    glActiveTexture(GL_TEXTURE0 + 0);
+    glBindTexture(GL_TEXTURE_2D, Texture);
+    glColor3f(1, 1, 1);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+    glVertexPointer(3, GL_FLOAT, 0, VRectangle);
+    glTexCoordPointer(2, GL_FLOAT, 0, TexRectangle);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glPopMatrix();
+
+    glDisable(GL_TEXTURE_2D);
+}
+
 internal void OGLDrawLinesOXYZ(v3 Normal, r32 LineWidth, r32 LineMin = -0.5, r32 LineMax = 0.5, r32 Offset = 0.001)
 {
     // TODO(me): Add arrows?
@@ -1182,10 +1231,11 @@ internal void OGLDrawLinesOXYZ(v3 Normal, r32 LineWidth, r32 LineMin = -0.5, r32
     glDisableClientState(GL_COLOR_ARRAY);
 }
 
-internal void DrawRectangularParallelepiped(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, r32 MinZ, r32 MaxZ, v3 Color,
-                                            r32 LineWidth)
+internal void DrawRectangularParallelepiped(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, //
+                                            r32 MinZ, r32 MaxZ,                     //
+                                            v3 Color)
 {
-    r32 RectangularParallelepipedVertices[] = {
+    r32 VertPositions[] = {
         // bot
         MinX, MinY, MinZ, // 0
         MaxX, MinY, MinZ, // 1
@@ -1198,37 +1248,92 @@ internal void DrawRectangularParallelepiped(r32 MinX, r32 MinY, r32 MaxX, r32 Ma
         MinX, MaxY, MaxZ, // 7
     };
 
-    u32 RectangularParallelepipedIndices[] = {
+    r32 VertColors[] = {
+        // bot
+        Color.x, Color.y, Color.z, // 0
+        Color.x, Color.y, Color.z, // 1
+        Color.x, Color.y, Color.z, // 2
+        Color.x, Color.y, Color.z, // 3
+        // top
+        Color.x, Color.y, Color.z, // 4
+        Color.x, Color.y, Color.z, // 5
+        Color.x, Color.y, Color.z, // 6
+        Color.x, Color.y, Color.z  // 7
+    };
+
+    u32 Indices[] = {
         0, 1, 1, 2, 2, 3, 3, 0, // bot
         4, 5, 5, 6, 6, 7, 7, 4, // top
         0, 4, 3, 7, 1, 5, 2, 6, // side
     };
-    s32 RectangularParallelepipedIndicesCount = ArrayCount(RectangularParallelepipedIndices);
+
+    s32 IndicesCount = ArrayCount(Indices);
 
     glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
 
-    glVertexPointer(3, GL_FLOAT, 0, RectangularParallelepipedVertices);
-    glColor3f(Color.x, Color.y, Color.z);
-    glLineWidth(LineWidth);
-    glEnable(GL_LINE_SMOOTH);
-    glDrawElements(GL_LINES, RectangularParallelepipedIndicesCount, GL_UNSIGNED_INT, RectangularParallelepipedIndices);
+    glVertexPointer(3, GL_FLOAT, 0, VertPositions);
+    glColorPointer(3, GL_FLOAT, 0, VertColors);
+    glDrawElements(GL_LINES, IndicesCount, GL_UNSIGNED_INT, Indices);
 
     glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
 }
 
-internal void RenderPlayerClips(entity_clip *PlayerClip)
+void DrawTexturedRectangle(r32 VRectangle[], u32 Texture, r32 Repeat)
 {
-    // render clip zone
+    r32 TexRectangle[] = {
+        0,      Repeat, // 0
+        Repeat, Repeat, // 1
+        Repeat, 0,      // 2
+        0,      0       // 3
+    };
+
+    glEnable(GL_TEXTURE_2D);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, Texture);
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+    glVertexPointer(3, GL_FLOAT, 0, VRectangle);
+    glTexCoordPointer(2, GL_FLOAT, 0, TexRectangle);
+    glDrawArrays(GL_QUADS, 0, 4);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+
+    glDisable(GL_TEXTURE_2D);
+}
+
+internal void RenderPlayerClipZones(render *Render, entity_clip *PlayerClip)
+{
     r32 MinX = PlayerClip->CenterPos.x - 0.5f * PlayerClip->Side;
     r32 MinY = PlayerClip->CenterPos.y - 0.5f * PlayerClip->Side;
     r32 MaxX = PlayerClip->CenterPos.x + 0.5f * PlayerClip->Side;
     r32 MaxY = PlayerClip->CenterPos.y + 0.5f * PlayerClip->Side;
-    DrawRectangularParallelepiped(MinX, MinY, MaxX, MaxY, 0, 2.7f, V3(1, 0, 0), 5);
+    r32 MinZ = 0;
+
+    r32 VRectangle[] = {
+        // bot
+        MinX, MinY, MinZ, // 0
+        MaxX, MinY, MinZ, // 1
+        MaxX, MaxY, MinZ, // 2
+        MinX, MaxY, MinZ  // 3
+    };
+
+    // текстура клипа на плоскости пола
+    DrawTexturedRectangle(VRectangle, Render->ClipTexture, PlayerClip->Side);
+
+    // коробка клипа
+    glLineWidth(5);
+    glEnable(GL_LINE_SMOOTH);
+    DrawRectangularParallelepiped(MinX, MinY, MaxX, MaxY, MinZ, 2.7f, V3(1, 0, 0));
+    glDisable(GL_LINE_SMOOTH);
 }
 
-internal void RenderLightsPos(render *Render)
+internal void RenderLightingPositions(render *Render)
 {
-    // render point light pos
     point_light *PointLights = Render->PointLights;
     r32 MinX = PointLights[0].WorldPosition.x;
     r32 MinY = PointLights[0].WorldPosition.y - 0.5f;
@@ -1236,9 +1341,25 @@ internal void RenderLightsPos(render *Render)
     r32 MaxY = PointLights[0].WorldPosition.y + 0.5f;
     r32 MinZ = PointLights[0].WorldPosition.z;
     r32 MaxZ = PointLights[0].WorldPosition.z + 1.0f;
-    DrawRectangularParallelepiped(MinX, MinY, MaxX, MaxY, MinZ, MaxZ, V3(1, 1, 0), 5);
 
-    // render spot light pos
+    r32 CenterY = MinY + (MaxY - MinY) / 2.0f;
+    r32 PLVRectangle[] = {
+        // bot
+        MinX, CenterY, MinZ, // 0
+        MaxX, CenterY, MinZ, // 1
+        MaxX, CenterY, MaxZ, // 2
+        MinX, CenterY, MaxZ  // 3
+    };
+
+    // куб в позиции источника света
+    glLineWidth(5);
+    glEnable(GL_LINE_SMOOTH);
+    DrawRectangularParallelepiped(MinX, MinY, MaxX, MaxY, MinZ, MaxZ, V3(1, 1, 0));
+    glDisable(GL_LINE_SMOOTH);
+
+    // текстура в позиции точечного источника света
+    DrawTexturedRectangle(PLVRectangle, Render->LightTexture, 1);
+
     spot_light *SpotLights = Render->SpotLights;
     MinX = SpotLights[0].Base.WorldPosition.x;
     MinY = SpotLights[0].Base.WorldPosition.y - 0.5f;
@@ -1246,7 +1367,24 @@ internal void RenderLightsPos(render *Render)
     MaxY = SpotLights[0].Base.WorldPosition.y + 0.5f;
     MinZ = SpotLights[0].Base.WorldPosition.z;
     MaxZ = SpotLights[0].Base.WorldPosition.z + 1.0f;
-    DrawRectangularParallelepiped(MinX, MinY, MaxX, MaxY, MinZ, MaxZ, V3(1, 1, 0), 5);
+
+    CenterY = MinY + (MaxY - MinY) / 2.0f;
+    r32 SLVRectangle[] = {
+        // bot
+        MinX, CenterY, MinZ, // 0
+        MaxX, CenterY, MinZ, // 1
+        MaxX, CenterY, MaxZ, // 2
+        MinX, CenterY, MaxZ  // 3
+    };
+
+    // куб в позиции прожектора
+    glLineWidth(5);
+    glEnable(GL_LINE_SMOOTH);
+    DrawRectangularParallelepiped(MinX, MinY, MaxX, MaxY, MinZ, MaxZ, V3(1, 1, 0));
+    glDisable(GL_LINE_SMOOTH);
+
+    // текстура в позиции точечного источника света
+    DrawTexturedRectangle(SLVRectangle, Render->LightTexture, 1);
 }
 
 /*
@@ -1323,15 +1461,11 @@ internal void RenderWater(render *Render, entity_player *Player, r32 dtForFrame,
     glBindTexture(GL_TEXTURE_2D, Render->WaterRefrDepthTexture);
     glUniform1i(glGetUniformLocation(ShaderProg, "DepthMap"), 4);
 
-    // область отображения рендера
-    // glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
-    r32 AspectRatio = (r32)Render->DisplayWidth / (r32)Render->DisplayHeight;
-    r32 FOV = 0.1f; // поле зрения камеры
-
     // матрица проекции
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+    glFrustum(-Render->AspectRatio * Render->FOV, Render->AspectRatio * Render->FOV, //
+              -Render->FOV, Render->FOV, Render->FOV * 2, 1000);
     r32 MatProj[16];
     glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
     glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatProj"), 1, GL_FALSE, MatProj);
@@ -1355,14 +1489,11 @@ internal void RenderWater(render *Render, entity_player *Player, r32 dtForFrame,
     glDisable(GL_TEXTURE_2D);
     glLoadIdentity();
 
-    // glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
-    r32 AspectRatio = (r32)Render->DisplayWidth / (r32)Render->DisplayHeight;
-    r32 FOV = 0.1f; // поле зрения камеры
-
     // матрица проекции
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+    glFrustum(-Render->AspectRatio * Render->FOV, Render->AspectRatio * Render->FOV, //
+              -Render->FOV, Render->FOV, Render->FOV * 2, 1000);
 
     // вид с камеры
     OGLSetCameraOnPlayer(Player);
@@ -1380,34 +1511,15 @@ internal void RenderWater(render *Render, entity_player *Player, r32 dtForFrame,
         MaxX, MaxY, WaterZ, // 2
         MinX, MaxY, WaterZ, // 3
     };
-
-    /*u32 RectangleIndices[] = {
-        0, 1, 3, // 1st triangle
-        1, 2, 3, // 2nd triangle
-    };*/
-    u32 RectangleIndices[] = {
-        0, 1, 2, 3 // 1st triangle
-    };
-    s32 RectangleIndicesCount = ArrayCount(RectangleIndices);
-
-    /*r32 RectangleTexCoords[] = {
-        0, 1, //
-        1, 1, //
-        1, 0, //
-        0, 0  //
-    };*/
-
     glEnableClientState(GL_VERTEX_ARRAY);
 
     glVertexPointer(3, GL_FLOAT, 0, RectangleVertices);
-    // glTexCoordPointer(2, GL_FLOAT, 0, RectangleTexCoords);
-    glDrawElements(GL_QUADS, RectangleIndicesCount, GL_UNSIGNED_INT, RectangleIndices);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
     glDisableClientState(GL_VERTEX_ARRAY);
 
-    // glDisable(GL_BLEND);
-
     glUseProgram(0);
+    glActiveTexture(GL_TEXTURE0);
 }
 
 void InitWaterFBOs(render *Render)
@@ -1494,93 +1606,34 @@ void RenderScene(render *Render, u32 ShaderProg, entity_player *Player, GLbitfie
 {
     glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
     glEnable(GL_DEPTH_TEST);
-    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClear(glClearMask);
 
-    glEnable(GL_ALPHA_TEST);
-    glAlphaFunc(GL_GREATER, 0.01f);
-
-    glEnable(GL_NORMALIZE);
+    // glEnable(GL_ALPHA_TEST);
+    // glAlphaFunc(GL_GREATER, 0.01f);
+    // glEnable(GL_NORMALIZE);
 
     RenderEnvVBOs(Render, ShaderProg, Player);
+    // glDisable(GL_ALPHA_TEST);
+    // glDisable(GL_NORMALIZE);
 }
 
 void RenderDebugElements(render *Render, entity_player *Player, entity_clip *PlayerClip)
 {
-    // glDisable(GL_NORMALIZE);
-    // glDisable(GL_ALPHA_TEST);
-    glDisable(GL_TEXTURE_2D);
     glLoadIdentity();
-
-    // glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
-    r32 AspectRatio = (r32)Render->DisplayWidth / (r32)Render->DisplayHeight;
-    r32 FOV = 0.1f; // поле зрения камеры
-
     // матрица проекции
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+    glFrustum(-Render->AspectRatio * Render->FOV, Render->AspectRatio * Render->FOV, //
+              -Render->FOV, Render->FOV, Render->FOV * 2, 1000);
 
     // вид с камеры
     OGLSetCameraOnPlayer(Player);
 
-    RenderPlayerClips(PlayerClip);
-    RenderLightsPos(Render);
+    RenderPlayerClipZones(Render, PlayerClip);
+    RenderLightingPositions(Render);
 
     glPushMatrix();
     glScalef(5, 5, 5);
     OGLDrawLinesOXYZ(V3(0, 0, 1), 1); // World Start Point OXYZ
-    glPopMatrix();
-}
-
-void DrawTexturedSquare(render *Render, u32 Texture, r32 TextureWidth, s32 TextureHeight, v2 Offset)
-{
-    r32 VSquare[] = {
-        -1, -1, //
-        0,  1,  //
-        -1, 0,  //
-        1,  1,  //
-        0,  -1, //
-        1,  0   //
-    };
-    r32 TexSquare[] = {
-        0, 1, //
-        1, 1, //
-        1, 0, //
-        0, 0  //
-    };
-
-    // Ортогональная проекция и единичная матрица модели
-    // glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, Render->DisplayWidth - 1, Render->DisplayHeight - 1, 0, -1, 1);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_TEXTURE_2D);
-
-    // glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glPushMatrix();
-    glTranslatef(Offset.x, Offset.y, 0);
-
-    glScalef((r32)TextureWidth, (r32)TextureHeight, 0);
-
-    glEnable(GL_TEXTURE_2D);
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_2D, Texture);
-    glColor3f(1, 1, 1);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-
-    glVertexPointer(3, GL_FLOAT, 0, VSquare);
-    glTexCoordPointer(2, GL_FLOAT, 0, TexSquare);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glPopMatrix();
 }

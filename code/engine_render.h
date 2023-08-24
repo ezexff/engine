@@ -85,6 +85,8 @@ struct render
 {
     // Render Scene Width & Height
     s32 DisplayWidth, DisplayHeight;
+    r32 AspectRatio;
+    r32 FOV;
 
     //
     // NOTE(me:) Shader programs
@@ -225,4 +227,12 @@ struct render
     // NOTE(me): Animations
     //
     animator Animator; // timers
+
+    //
+    // NOTE(me): Textures for Debug Elements
+    //
+    string ClipTextureName;
+    u32 ClipTexture;
+    string LightgTextureName;
+    u32 LightTexture;
 };
