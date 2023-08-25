@@ -23,8 +23,8 @@ global_variable b32 MousePosChanged = false;
 game_controller_input *NewKeyboardController;
 global_variable r32 MouseOffsetX, MouseOffsetY;
 global_variable r32 MouseLastX, MouseLastY;
-global_variable r32 DeltaTime = 0.0f;
-global_variable r32 LastTime = 0.0f;
+global_variable r64 DeltaTime = 0.0f;
+global_variable r64 LastTime = 0.0f;
 
 global_variable b32 GlobalUncappedFrameRate = false;
 global_variable s32 GlobalMaxFrameRate = 60;
@@ -275,14 +275,14 @@ int main(int, char **)
         // Main loop
         while(!glfwWindowShouldClose(Window))
         {
-            r32 CurrentTime = (r32)glfwGetTime();
+            r64 CurrentTime = glfwGetTime();
             DeltaTime = CurrentTime - LastTime;
 
-            r32 MaximumMS = 1.0f / GlobalMaxFrameRate;
+            r64 MaximumMS = 1.0f / GlobalMaxFrameRate;
             if(DeltaTime >= MaximumMS || GlobalUncappedFrameRate)
             {
                 LastTime = CurrentTime;
-                Input->dtForFrame = DeltaTime;
+                Input->dtForFrame = (r32)DeltaTime; // TODO(me): r64 Input->dtForFrame?
 
                 NewInput->MouseX = MouseLastX;
                 NewInput->MouseY = MouseLastY;

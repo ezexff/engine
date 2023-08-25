@@ -16,12 +16,16 @@ uniform mat4 MatView;
 uniform mat4 MatProjShadows;
 uniform mat4 MatViewShadows;
 
+//const vec4 Plane = vec4(0, -1, 0, 15);
+
 void main()
 {
-    vec4 PosL = vec4(Position, 1.0);
-    gl_Position = MatProj * MatView * MatModelInstance * PosL;
+    vec4 WorldPosition = MatModelInstance * vec4(Position, 1.0);
+    gl_Position = MatProj * MatView * WorldPosition;
     Normal0 = (MatModelInstance * vec4(Normal, 0.0)).xyz;
-    WorldPos0 = (MatModelInstance * PosL).xyz;
-    FragPosLightSpace = MatProjShadows * MatViewShadows * MatModelInstance * PosL;
+    WorldPos0 = WorldPosition.xyz;
+    FragPosLightSpace = MatProjShadows * MatViewShadows * WorldPosition;
     TexCoord0 = TexCoord;
+
+    //gl_ClipDistance[0] = dot(vec4(WorldPos0, 1.0), Plane);
 }

@@ -44,7 +44,7 @@ uniform vec4 CutPlane;
 
 void main()
 {
-    vec4 PosL = vec4(Position, 1.0);
+    vec4 LocalPosition = vec4(Position, 1.0);
 
     if(WithAnimations)
     {
@@ -53,7 +53,7 @@ void main()
         BoneTransform += gBones[BoneIDs[2]] * Weights[2];
         BoneTransform += gBones[BoneIDs[3]] * Weights[3];
 
-        PosL = BoneTransform * vec4(Position, 1.0);
+        LocalPosition = BoneTransform * vec4(Position, 1.0);
 
         BoneIDs0 = BoneIDs;
         Weights0 = Weights;
@@ -61,19 +61,19 @@ void main()
 
     if(WithOffset)
     {
-        gl_Position = MatProj * MatView * MatModelInstance * PosL;
+        gl_Position = MatProj * MatView * MatModelInstance * LocalPosition;
         Normal0 = (MatModelInstance * vec4(Normal, 0.0)).xyz;
-        WorldPos0 = (MatModelInstance * PosL).xyz;
-        FragPosLightSpace = MatProjShadows * MatViewShadows * MatModelInstance * PosL;
+        WorldPos0 = (MatModelInstance * LocalPosition).xyz;
+        FragPosLightSpace = MatProjShadows * MatViewShadows * MatModelInstance * LocalPosition;
     }
     else
     {
-        gl_Position = MatProj * MatView * MatModel * PosL;
+        gl_Position = MatProj * MatView * MatModel * LocalPosition;
         // Normal0 = Normal;
         Normal0 = (MatModel * vec4(Normal, 0.0)).xyz; // преобразование нормали из локальной в мировую систему координат
         // Tangent0 = (MatModel * vec4(Tangent, 0.0)).xyz;
-        WorldPos0 = (MatModel * PosL).xyz;
-        FragPosLightSpace = MatProjShadows * MatViewShadows * MatModel * PosL;
+        WorldPos0 = (MatModel * LocalPosition).xyz;
+        FragPosLightSpace = MatProjShadows * MatViewShadows * MatModel * LocalPosition;
     }
 
     gl_ClipDistance[0] = dot(vec4(WorldPos0, 1.0), CutPlane);
