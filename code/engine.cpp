@@ -478,10 +478,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Render->WaterWaveStrength = 0.02f;
         Render->WaterShineDamper = 20.0f;
         Render->WaterReflectivity = 0.6f;
-        // Render->WaterDUDVTextureName = PushString(WorldArena, "WaterDUDV.png");
         Render->WaterDUDVTextureName = PushString(WorldArena, "NewWaterDUDV.png");
         Render->WaterDUDVTexture = LoadTexture(&Render->WaterDUDVTextureName);
-        // Render->WaterNormalMapName = PushString(WorldArena, "WaterNormalMap.png");
         Render->WaterNormalMapName = PushString(WorldArena, "NewWaterNormalMap.png");
         Render->WaterNormalMap = LoadTexture(&Render->WaterNormalMapName);
         InitWaterFBOs(Render);
