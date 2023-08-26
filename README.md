@@ -1,10 +1,12 @@
 # C++ Game Engine
 Игровой движок, написанный на C++. Проект имеет кросплатформерную структуру (слой платформы и игровой код независимы друг от друга), а так же использует библиотеки [GLFW](https://www.glfw.org/), [ImGui](https://github.com/ocornut/imgui), [Glad](https://github.com/Dav1dde/glad) и [stb_image](https://github.com/nothings/stb).<br><br>
-![C++ Game Engine screenshot](https://i.imgur.com/ue5gFgL.png)
-![C++ Game Engine screenshot](https://i.imgur.com/BNUPyQj.png)
-![C++ Game Engine screenshot](https://i.imgur.com/lFqbDXQ.png)
+![C++ Game Engine screenshot](https://i.imgur.com/08RFODw.png)
+![C++ Game Engine screenshot](https://i.imgur.com/DuFitsj.png)
 <details>
 <summary>Скриншоты прошлых версий</summary>
+<img src="https://i.imgur.com/ue5gFgL.png" alt="C++ Game Engine screenshot">
+<img src="https://i.imgur.com/BNUPyQj.png" alt="C++ Game Engine screenshot">
+<img src="https://i.imgur.com/lFqbDXQ.png" alt="C++ Game Engine screenshot">
 <img src="https://i.imgur.com/icJtm0k.png" alt="C++ Game Engine screenshot">
 <img src="https://i.imgur.com/vRpIoxd.png" alt="C++ Game Engine screenshot">
 <img src="https://i.imgur.com/gW81zeb.png" alt="C++ Game Engine screenshot">
@@ -39,17 +41,18 @@
 *	Отрисовка игрового мира через OpenGL (перспективная проекция, рендер, зависящий от размеров окна, камера)
 * Система ассетов (импорт 3d-моделей, сгенерированных при помощи [Assets Generator](https://github.com/ezexff/assets_generator))
 * Система сущностей (игрок и объекты окружения)
-* Система рендеринга групп мешей объединённых в VBO
-* Single Static Meshes (одиночные меши без анимаций)
-* Single Animated Meshes (одиночные анимированные меши)
-* Multiple Static Meshes или инстансинг (множество статичных мешей без анимаций)
+* Environment Objects Rendering System (cистема рендеринга объектов окружения, объединённых в VBO)
+  * Single Static Meshes (VBO одиночных мешей без анимаций)
+  * Single Animated Meshes (VBO одиночных анимированных мешей)
+  * Multiple Static Meshes (VBO инстансинг множества статичных мешей без анимаций - множество экземпляров мешей с разными матрицами преобразований)
 * Матрицы преобразований для одиночных и множественных мешей 
 * Шейдеры для рендера мешей с учётом текстур, материалов, источников освещения
-*	Меню разработчика в ImGui (режим отображения окна, чувствительность мыши, параметры источников света и т.д.)
 *	Коллизии (player clip или стена)
 *	Отрисовка вспомогательной информации для разработчика (центр игрового мира, позиции источников света, области коллизий)
 *	Вода (FBO+RBO, Water Shader, Clipping Planes, DuDv Texture, Fresnel Effect, Normal Map)
-*	Тени (Shadow Mapping: Depth Map from Depth Buffer, Depth Shader, Shadow Shader, Shadow acne, Peter panning)
+*	Тени (Shadow Mapping: Depth Map from Depth Buffer, Depth Shader, Shadow Shader, Shadow acne, Peter panning, PCF)
+*	Меню разработчика в ImGui для просмотра и редактирования параметров подсистем движка (Settings, Memory, Camera, Entities, Render, Light Sources, Shadows, Water)
+*	Grass Objects Rendering System (VBO инстансинг травы с облегчённым шейдером и без теней)
 
 ## Сборка проекта через MSVC Compiler при помощи build.bat
 1.  Укажите во второй строке файла [build.bat](code/build.bat) свой путь до **vcvarsall.bat**
