@@ -21,7 +21,7 @@
 #include "engine_render.h"
 #include "engine_world.h"
 // TODO(me): на слой платформы?
-#include "gjk.c"
+//#include "gjk.c"
 
 // Usage:
 //  static ExampleAppLog my_log;
@@ -202,3 +202,6 @@ struct game_state
     bool ShowDemoWindow;
     bool ShowAnotherWindow;
 };
+
+// game layer iteration
+internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, game_input *Input);

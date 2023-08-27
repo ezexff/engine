@@ -1,21 +1,3 @@
-/*
-    Система рендеринга:
-    - в постоянной памяти движка хранятся сущности, например, объекты окружения
-    - у каджой сущности есть указательнь на 3d-модель
-    - рендерер имеет 2 очереди: с инстансингом и без
-    - у каждой сущности есть переменная InstancingCount
-    - если эта переменная равна нулю, то модель добавляется в очередь без инстансинга
-    - если эта переменная больше нуля, то модель добавляется в очередь с инстансингом
-    - без инстансинга: один VBO и на каждую модель по вызову отрисовки
-
-    - TODO(me): каждый меш как отдельная модель или в рендерер помещать только меши?
-    - TODO(me): менять позиуию источников света стрелочками через ImGui?
-    - TODO(me): рендерить кубик в позиции источника света?
-    - TODO(me): переместить после тестов таймер анимаций из render в envobjects
-    - TODO(me): 2 сингловых VBO: 1 для статичных моделей и 2 для анимированных?
-    - TODO(me): AddEnvObjectsToRender
-*/
-
 struct vertex_static
 {
     v3 Position;
@@ -177,6 +159,7 @@ struct render
     u32 *TestSAnVBO;
     u32 *TestSAnEBO;
 
+    // Multiple Static Meshes list for rendering
 #define MULTIPLE_STATIC_MESHES_MAX 256
 
     u32 MStMeshesCount;
@@ -239,3 +222,36 @@ struct render
     string LightgTextureName;
     u32 LightTexture;
 };
+
+// shaders
+GLuint LoadShader(char *Path, GLuint Type);
+u32 LinkShaderProgram(u32 ShaderVert, u32 ShaderFrag);
+
+// environment objects
+internal void AddEnvObjectsToRender(render *Render, entity_envobject *EnvObjects[]);
+void InitEnvVBOs(memory_arena *WorldArena, render *Render);
+internal void RenderEnvVBOs(render *Render, u32 ShaderProg, entity_player *Player);
+
+// grass objects
+internal void AddGrassObjectsToRender(render *Render, entity_grassobject *GrassObjects[]);
+void InitGrassVBO(memory_arena *WorldArena, render *Render);
+internal void RenderGrassVBO(render *Render, entity_player *Player);
+
+// shadows
+void InitDepthMapFBO(render *Render);
+
+// water
+void InitWaterFBOs(render *Render);
+internal void RenderWater(render *Render, entity_player *Player, r32 dtForFrame, r32 WaterZ);
+
+// debug elements
+void DrawOrthoTexturedRectangle(render *Render, u32 Texture, r32 TextureWidth, s32 TextureHeight, v2 Offset);
+internal void OGLDrawLinesOXYZ(v3 Normal, r32 LineWidth, r32 LineMin, r32 LineMax, r32 Offset);
+internal void DrawRectangularParallelepiped(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, //
+                                            r32 MinZ, r32 MaxZ,                     //
+                                            v3 Color);
+void DrawTexturedRectangle(r32 VRectangle[], u32 Texture, r32 Repeat);
+
+// render vbo's
+void RenderScene(render *Render, u32 ShaderProg, entity_player *Player, GLbitfield glClearMask);
+void RenderDebugElements(render *Render, entity_player *Player, entity_clip *PlayerClip);

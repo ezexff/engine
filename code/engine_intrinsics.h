@@ -8,25 +8,35 @@
 #define Minimum(A, B) ((A < B) ? (A) : (B))
 #define Maximum(A, B) ((A > B) ? (A) : (B))
 
-inline real32
-SquareRoot(real32 Real32)
+inline real32 SquareRoot(real32 Real32)
 {
     real32 Result = sqrtf(Real32);
-    return(Result);
+    return (Result);
 }
 
-inline real32
-Cos(real32 Angle)
+inline real32 Cos(real32 Angle)
 {
     real32 Result = cosf(Angle);
-    return(Result);
+    return (Result);
 }
 
-inline real32
-Sin(real32 Angle)
+inline real32 Sin(real32 Angle)
 {
     real32 Result = sinf(Angle);
-    return(Result);
+    return (Result);
+}
+
+internal r32 DebugGetRandomNumberR32(r32 Min, r32 Max, u32 Precision)
+{
+    r32 Result;
+
+    // получить случайное число как целое число с порядком precision
+    Result = (r32)(rand() % (int)pow(10, Precision));
+
+    // получить вещественное число
+    Result = (r32)(Min + (Result / pow(10, Precision)) * (Max - Min));
+
+    return (Result);
 }
 
 
@@ -124,14 +134,14 @@ RoundReal32ToUInt32(real32 Real32)
     return(Result);
 }
 
-inline int32 
+inline int32
 FloorReal32ToInt32(real32 Real32)
 {
     int32 Result = (int32)floorf(Real32);
     return(Result);
 }
 
-inline int32 
+inline int32
 CeilReal32ToInt32(real32 Real32)
 {
     int32 Result = (int32)ceilf(Real32);
@@ -177,7 +187,7 @@ FindLeastSignificantSetBit(uint32 Value)
         }
     }
 #endif
-    
+
     return(Result);
 }
 */

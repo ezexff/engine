@@ -1,4 +1,11 @@
-void RotatePlayerCamera(entity_player *Player, r32 ZAngle, r32 XAngle, r32 Sensitivity)
+internal void OGLSetCameraOnPlayer(entity_player *Player)
+{
+    glRotatef(-Player->CameraPitch, 1.0f, 0.0f, 0.0f);
+    glRotatef(-Player->CameraYaw, 0.0f, 0.0f, 1.0f);
+    glTranslatef(-Player->Position.x, -Player->Position.y, -Player->Position.z);
+}
+
+internal void RotatePlayerCamera(entity_player *Player, r32 ZAngle, r32 XAngle, r32 Sensitivity)
 {
     // по горизонтали
     Player->CameraYaw -= ZAngle * Sensitivity;
@@ -22,8 +29,9 @@ void RotatePlayerCamera(entity_player *Player, r32 ZAngle, r32 XAngle, r32 Sensi
         Player->CameraPitchInversed = 180;
 }
 
-internal bool32 TestWall(real32 WallX, real32 RelX, real32 RelY, real32 PlayerDeltaX, real32 PlayerDeltaY, real32 *tMin,
-                         real32 MinY, real32 MaxY)
+internal bool32 TestWall(real32 WallX, real32 RelX, real32 RelY,   //
+                         real32 PlayerDeltaX, real32 PlayerDeltaY, //
+                         real32 *tMin, real32 MinY, real32 MaxY)
 {
     bool32 Hit = false;
 
@@ -100,7 +108,8 @@ internal b32 TestWall(r32 WallX, r32 RelX, r32 RelY,      //
     return (Hit);
 }*/
 
-void MovePlayerEOM(entity_player *Player, entity_clip *PlayerClip, v2 ddPFromKeys, r32 Speed, r32 dt)
+internal void MovePlayerEOM(entity_player *Player, entity_clip *PlayerClip, //
+                            v2 ddPFromKeys, r32 Speed, r32 dt)
 {
     // Rigid body dynamics (Динамика жесткого тела): F = d/dt (mv)
     // Physics (Movement): Position = f(t), Velocity = f'(t), Acceleration = f"(t)
@@ -397,9 +406,81 @@ void MovePlayerEOM(entity_player *Player, entity_clip *PlayerClip, v2 ddPFromKey
 #endif
 }
 
-void OGLSetCameraOnPlayer(entity_player *Player)
+internal r32 TerrainGetHeight(entity_envobject *Terrain, r32 x, r32 y)
 {
-    glRotatef(-Player->CameraPitch, 1.0f, 0.0f, 0.0f);
-    glRotatef(-Player->CameraYaw, 0.0f, 0.0f, 1.0f);
-    glTranslatef(-Player->Position.x, -Player->Position.y, -Player->Position.z);
+    // алгоритм нахождения приблизительной высоты на карте
+    // 1. если позиция камеры вне карты, то высоту не меняем
+    // 2. находим X и Y индексы клетки в массиве Terrain Map
+    // 3. находим BaseOffset смещение от нулевой позиции в клетке (Camera.x - X) и (Camera.y - Y)
+    // 4. находим первый вес h1 для текущей позиции камеры и позиции, смещённой на 1 по оси x
+    // по формуле: h1 = ((1 - BaseOffsetX) * TMap[X][Y].z + BaseOffsetX * TMap[X + 1][Y].z)
+    // 5. находим второй вес h2 для текущей позиции камеры, смещённой на 1 по оси y
+    // и позиции, смещённой на 1 по осям x и y
+    // по формуле: h2 = ((1 - BaseOffsetX) * TMap[X][Y + 1].z + BaseOffsetX * TMap[X + 1][Y + 1].z)
+    // 6. находим приблизительную высоту по формуле:
+    // Result = (1 - BaseOffsetY) * h1 + BaseOffsetY * h2
+
+    r32 Result;
+
+    // GameState->EnvObjects[0]->Model->Meshes[0]
+    v3 *Positions = Terrain->Model->Meshes[0].Positions;
+
+    if(!IsPosOnTerrain(x, y))
+    {
+        return 0.0f;
+    }
+
+    int32 X = (int32)x;
+    int32 Y = (int32)y;
+    r32 BaseOffsetX = x - X;
+    r32 BaseOffsetY = y - Y;
+
+    u32 Index0 = X * TMapH + Y;       // [i][j]
+    u32 Index1 = (X + 1) * TMapH + Y; // [i+1][j]
+    r32 h1 = ((1 - BaseOffsetX) * Positions[Index0].z + BaseOffsetX * Positions[Index1].z);
+
+    u32 Index2 = X * TMapH + Y + 1;       // [i][j+1]
+    u32 Index3 = (X + 1) * TMapH + Y + 1; // [i+1][j+1]
+    r32 h2 = ((1 - BaseOffsetX) * Positions[Index2].z + BaseOffsetX * Positions[Index3].z);
+
+    Result = (1 - BaseOffsetY) * h1 + BaseOffsetY * h2;
+
+    return (Result);
+}
+
+internal m4x4 *CreateInstancingTransformMatrices(memory_arena *WorldArena,  //
+                                                 entity_envobject *Terrain, //
+                                                 u32 Count,                 //
+                                                 v3 SMM,                    // Scale rand() Min, Max, Precision
+                                                 v3 Rotate,                 // Rotate X, Y, Z
+                                                 v3 RXMM,                   // Rotate X rand() Min, Max, Precision
+                                                 v3 RYMM,                   // Rotate Y rand() Min, Max, Precision
+                                                 v3 RZMM)                   // Rotate Z rand() Min, Max, Precision
+{
+    m4x4 *Result = PushArray(WorldArena, Count, m4x4);
+
+    for(u32 i = 0; i < Count; i++)
+    {
+        v3 TranslationVec = V3(0, 0, 0);
+        TranslationVec.x = (r32)(rand()) / (r32)(RAND_MAX / (TMapW - 2));
+        TranslationVec.y = (r32)(rand()) / (r32)(RAND_MAX / (TMapH - 2));
+        TranslationVec.z = TerrainGetHeight(Terrain, TranslationVec.x, TranslationVec.y);
+        m4x4 TranslationM = Translation(TranslationVec);
+
+        r32 RotX = DebugGetRandomNumberR32(RXMM.x, RXMM.y, (u32)RXMM.z);
+        r32 RotY = DebugGetRandomNumberR32(RYMM.x, RYMM.y, (u32)RYMM.z);
+        r32 RotZ = DebugGetRandomNumberR32(RZMM.x, RZMM.y, (u32)RZMM.z);
+        m4x4 RotationM = XRotation(Rotate.x) * YRotation(Rotate.y) * ZRotation(Rotate.z) //
+                         * XRotation(RotX) * YRotation(RotY) * ZRotation(RotZ);
+
+        r32 Scale = DebugGetRandomNumberR32(SMM.x, SMM.y, (u32)SMM.z);
+        // v3 ScaleVec = V3(Scale, Scale, Scale);
+        // m4x4 ScalingM = Scaling(ScaleVec);
+        m4x4 ScalingM = Scaling(Scale);
+
+        Result[i] = TranslationM * RotationM * ScalingM;
+        Result[i] = Transpose(Result[i]); // opengl to glsl format
+    }
+
+    return (Result);
 }

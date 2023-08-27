@@ -1,7 +1,6 @@
 #include "engine.h"
-#include "engine_entity.cpp"
 #include "engine_asset.cpp"
-#include "simpleproject_opengl.cpp" // TODO(me): для тестов, удалить
+#include "engine_entity.cpp"
 #include "engine_render.cpp"
 #include "engine_world.cpp"
 
@@ -1068,7 +1067,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     glDisable(GL_CLIP_DISTANCE0);
     Render->CutPlane = V4(0, 0, -1, 100000);
 
-    // Render Depth Map
+    // Render Depth Map for Shadows
     glViewport(0, 0, (u32)(Render->DepthMapWidth), (u32)(Render->DepthMapHeight));
     glBindFramebuffer(GL_FRAMEBUFFER, Render->DepthMapFBO);
     glCullFace(GL_FRONT);

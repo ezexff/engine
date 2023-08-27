@@ -115,3 +115,21 @@ struct animator // таймер аниимации модели
 {
     r32 Timer;
 };
+
+internal string ReadStringFromFile(memory_arena *WorldArena, FILE *In);
+internal u32 LoadTexture(string *FileName);
+
+// 3d-model
+internal loaded_model *LoadModel(memory_arena *WorldArena, char *FileName);
+internal void GetBoneTransforms(single_mesh *Mesh, u32 AnimIndex, r32 TimeInSeconds);
+
+// terrain
+#define TMapW 100
+#define TMapH 100
+internal loaded_model *CreateTerrainModel(memory_arena *WorldArena);
+
+// grass
+internal loaded_model *CreateGrassModel(memory_arena *WorldArena);
+
+// other
+internal loaded_model *CreateTexturedSquareModel(memory_arena *WorldArena, char *TextureName);

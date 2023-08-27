@@ -2,20 +2,6 @@
 inline v2 V2i(int32 X, int32 Y);
 inline v2 V2i(uint32 X, uint32 Y);
 inline v2 V2(real32 X, real32 Y);
-
-// v3 init
-inline v3 V3(real32 X, real32 Y, real32 Z);
-inline v3 V3(v2 XY, real32 Z);
-inline v3 ToV3(v2 XY, real32 Z);
-
-// v4 init
-inline v4 V4(real32 X, real32 Y, real32 Z, real32 W);
-inline v4 V4(v3 XYZ, real32 W);
-
-// m4x4 init
-internal m4x4 Columns3x3(v3 X, v3 Y, v3 Z);
-internal m4x4 Rows3x3(v3 X, v3 Y, v3 Z);
-
 // v2 operations
 inline v2 Perp(v2 A);
 inline v2 operator*(real32 A, v2 B);
@@ -31,6 +17,10 @@ inline real32 LengthSq(v2 A);
 inline real32 Length(v2 A);
 inline v2 Clamp01(v2 Value);
 
+// v3 init
+inline v3 V3(real32 X, real32 Y, real32 Z);
+inline v3 V3(v2 XY, real32 Z);
+inline v3 ToV3(v2 XY, real32 Z);
 // v3 operations
 inline v3 operator*(real32 A, v3 B);
 inline v3 operator*(v3 B, real32 A);
@@ -47,6 +37,9 @@ inline v3 Normalize(v3 A);
 inline v3 Clamp01(v3 Value);
 inline v3 Lerp(v3 A, real32 t, v3 B);
 
+// v4 init
+inline v4 V4(real32 X, real32 Y, real32 Z, real32 W);
+inline v4 V4(v3 XYZ, real32 W);
 // v4 operations
 inline v4 operator*(real32 A, v4 B);
 inline v4 operator*(v4 B, real32 A);
@@ -65,6 +58,9 @@ inline v4 Lerp(v4 A, real32 t, v4 B);
 inline v4 AiNormalize(v4 A);
 inline v4 AiLerp(v4 A, real32 t, v4 B);
 
+// m4x4 init
+internal m4x4 Columns3x3(v3 X, v3 Y, v3 Z);
+internal m4x4 Rows3x3(v3 X, v3 Y, v3 Z);
 // m4x4 operations
 internal m4x4 operator*(m4x4 A, m4x4 B);
 internal v4 Transform(m4x4 A, v4 P);
