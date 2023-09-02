@@ -176,6 +176,8 @@ struct game_state
 
     memory_arena WorldArena; // постоянная память
 
+    world *World;
+
     render *Render;
 
     app_settings *Settings;
@@ -185,9 +187,11 @@ struct game_state
 
     entity_clip *Clip;
 
+    // TODO(me): поменять на u32 EnvObjectsCount; и entity_envobject *EnvObjects;
 #define ENV_OBJECTS_MAX 16
     entity_envobject *EnvObjects[ENV_OBJECTS_MAX];
 
+    // TODO(me): поменять как env_objects
 #define GRASS_OBJECTS_MAX 16
     entity_grassobject *GrassObjects[GRASS_OBJECTS_MAX];
 

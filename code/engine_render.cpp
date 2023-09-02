@@ -1605,8 +1605,8 @@ void InitDepthMapFBO(render *Render)
     // TODO(me): test
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    float borderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    float BorderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, BorderColor);
 #endif
 
     // Attach Depth Texture to Framebuffer
@@ -1631,7 +1631,93 @@ void RenderScene(render *Render, u32 ShaderProg, entity_player *Player, GLbitfie
     // glDisable(GL_NORMALIZE);
 }
 
-void RenderDebugElements(render *Render, entity_player *Player, entity_clip *PlayerClip)
+void DrawRectangleOutline(r32 VRectangle[], v3 Color)
+{
+    r32 VertColors[] = {
+        Color.x, Color.y, Color.z, // 0
+        Color.x, Color.y, Color.z, // 1
+        Color.x, Color.y, Color.z, // 2
+        Color.x, Color.y, Color.z, // 3
+    };
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+
+    glVertexPointer(3, GL_FLOAT, 0, VRectangle);
+    glColorPointer(3, GL_FLOAT, 0, VertColors);
+    glDrawArrays(GL_LINE_LOOP, 0, 4);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+}
+
+internal void RenderWorldChunksBorders(world *World)
+{
+    for(u32 i = 0; i < World->ChunksCount; i++)
+    {
+        r32 MinX = (r32)World->Chunks[i].X * World->ChunkDimInMeters;
+        r32 MinY = (r32)World->Chunks[i].Y * World->ChunkDimInMeters;
+        r32 MaxX = (r32)World->Chunks[i].X * World->ChunkDimInMeters + World->ChunkDimInMeters;
+        r32 MaxY = (r32)World->Chunks[i].Y * World->ChunkDimInMeters + World->ChunkDimInMeters;
+        r32 Z = 0.3f;
+
+        r32 Rectangle[] = {
+            // bot
+            MinX, MinY, Z, // 0
+            MaxX, MinY, Z, // 1
+            MaxX, MaxY, Z, // 2
+            MinX, MaxY, Z, // 3
+        };
+
+        DrawRectangleOutline(Rectangle, V3(0.5f, 0, 0.5f));
+    }
+}
+
+void DrawRectangle(r32 VRectangle[], v3 Color)
+{
+    r32 VertColors[] = {
+        Color.x, Color.y, Color.z, // 0
+        Color.x, Color.y, Color.z, // 1
+        Color.x, Color.y, Color.z, // 2
+        Color.x, Color.y, Color.z, // 3
+    };
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+
+    glVertexPointer(3, GL_FLOAT, 0, VRectangle);
+    glColorPointer(3, GL_FLOAT, 0, VertColors);
+    glDrawArrays(GL_QUADS, 0, 4);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+}
+
+internal void RenderPlayerChunkRectangle(world *World, entity_player *Player)
+{
+    world_position PlayerP;
+    PlayerP.ChunkX = FloorReal32ToInt32(Player->Position.x / World->ChunkDimInMeters);
+    PlayerP.ChunkY = FloorReal32ToInt32(Player->Position.y / World->ChunkDimInMeters);
+
+    r32 MinX = (r32)PlayerP.ChunkX * World->ChunkDimInMeters;
+    r32 MinY = (r32)PlayerP.ChunkY * World->ChunkDimInMeters;
+    r32 MaxX = (r32)PlayerP.ChunkX * World->ChunkDimInMeters + World->ChunkDimInMeters;
+    r32 MaxY = (r32)PlayerP.ChunkY * World->ChunkDimInMeters + World->ChunkDimInMeters;
+    r32 Z = 0.3f;
+
+    r32 Rectangle[] = {
+        // bot
+        MinX, MinY, Z, // 0
+        MaxX, MinY, Z, // 1
+        MaxX, MaxY, Z, // 2
+        MinX, MaxY, Z, // 3
+    };
+
+    DrawRectangle(Rectangle, V3(1, 1, 0));
+}
+
+// TODO(me): в качестве параметра передавать лишь GameState
+void RenderDebugElements(render *Render, entity_player *Player, entity_clip *PlayerClip, world *World)
 {
     glLoadIdentity();
     // матрица проекции
@@ -1643,6 +1729,8 @@ void RenderDebugElements(render *Render, entity_player *Player, entity_clip *Pla
     // вид с камеры
     OGLSetCameraOnPlayer(Player);
 
+    RenderPlayerChunkRectangle(World, Player);
+    RenderWorldChunksBorders(World);
     RenderPlayerClipZones(Render, PlayerClip);
     RenderLightingPositions(Render);
 

@@ -23,6 +23,10 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         //
         // NOTE(me): Push game_state structures in memory
         //
+        GameState->World = PushStruct(&GameState->WorldArena, world);
+        world *World = GameState->World;
+        InitializeWorld(WorldArena, World, 9, 2);
+
         GameState->Render = PushStruct(WorldArena, render);
         render *Render = GameState->Render;
         Render->FOV = 0.1f;
@@ -547,8 +551,9 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     app_settings *Settings = GameState->Settings;
     entity_player *Player = GameState->Player;
     entity_clip *PlayerClip = GameState->Clip;
-    entity_envobject **EnvObjects = GameState->EnvObjects;
+    entity_envobject **EnvObjects = GameState->EnvObjects; // TODO(me): избавиться от 16
     entity_grassobject **GrassObjects = GameState->GrassObjects;
+    world *World = GameState->World;
 
     //
     // NOTE(me): Inputs
@@ -844,6 +849,26 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::Text("Used=%d (Kb)", GameState->WorldArena.Used / 1024);
         }
 
+        if(ImGui::CollapsingHeader("World"))
+        {
+            ImGui::Text("ChunkDimInMeters=%d", World->ChunkDimInMeters);
+            ImGui::Text("ChunksCount=%d", World->ChunksCount);
+            ImGui::Text("PlayerP");
+            world_position PlayerP;
+            PlayerP.ChunkX = FloorReal32ToInt32(Player->Position.x / World->ChunkDimInMeters);
+            PlayerP.ChunkY = FloorReal32ToInt32(Player->Position.y / World->ChunkDimInMeters);
+            ImGui::Text("ChunkX=%d", PlayerP.ChunkX);
+            ImGui::Text("ChunkY=%d", PlayerP.ChunkY);
+            PlayerP.Offset_.x = Player->Position.x                         //
+                                - PlayerP.ChunkX * World->ChunkDimInMeters // chunk in meters
+                                - World->ChunkDimInMeters * 0.5f;          // to center
+            PlayerP.Offset_.y = Player->Position.y                         //
+                                - PlayerP.ChunkY * World->ChunkDimInMeters // chunk in meters
+                                - World->ChunkDimInMeters * 0.5f;          // to center
+            ImGui::Text("Offset_.x=%f", PlayerP.Offset_.x);
+            ImGui::Text("Offset_.y=%f", PlayerP.Offset_.y);
+        }
+
         if(ImGui::CollapsingHeader("Camera"))
         {
             ImGui::InputFloat("Player X", &Player->Position.x, 0.5, 2, "%.10f", 0);
@@ -1080,7 +1105,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     RenderScene(Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     RenderGrassVBO(Render, Player);
     RenderWater(Render, Player, Input->dtForFrame, WaterZ);
-    RenderDebugElements(Render, Player, PlayerClip);
+    RenderDebugElements(Render, Player, PlayerClip, World);
     // DrawOrthoTexturedRectangle(Render, Render->WaterReflTexture, 320, 180, V2(340, 200));
     // DrawOrthoTexturedRectangle(Render, Render->WaterRefrTexture, 320, 180, V2(1000, 200));
     // DrawOrthoTexturedRectangle(Render, Render->DepthMap, 320, 180, V2(1550, 200));
