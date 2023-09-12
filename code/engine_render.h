@@ -255,3 +255,7 @@ void DrawTexturedRectangle(r32 VRectangle[], u32 Texture, r32 Repeat);
 // render vbo's
 void RenderScene(render *Render, u32 ShaderProg, entity_player *Player, GLbitfield glClearMask);
 void RenderDebugElements(render *Render, entity_player *Player, entity_clip *PlayerClip);
+
+// camera
+internal void OGLSetCameraOnPlayer(world *World, entity_player *Player);
+internal void RotatePlayerCamera(entity_player *Player, r32 ZAngle, r32 XAngle, r32 Sensitivity);

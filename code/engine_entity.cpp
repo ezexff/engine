@@ -1,42 +1,10 @@
-internal void OGLSetCameraOnPlayer(entity_player *Player)
-{
-    glRotatef(-Player->CameraPitch, 1.0f, 0.0f, 0.0f);
-    glRotatef(-Player->CameraYaw, 0.0f, 0.0f, 1.0f);
-    glTranslatef(-Player->Position.x, -Player->Position.y, -Player->Position.z);
-}
-
-internal void RotatePlayerCamera(entity_player *Player, r32 ZAngle, r32 XAngle, r32 Sensitivity)
-{
-    // по горизонтали
-    Player->CameraYaw -= ZAngle * Sensitivity;
-    if(Player->CameraYaw < 0)
-        Player->CameraYaw += 360;
-    if(Player->CameraYaw > 360)
-        Player->CameraYaw -= 360;
-
-    // по вертикали
-    Player->CameraPitch += XAngle * Sensitivity;
-    if(Player->CameraPitch < 0)
-        Player->CameraPitch = 0;
-    if(Player->CameraPitch > 180)
-        Player->CameraPitch = 180;
-
-    // по вертикали (inversed)
-    Player->CameraPitchInversed -= XAngle * Sensitivity;
-    if(Player->CameraPitchInversed < 0)
-        Player->CameraPitchInversed = 0;
-    if(Player->CameraPitchInversed > 180)
-        Player->CameraPitchInversed = 180;
-}
-
-internal bool32 TestWall(real32 WallX, real32 RelX, real32 RelY,   //
+/*internal bool32 TestWall(real32 WallX, real32 RelX, real32 RelY,   //
                          real32 PlayerDeltaX, real32 PlayerDeltaY, //
                          real32 *tMin, real32 MinY, real32 MaxY)
 {
     bool32 Hit = false;
 
-    real32 tEpsilon = 0.001f;
-    // real32 tEpsilon = 0.01f;
+    real32 tEpsilon = 0.0001f;
     if(PlayerDeltaX != 0.0f)
     {
         real32 tResult = (WallX - RelX) / PlayerDeltaX;
@@ -81,7 +49,7 @@ internal b32 TestWallR64(r32 WallX, r64 RelX, r64 RelY,      //
     }
 
     return (Hit);
-}
+}*/
 /*
 internal b32 TestWall(r32 WallX, r32 RelX, r32 RelY,      //
                       r32 PlayerDeltaX, r32 PlayerDeltaY, //
@@ -107,8 +75,8 @@ internal b32 TestWall(r32 WallX, r32 RelX, r32 RelY,      //
 
     return (Hit);
 }*/
-
-internal void MovePlayerEOM(entity_player *Player, entity_clip *PlayerClip, //
+#if 0
+internal void MovePlayerEOM(world *World, entity_player *Player, entity_clip *PlayerClip, //
                             v2 ddPFromKeys, r32 Speed, r32 dt)
 {
     // Rigid body dynamics (Динамика жесткого тела): F = d/dt (mv)
@@ -136,6 +104,18 @@ internal void MovePlayerEOM(entity_player *Player, entity_clip *PlayerClip, //
     // x =  p' = (a/2)*t^2 + vt + p (new position)
     // x' = v' = at + v (new velocity)
     // x" = a  = a
+    //
+    // Vectors (reflection & gliding)
+    // v' = refl velocity vector
+    // v = velocity vector
+    // r = wall perpendicular unit vector (wall vector length = 1)
+    // Inner = Dot product
+    // v' = v - 2 * Inner(v, r) * r
+    //
+    // 2 change to 1 in equation for projection vector on wall (gliding)
+    // v' = gliding velocity vector
+    // v' = v - 1 * Inner(v, r) * r
+    //
 
     // исправление вектора ускорения при движении по диагонали
     r32 ddPLength = LengthSq(ddPFromKeys);
@@ -164,11 +144,12 @@ internal void MovePlayerEOM(entity_player *Player, entity_clip *PlayerClip, //
     Player->dP = ddP * dt + Player->dP;
 
     // Update position
+    Player->P = Offset(World, Player->P, PlayerDelta);
     // v2 OldPlayerPos = V2(Player->Position.x, Player->Position.y);
     // v2 NewPlayerPos = OldPlayerPos + PlayerDelta;
     // Player->Position.x = NewPlayerPos.x;
     // Player->Position.y = NewPlayerPos.y;
-    v2 OldPlayerPos = V2(Player->Position.x, Player->Position.y);
+    // v2 OldPlayerPos = V2(Player->Position.x, Player->Position.y);
 
     // TODO
     // отрисовать кубы вокруг границ тиррейна и добавить с ними коллизии
@@ -187,13 +168,11 @@ internal void MovePlayerEOM(entity_player *Player, entity_clip *PlayerClip, //
     }*/
 
     // границы тиррейна
-    v2 TerrainCenterPos = PlayerClip->CenterPos;
-    r32 TerrainSide = PlayerClip->Side;
+    // v2 TerrainCenterPos = PlayerClip->CenterPos;
+    // r32 TerrainSide = PlayerClip->Side;
     // v2 TerrainCenterPos = V2(-10.0f, -10.0f);
     // r32 TerrainSide = 10.0f;
 
-    v2 WallNormal = {};
-    u32 HitHighEntityIndex = 0;
     // TODO(me):
     /*
     enum sim_entity_flags
@@ -223,188 +202,79 @@ internal void MovePlayerEOM(entity_player *Player, entity_clip *PlayerClip, //
         EntityType_Stairwell,
     };
     */
-    v2 DesiredPosition = OldPlayerPos + PlayerDelta;
+    // in camera space
+    // v2 TmpPlayerP = GetPosInCameraSpace(World, &Player->P, &Player->P);
+    // v2 TmpPlayerClipP = GetPosInCameraSpace(World, &Player->P, &PlayerClip->P);
 
-#if 1
-    for(u32 i = 0; i < 4; i++)
-    {
-        // r32 tMin = 1.0f;
+    // for(u32 i = 0; i < 4; i++)
+    //{
+    /*r32 tMin = 1.0f;
+    v2 WallNormal = {};
+    u32 HitHighEntityIndex = 0;
 
-        r32 DiameterW = TerrainSide + Player->Width;
-        r32 DiameterH = TerrainSide + Player->Height;
+    v2 DesiredPosition = TmpPlayerP + PlayerDelta;
 
-        v2 MinCorner = -0.5f * V2(DiameterW, DiameterH);
-        v2 MaxCorner = 0.5f * V2(DiameterW, DiameterH);
+    r32 DiameterW = PlayerClip->Side; //+ Player->Width;
+    r32 DiameterH = PlayerClip->Side; //+ Player->Height;
 
-        // v2 MinCorner = -0.5f * V2(TerrainSide, TerrainSide);
-        // v2 MaxCorner = 0.5f * V2(TerrainSide, TerrainSide);
+    v2 MinCorner = -0.5f * V2(DiameterW, DiameterH);
+    v2 MaxCorner = 0.5f * V2(DiameterW, DiameterH);
 
-        // TODO(me): происходит потеря рязрядов при округление числа, т.к. в числе 0.000... больше разрядов, чем
-        // в 50.0...
-        // TODO(me): FIX dtForFrame?????
-        // При вычитании близких чисел значимые разряды могут потеряться
+    v2 Rel = TmpPlayerP - TmpPlayerClipP;
 
-        r64 tMin = 1.0f;
-
-        r64 RelX = (r64)OldPlayerPos.x - (r64)TerrainCenterPos.x;
-        r64 RelY = (r64)OldPlayerPos.y - (r64)TerrainCenterPos.y;
-
-        if(TestWallR64(MinCorner.x, RelX, RelY,      //
-                       PlayerDelta.x, PlayerDelta.y, //
-                       &tMin, MinCorner.y, MaxCorner.y))
-        {
-            WallNormal = V2(-1, 0);
-            HitHighEntityIndex = 1;
-        }
-
-        if(TestWallR64(MaxCorner.x, RelX, RelY,      //
-                       PlayerDelta.x, PlayerDelta.y, //
-                       &tMin, MinCorner.y, MaxCorner.y))
-        {
-            WallNormal = v2{1, 0};
-            HitHighEntityIndex = 1;
-        }
-
-        if(TestWallR64(MinCorner.y, RelY, RelX,      //
-                       PlayerDelta.y, PlayerDelta.x, //
-                       &tMin, MinCorner.x, MaxCorner.x))
-        {
-            WallNormal = v2{0, -1};
-            HitHighEntityIndex = 1;
-        }
-
-        if(TestWallR64(MaxCorner.y, RelY, RelX,      //
-                       PlayerDelta.y, PlayerDelta.x, //
-                       &tMin, MinCorner.x, MaxCorner.x))
-        {
-            WallNormal = v2{0, 1};
-            HitHighEntityIndex = 1;
-        }
-
-        /*r32 tMin = 1.0f;
-
-        v2 Rel = OldPlayerPos - TerrainCenterPos; // расстояние от игрока до стены
-
-        if(TestWall(MinCorner.x, Rel.x, Rel.y,    //
-                    PlayerDelta.x, PlayerDelta.y, //
-                    &tMin, MinCorner.y, MaxCorner.y))
-        {
-            WallNormal = V2(-1, 0);
-            HitHighEntityIndex = 1;
-        }
-
-        if(TestWall(MaxCorner.x, Rel.x, Rel.y,    //
-                    PlayerDelta.x, PlayerDelta.y, //
-                    &tMin, MinCorner.y, MaxCorner.y))
-        {
-            WallNormal = v2{1, 0};
-            HitHighEntityIndex = 1;
-        }
-
-        if(TestWall(MinCorner.y, Rel.y, Rel.x,    //
-                    PlayerDelta.y, PlayerDelta.x, //
-                    &tMin, MinCorner.x, MaxCorner.x))
-        {
-            WallNormal = v2{0, -1};
-            HitHighEntityIndex = 1;
-        }
-
-        if(TestWall(MaxCorner.y, Rel.y, Rel.x,    //
-                    PlayerDelta.y, PlayerDelta.x, //
-                    &tMin, MinCorner.x, MaxCorner.x))
-        {
-            WallNormal = v2{0, 1};
-            HitHighEntityIndex = 1;
-        }*/
-
-        OldPlayerPos += (r32)tMin * PlayerDelta;
-        Player->Position.x = OldPlayerPos.x;
-        Player->Position.y = OldPlayerPos.y;
-        if(HitHighEntityIndex == 1)
-        {
-            Player->dP = Player->dP - 1 * Inner(Player->dP, WallNormal) * WallNormal;
-            PlayerDelta = DesiredPosition - OldPlayerPos;
-            PlayerDelta = PlayerDelta - 1 * Inner(PlayerDelta, WallNormal) * WallNormal;
-        }
-        else
-        {
-            break;
-        }
-    }
-#else
-    r32 PlayerSide = 0.5f;
-    r32 MinPlayerX = OldPlayerPos.x + (0.5f * -PlayerSide);
-    r32 MaxPlayerX = OldPlayerPos.x + (0.5f * PlayerSide);
-    r32 MinPlayerY = OldPlayerPos.y + (0.5f * -PlayerSide);
-    r32 MaxPlayerY = OldPlayerPos.y + (0.5f * PlayerSide);
-
-    vec2 PlayerVertices[] = {
-        {MinPlayerX, MinPlayerY},
-        {MaxPlayerX, MaxPlayerY},
-        {MinPlayerX, MaxPlayerY},
-        {MaxPlayerX, MinPlayerY},
-    };
-
-    // r32 ClipSide = 10.0f;
-    r32 MinClipX = TerrainCenterPos.x + (0.5f * -TerrainSide);
-    r32 MaxClipX = TerrainCenterPos.x + (0.5f * TerrainSide);
-    r32 MinClipY = TerrainCenterPos.y + (0.5f * -TerrainSide);
-    r32 MaxClipY = TerrainCenterPos.y + (0.5f * TerrainSide);
-
-    r32 RelX = OldPlayerPos.x - TerrainCenterPos.x;
-
-    vec2 WallVerticesA[] = {
-        {MinClipX, MinClipY},
-        {MinClipX, MaxClipY},
-    };
-    if(gjk(PlayerVertices, 4, WallVerticesA, 2))
+    if(TestWall(MinCorner.x, Rel.x, Rel.y,    //
+                PlayerDelta.x, PlayerDelta.y, //
+                &tMin, MinCorner.y, MaxCorner.y))
     {
         WallNormal = V2(-1, 0);
         HitHighEntityIndex = 1;
     }
 
-    vec2 WallVerticesB[] = {
-        {MaxClipX, MinClipY},
-        {MaxClipX, MaxClipY},
-    };
-    if(gjk(PlayerVertices, 4, WallVerticesB, 2))
+    if(TestWall(MaxCorner.x, Rel.x, Rel.y,    //
+                PlayerDelta.x, PlayerDelta.y, //
+                &tMin, MinCorner.y, MaxCorner.y))
     {
-        WallNormal = V2(1, 0);
+        WallNormal = v2{1, 0};
+        HitHighEntityIndex = 1;
+        //Log.AddLog("[test] dt=%f\n", dt);
+        //Log.AddLog("[test] sqdt=%f\n", Square(dt));
+    }
+
+    if(TestWall(MinCorner.y, Rel.y, Rel.x,    //
+                PlayerDelta.y, PlayerDelta.x, //
+                &tMin, MinCorner.x, MaxCorner.x))
+    {
+        WallNormal = v2{0, -1};
         HitHighEntityIndex = 1;
     }
 
-    vec2 WallVerticesC[] = {
-        {MinClipX, MinClipY},
-        {MaxClipX, MinClipY},
-    };
-    if(gjk(PlayerVertices, 4, WallVerticesC, 2))
+    if(TestWall(MaxCorner.y, Rel.y, Rel.x,    //
+                PlayerDelta.y, PlayerDelta.x, //
+                &tMin, MinCorner.x, MaxCorner.x))
     {
-        WallNormal = V2(0, -1);
+        WallNormal = v2{0, 1};
         HitHighEntityIndex = 1;
-    }
-
-    vec2 WallVerticesD[] = {
-        {MinClipX, MaxClipY},
-        {MaxClipX, MaxClipY},
-    };
-    if(gjk(PlayerVertices, 4, WallVerticesD, 2))
-    {
-        WallNormal = V2(0, 1);
-        HitHighEntityIndex = 1;
-    }
+    }*/
 
     // OldPlayerPos += tMin * PlayerDelta;
-    OldPlayerPos += PlayerDelta;
-    Player->Position.x = OldPlayerPos.x;
-    Player->Position.y = OldPlayerPos.y;
-    if(HitHighEntityIndex)
+    // world_position OldPlayerP = Player->P;
+    // Player->P = Offset(World, OldPlayerP, tMin * PlayerDelta);
+    // Player->P = Offset(World, Player->P, tMin * PlayerDelta);
+    // TmpPlayerP += tMin * PlayerDelta;
+    /*if(HitHighEntityIndex == 1)
     {
         Player->dP = Player->dP - 1 * Inner(Player->dP, WallNormal) * WallNormal;
-        // PlayerDelta = DesiredPosition - OldPlayerPos;
+        PlayerDelta = DesiredPosition - TmpPlayerP;
         PlayerDelta = PlayerDelta - 1 * Inner(PlayerDelta, WallNormal) * WallNormal;
     }
-#endif
+    else
+    {
+        break;
+    }*/
+    //}
+
 }
+#endif
 
 internal r32 TerrainGetHeight(entity_envobject *Terrain, r32 x, r32 y)
 {
@@ -481,6 +351,18 @@ internal m4x4 *CreateInstancingTransformMatrices(memory_arena *WorldArena,  //
         Result[i] = TranslationM * RotationM * ScalingM;
         Result[i] = Transpose(Result[i]); // opengl to glsl format
     }
+
+    return (Result);
+}
+
+// TODO(me): Clear above
+inline move_spec DefaultMoveSpec(void)
+{
+    move_spec Result;
+
+    Result.UnitMaxAccelVector = false;
+    Result.Speed = 1.0f;
+    Result.Drag = 0.0f;
 
     return (Result);
 }

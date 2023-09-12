@@ -110,6 +110,7 @@ internal void KeyCallback(GLFWwindow *Window, int Key, int Scancode, int Action,
     GlfwProcessKey(Key, GLFW_KEY_S, Action, &NewKeyboardController->MoveDown);
     GlfwProcessKey(Key, GLFW_KEY_A, Action, &NewKeyboardController->MoveLeft);
     GlfwProcessKey(Key, GLFW_KEY_D, Action, &NewKeyboardController->MoveRight);
+    GlfwProcessKey(Key, GLFW_KEY_SPACE, Action, &NewKeyboardController->Start);
 
     // Dev inputs
 #if ENGINE_INTERNAL
@@ -250,8 +251,8 @@ int main(int, char **)
 #endif
 
     game_memory GameMemory = {};
-    GameMemory.PermanentStorageSize = Megabytes(16);
-    GameMemory.TransientStorageSize = Megabytes(1);
+    GameMemory.PermanentStorageSize = Megabytes(32);
+    GameMemory.TransientStorageSize = Megabytes(16);
 
 #if ENGINE_INTERNAL
     GameMemory.PlatformAPI.ToggleFullscreen = PlatformToggleFullscreen;

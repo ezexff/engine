@@ -37,14 +37,14 @@ typedef uint64 u64;
 
 typedef real32 r32;
 typedef real64 r64;
-typedef real32 f32;
-typedef real64 f64;
+//typedef real32 f32;
+//typedef real64 f64;
 
 typedef uintptr_t umm;
 typedef intptr_t smm;
 
-typedef b32 b32x;
-typedef u32 u32x;
+//typedef b32 b32x;
+//typedef u32 u32x;
 
 #define flag8(type) u8
 #define flag16(type) u16
@@ -109,7 +109,6 @@ typedef u32 u32x;
 //
 // NOTE(me): String
 //
-
 struct buffer
 {
     umm Count;
@@ -134,35 +133,34 @@ inline u32 StringLength(char *String)
 //
 // NOTE(me): Math vectors
 //
-
 union v2 {
     struct
     {
-        real32 x, y;
+        r32 x, y;
     };
-    real32 E[2];
+    r32 E[2];
 };
 
 union v3 {
     struct
     {
-        real32 x, y, z;
+        r32 x, y, z;
     };
     struct
     {
-        real32 r, g, b;
+        r32 r, g, b;
     };
     struct
     {
         v2 xy;
-        real32 Ignored0_;
+        r32 Ignored0_;
     };
     struct
     {
-        real32 Ignored1_;
+        r32 Ignored1_;
         v2 yz;
     };
-    real32 E[3];
+    r32 E[3];
 };
 
 union v4 {
@@ -172,11 +170,11 @@ union v4 {
             v3 xyz;
             struct
             {
-                real32 x, y, z;
+                r32 x, y, z;
             };
         };
 
-        real32 w;
+        r32 w;
     };
     struct
     {
@@ -184,41 +182,49 @@ union v4 {
             v3 rgb;
             struct
             {
-                real32 r, g, b;
+                r32 r, g, b;
             };
         };
 
-        real32 a;
+        r32 a;
     };
     struct
     {
         v2 xy;
-        real32 Ignored0_;
-        real32 Ignored1_;
+        r32 Ignored0_;
+        r32 Ignored1_;
     };
     struct
     {
-        real32 Ignored2_;
+        r32 Ignored2_;
         v2 yz;
-        real32 Ignored3_;
+        r32 Ignored3_;
     };
     struct
     {
-        real32 Ignored4_;
-        real32 Ignored5_;
+        r32 Ignored4_;
+        r32 Ignored5_;
         v2 zw;
     };
-    real32 E[4];
+    r32 E[4];
+};
+
+//
+// NOTE(me): Rectangles
+//
+struct rectangle2
+{
+    v2 Min;
+    v2 Max;
 };
 
 //
 // NOTE(me): Matrices
 //
-
 struct m4x4
 {
     // NOTE(me): These are stored ROW MAJOR - E[ROW][COLUMN]!!!
-    f32 E[4][4];
+    r32 E[4][4];
 };
 
 struct m4x4_inv

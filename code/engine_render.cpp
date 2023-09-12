@@ -2,6 +2,42 @@
 #define SINGLE_VBO_FOR_ANIM_RENDER 1
 
 //
+// NOTE(me): Camera
+//
+internal void OGLSetCameraOnPlayer(world *World, entity_player *Player)
+{
+    glRotatef(-Player->CameraPitch, 1.0f, 0.0f, 0.0f);
+    glRotatef(-Player->CameraYaw, 0.0f, 0.0f, 1.0f);
+    // glTranslatef(-Player->Position.x, -Player->Position.y, -Player->Position.z);
+    v2 RelPos = GetRelPos(World, Player->P);
+    glTranslatef(-RelPos.x, -RelPos.y, -Player->TmpZ);
+}
+
+internal void RotatePlayerCamera(entity_player *Player, r32 ZAngle, r32 XAngle, r32 Sensitivity)
+{
+    // по горизонтали
+    Player->CameraYaw -= ZAngle * Sensitivity;
+    if(Player->CameraYaw < 0)
+        Player->CameraYaw += 360;
+    if(Player->CameraYaw > 360)
+        Player->CameraYaw -= 360;
+
+    // по вертикали
+    Player->CameraPitch += XAngle * Sensitivity;
+    if(Player->CameraPitch < 0)
+        Player->CameraPitch = 0;
+    if(Player->CameraPitch > 180)
+        Player->CameraPitch = 180;
+
+    // по вертикали (inversed)
+    Player->CameraPitchInversed -= XAngle * Sensitivity;
+    if(Player->CameraPitchInversed < 0)
+        Player->CameraPitchInversed = 0;
+    if(Player->CameraPitchInversed > 180)
+        Player->CameraPitchInversed = 180;
+}
+
+//
 // NOTE(me): Shaders
 //
 GLuint LoadShader(char *Path, GLuint Type)
@@ -535,7 +571,7 @@ void InitEnvVBOs(memory_arena *WorldArena, render *Render)
     glBindVertexArray(0);
 }
 
-internal void RenderEnvVBOs(render *Render, u32 ShaderProg, entity_player *Player)
+internal void RenderEnvVBOs(world *World, render *Render, u32 ShaderProg, entity_player *Player)
 {
     //
     // NOTE(me): Preparing shader to render
@@ -579,7 +615,7 @@ internal void RenderEnvVBOs(render *Render, u32 ShaderProg, entity_player *Playe
     // матрица вида с камеры
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    OGLSetCameraOnPlayer(Player);
+    OGLSetCameraOnPlayer(World, Player);
     r32 MatView[16];
     glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
     glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatView"), 1, GL_FALSE, MatView);
@@ -588,7 +624,9 @@ internal void RenderEnvVBOs(render *Render, u32 ShaderProg, entity_player *Playe
     glUniform4fv(glGetUniformLocation(ShaderProg, "CutPlane"), 1, Render->CutPlane.E);
 
     // отправка позиции камеры (игрока) в шейдер
-    glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, Player->Position.E);
+    v3 RelPlayerP = GetRelPos(World, Player->P, Player->TmpZ);
+    glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, RelPlayerP.E);
+    // glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, Player->Position.E);
 
     LightSourcesToShader(Render, ShaderProg);
 
@@ -997,7 +1035,7 @@ void InitGrassVBO(memory_arena *WorldArena, render *Render)
     glBindVertexArray(0);
 }
 
-internal void RenderGrassVBO(render *Render, entity_player *Player)
+internal void RenderGrassVBO(world *World, render *Render, entity_player *Player)
 {
     //
     // NOTE(me): Preparing shader to render
@@ -1042,13 +1080,15 @@ internal void RenderGrassVBO(render *Render, entity_player *Player)
     // матрица вида с камеры
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    OGLSetCameraOnPlayer(Player);
+    OGLSetCameraOnPlayer(World, Player);
     r32 MatView[16];
     glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
     glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatView"), 1, GL_FALSE, MatView);
 
     // отправка позиции камеры (игрока) в шейдер
-    glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, Player->Position.E);
+    v3 RelPlayerP = GetRelPos(World, Player->P, Player->TmpZ);
+    glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, RelPlayerP.E);
+    // glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, Player->Position.E);
 
     LightSourcesToShader(Render, ShaderProg);
 
@@ -1310,13 +1350,19 @@ void DrawTexturedRectangle(r32 VRectangle[], u32 Texture, r32 Repeat)
     glDisable(GL_TEXTURE_2D);
 }
 
-internal void RenderPlayerClipZones(render *Render, entity_clip *PlayerClip)
+internal void RenderPlayerClipZones(world *World, render *Render, entity_clip *PlayerClip)
 {
-    r32 MinX = PlayerClip->CenterPos.x - 0.5f * PlayerClip->Side;
+    /*r32 MinX = PlayerClip->CenterPos.x - 0.5f * PlayerClip->Side;
     r32 MinY = PlayerClip->CenterPos.y - 0.5f * PlayerClip->Side;
     r32 MaxX = PlayerClip->CenterPos.x + 0.5f * PlayerClip->Side;
     r32 MaxY = PlayerClip->CenterPos.y + 0.5f * PlayerClip->Side;
-    r32 MinZ = 0;
+    */
+    v2 ClipCenterP = GetRelPos(World, PlayerClip->P);
+    r32 MinX = ClipCenterP.x - 0.5f * PlayerClip->Side;
+    r32 MinY = ClipCenterP.y - 0.5f * PlayerClip->Side;
+    r32 MaxX = ClipCenterP.x + 0.5f * PlayerClip->Side;
+    r32 MaxY = ClipCenterP.y + 0.5f * PlayerClip->Side;
+    r32 MinZ = 0.5;
 
     r32 VRectangle[] = {
         // bot
@@ -1417,7 +1463,7 @@ internal void DrawColoredRectangle(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, r32 Z
 }
 */
 
-internal void RenderWater(render *Render, entity_player *Player, r32 dtForFrame, r32 WaterZ)
+internal void RenderWater(world *World, render *Render, entity_player *Player, r32 dtForFrame, r32 WaterZ)
 {
 #if 1
     u32 ShaderProg = Render->WaterShaderProgram;
@@ -1443,7 +1489,9 @@ internal void RenderWater(render *Render, entity_player *Player, r32 dtForFrame,
 
     glUniform3fv(glGetUniformLocation(ShaderProg, "LightColor"), 1, Render->DirLight.Base.Color.E);
 
-    glUniform3fv(glGetUniformLocation(ShaderProg, "CameraPosition"), 1, Player->Position.E);
+    v3 RelPlayerP = GetRelPos(World, Player->P, Player->TmpZ);
+    glUniform3fv(glGetUniformLocation(ShaderProg, "CameraPosition"), 1, RelPlayerP.E);
+    // glUniform3fv(glGetUniformLocation(ShaderProg, "CameraPosition"), 1, Player->Position.E);
 
     glUniform1f(glGetUniformLocation(ShaderProg, "MoveFactor"), Render->WaterMoveFactor);
 
@@ -1479,7 +1527,7 @@ internal void RenderWater(render *Render, entity_player *Player, r32 dtForFrame,
     // матрица вида с камеры
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    OGLSetCameraOnPlayer(Player);
+    OGLSetCameraOnPlayer(World, Player);
     r32 MatView[16];
     glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
     glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatView"), 1, GL_FALSE, MatView);
@@ -1502,7 +1550,7 @@ internal void RenderWater(render *Render, entity_player *Player, r32 dtForFrame,
               -Render->FOV, Render->FOV, Render->FOV * 2, 1000);
 
     // вид с камеры
-    OGLSetCameraOnPlayer(Player);
+    OGLSetCameraOnPlayer(World, Player);
 #endif
 
     r32 PitRadiusDiv2 = 5;
@@ -1616,7 +1664,7 @@ void InitDepthMapFBO(render *Render)
     glReadBuffer(GL_NONE);
 }
 
-void RenderScene(render *Render, u32 ShaderProg, entity_player *Player, GLbitfield glClearMask)
+void RenderScene(world *World, render *Render, u32 ShaderProg, entity_player *Player, GLbitfield glClearMask)
 {
     glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
     glEnable(GL_DEPTH_TEST);
@@ -1626,11 +1674,11 @@ void RenderScene(render *Render, u32 ShaderProg, entity_player *Player, GLbitfie
     // glAlphaFunc(GL_GREATER, 0.01f);
     // glEnable(GL_NORMALIZE);
 
-    RenderEnvVBOs(Render, ShaderProg, Player);
+    RenderEnvVBOs(World, Render, ShaderProg, Player);
     // glDisable(GL_ALPHA_TEST);
     // glDisable(GL_NORMALIZE);
 }
-
+/*
 void DrawRectangleOutline(r32 VRectangle[], v3 Color)
 {
     r32 VertColors[] = {
@@ -1649,8 +1697,65 @@ void DrawRectangleOutline(r32 VRectangle[], v3 Color)
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
+}*/
+
+void DrawRectangleOutline(rectangle2 R, r32 Z, v3 Color)
+{
+    r32 VRectangle[] = {
+        // bot
+        R.Min.x, R.Min.y, Z, // 0
+        R.Max.x, R.Min.y, Z, // 1
+        R.Max.x, R.Max.y, Z, // 2
+        R.Min.x, R.Max.y, Z, // 3
+    };
+
+    r32 VertColors[] = {
+        Color.x, Color.y, Color.z, // 0
+        Color.x, Color.y, Color.z, // 1
+        Color.x, Color.y, Color.z, // 2
+        Color.x, Color.y, Color.z, // 3
+    };
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+
+    glVertexPointer(3, GL_FLOAT, 0, VRectangle);
+    glColorPointer(3, GL_FLOAT, 0, VertColors);
+    glDrawArrays(GL_LINE_LOOP, 0, 4);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
 }
 
+void DrawRectangle(rectangle2 R, r32 Z, v3 Color)
+{
+    r32 VRectangle[] = {
+        // bot
+        R.Min.x, R.Min.y, Z, // 0
+        R.Max.x, R.Min.y, Z, // 1
+        R.Max.x, R.Max.y, Z, // 2
+        R.Min.x, R.Max.y, Z, // 3
+    };
+
+    r32 VertColors[] = {
+        Color.x, Color.y, Color.z, // 0
+        Color.x, Color.y, Color.z, // 1
+        Color.x, Color.y, Color.z, // 2
+        Color.x, Color.y, Color.z, // 3
+    };
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+
+    glVertexPointer(3, GL_FLOAT, 0, VRectangle);
+    glColorPointer(3, GL_FLOAT, 0, VertColors);
+    glDrawArrays(GL_QUADS, 0, 4);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+}
+
+/*
 internal void RenderWorldChunksBorders(world *World)
 {
     for(u32 i = 0; i < World->ChunksCount; i++)
@@ -1673,28 +1778,9 @@ internal void RenderWorldChunksBorders(world *World)
     }
 }
 
-void DrawRectangle(r32 VRectangle[], v3 Color)
-{
-    r32 VertColors[] = {
-        Color.x, Color.y, Color.z, // 0
-        Color.x, Color.y, Color.z, // 1
-        Color.x, Color.y, Color.z, // 2
-        Color.x, Color.y, Color.z, // 3
-    };
-
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-
-    glVertexPointer(3, GL_FLOAT, 0, VRectangle);
-    glColorPointer(3, GL_FLOAT, 0, VertColors);
-    glDrawArrays(GL_QUADS, 0, 4);
-
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_COLOR_ARRAY);
-}
-
 internal void RenderPlayerChunkRectangle(world *World, entity_player *Player)
 {
+#if 0
     world_position PlayerP;
     PlayerP.ChunkX = FloorReal32ToInt32(Player->Position.x / World->ChunkDimInMeters);
     PlayerP.ChunkY = FloorReal32ToInt32(Player->Position.y / World->ChunkDimInMeters);
@@ -1704,6 +1790,13 @@ internal void RenderPlayerChunkRectangle(world *World, entity_player *Player)
     r32 MaxX = (r32)PlayerP.ChunkX * World->ChunkDimInMeters + World->ChunkDimInMeters;
     r32 MaxY = (r32)PlayerP.ChunkY * World->ChunkDimInMeters + World->ChunkDimInMeters;
     r32 Z = 0.3f;
+#else
+    r32 MinX = (r32)Player->P.ChunkX * World->ChunkDimInMeters;
+    r32 MinY = (r32)Player->P.ChunkY * World->ChunkDimInMeters;
+    r32 MaxX = (r32)Player->P.ChunkX * World->ChunkDimInMeters + World->ChunkDimInMeters;
+    r32 MaxY = (r32)Player->P.ChunkY * World->ChunkDimInMeters + World->ChunkDimInMeters;
+    r32 Z = 0.3f;
+#endif
 
     r32 Rectangle[] = {
         // bot
@@ -1714,10 +1807,10 @@ internal void RenderPlayerChunkRectangle(world *World, entity_player *Player)
     };
 
     DrawRectangle(Rectangle, V3(1, 1, 0));
-}
+}*/
 
 // TODO(me): в качестве параметра передавать лишь GameState
-void RenderDebugElements(render *Render, entity_player *Player, entity_clip *PlayerClip, world *World)
+void RenderDebugElements(world *World, render *Render, entity_player *Player, entity_clip *PlayerClip)
 {
     glLoadIdentity();
     // матрица проекции
@@ -1727,12 +1820,12 @@ void RenderDebugElements(render *Render, entity_player *Player, entity_clip *Pla
               -Render->FOV, Render->FOV, Render->FOV * 2, 1000);
 
     // вид с камеры
-    OGLSetCameraOnPlayer(Player);
+    OGLSetCameraOnPlayer(World, Player);
 
-    RenderPlayerChunkRectangle(World, Player);
-    RenderWorldChunksBorders(World);
-    RenderPlayerClipZones(Render, PlayerClip);
-    RenderLightingPositions(Render);
+    // RenderPlayerChunkRectangle(World, Player);
+    // RenderWorldChunksBorders(World);
+    // RenderPlayerClipZones(World, Render, PlayerClip);
+    // RenderLightingPositions(Render);
 
     glPushMatrix();
     glScalef(5, 5, 5);

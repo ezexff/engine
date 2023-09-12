@@ -5,10 +5,10 @@ struct memory_arena
     memory_index Used;
 };
 
-internal void InitializeArena(memory_arena *Arena, memory_index Size, uint8 *Base)
+internal void InitializeArena(memory_arena *Arena, memory_index Size, void *Base)
 {
     Arena->Size = Size;
-    Arena->Base = Base;
+    Arena->Base = (uint8 *)Base;
     Arena->Used = 0;
 }
 
@@ -16,7 +16,7 @@ internal void InitializeArena(memory_arena *Arena, memory_index Size, uint8 *Bas
 #define PushArray(Arena, Count, type) (type *)PushSize_(Arena, (Count) * sizeof(type))
 #define PushCopy(Arena, Size, Source, ...) Copy(Size, Source, PushSize_(Arena, Size, ##__VA_ARGS__))
 
-//#define ConstZ(Z) {sizeof(Z) - 1, (u8 *)(Z)}
+// #define ConstZ(Z) {sizeof(Z) - 1, (u8 *)(Z)}
 
 #define CopyArray(Count, Source, Dest) Copy((Count) * sizeof(*(Source)), (Source), (Dest))
 inline void *Copy(memory_index Size, void *SourceInit, void *DestInit)

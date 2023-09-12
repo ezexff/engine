@@ -1,8 +1,94 @@
 #include "engine.h"
 #include "engine_asset.cpp"
+#include "engine_world.cpp"
+#include "engine_sim_region.cpp"
 #include "engine_entity.cpp"
 #include "engine_render.cpp"
-#include "engine_world.cpp"
+
+struct add_low_entity_result
+{
+    low_entity *Low;
+    u32 LowIndex;
+};
+
+internal add_low_entity_result AddLowEntity(game_state *GameState, entity_type Type, world_position P)
+{
+    Assert(GameState->LowEntityCount < ArrayCount(GameState->LowEntities));
+    u32 EntityIndex = GameState->LowEntityCount++;
+
+    low_entity *EntityLow = GameState->LowEntities + EntityIndex;
+    *EntityLow = {};
+    EntityLow->Sim.Type = Type;
+    EntityLow->P = NullPosition();
+
+    ChangeEntityLocation(&GameState->WorldArena, GameState->World, EntityIndex, EntityLow, P);
+
+    add_low_entity_result Result;
+    Result.Low = EntityLow;
+    Result.LowIndex = EntityIndex;
+
+    // TODO(casey): Do we need to have a begin/end paradigm for adding
+    // entities so that they can be brought into the high set when they
+    // are added and are in the camera region?
+
+    return (Result);
+}
+
+internal add_low_entity_result AddWall(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
+{
+    world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
+    add_low_entity_result Entity = AddLowEntity(GameState, EntityType_Wall, P);
+
+    Entity.Low->Sim.Height = GameState->World->TileSideInMeters;
+    Entity.Low->Sim.Width = Entity.Low->Sim.Height;
+    AddFlag(&Entity.Low->Sim, EntityFlag_Collides);
+
+    return (Entity);
+}
+
+internal void InitHitPoints(low_entity *EntityLow, u32 HitPointCount)
+{
+    Assert(HitPointCount <= ArrayCount(EntityLow->Sim.HitPoint));
+    EntityLow->Sim.HitPointMax = HitPointCount;
+    for(u32 HitPointIndex = 0; HitPointIndex < EntityLow->Sim.HitPointMax; ++HitPointIndex)
+    {
+        hit_point *HitPoint = EntityLow->Sim.HitPoint + HitPointIndex;
+        HitPoint->Flags = 0;
+        HitPoint->FilledAmount = HIT_POINT_SUB_COUNT;
+    }
+}
+
+internal add_low_entity_result AddSword(game_state *GameState)
+{
+    add_low_entity_result Entity = AddLowEntity(GameState, EntityType_Sword, NullPosition());
+
+    Entity.Low->Sim.Height = 0.5f;
+    Entity.Low->Sim.Width = 1.0f;
+
+    return (Entity);
+}
+
+internal add_low_entity_result AddPlayer(game_state *GameState)
+{
+    world_position P = GameState->CameraP;
+    add_low_entity_result Entity = AddLowEntity(GameState, EntityType_Hero, P);
+
+    Entity.Low->Sim.Height = 0.5f; // 1.4f;
+    Entity.Low->Sim.Width = 1.0f;
+    AddFlag(&Entity.Low->Sim, EntityFlag_Collides);
+
+    InitHitPoints(Entity.Low, 3);
+
+    add_low_entity_result Sword = AddSword(GameState);
+    Entity.Low->Sim.Sword.Index = Sword.LowIndex;
+
+    if(GameState->CameraFollowingEntityIndex == 0)
+    {
+        GameState->CameraFollowingEntityIndex = Entity.LowIndex;
+    }
+
+    return (Entity);
+}
 
 internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, game_input *Input)
 {
@@ -25,7 +111,48 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         //
         GameState->World = PushStruct(&GameState->WorldArena, world);
         world *World = GameState->World;
-        InitializeWorld(WorldArena, World, 9, 2);
+        InitializeWorld(World, 1.4f);
+
+        /*while(GameState->LowEntityCount < (ArrayCount(GameState->LowEntities) - 16))
+        {
+            uint32 Coordinate = 1024 + GameState->LowEntityCount;
+            AddWall(GameState, Coordinate, Coordinate, Coordinate);
+        }*/
+
+        /*while(GameState->LowEntityCount < (ArrayCount(GameState->LowEntities) - 16))
+        {
+            // uint32 Coordinate = 1024 + GameState->LowEntityCount;
+            AddWall(GameState, 1024 + GameState->LowEntityCount, 5, 0);
+        }*/
+        AddWall(GameState, 1024 + GameState->LowEntityCount, 5, 0);
+        for(u32 i = 0; i < 20; i++)
+        {
+            if(i % 2)
+            {
+                AddWall(GameState, i, 5, 0);
+            }
+        }
+
+        u32 TilesPerWidth = 17;
+        u32 TilesPerHeight = 9;
+        u32 ScreenBaseX = 0;
+        u32 ScreenBaseY = 0;
+        u32 ScreenBaseZ = 0;
+        world_position NewCameraP = {};
+        u32 CameraTileX = ScreenBaseX * TilesPerWidth + 17 / 2;
+        u32 CameraTileY = ScreenBaseY * TilesPerHeight + 9 / 2;
+        u32 CameraTileZ = ScreenBaseZ;
+        NewCameraP = ChunkPositionFromTilePosition(GameState->World, CameraTileX, CameraTileY, CameraTileZ);
+        GameState->CameraP = NewCameraP;
+
+        GameState->Debug = PushStruct(WorldArena, debug);
+        debug *Debug = GameState->Debug;
+        Debug->ProcessAnimations = true;
+        Debug->DrawSimRegionBounds = false;
+        Debug->DrawSimRegionUpdatableBounds = false;
+        Debug->DrawSimChunks = false;
+        Debug->DrawChunkWhereCamera = false;
+        Debug->DrawPlayerHitbox = true;
 
         GameState->Render = PushStruct(WorldArena, render);
         render *Render = GameState->Render;
@@ -45,11 +172,14 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         Settings->RBCappedIsActive = true;
         Settings->RBUncappedIsActive = false;
         Settings->RBVSyncIsActive = false;
-        Settings->ProcessAnimations = true;
 
         GameState->Player = PushStruct(WorldArena, entity_player);
         entity_player *Player = GameState->Player;
-        Player->Position = V3(5, 5, 0);
+        // Player->Position = V3(5, 5, 0);
+        Player->P.ChunkX = -2;
+        Player->P.ChunkY = -2;
+        Player->P.Offset_ = V2(0, 0);
+        Player->TmpZ = 2.7f; // высота камеры
         Player->dP = V2(0, 0);
         Player->CameraPitch = 90.0f;
         Player->CameraYaw = -45.0f;
@@ -60,8 +190,10 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
 
         GameState->Clip = PushStruct(WorldArena, entity_clip);
         entity_clip *PlayerClip = GameState->Clip;
-        PlayerClip->CenterPos = V2(-50.0f, 50.0f);
-        PlayerClip->Side = 100.0f;
+        // PlayerClip->CenterPos = V2(-50.0f, 50.0f);
+        PlayerClip->P.ChunkX = -5;
+        PlayerClip->P.ChunkX = -5;
+        PlayerClip->Side = 50.0f;
 
         //
         // NOTE(me): Источники света
@@ -258,22 +390,6 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
         EnvObjects[EnvIndex]->ScaleMatrix = Scaling(0.1f);
         EnvObjects[EnvIndex]->Model = EnvObjects[EnvIndex - 1]->Model;
         EnvIndex++;
-
-        /*
-        // трава (старая версия)
-        EnvObjects[EnvIndex]->InstancingCount = 500;
-        EnvObjects[EnvIndex]->InstancingTransformMatrices =
-            CreateInstancingTransformMatrices(WorldArena,                            // Memory
-                                            EnvObjects[0],                         // Terrain
-                                            EnvObjects[EnvIndex]->InstancingCount, // Amount
-                                            V3(2, 3, 1),                           // Scale rand() Min, Max, Precision
-                                            V3(0, 0, 0),                           // Rotate X, Y, Z
-                                            V3(0, 0, 0),  // Rotate X rand() Min, Max, Precision
-                                            V3(0, 0, 0),  // Rotate Y rand() Min, Max, Precision
-                                            V3(0, 0, 0)); // Rotate Z rand() Min, Max, Precision
-        EnvObjects[EnvIndex]->Model = CreateGrassModel(WorldArena);
-        EnvIndex++;
-        */
 
         Assert(EnvIndex <= ENV_OBJECTS_MAX);
         Render->EnvObjectsCount = EnvIndex;
@@ -554,6 +670,8 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     entity_envobject **EnvObjects = GameState->EnvObjects; // TODO(me): избавиться от 16
     entity_grassobject **GrassObjects = GameState->GrassObjects;
     world *World = GameState->World;
+    world_position *CameraP = &GameState->CameraP;
+    debug *Debug = GameState->Debug;
 
     //
     // NOTE(me): Inputs
@@ -566,62 +684,68 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     for(int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)
     {
         game_controller_input *Controller = GetController(Input, ControllerIndex);
-
-        // Player
-        // r32 SpeedBuff = Buffs.Speed.Time > 0 ? 0.2f : 0;
-        r32 PlayerSpeed = 50.0f; //+ SpeedBuff; // m/s^2
-
-        v2 ddP = {};
-        if(Controller->MoveUp.EndedDown)
+        controlled_hero *ConHero = GameState->ControlledHeroes + ControllerIndex;
+        if(ConHero->EntityIndex == 0)
         {
-            ddP.y = 1.0f;
+            if(Controller->Start.EndedDown)
+            {
+                *ConHero = {};
+                ConHero->EntityIndex = AddPlayer(GameState).LowIndex;
+            }
         }
-        if(Controller->MoveDown.EndedDown)
+        else
         {
-            ddP.y = -1.0f;
-        }
-        if(Controller->MoveLeft.EndedDown)
-        {
-            ddP.x = -1.0f;
-        }
+            ConHero->dZ = 0.0f;
+            ConHero->ddP = {};
+            ConHero->dSword = {};
 
-        if(Controller->MoveRight.EndedDown)
-        {
-            ddP.x = 1.0f;
-        }
+            if(Controller->IsAnalog)
+            {
+                // NOTE(casey): Use analog movement tuning
+                // ConHero->ddP = V2(Controller->StickAverageX, Controller->StickAverageY);
+            }
+            else
+            {
+                // NOTE(casey): Use digital movement tuning
+                if(Controller->MoveUp.EndedDown)
+                {
+                    ConHero->ddP.y = 1.0f;
+                }
+                if(Controller->MoveDown.EndedDown)
+                {
+                    ConHero->ddP.y = -1.0f;
+                }
+                if(Controller->MoveLeft.EndedDown)
+                {
+                    ConHero->ddP.x = -1.0f;
+                }
+                if(Controller->MoveRight.EndedDown)
+                {
+                    ConHero->ddP.x = 1.0f;
+                }
+            }
 
-        MovePlayerEOM(Player, PlayerClip, ddP, PlayerSpeed, Input->dtForFrame);
-
-        // x, y, z - система координат камеры
-        // Высота игрка на тиррейне
-        // Camera->z = TerrainGetHeight(World, Camera->x, Camera->y) + 2.7f;
-
-        /*if(Controller->MoveUp.EndedDown)
-        // if(Controller->Key1.EndedDown && Controller->Key1.HalfTransitionCount == 1)
-        {
-            GameState->ClearColor.x += 0.001;
+            if(Controller->Start.EndedDown)
+            {
+                ConHero->dZ = 3.0f;
+            }
         }
-        if(Controller->MoveDown.EndedDown)
-        {
-            GameState->ClearColor.x -= 0.001;
-        }
-
-        if(Controller->MoveLeft.EndedDown)
-        {
-            GameState->ClearColor.y += 0.001;
-        }
-        if(Controller->MoveRight.EndedDown)
-        {
-            GameState->ClearColor.y -= 0.001;
-        }*/
     }
 
     //
     // NOTE(me): Physics
     //
+    u32 TileSpanX = 17 * 3;
+    u32 TileSpanY = 9 * 3;
+    rectangle2 CameraBounds = RectCenterDim(V2(0, 0), World->TileSideInMeters * V2((r32)TileSpanX, (r32)TileSpanY));
+
+    memory_arena SimArena;
+    InitializeArena(&SimArena, Memory->TransientStorageSize, Memory->TransientStorage);
+    sim_region *SimRegion = BeginSim(&SimArena, GameState, GameState->World, GameState->CameraP, CameraBounds);
+
     // Высота камеры игрока на террейне (ландшафте)
-    Player->Position.z =
-        TerrainGetHeight(EnvObjects[0], Player->Position.x, Player->Position.y) + Player->CameraZOffset;
+    /*Player->Position.z =
+        TerrainGetHeight(EnvObjects[0], Player->Position.x, Player->Position.y) + Player->CameraZOffset;*/
     // Player->Position.z = Player->CameraZOffset;
     //  Перемещение маркеров источников света
     // EnvObjects[1]->TranslateMatrix = Translation(Render->PointLights[0].WorldPosition);
@@ -631,7 +755,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     // EnvObjects[13]->TranslateMatrix = Translation(ClipTextureNewPos);
 
     // Формируем матрицы преобразований у объектов окружения
-    for(u32 i = 0; i < Render->EnvObjectsCount; i++)
+    /*for(u32 i = 0; i < Render->EnvObjectsCount; i++)
     {
         if(EnvObjects[i]->InstancingCount == 0)
         {
@@ -644,7 +768,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     // Обработка анимаций
     if(Render->Animator.Timer > 0.0f)
     {
-        if(Settings->ProcessAnimations)
+        if(Debug->ProcessAnimations)
         {
             for(u32 i = 0; i < Render->SAnMeshesCount; i++)
             {
@@ -661,7 +785,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             // Debug->Animator.Timer = 0.0f;
             Render->Animator.Timer = 5.0f; // начинаем проигрывать анимацию заново
         }
-    }
+    }*/
 
     //
     // NOTE(me): ImGui init render
@@ -839,7 +963,7 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::SliderFloat("##MouseSensitivity", &Settings->MouseSensitivity, 0.0f, 100.0f);
             ImGui::Spacing();
 
-            ImGui::Checkbox("Process Animations", &Settings->ProcessAnimations);
+            ImGui::Checkbox("Process Animations", &Debug->ProcessAnimations);
         }
 
         if(ImGui::CollapsingHeader("Memory"))
@@ -847,14 +971,22 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
             ImGui::Text("PermanentStorage");
             ImGui::Text("Size=%d (Kb)", GameState->WorldArena.Size / 1024);
             ImGui::Text("Used=%d (Kb)", GameState->WorldArena.Used / 1024);
+
+            ImGui::Text("TransientStorage");
+            ImGui::Text("Size=%d (Kb)", SimArena.Size / 1024);
+            ImGui::Text("Used=%d (Kb)", SimArena.Used / 1024);
         }
 
         if(ImGui::CollapsingHeader("World"))
         {
-            ImGui::Text("ChunkDimInMeters=%d", World->ChunkDimInMeters);
-            ImGui::Text("ChunksCount=%d", World->ChunksCount);
-            ImGui::Text("PlayerP");
-            world_position PlayerP;
+            // ImGui::Text("ChunkDimInMeters=%d", World->ChunkDimInMeters);
+            // ImGui::Text("ChunksCount=%d", World->ChunksCount);
+            ImGui::Checkbox("DrawSimRegionBounds", &Debug->DrawSimRegionBounds);
+            ImGui::Checkbox("DrawSimRegionUpdatableBounds", &Debug->DrawSimRegionUpdatableBounds);
+            ImGui::Checkbox("DrawSimChunks", &Debug->DrawSimChunks);
+            ImGui::Checkbox("DrawChunkWhereCamera", &Debug->DrawChunkWhereCamera);
+            ImGui::Checkbox("DrawPlayerHitbox", &Debug->DrawPlayerHitbox);
+            /*world_position PlayerP;
             PlayerP.ChunkX = FloorReal32ToInt32(Player->Position.x / World->ChunkDimInMeters);
             PlayerP.ChunkY = FloorReal32ToInt32(Player->Position.y / World->ChunkDimInMeters);
             ImGui::Text("ChunkX=%d", PlayerP.ChunkX);
@@ -867,12 +999,27 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
                                 - World->ChunkDimInMeters * 0.5f;          // to center
             ImGui::Text("Offset_.x=%f", PlayerP.Offset_.x);
             ImGui::Text("Offset_.y=%f", PlayerP.Offset_.y);
+
+            world_position TestWallP;
+            TestWallP.ChunkX = -1;
+            TestWallP.ChunkY = -1;
+            TestWallP.Offset_ = V2(0, 0);
+            v2 CameraSP = GetCameraSpaceP(World, &PlayerP, &TestWallP);
+
+            ImGui::Text("TestWallP");
+            ImGui::Text("CameraSPX=%f", CameraSP.x);
+            ImGui::Text("CameraSPY=%f", CameraSP.y);*/
         }
 
         if(ImGui::CollapsingHeader("Camera"))
         {
-            ImGui::InputFloat("Player X", &Player->Position.x, 0.5, 2, "%.10f", 0);
-            ImGui::InputFloat("Player Y", &Player->Position.y, 0.5, 2, "%.10f", 0);
+            ImGui::Text("CameraP");
+            ImGui::Text("ChunkX=%d", GameState->CameraP.ChunkX);
+            ImGui::Text("ChunkY=%d", GameState->CameraP.ChunkY);
+            ImGui::Text("Offset_.x=%f", GameState->CameraP.Offset_.x);
+            ImGui::Text("Offset_.y=%f", GameState->CameraP.Offset_.y);
+            /*ImGui::InputFloat("Player X", &Player->Position.x, 0.5, 2, "%.10f", 0);
+            ImGui::InputFloat("Player Y", &Player->Position.y, 0.5, 2, "%.10f", 0);*/
             ImGui::InputFloat("CameraZOffset", &Player->CameraZOffset, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("CameraPitch", &Player->CameraPitch, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("CameraYaw", &Player->CameraYaw, 0.5, 2, "%.10f", 0);
@@ -1019,51 +1166,300 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     }
 
     //
-    // NOTE(me): Game render
+    // NOTE(me): Render
     //
     glfwGetFramebufferSize(Window, &Render->DisplayWidth, &Render->DisplayHeight);
     Render->AspectRatio = (r32)Render->DisplayWidth / (r32)Render->DisplayHeight;
+    r32 ScreenCenterX = 0.5f * Render->DisplayWidth;
+    r32 ScreenCenterY = 0.5f * Render->DisplayHeight;
 
-#if 0
-    s32 DisplayWidth, DisplayHeight;
-    glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
-    glViewport(0, 0, DisplayWidth, DisplayHeight);
+    glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
     glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
     glEnable(GL_DEPTH_TEST);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // проекция (перспективная)
-    r32 AspectRatio = (r32)DisplayWidth / (r32)DisplayHeight;
-    r32 FOV = 0.1f; // поле зрения камеры
+    glLoadIdentity();
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+    glFrustum(-Render->AspectRatio * Render->FOV, Render->AspectRatio * Render->FOV, //
+              -Render->FOV, Render->FOV, Render->FOV * 2, 1000);
 
-    // вид с камеры
-    OGLSetCameraOnPlayer(Player);
+    // set camera
+    glRotatef(-Player->CameraPitch, 1.0f, 0.0f, 0.0f);
+    glRotatef(-Player->CameraYaw, 0.0f, 0.0f, 1.0f);
+    v2 WorldOrigin1 = {};
+    glTranslatef(-WorldOrigin1.x, -WorldOrigin1.y, -10.0f);
+    // glTranslatef(-CameraP->ChunkX * World->ChunkSideInMeters, -CameraP->ChunkY * World->ChunkSideInMeters, -10.0f);
 
-    glDisable(GL_TEXTURE_2D);
+    // draw oxyz
     glPushMatrix();
-    OGLDrawColoredCube();
-    OGLDrawLinesOXYZ(V3(0, 0, 1), 1); // World Start Point OXZY
+    glScalef(5, 5, 5);
+    OGLDrawLinesOXYZ(V3(0, 0, 1), 1);
     glPopMatrix();
 
-    single_mesh *Mesh = &EnvObjects[0]->Model->Meshes[0];
-    glEnable(GL_TEXTURE_2D);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glEnableClientState(GL_NORMAL_ARRAY);
-    glVertexPointer(3, GL_FLOAT, 0, Mesh->Positions);
-    glTexCoordPointer(2, GL_FLOAT, 0, Mesh->TexCoords);
-    glColor3f(0.7f, 0.7f, 0.7f); // понижаем яркость текстуры
-    // glColor3f(0.0f, 1.0f, 0.0f); // понижаем яркость текстуры
-    glNormalPointer(GL_FLOAT, 0, Mesh->Normals);
-    glActiveTexture(GL_TEXTURE0 + 0);
-    glBindTexture(GL_TEXTURE_2D, Mesh->Material.Texture); // TODO(me): поменять?
-    glDrawElements(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT, Mesh->Indices);
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDisableClientState(GL_NORMAL_ARRAY);
+    // draw sim region bounds
+    glLineWidth(1);
+    glEnable(GL_LINE_SMOOTH);
+    if(Debug->DrawSimRegionBounds)
+    {
+        DrawRectangleOutline(SimRegion->Bounds, 0.0f, V3(1, 1, 0));
+    }
+    if(Debug->DrawSimRegionUpdatableBounds)
+    {
+        DrawRectangleOutline(SimRegion->UpdatableBounds, 0.0f, V3(0, 1, 0));
+    }
+    glDisable(GL_LINE_SMOOTH);
+
+    // draw border for chunks from sim region
+    if(Debug->DrawSimChunks || Debug->DrawChunkWhereCamera)
+    {
+        world_position MinChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMinCorner(SimRegion->Bounds));
+        world_position MaxChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMaxCorner(SimRegion->Bounds));
+        for(s32 ChunkY = MinChunkP.ChunkY; ChunkY <= MaxChunkP.ChunkY; ++ChunkY)
+        {
+            for(s32 ChunkX = MinChunkP.ChunkX; ChunkX <= MaxChunkP.ChunkX; ++ChunkX)
+            {
+                world_position ChunkP = {};
+                ChunkP.ChunkX = ChunkX;
+                ChunkP.ChunkY = ChunkY;
+                world_difference Diff = Subtract(SimRegion->World, &ChunkP, &SimRegion->Origin);
+                v2 ChunkMin = Diff.dXY - V2(0.5f * World->ChunkSideInMeters, 0.5f * World->ChunkSideInMeters);
+                v2 ChunkMax = Diff.dXY + V2(0.5f * World->ChunkSideInMeters, 0.5f * World->ChunkSideInMeters);
+                rectangle2 ChunkRect = {ChunkMin, ChunkMax};
+                if(Debug->DrawSimChunks)
+                {
+                    DrawRectangleOutline(ChunkRect, -0.1f, V3(1, 0, 0));
+                }
+                if(Debug->DrawChunkWhereCamera && (CameraP->ChunkX == ChunkX) && (CameraP->ChunkY == ChunkY))
+                {
+                    // draw chunk rectangle from CameraP
+                    DrawRectangle(ChunkRect, -0.1f, V3(0, 1, 1));
+                }
+            }
+        }
+    }
+
+    // TODO(casey): Move this out into handmade_entity.cpp!
+    entity_visible_piece_group PieceGroup;
+    PieceGroup.GameState = GameState;
+    sim_entity *Entity = SimRegion->Entities;
+    for(u32 EntityIndex = 0; EntityIndex < SimRegion->EntityCount; ++EntityIndex, ++Entity)
+    {
+        if(Entity->Updatable)
+        {
+            v2 EntityMinCenterP = V2(Entity->P.x - 0.5f * Entity->Width, Entity->P.y - 0.5f * Entity->Height);
+            v2 EntityMaxCenterP = V2(Entity->P.x + 0.5f * Entity->Width, Entity->P.y + 0.5f * Entity->Height);
+            rectangle2 EntityRect = {EntityMinCenterP, EntityMaxCenterP};
+
+            PieceGroup.PieceCount = 0;
+            r32 dt = Input->dtForFrame;
+
+            // TODO(casey): This is incorrect, should be computed after update!!!!
+            /*r32 ShadowAlpha = 1.0f - 0.5f * Entity->Z;
+            if(ShadowAlpha < 0)
+            {
+                ShadowAlpha = 0.0f;
+            }*/
+
+            move_spec MoveSpec = DefaultMoveSpec();
+            v2 ddP = {};
+
+            // hero_bitmaps *HeroBitmaps = &GameState->HeroBitmaps[Entity->FacingDirection];
+            switch(Entity->Type)
+            {
+            case EntityType_Hero: {
+                // TODO(casey): Now that we have some real usage examples, let's solidify
+                // the positioning system!
+                for(u32 ControlIndex = 0; ControlIndex < ArrayCount(GameState->ControlledHeroes); ++ControlIndex)
+                {
+                    controlled_hero *ConHero = GameState->ControlledHeroes + ControlIndex;
+
+                    if(Entity->StorageIndex == ConHero->EntityIndex)
+                    {
+                        if(ConHero->dZ != 0.0f)
+                        {
+                            Entity->dZ = ConHero->dZ;
+                        }
+
+                        MoveSpec.UnitMaxAccelVector = true;
+                        MoveSpec.Speed = 50.0f;
+                        // MoveSpec.Drag = 8.0f;
+                        MoveSpec.Drag = 1.0f;
+                        // ddP = ConHero->ddP;
+                        r32 Angle = Player->CameraYaw * Pi32 / 180;
+                        ddP.x = ConHero->ddP.x * Cos(Angle) - ConHero->ddP.y * Sin(Angle);
+                        ddP.y = ConHero->ddP.x * Sin(Angle) + ConHero->ddP.y * Cos(Angle);
+
+                        /*if((ConHero->dSword.x != 0.0f) || (ConHero->dSword.y != 0.0f))
+                        {
+                            sim_entity *Sword = Entity->Sword.Ptr;
+                            if(Sword && IsSet(Sword, EntityFlag_Nonspatial))
+                            {
+                                Sword->DistanceRemaining = 5.0f;
+                                MakeEntitySpatial(Sword, Entity->P, 5.0f * ConHero->dSword);
+                            }
+                        }*/
+                    }
+                }
+
+                // TODO(casey): Z!!!
+                /*PushBitmap(&PieceGroup, &GameState->Shadow, V2(0, 0), 0, HeroBitmaps->Align, ShadowAlpha, 0.0f);
+                PushBitmap(&PieceGroup, &HeroBitmaps->Torso, V2(0, 0), 0, HeroBitmaps->Align);
+                PushBitmap(&PieceGroup, &HeroBitmaps->Cape, V2(0, 0), 0, HeroBitmaps->Align);
+                PushBitmap(&PieceGroup, &HeroBitmaps->Head, V2(0, 0), 0, HeroBitmaps->Align);*/
+
+                // DrawHitpoints(Entity, &PieceGroup);
+                if(Debug->DrawPlayerHitbox)
+                {
+                    DrawRectangle(EntityRect, 0.0f, V3(0.0f, 1.0f, 0.0f));
+                }
+            }
+            break;
+
+            case EntityType_Wall: {
+                DrawRectangle(EntityRect, 0.0f, V3(0.0f, 0.0f, 1.0f));
+                // PushBitmap(&PieceGroup, &GameState->Tree, V2(0, 0), 0, V2(40, 80));
+            }
+            break;
+
+                /*case EntityType_Sword:
+                {
+                    MoveSpec.UnitMaxAccelVector = false;
+                    MoveSpec.Speed = 0.0f;
+                    MoveSpec.Drag = 0.0f;
+
+                    // TODO(casey) IMPORTANT(casey): Add the ability in the collision
+                    // routines to understand a movement limit for an entity, and
+                    // then update this routine to use that to know when to kill the
+                    // sword.
+                    // TODO(casey): Need to handle the fact that DistanceTraveled
+                    // might not have enough distance for the total entity move
+                    // for the frame!
+                    v2 OldP = Entity->P;
+                    real32 DistanceTraveled = Length(Entity->P - OldP);
+                    Entity->DistanceRemaining -= DistanceTraveled;
+                    if(Entity->DistanceRemaining < 0.0f)
+                    {
+                        MakeEntityNonSpatial(Entity);
+                    }
+
+                    PushBitmap(&PieceGroup, &GameState->Shadow, V2(0, 0), 0, HeroBitmaps->Align, ShadowAlpha, 0.0f);
+                    PushBitmap(&PieceGroup, &GameState->Sword, V2(0, 0), 0, V2(29, 10));
+                } break;
+
+                case EntityType_Familiar: {
+                    sim_entity *ClosestHero = 0;
+                    r32 ClosestHeroDSq = Square(10.0f); // NOTE(casey): Ten meter maximum search!
+
+                    // TODO(casey): Make spatial queries easy for things!
+                    sim_entity *TestEntity = SimRegion->Entities;
+                    for(u32 TestEntityIndex = 0; TestEntityIndex < SimRegion->EntityCount;
+                        ++TestEntityIndex, ++TestEntity)
+                    {
+                        if(TestEntity->Type == EntityType_Hero)
+                        {
+                            r32 TestDSq = LengthSq(TestEntity->P - Entity->P);
+                            if(TestEntity->Type == EntityType_Hero)
+                            {
+                                TestDSq *= 0.75f;
+                            }
+
+                            if(ClosestHeroDSq > TestDSq)
+                            {
+                                ClosestHero = TestEntity;
+                                ClosestHeroDSq = TestDSq;
+                            }
+                        }
+                    }
+
+                    if(ClosestHero && (ClosestHeroDSq > Square(3.0f)))
+                    {
+                        r32 Acceleration = 0.5f;
+                        r32 OneOverLength = Acceleration / SquareRoot(ClosestHeroDSq);
+                        ddP = OneOverLength * (ClosestHero->P - Entity->P);
+                    }
+
+                    MoveSpec.UnitMaxAccelVector = true;
+                    MoveSpec.Speed = 50.0f;
+                    MoveSpec.Drag = 8.0f;
+
+                    Entity->tBob += dt;
+                    if(Entity->tBob > (2.0f * Pi32))
+                    {
+                        Entity->tBob -= (2.0f * Pi32);
+                    }
+                    r32 BobSin = Sin(2.0f * Entity->tBob);
+                    PushBitmap(&PieceGroup, &GameState->Shadow, V2(0, 0), 0, HeroBitmaps->Align,
+                               (0.5f * ShadowAlpha) + 0.2f * BobSin, 0.0f);
+                    PushBitmap(&PieceGroup, &HeroBitmaps->Head, V2(0, 0), 0.25f * BobSin, HeroBitmaps->Align);
+                }
+                break;
+
+                case EntityType_Monstar: {
+                    PushBitmap(&PieceGroup, &GameState->Shadow, V2(0, 0), 0, HeroBitmaps->Align, ShadowAlpha, 0.0f);
+                    PushBitmap(&PieceGroup, &HeroBitmaps->Torso, V2(0, 0), 0, HeroBitmaps->Align);
+
+                    DrawHitpoints(Entity, &PieceGroup);
+                }
+                break;*/
+
+            default: {
+                InvalidCodePath;
+            }
+            break;
+            }
+
+            if(!IsSet(Entity, EntityFlag_Nonspatial))
+            {
+                MoveEntity(SimRegion, Entity, Input->dtForFrame, &MoveSpec, ddP);
+            }
+
+            // r32 EntityGroundPointX = ScreenCenterX + MetersToPixels * Entity->P.x;
+            // r32 EntityGroundPointY = ScreenCenterY - MetersToPixels * Entity->P.y;
+            // r32 EntityZ = -MetersToPixels * Entity->Z;
+            r32 EntityGroundPointX = ScreenCenterX + Entity->P.x;
+            r32 EntityGroundPointY = ScreenCenterY - Entity->P.y;
+            r32 EntityZ = -Entity->Z;
+
+            for(u32 PieceIndex = 0; PieceIndex < PieceGroup.PieceCount; ++PieceIndex)
+            {
+                entity_visible_piece *Piece = PieceGroup.Pieces + PieceIndex;
+                v2 Center = {EntityGroundPointX + Piece->Offset.x,
+                             EntityGroundPointY + Piece->Offset.y + Piece->OffsetZ + Piece->EntityZC * EntityZ};
+                /*if(Piece->Bitmap)
+                {
+                    DrawBitmap(Buffer, Piece->Bitmap, Center.x, Center.y, Piece->A);
+                }
+                else
+                {*/
+                // v2 HalfDim = 0.5f * MetersToPixels * Piece->Dim;
+                v2 HalfDim = 0.5f * Piece->Dim;
+                // DrawRectangle(Buffer, Center - HalfDim, Center + HalfDim, Piece->R, Piece->G, Piece->B);
+                r32 TmpZ = 0.0f;
+                // DrawRectangle(Center - HalfDim, Center + HalfDim, TmpZ, V3(Piece->R, Piece->G, Piece->B));
+                // }
+            }
+        }
+    }
+
+    // world_position WorldOrigin = {};
+    // world_difference Diff = Subtract(SimRegion->World, &WorldOrigin, &SimRegion->Origin);
+    //   DrawRectangle(Buffer, Diff.dXY, V2(10.0f, 10.0f), 1.0f, 1.0f, 0.0f);
+    //  DrawRectangle(Diff.dXY, V2(10.0f, 10.0f), TmpZ, V3(1.0f, 0.0f, 0.0f));
+    // v2 CameraChunkMin = Diff.dXY;
+    // v2 CameraChunkMax = Diff.dXY + V2(10, 10);
+    // rectangle2 CameraChunkRect = {CameraChunkMin, CameraChunkMax};
+    // DrawRectangle(CameraChunkRect, -0.1f, V3(1, 0, 0));
+
+    EndSim(SimRegion, GameState);
+
+#if 1
+    /*
+    glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
+    glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
+    glEnable(GL_DEPTH_TEST);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    RenderDebugElements(World, Render, Player, PlayerClip);
+    */
 #else
 
     glEnable(GL_CLIP_DISTANCE0);
@@ -1071,22 +1467,23 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     // Render Reflection Texture
     glViewport(0, 0, Render->ReflWidth, Render->ReflHeight);
     r32 WaterZ = 0.0f;
-    r32 Distance = 2 * (Player->Position.z - WaterZ);
-    Player->Position.z -= Distance;
+    r32 TmpPlayerZ = 2.7f; // TODO(me): replace with real player Z
+    r32 Distance = 2 * (TmpPlayerZ - WaterZ);
+    TmpPlayerZ -= Distance;
     r32 NormalCameraPitch = Player->CameraPitch;
     Player->CameraPitch = Player->CameraPitchInversed;
     Render->CutPlane = V4(0, 0, 1, -WaterZ);
     glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterReflFBO);
-    RenderScene(Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    RenderScene(World, Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // RenderGrassVBO(Render, Player);
-    Player->Position.z += Distance;
+    TmpPlayerZ += Distance;
     Player->CameraPitch = NormalCameraPitch;
 
     // Render Refraction Texture
     glViewport(0, 0, (u32)(Render->RefrWidth), (u32)(Render->RefrHeight));
     Render->CutPlane = V4(0, 0, -1, WaterZ);
     glBindFramebuffer(GL_FRAMEBUFFER, Render->WaterRefrFBO);
-    RenderScene(Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    RenderScene(World, Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // RenderGrassVBO(Render, Player);
 
     glDisable(GL_CLIP_DISTANCE0);
@@ -1096,16 +1493,16 @@ internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, gam
     glViewport(0, 0, (u32)(Render->DepthMapWidth), (u32)(Render->DepthMapHeight));
     glBindFramebuffer(GL_FRAMEBUFFER, Render->DepthMapFBO);
     glCullFace(GL_FRONT);
-    RenderScene(Render, Render->DepthMapShaderProgram, Player, GL_DEPTH_BUFFER_BIT);
+    RenderScene(World, Render, Render->DepthMapShaderProgram, Player, GL_DEPTH_BUFFER_BIT);
     glCullFace(GL_BACK);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // Render Game
     glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
-    RenderScene(Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    RenderGrassVBO(Render, Player);
-    RenderWater(Render, Player, Input->dtForFrame, WaterZ);
-    RenderDebugElements(Render, Player, PlayerClip, World);
+    RenderScene(World, Render, Render->DefaultShaderProgram, Player, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    RenderGrassVBO(World, Render, Player);
+    RenderWater(World, Render, Player, Input->dtForFrame, WaterZ);
+    RenderDebugElements(World, Render, Player, PlayerClip);
     // DrawOrthoTexturedRectangle(Render, Render->WaterReflTexture, 320, 180, V2(340, 200));
     // DrawOrthoTexturedRectangle(Render, Render->WaterRefrTexture, 320, 180, V2(1000, 200));
     // DrawOrthoTexturedRectangle(Render, Render->DepthMap, 320, 180, V2(1550, 200));

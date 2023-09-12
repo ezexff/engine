@@ -17,11 +17,12 @@
 
 // #include "ode/ode.h"
 #include "engine_asset.h"
+#include "engine_world.h"
+#include "engine_sim_region.h"
 #include "engine_entity.h"
 #include "engine_render.h"
-#include "engine_world.h"
 // TODO(me): на слой платформы?
-//#include "gjk.c"
+// #include "gjk.c"
 
 // Usage:
 //  static ExampleAppLog my_log;
@@ -166,6 +167,27 @@ struct app_settings
     b32 RBUncappedIsActive;
 
     b32 RBVSyncIsActive;
+};
+
+struct controlled_hero
+{
+    uint32 EntityIndex;
+
+    // NOTE(casey): These are the controller requests for simulation
+    v2 ddP;
+    v2 dSword;
+    real32 dZ;
+};
+
+struct debug
+{
+    // imgui vars
+    bool DrawSimRegionBounds;
+    bool DrawSimRegionUpdatableBounds;
+    bool DrawSimChunks;
+    bool DrawChunkWhereCamera;
+    
+    bool DrawPlayerHitbox;
 
     bool ProcessAnimations;
 };
@@ -177,6 +199,19 @@ struct game_state
     memory_arena WorldArena; // постоянная память
 
     world *World;
+
+    uint32 CameraFollowingEntityIndex;
+    world_position CameraP;
+
+    controlled_hero ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
+
+    // TODO(casey): Change the name to "stored entity"
+    uint32 LowEntityCount;
+    low_entity LowEntities[100000];
+
+    debug *Debug;
+
+    // TODO(me): rework below
 
     render *Render;
 
@@ -207,5 +242,49 @@ struct game_state
     bool ShowAnotherWindow;
 };
 
+struct entity_visible_piece
+{
+    // loaded_bitmap *Bitmap;
+    v2 Offset;
+    real32 OffsetZ;
+    real32 EntityZC;
+
+    real32 R, G, B, A;
+    v2 Dim;
+};
+
+// TODO(casey): This is dumb, this should just be part of
+// the renderer pushbuffer - add correction of coordinates
+// in there and be done with it.
+struct entity_visible_piece_group
+{
+    game_state *GameState;
+    uint32 PieceCount;
+    entity_visible_piece Pieces[32];
+};
+
+inline low_entity *GetLowEntity(game_state *GameState, uint32 Index)
+{
+    low_entity *Result = 0;
+
+    if((Index > 0) && (Index < GameState->LowEntityCount))
+    {
+        Result = GameState->LowEntities + Index;
+    }
+
+    return (Result);
+}
+
 // game layer iteration
 internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, game_input *Input);
+
+v2 GetRelPos(world *World, world_position P)
+{
+    v2 Result = V2(0, 0);
+    return (Result);
+}
+v3 GetRelPos(world *World, world_position P, r32 Z)
+{
+    v3 Result = V3(0, 0, 0);
+    return (Result);
+}
