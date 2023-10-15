@@ -257,5 +257,5 @@ void RenderScene(render *Render, u32 ShaderProg, entity_player *Player, GLbitfie
 void RenderDebugElements(render *Render, entity_player *Player, entity_clip *PlayerClip);
 
 // camera
-internal void OGLSetCameraOnPlayer(world *World, entity_player *Player);
-internal void RotatePlayerCamera(entity_player *Player, r32 ZAngle, r32 XAngle, r32 Sensitivity);
+//internal void OGLSetCameraOnPlayer(world *World, entity_player *Player);
+//internal void RotatePlayerCamera(entity_player *Player, r32 ZAngle, r32 XAngle, r32 Sensitivity);

@@ -1,7 +1,9 @@
-#include <windows.h>
-// #define GLEW_STATIC
-// #include <GL/glew.h>
 #include <glad.c>
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+#include <stdio.h>
+
 #include <GLFW/glfw3.h>
 
 #include "engine_platform.h"
@@ -29,6 +31,9 @@ global_variable r64 LastTime = 0.0f;
 global_variable b32 GlobalUncappedFrameRate = false;
 global_variable s32 GlobalMaxFrameRate = 60;
 global_variable b32 GlobalIsVSyncEnabled = false;
+
+global_variable GLFWwindow *GlobalWindow;
+global_variable game_offscreen_buffer GlobalBuffer = {};
 // game_controller_input *KeyboardController = &Input.Controllers[0];
 
 // #pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
@@ -43,7 +48,7 @@ global_variable b32 GlobalIsVSyncEnabled = false;
 
 PLATFORM_TOGGLE_FRAMERATE_CAP(PlatformToggleFrameRateCap)
 {
-    GlobalUncappedFrameRate = !GlobalUncappedFrameRate;   
+    GlobalUncappedFrameRate = !GlobalUncappedFrameRate;
 }
 
 PLATFORM_TOGGLE_VSYNC(PlatformToggleVSync)
@@ -62,13 +67,13 @@ PLATFORM_TOGGLE_FULLSCREEN(PlatformToggleFullscreen)
     GlobalIsWindowMode = !GlobalIsWindowMode;
     if(GlobalIsWindowMode)
     {
-        glfwSetWindowMonitor(Window, NULL, 100, 100, 1280, 720, 144);
+        glfwSetWindowMonitor(GlobalWindow, NULL, 100, 100, 1280, 720, 144);
     }
     else
     {
         GLFWmonitor *Monitor = glfwGetPrimaryMonitor();
         const GLFWvidmode *Mode = glfwGetVideoMode(Monitor);
-        glfwSetWindowMonitor(Window, Monitor, 0, 0, Mode->width, Mode->height, Mode->refreshRate);
+        glfwSetWindowMonitor(GlobalWindow, Monitor, 0, 0, Mode->width, Mode->height, Mode->refreshRate);
     }
 }
 
@@ -111,6 +116,10 @@ internal void KeyCallback(GLFWwindow *Window, int Key, int Scancode, int Action,
     GlfwProcessKey(Key, GLFW_KEY_A, Action, &NewKeyboardController->MoveLeft);
     GlfwProcessKey(Key, GLFW_KEY_D, Action, &NewKeyboardController->MoveRight);
     GlfwProcessKey(Key, GLFW_KEY_SPACE, Action, &NewKeyboardController->Start);
+    GlfwProcessKey(Key, GLFW_KEY_UP, Action, &NewKeyboardController->ActionUp);
+    GlfwProcessKey(Key, GLFW_KEY_DOWN, Action, &NewKeyboardController->ActionDown);
+    GlfwProcessKey(Key, GLFW_KEY_LEFT, Action, &NewKeyboardController->ActionLeft);
+    GlfwProcessKey(Key, GLFW_KEY_RIGHT, Action, &NewKeyboardController->ActionRight);
 
     // Dev inputs
 #if ENGINE_INTERNAL
@@ -120,7 +129,7 @@ internal void KeyCallback(GLFWwindow *Window, int Key, int Scancode, int Action,
     }
     if(Key == GLFW_KEY_F1 && Action == GLFW_PRESS)
     {
-        PlatformToggleFullscreen(Window);
+        PlatformToggleFullscreen();
     }
     if(Key == GLFW_KEY_LEFT_CONTROL && Action == GLFW_PRESS)
     {
@@ -184,6 +193,7 @@ int main(int, char **)
 
     // Create window with graphics context
     GLFWwindow *Window = glfwCreateWindow(1280, 720, "Engine window title", NULL, NULL);
+    GlobalWindow = Window;
     if(Window == NULL)
     {
         InvalidCodePath;
@@ -252,7 +262,7 @@ int main(int, char **)
 
     game_memory GameMemory = {};
     GameMemory.PermanentStorageSize = Megabytes(32);
-    GameMemory.TransientStorageSize = Megabytes(16);
+    GameMemory.TransientStorageSize = Megabytes(32);
 
 #if ENGINE_INTERNAL
     GameMemory.PlatformAPI.ToggleFullscreen = PlatformToggleFullscreen;
@@ -321,11 +331,15 @@ int main(int, char **)
                 // imgui, and hide them from your application based on those two flags.
                 glfwPollEvents();
 
-                EngineUpdateAndRender(Window, &GameMemory, NewInput);
+                glfwGetFramebufferSize(Window, &GlobalBuffer.Width, &GlobalBuffer.Height);
+
+                EngineUpdateAndRender(&GameMemory, NewInput, &GlobalBuffer);
 
                 game_input *Temp = NewInput;
                 NewInput = OldInput;
                 OldInput = Temp;
+
+                glfwSwapBuffers(Window);
             }
         }
     }

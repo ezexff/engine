@@ -37,14 +37,14 @@ typedef uint64 u64;
 
 typedef real32 r32;
 typedef real64 r64;
-//typedef real32 f32;
-//typedef real64 f64;
+// typedef real32 f32;
+// typedef real64 f64;
 
 typedef uintptr_t umm;
 typedef intptr_t smm;
 
-//typedef b32 b32x;
-//typedef u32 u32x;
+// typedef b32 b32x;
+// typedef u32 u32x;
 
 #define flag8(type) u8
 #define flag16(type) u16
@@ -216,6 +216,12 @@ struct rectangle2
 {
     v2 Min;
     v2 Max;
+};
+
+struct rectangle3
+{
+    v3 Min;
+    v3 Max;
 };
 
 //

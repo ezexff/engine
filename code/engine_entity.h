@@ -2,7 +2,7 @@ struct entity_player
 {
     // v3 Position;
     v2 dP; // derivative от позиции игрока | производная от позиции игрока | v - скорость игрока
-    world_position P;
+    // world_position P;
     r32 TmpZ;
 
     // на плоскости (для коллизий)
@@ -18,8 +18,8 @@ struct entity_player
 
 struct entity_clip
 {
-    world_position P;
-    // v2 P; // in camera space
+    // world_position P;
+    //  v2 P; // in camera space
     r32 Side;
 };
 
@@ -60,16 +60,7 @@ internal m4x4 *CreateInstancingTransformMatrices(memory_arena *WorldArena,  //
                                                  */
 // TODO(me): remove above
 
-struct low_entity
-{
-    // TODO(casey): It's kind of busted that P's can be invalid here,
-    // AND we store whether they would be invalid in the flags field...
-    // Can we do something better here?
-    world_position P;
-    sim_entity Sim;
-};
-
-#define InvalidP V2(100000.0f, 100000.0f)
+#define InvalidP V3(100000.0f, 100000.0f, 100000.0f)
 
 inline bool32 IsSet(sim_entity *Entity, uint32 Flag)
 {
@@ -78,25 +69,50 @@ inline bool32 IsSet(sim_entity *Entity, uint32 Flag)
     return (Result);
 }
 
-inline void AddFlag(sim_entity *Entity, uint32 Flag)
+inline void AddFlags(sim_entity *Entity, uint32 Flag)
 {
     Entity->Flags |= Flag;
 }
 
-inline void ClearFlag(sim_entity *Entity, uint32 Flag)
+inline void ClearFlags(sim_entity *Entity, uint32 Flag)
 {
     Entity->Flags &= ~Flag;
 }
 
 inline void MakeEntityNonSpatial(sim_entity *Entity)
 {
-    AddFlag(Entity, EntityFlag_Nonspatial);
+    AddFlags(Entity, EntityFlag_Nonspatial);
     Entity->P = InvalidP;
 }
 
-inline void MakeEntitySpatial(sim_entity *Entity, v2 P, v2 dP)
+inline void MakeEntitySpatial(sim_entity *Entity, v3 P, v3 dP)
 {
-    ClearFlag(Entity, EntityFlag_Nonspatial);
+    ClearFlags(Entity, EntityFlag_Nonspatial);
     Entity->P = P;
     Entity->dP = dP;
+}
+
+inline v3 GetEntityGroundPoint(sim_entity *Entity, v3 ForEntityP)
+{
+    v3 Result = ForEntityP;
+
+    return (Result);
+}
+
+inline v3 GetEntityGroundPoint(sim_entity *Entity)
+{
+    v3 Result = GetEntityGroundPoint(Entity, Entity->P);
+
+    return (Result);
+}
+
+inline real32 GetStairGround(sim_entity *Entity, v3 AtGroundPoint)
+{
+    Assert(Entity->Type == EntityType_Stairwell);
+
+    rectangle2 RegionRect = RectCenterDim(Entity->P.xy, Entity->WalkableDim);
+    v2 Bary = Clamp01(GetBarycentric(RegionRect, AtGroundPoint.xy));
+    real32 Result = Entity->P.z + Bary.y * Entity->WalkableHeight;
+
+    return (Result);
 }

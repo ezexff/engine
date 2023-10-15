@@ -65,9 +65,25 @@ inline v2 GetCenter(rectangle2 Rect);
 inline rectangle2 RectMinMax(v2 Min, v2 Max);
 inline rectangle2 RectMinDim(v2 Min, v2 Dim);
 inline rectangle2 RectCenterHalfDim(v2 Center, v2 HalfDim);
-inline rectangle2 AddRadiusTo(rectangle2 A, real32 RadiusW, real32 RadiusH);
+inline rectangle2 AddRadiusTo(rectangle2 A, v2 Radius);
 inline rectangle2 RectCenterDim(v2 Center, v2 Dim);
 inline bool32 IsInRectangle(rectangle2 Rectangle, v2 Test);
+inline v2 GetBarycentric(rectangle2 A, v2 P);
+
+// rectangle3 operations
+inline v3 GetMinCorner(rectangle3 Rect);
+inline v3 GetMaxCorner(rectangle3 Rect);
+inline v3 GetCenter(rectangle3 Rect);
+inline rectangle3 RectMinMax(v3 Min, v3 Max);
+inline rectangle3 RectMinDim(v3 Min, v3 Dim);
+inline rectangle3 RectCenterHalfDim(v3 Center, v3 HalfDim);
+inline rectangle3 AddRadiusTo(rectangle3 A, v3 Radius);
+inline rectangle3 Offset(rectangle3 A, v3 Offset);
+inline rectangle3 RectCenterDim(v3 Center, v3 Dim);
+inline b32 IsInRectangle(rectangle3 Rectangle, v3 Test);
+inline b32 RectanglesIntersect(rectangle3 A, rectangle3 B);
+inline v3 GetBarycentric(rectangle3 A, v3 P);
+inline rectangle2 ToRectangleXY(rectangle3 A);
 
 // m4x4 init
 internal m4x4 Columns3x3(v3 X, v3 Y, v3 Z);
@@ -683,12 +699,12 @@ inline rectangle2 RectCenterHalfDim(v2 Center, v2 HalfDim)
     return (Result);
 }
 
-inline rectangle2 AddRadiusTo(rectangle2 A, real32 RadiusW, real32 RadiusH)
+inline rectangle2 AddRadiusTo(rectangle2 A, v2 Radius)
 {
     rectangle2 Result;
 
-    Result.Min = A.Min - V2(RadiusW, RadiusW);
-    Result.Max = A.Max + V2(RadiusH, RadiusH);
+    Result.Min = A.Min - Radius;
+    Result.Max = A.Max + Radius;
 
     return (Result);
 }
@@ -706,6 +722,132 @@ inline bool32 IsInRectangle(rectangle2 Rectangle, v2 Test)
                      (Test.y >= Rectangle.Min.y) && //
                      (Test.x < Rectangle.Max.x) &&  //
                      (Test.y < Rectangle.Max.y));
+
+    return (Result);
+}
+
+inline v2 GetBarycentric(rectangle2 A, v2 P)
+{
+    v2 Result;
+
+    Result.x = SafeRatio0(P.x - A.Min.x, A.Max.x - A.Min.x);
+    Result.y = SafeRatio0(P.y - A.Min.y, A.Max.y - A.Min.y);
+
+    return (Result);
+}
+
+// NOTE(me): rectangle3 operations
+inline v3 GetMinCorner(rectangle3 Rect)
+{
+    v3 Result = Rect.Min;
+    return (Result);
+}
+
+inline v3 GetMaxCorner(rectangle3 Rect)
+{
+    v3 Result = Rect.Max;
+    return (Result);
+}
+
+inline v3 GetCenter(rectangle3 Rect)
+{
+    v3 Result = 0.5f * (Rect.Min + Rect.Max);
+    return (Result);
+}
+
+inline rectangle3 RectMinMax(v3 Min, v3 Max)
+{
+    rectangle3 Result;
+
+    Result.Min = Min;
+    Result.Max = Max;
+
+    return (Result);
+}
+
+inline rectangle3 RectMinDim(v3 Min, v3 Dim)
+{
+    rectangle3 Result;
+
+    Result.Min = Min;
+    Result.Max = Min + Dim;
+
+    return (Result);
+}
+
+inline rectangle3 RectCenterHalfDim(v3 Center, v3 HalfDim)
+{
+    rectangle3 Result;
+
+    Result.Min = Center - HalfDim;
+    Result.Max = Center + HalfDim;
+
+    return (Result);
+}
+
+inline rectangle3 AddRadiusTo(rectangle3 A, v3 Radius)
+{
+    rectangle3 Result;
+
+    Result.Min = A.Min - Radius;
+    Result.Max = A.Max + Radius;
+
+    return (Result);
+}
+
+inline rectangle3 Offset(rectangle3 A, v3 Offset)
+{
+    rectangle3 Result;
+
+    Result.Min = A.Min + Offset;
+    Result.Max = A.Max + Offset;
+
+    return (Result);
+}
+
+inline rectangle3 RectCenterDim(v3 Center, v3 Dim)
+{
+    rectangle3 Result = RectCenterHalfDim(Center, 0.5f * Dim);
+
+    return (Result);
+}
+
+inline b32 IsInRectangle(rectangle3 Rectangle, v3 Test)
+{
+    b32 Result = ((Test.x >= Rectangle.Min.x) && //
+                  (Test.y >= Rectangle.Min.y) && //
+                  (Test.z >= Rectangle.Min.z) && //
+                  (Test.x < Rectangle.Max.x) &&  //
+                  (Test.y < Rectangle.Max.y) &&  //
+                  (Test.z < Rectangle.Max.z));
+
+    return (Result);
+}
+
+inline b32 RectanglesIntersect(rectangle3 A, rectangle3 B)
+{
+    b32 Result = !((B.Max.x <= A.Min.x) || (B.Min.x >= A.Max.x) || (B.Max.y <= A.Min.y) || (B.Min.y >= A.Max.y) ||
+                   (B.Max.z <= A.Min.z) || (B.Min.z >= A.Max.z));
+    return (Result);
+}
+
+inline v3 GetBarycentric(rectangle3 A, v3 P)
+{
+    v3 Result;
+
+    Result.x = SafeRatio0(P.x - A.Min.x, A.Max.x - A.Min.x);
+    Result.y = SafeRatio0(P.y - A.Min.y, A.Max.y - A.Min.y);
+    Result.z = SafeRatio0(P.z - A.Min.z, A.Max.z - A.Min.z);
+
+    return (Result);
+}
+
+inline rectangle2 ToRectangleXY(rectangle3 A)
+{
+    rectangle2 Result;
+
+    Result.Min = A.Min.xy;
+    Result.Max = A.Max.xy;
 
     return (Result);
 }
@@ -1155,140 +1297,3 @@ inline r32 SafeRatio1(r32 Numerator, r32 Divisor)
 
     return (Result);
 }
-
-//
-// NOTE(casey): Rectangle3
-//
-/*
-inline v3
-GetMinCorner(rectangle3 Rect)
-{
-    v3 Result = Rect.Min;
-    return(Result);
-}
-
-inline v3
-GetMaxCorner(rectangle3 Rect)
-{
-    v3 Result = Rect.Max;
-    return(Result);
-}
-
-inline v3
-GetCenter(rectangle3 Rect)
-{
-    v3 Result = 0.5f*(Rect.Min + Rect.Max);
-    return(Result);
-}
-
-inline rectangle3
-RectMinMax(v3 Min, v3 Max)
-{
-    rectangle3 Result;
-
-    Result.Min = Min;
-    Result.Max = Max;
-
-    return(Result);
-}
-
-inline rectangle3
-RectMinDim(v3 Min, v3 Dim)
-{
-    rectangle3 Result;
-
-    Result.Min = Min;
-    Result.Max = Min + Dim;
-
-    return(Result);
-}
-
-inline rectangle3
-RectCenterHalfDim(v3 Center, v3 HalfDim)
-{
-    rectangle3 Result;
-
-    Result.Min = Center - HalfDim;
-    Result.Max = Center + HalfDim;
-
-    return(Result);
-}
-
-inline rectangle3
-AddRadiusTo(rectangle3 A, v3 Radius)
-{
-    rectangle3 Result;
-
-    Result.Min = A.Min - Radius;
-    Result.Max = A.Max + Radius;
-
-    return(Result);
-}
-
-inline rectangle3
-Offset(rectangle3 A, v3 Offset)
-{
-    rectangle3 Result;
-
-    Result.Min = A.Min + Offset;
-    Result.Max = A.Max + Offset;
-
-    return(Result);
-}
-
-inline rectangle3
-RectCenterDim(v3 Center, v3 Dim)
-{
-    rectangle3 Result = RectCenterHalfDim(Center, 0.5f*Dim);
-
-    return(Result);
-}
-
-inline b32
-IsInRectangle(rectangle3 Rectangle, v3 Test)
-{
-    b32 Result = ((Test.x >= Rectangle.Min.x) &&
-                     (Test.y >= Rectangle.Min.y) &&
-                     (Test.z >= Rectangle.Min.z) &&
-                     (Test.x < Rectangle.Max.x) &&
-                     (Test.y < Rectangle.Max.y) &&
-                     (Test.z < Rectangle.Max.z));
-
-    return(Result);
-}
-
-inline b32
-RectanglesIntersect(rectangle3 A, rectangle3 B)
-{
-    b32 Result = !((B.Max.x <= A.Min.x) ||
-                      (B.Min.x >= A.Max.x) ||
-                      (B.Max.y <= A.Min.y) ||
-                      (B.Min.y >= A.Max.y) ||
-                      (B.Max.z <= A.Min.z) ||
-                      (B.Min.z >= A.Max.z));
-    return(Result);
-}
-
-inline v3
-GetBarycentric(rectangle3 A, v3 P)
-{
-    v3 Result;
-
-    Result.x = SafeRatio0(P.x - A.Min.x, A.Max.x - A.Min.x);
-    Result.y = SafeRatio0(P.y - A.Min.y, A.Max.y - A.Min.y);
-    Result.z = SafeRatio0(P.z - A.Min.z, A.Max.z - A.Min.z);
-
-    return(Result);
-}
-
-inline rectangle2
-ToRectangleXY(rectangle3 A)
-{
-    rectangle2 Result;
-
-    Result.Min = A.Min.xy;
-    Result.Max = A.Max.xy;
-
-    return(Result);
-}
-*/

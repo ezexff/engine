@@ -1,19 +1,22 @@
 struct move_spec
 {
-    b32 UnitMaxAccelVector;
-    r32 Speed;
-    r32 Drag;
+    bool32 UnitMaxAccelVector;
+    real32 Speed;
+    real32 Drag;
 };
 
 enum entity_type
 {
     EntityType_Null,
 
+    EntityType_Space,
+
     EntityType_Hero,
     EntityType_Wall,
     EntityType_Familiar,
     EntityType_Monstar,
     EntityType_Sword,
+    EntityType_Stairwell,
 };
 
 #define HIT_POINT_SUB_COUNT 4
@@ -28,50 +31,85 @@ struct hit_point
 struct sim_entity;
 union entity_reference {
     sim_entity *Ptr;
-    u32 Index;
+    uint32 Index;
 };
 
 enum sim_entity_flags
 {
     // TODO(casey): Does it make more sense to have the flag be for _non_ colliding entities?
+    // TODO(casey): Collides and ZSupported probably can be removed now/soon
     EntityFlag_Collides = (1 << 0),
     EntityFlag_Nonspatial = (1 << 1),
+    EntityFlag_Moveable = (1 << 2),
+    EntityFlag_ZSupported = (1 << 3),
+    EntityFlag_Traversable = (1 << 4),
 
     EntityFlag_Simming = (1 << 30),
 };
 
+struct sim_entity_collision_volume
+{
+    v3 OffsetP;
+    v3 Dim;
+};
+
+struct sim_entity_collision_volume_group
+{
+    sim_entity_collision_volume TotalVolume;
+
+    // TODO(casey): VolumeCount is always expected to be greater than 0 if the entity
+    // has any volume... in the future, this could be compressed if necessary to say
+    // that the VolumeCount can be 0 if the TotalVolume should be used as the only
+    // collision volume for the entity.
+    uint32 VolumeCount;
+    sim_entity_collision_volume *Volumes;
+};
+
+v3 GetDim(sim_entity_collision_volume_group *Collision)
+{
+    v3 Result = Collision->TotalVolume.Dim;
+    return (Result);
+}
+
+v3 GetCenter(sim_entity_collision_volume_group *Collision)
+{
+    v3 Result = Collision->TotalVolume.OffsetP;
+    return (Result);
+}
+
 struct sim_entity
 {
     // NOTE(casey): These are only for the sim region
-    u32 StorageIndex;
-    b32 Updatable;
+    world_chunk *OldChunk;
+    uint32 StorageIndex;
+    bool32 Updatable;
 
     //
 
     entity_type Type;
-    u32 Flags;
+    uint32 Flags;
 
-    v2 P;
-    v2 dP;
+    v3 P;
+    v3 dP;
 
-    r32 Z;
-    r32 dZ;
+    real32 DistanceLimit;
 
-    u32 ChunkZ;
+    sim_entity_collision_volume_group *Collision;
 
-    r32 Width, Height;
+    uint32 FacingDirection;
+    real32 tBob;
 
-    u32 FacingDirection;
-    r32 tBob;
-
-    s32 dAbsTileZ;
+    int32 dAbsTileZ;
 
     // TODO(casey): Should hitpoints themselves be entities?
-    u32 HitPointMax;
+    uint32 HitPointMax;
     hit_point HitPoint[16];
 
     entity_reference Sword;
-    r32 DistanceRemaining;
+
+    // TODO(casey): Only for stairwells!
+    v2 WalkableDim;
+    real32 WalkableHeight;
 
     // TODO(casey): Generation index so we know how "up to date" this entity is.
 };
@@ -79,7 +117,7 @@ struct sim_entity
 struct sim_entity_hash
 {
     sim_entity *Ptr;
-    u32 Index;
+    uint32 Index;
 };
 
 struct sim_region
@@ -88,13 +126,15 @@ struct sim_region
     // to sim entities!
 
     world *World;
+    real32 MaxEntityRadius;
+    real32 MaxEntityVelocity;
 
     world_position Origin;
-    rectangle2 Bounds;
-    rectangle2 UpdatableBounds;
+    rectangle3 Bounds;
+    rectangle3 UpdatableBounds;
 
-    u32 MaxEntityCount;
-    u32 EntityCount;
+    uint32 MaxEntityCount;
+    uint32 EntityCount;
     sim_entity *Entities;
 
     // TODO(casey): Do I really want a hash for this??

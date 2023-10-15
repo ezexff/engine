@@ -4,7 +4,7 @@
 //
 // NOTE(me): Camera
 //
-internal void OGLSetCameraOnPlayer(world *World, entity_player *Player)
+/*internal void OGLSetCameraOnPlayer(world *World, entity_player *Player)
 {
     glRotatef(-Player->CameraPitch, 1.0f, 0.0f, 0.0f);
     glRotatef(-Player->CameraYaw, 0.0f, 0.0f, 1.0f);
@@ -35,11 +35,12 @@ internal void RotatePlayerCamera(entity_player *Player, r32 ZAngle, r32 XAngle, 
         Player->CameraPitchInversed = 0;
     if(Player->CameraPitchInversed > 180)
         Player->CameraPitchInversed = 180;
-}
+}*/
 
 //
 // NOTE(me): Shaders
 //
+/*
 GLuint LoadShader(char *Path, GLuint Type)
 {
     FILE *FileHandle;
@@ -1206,7 +1207,7 @@ void DrawOrthoTexturedRectangle(render *Render, u32 Texture, r32 TextureWidth, s
     glPopMatrix();
 
     glDisable(GL_TEXTURE_2D);
-}
+}*/
 
 internal void OGLDrawLinesOXYZ(v3 Normal, r32 LineWidth, r32 LineMin = -0.5, r32 LineMax = 0.5, r32 Offset = 0.001)
 {
@@ -1350,13 +1351,8 @@ void DrawTexturedRectangle(r32 VRectangle[], u32 Texture, r32 Repeat)
     glDisable(GL_TEXTURE_2D);
 }
 
-internal void RenderPlayerClipZones(world *World, render *Render, entity_clip *PlayerClip)
+/*internal void RenderPlayerClipZones(world *World, render *Render, entity_clip *PlayerClip)
 {
-    /*r32 MinX = PlayerClip->CenterPos.x - 0.5f * PlayerClip->Side;
-    r32 MinY = PlayerClip->CenterPos.y - 0.5f * PlayerClip->Side;
-    r32 MaxX = PlayerClip->CenterPos.x + 0.5f * PlayerClip->Side;
-    r32 MaxY = PlayerClip->CenterPos.y + 0.5f * PlayerClip->Side;
-    */
     v2 ClipCenterP = GetRelPos(World, PlayerClip->P);
     r32 MinX = ClipCenterP.x - 0.5f * PlayerClip->Side;
     r32 MinY = ClipCenterP.y - 0.5f * PlayerClip->Side;
@@ -1380,7 +1376,7 @@ internal void RenderPlayerClipZones(world *World, render *Render, entity_clip *P
     glEnable(GL_LINE_SMOOTH);
     DrawRectangularParallelepiped(MinX, MinY, MaxX, MaxY, MinZ, 2.7f, V3(1, 0, 0));
     glDisable(GL_LINE_SMOOTH);
-}
+}*/
 
 internal void RenderLightingPositions(render *Render)
 {
@@ -1463,7 +1459,7 @@ internal void DrawColoredRectangle(r32 MinX, r32 MinY, r32 MaxX, r32 MaxY, r32 Z
 }
 */
 
-internal void RenderWater(world *World, render *Render, entity_player *Player, r32 dtForFrame, r32 WaterZ)
+/*internal void RenderWater(world *World, render *Render, entity_player *Player, r32 dtForFrame, r32 WaterZ)
 {
 #if 1
     u32 ShaderProg = Render->WaterShaderProgram;
@@ -1574,7 +1570,7 @@ internal void RenderWater(world *World, render *Render, entity_player *Player, r
 
     glUseProgram(0);
     glActiveTexture(GL_TEXTURE0);
-}
+}*/
 
 void InitWaterFBOs(render *Render)
 {
@@ -1664,7 +1660,7 @@ void InitDepthMapFBO(render *Render)
     glReadBuffer(GL_NONE);
 }
 
-void RenderScene(world *World, render *Render, u32 ShaderProg, entity_player *Player, GLbitfield glClearMask)
+/*void RenderScene(world *World, render *Render, u32 ShaderProg, entity_player *Player, GLbitfield glClearMask)
 {
     glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
     glEnable(GL_DEPTH_TEST);
@@ -1677,7 +1673,7 @@ void RenderScene(world *World, render *Render, u32 ShaderProg, entity_player *Pl
     RenderEnvVBOs(World, Render, ShaderProg, Player);
     // glDisable(GL_ALPHA_TEST);
     // glDisable(GL_NORMALIZE);
-}
+}*/
 /*
 void DrawRectangleOutline(r32 VRectangle[], v3 Color)
 {
@@ -1698,62 +1694,6 @@ void DrawRectangleOutline(r32 VRectangle[], v3 Color)
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
 }*/
-
-void DrawRectangleOutline(rectangle2 R, r32 Z, v3 Color)
-{
-    r32 VRectangle[] = {
-        // bot
-        R.Min.x, R.Min.y, Z, // 0
-        R.Max.x, R.Min.y, Z, // 1
-        R.Max.x, R.Max.y, Z, // 2
-        R.Min.x, R.Max.y, Z, // 3
-    };
-
-    r32 VertColors[] = {
-        Color.x, Color.y, Color.z, // 0
-        Color.x, Color.y, Color.z, // 1
-        Color.x, Color.y, Color.z, // 2
-        Color.x, Color.y, Color.z, // 3
-    };
-
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-
-    glVertexPointer(3, GL_FLOAT, 0, VRectangle);
-    glColorPointer(3, GL_FLOAT, 0, VertColors);
-    glDrawArrays(GL_LINE_LOOP, 0, 4);
-
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_COLOR_ARRAY);
-}
-
-void DrawRectangle(rectangle2 R, r32 Z, v3 Color)
-{
-    r32 VRectangle[] = {
-        // bot
-        R.Min.x, R.Min.y, Z, // 0
-        R.Max.x, R.Min.y, Z, // 1
-        R.Max.x, R.Max.y, Z, // 2
-        R.Min.x, R.Max.y, Z, // 3
-    };
-
-    r32 VertColors[] = {
-        Color.x, Color.y, Color.z, // 0
-        Color.x, Color.y, Color.z, // 1
-        Color.x, Color.y, Color.z, // 2
-        Color.x, Color.y, Color.z, // 3
-    };
-
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-
-    glVertexPointer(3, GL_FLOAT, 0, VRectangle);
-    glColorPointer(3, GL_FLOAT, 0, VertColors);
-    glDrawArrays(GL_QUADS, 0, 4);
-
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_COLOR_ARRAY);
-}
 
 /*
 internal void RenderWorldChunksBorders(world *World)
@@ -1810,7 +1750,7 @@ internal void RenderPlayerChunkRectangle(world *World, entity_player *Player)
 }*/
 
 // TODO(me): в качестве параметра передавать лишь GameState
-void RenderDebugElements(world *World, render *Render, entity_player *Player, entity_clip *PlayerClip)
+/*void RenderDebugElements(world *World, render *Render, entity_player *Player, entity_clip *PlayerClip)
 {
     glLoadIdentity();
     // матрица проекции
@@ -1831,4 +1771,4 @@ void RenderDebugElements(world *World, render *Render, entity_player *Player, en
     glScalef(5, 5, 5);
     OGLDrawLinesOXYZ(V3(0, 0, 1), 1); // World Start Point OXYZ
     glPopMatrix();
-}
+}*/

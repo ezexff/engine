@@ -3,9 +3,18 @@ struct memory_arena
     memory_index Size;
     uint8 *Base;
     memory_index Used;
+
+    int32 TempCount;
 };
 
-internal void InitializeArena(memory_arena *Arena, memory_index Size, void *Base)
+struct temporary_memory
+{
+    memory_arena *Arena;
+    memory_index Used;
+};
+
+internal void //
+InitializeArena(memory_arena *Arena, memory_index Size, void *Base)
 {
     Arena->Size = Size;
     Arena->Base = (uint8 *)Base;
@@ -15,6 +24,7 @@ internal void InitializeArena(memory_arena *Arena, memory_index Size, void *Base
 #define PushStruct(Arena, type) (type *)PushSize_(Arena, sizeof(type))
 #define PushArray(Arena, Count, type) (type *)PushSize_(Arena, (Count) * sizeof(type))
 #define PushCopy(Arena, Size, Source, ...) Copy(Size, Source, PushSize_(Arena, Size, ##__VA_ARGS__))
+#define PushSize(Arena, Size) PushSize_(Arena, Size)
 
 // #define ConstZ(Z) {sizeof(Z) - 1, (u8 *)(Z)}
 
@@ -33,7 +43,8 @@ inline void *Copy(memory_index Size, void *SourceInit, void *DestInit)
 
 #define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
 #define ZeroArray(Count, Pointer) ZeroSize(Count * sizeof((Pointer)[0]), Pointer)
-inline void ZeroSize(memory_index Size, void *Ptr)
+inline void //
+ZeroSize(memory_index Size, void *Ptr)
 {
     uint8 *Byte = (uint8 *)Ptr;
     while(Size--)
@@ -42,7 +53,8 @@ inline void ZeroSize(memory_index Size, void *Ptr)
     }
 }
 
-void *PushSize_(memory_arena *Arena, memory_index Size)
+inline void * //
+PushSize_(memory_arena *Arena, memory_index Size)
 {
     Assert((Arena->Used + Size) <= Arena->Size);
     void *Result = Arena->Base + Arena->Used;
@@ -51,6 +63,36 @@ void *PushSize_(memory_arena *Arena, memory_index Size)
     return (Result);
 }
 
+inline temporary_memory //
+BeginTemporaryMemory(memory_arena *Arena)
+{
+    temporary_memory Result;
+
+    Result.Arena = Arena;
+    Result.Used = Arena->Used;
+
+    ++Arena->TempCount;
+
+    return (Result);
+}
+
+inline void EndTemporaryMemory(temporary_memory TempMem)
+{
+    memory_arena *Arena = TempMem.Arena;
+    Assert(Arena->Used >= TempMem.Used);
+    Arena->Used = TempMem.Used;
+    Assert(Arena->TempCount > 0);
+    --Arena->TempCount;
+}
+
+inline void CheckArena(memory_arena *Arena)
+{
+    Assert(Arena->TempCount == 0);
+}
+
+//
+// NOTE(me): String
+//
 inline char *PushStringZ(memory_arena *Arena, char *Source)
 {
     u32 Size = 1;

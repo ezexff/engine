@@ -1,5 +1,3 @@
 /build/*
-!build/glfw3.dll
-!build/glew32.dll
 /data/*
 /tmp/*

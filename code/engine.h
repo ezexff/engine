@@ -1,12 +1,7 @@
-/*
-    TODO(me): переделать OldKeyboardController?
-    TODO(me): поддержка джостика?
-*/
+global_variable platform_api Platform;
+global_variable app_log Log;
 
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-#include <stdio.h>
+#include "stdlib.h" // for rand
 
 #include "engine_memory.h"
 #include "engine_intrinsics.h"
@@ -15,143 +10,12 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-// #include "ode/ode.h"
 #include "engine_asset.h"
 #include "engine_world.h"
 #include "engine_sim_region.h"
 #include "engine_entity.h"
 #include "engine_render.h"
-// TODO(me): на слой платформы?
-// #include "gjk.c"
-
-// Usage:
-//  static ExampleAppLog my_log;
-//  my_log.AddLog("Hello %d world\n", 123);
-//  my_log.Draw("title");
-struct app_log
-{
-    ImGuiTextBuffer Buf;
-    ImGuiTextFilter Filter;
-    ImVector<int> LineOffsets; // Index to lines offset. We maintain this with AddLog() calls.
-    bool AutoScroll;           // Keep scrolling if already at the bottom.
-
-    app_log()
-    {
-        AutoScroll = true;
-        Clear();
-    }
-
-    void Clear()
-    {
-        Buf.clear();
-        LineOffsets.clear();
-        LineOffsets.push_back(0);
-    }
-
-    void AddLog(const char *fmt, ...) IM_FMTARGS(2)
-    {
-        int old_size = Buf.size();
-        va_list args;
-        va_start(args, fmt);
-        Buf.appendfv(fmt, args);
-        va_end(args);
-        for(int new_size = Buf.size(); old_size < new_size; old_size++)
-            if(Buf[old_size] == '\n')
-                LineOffsets.push_back(old_size + 1);
-    }
-
-    void Draw(const char *title, bool *p_open = NULL)
-    {
-        if(!ImGui::Begin(title, p_open))
-        {
-            ImGui::End();
-            return;
-        }
-
-        // Options menu
-        if(ImGui::BeginPopup("Options"))
-        {
-            ImGui::Checkbox("Auto-scroll", &AutoScroll);
-            ImGui::EndPopup();
-        }
-
-        // Main window
-        if(ImGui::Button("Options"))
-            ImGui::OpenPopup("Options");
-        ImGui::SameLine();
-        bool clear = ImGui::Button("Clear");
-        ImGui::SameLine();
-        bool copy = ImGui::Button("Copy");
-        ImGui::SameLine();
-        Filter.Draw("Filter", -100.0f);
-
-        ImGui::Separator();
-        ImGui::BeginChild("scrolling", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
-
-        if(clear)
-            Clear();
-        if(copy)
-            ImGui::LogToClipboard();
-
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-        const char *buf = Buf.begin();
-        const char *buf_end = Buf.end();
-        if(Filter.IsActive())
-        {
-            // In this example we don't use the clipper when Filter is enabled.
-            // This is because we don't have a random access on the result on our filter.
-            // A real application processing logs with ten of thousands of entries may want to store the result of
-            // search/filter.. especially if the filtering function is not trivial (e.g. reg-exp).
-            for(int line_no = 0; line_no < LineOffsets.Size; line_no++)
-            {
-                const char *line_start = buf + LineOffsets[line_no];
-                const char *line_end =
-                    (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
-                if(Filter.PassFilter(line_start, line_end))
-                    ImGui::TextUnformatted(line_start, line_end);
-            }
-        }
-        else
-        {
-            // The simplest and easy way to display the entire buffer:
-            //   ImGui::TextUnformatted(buf_begin, buf_end);
-            // And it'll just work. TextUnformatted() has specialization for large blob of text and will fast-forward
-            // to skip non-visible lines. Here we instead demonstrate using the clipper to only process lines that are
-            // within the visible area.
-            // If you have tens of thousands of items and their processing cost is non-negligible, coarse clipping them
-            // on your side is recommended. Using ImGuiListClipper requires
-            // - A) random access into your data
-            // - B) items all being the  same height,
-            // both of which we can handle since we an array pointing to the beginning of each line of text.
-            // When using the filter (in the block of code above) we don't have random access into the data to display
-            // anymore, which is why we don't use the clipper. Storing or skimming through the search result would make
-            // it possible (and would be recommended if you want to search through tens of thousands of entries).
-            ImGuiListClipper clipper;
-            clipper.Begin(LineOffsets.Size);
-            while(clipper.Step())
-            {
-                for(int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++)
-                {
-                    const char *line_start = buf + LineOffsets[line_no];
-                    const char *line_end =
-                        (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
-                    ImGui::TextUnformatted(line_start, line_end);
-                }
-            }
-            clipper.End();
-        }
-        ImGui::PopStyleVar();
-
-        if(AutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
-            ImGui::SetScrollHereY(1.0f);
-
-        ImGui::EndChild();
-        ImGui::End();
-    }
-};
-
-global_variable platform_api Platform;
-global_variable app_log Log;
+#include "engine_render_group.h"
 
 struct app_settings
 {
@@ -169,6 +33,32 @@ struct app_settings
     b32 RBVSyncIsActive;
 };
 
+struct debug
+{
+    // imgui vars
+    bool DrawSimRegionBounds;
+    bool DrawSimRegionUpdatableBounds;
+    bool DrawSimChunks;
+    bool DrawChunkWhereCamera;
+
+    bool DrawPlayerHitbox;
+
+    bool LogCycleCounters;
+
+    bool ProcessAnimations;
+
+    s32 GroundBufferIndex;
+};
+
+struct low_entity
+{
+    // TODO(casey): It's kind of busted that P's can be invalid here,
+    // AND we store whether they would be invalid in the flags field...
+    // Can we do something better here?
+    world_position P;
+    sim_entity Sim;
+};
+
 struct controlled_hero
 {
     uint32 EntityIndex;
@@ -179,29 +69,63 @@ struct controlled_hero
     real32 dZ;
 };
 
-struct debug
+struct pairwise_collision_rule
 {
-    // imgui vars
-    bool DrawSimRegionBounds;
-    bool DrawSimRegionUpdatableBounds;
-    bool DrawSimChunks;
-    bool DrawChunkWhereCamera;
-    
-    bool DrawPlayerHitbox;
+    bool32 CanCollide;
+    uint32 StorageIndexA;
+    uint32 StorageIndexB;
 
-    bool ProcessAnimations;
+    pairwise_collision_rule *NextInHash;
+};
+struct game_state;
+internal void AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageIndexB, bool32 ShouldCollide);
+internal void ClearCollisionRulesFor(game_state *GameState, uint32 StorageIndex);
+
+/*struct loaded_bitmap
+{
+    v2 Align;
+
+    int32 Width;
+    int32 Height;
+    int32 Pitch;
+    void *Memory;
+};*/
+struct loaded_texture
+{
+    int32 Width;
+    int32 Height;
+    u32 Texture;
+    u32 DepthTexture;
+    u32 FBO;
+};
+struct ground_buffer
+{
+    // NOTE(casey): An invalid P tells us that this ground_buffer has not been filled
+    world_position P; // NOTE(casey): This is the center of the bitmap
+    // u32 Texture;
+    // loaded_bitmap Bitmap;
+    loaded_texture DrawBuffer;
 };
 
 struct game_state
 {
-    b32 IsInitialized;
-
-    memory_arena WorldArena; // постоянная память
+    bool32 IsInitialized;
+    memory_arena WorldArena;
 
     world *World;
 
+    r32 TypicalFloorHeight;
+
     uint32 CameraFollowingEntityIndex;
     world_position CameraP;
+    r32 CameraPitch;
+    r32 CameraYaw;
+
+    string TestTexture1Name;
+    u32 TestTexture1;
+
+    // real32 MetersToPixels;
+    // real32 PixelsToMeters;
 
     controlled_hero ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
 
@@ -209,17 +133,28 @@ struct game_state
     uint32 LowEntityCount;
     low_entity LowEntities[100000];
 
+    // TODO(casey): Must be power of two
+    pairwise_collision_rule *CollisionRuleHash[256];
+    pairwise_collision_rule *FirstFreeCollisionRule;
+
+    sim_entity_collision_volume_group *NullCollision;
+    sim_entity_collision_volume_group *SwordCollision;
+    sim_entity_collision_volume_group *StairCollision;
+    sim_entity_collision_volume_group *PlayerCollision;
+    sim_entity_collision_volume_group *MonstarCollision;
+    sim_entity_collision_volume_group *FamiliarCollision;
+    sim_entity_collision_volume_group *WallCollision;
+    sim_entity_collision_volume_group *StandardRoomCollision;
+
+    // TODO(me): переделать? убрать?
     debug *Debug;
 
     // TODO(me): rework below
-
     render *Render;
-
     app_settings *Settings;
 
-    // TODO(me): объединить все сущности и поместить структуру world?
+    // TODO(me): убрать
     entity_player *Player;
-
     entity_clip *Clip;
 
     // TODO(me): поменять на u32 EnvObjectsCount; и entity_envobject *EnvObjects;
@@ -230,40 +165,26 @@ struct game_state
 #define GRASS_OBJECTS_MAX 16
     entity_grassobject *GrassObjects[GRASS_OBJECTS_MAX];
 
-    // TODO: ODE test
-    // m4x4 GeomMatrix;
-    // MyObject Object;
-    // dWorldID World;
-    // dSpaceID Space;
-    // dJointGroupID contactgroup;
-
     // TODO(me): для тестов, убрать
     bool ShowDemoWindow;
     bool ShowAnotherWindow;
 };
 
-struct entity_visible_piece
+struct transient_state
 {
-    // loaded_bitmap *Bitmap;
-    v2 Offset;
-    real32 OffsetZ;
-    real32 EntityZC;
+    bool32 IsInitialized;
+    memory_arena TranArena;
 
-    real32 R, G, B, A;
-    v2 Dim;
+    u32 GroundBufferCount;
+    ground_buffer *GroundBuffers;
+
+    // uint32 GroundBufferCount;
+    // loaded_bitmap GroundBitmapTemplate;
+    // ground_buffer *GroundBuffers;
 };
 
-// TODO(casey): This is dumb, this should just be part of
-// the renderer pushbuffer - add correction of coordinates
-// in there and be done with it.
-struct entity_visible_piece_group
-{
-    game_state *GameState;
-    uint32 PieceCount;
-    entity_visible_piece Pieces[32];
-};
-
-inline low_entity *GetLowEntity(game_state *GameState, uint32 Index)
+inline low_entity * //
+GetLowEntity(game_state *GameState, uint32 Index)
 {
     low_entity *Result = 0;
 
@@ -275,16 +196,31 @@ inline low_entity *GetLowEntity(game_state *GameState, uint32 Index)
     return (Result);
 }
 
-// game layer iteration
-internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, game_input *Input);
+internal void //
+LogCycleCounters(game_memory *Memory)
+{
+#if ENGINE_INTERNAL
+    OutputDebugStringA("DEBUG CYCLE COUNTS:\n");
+    for(int CounterIndex = 0;                        //
+        CounterIndex < ArrayCount(Memory->Counters); //
+        ++CounterIndex)
+    {
+        debug_cycle_counter *Counter = Memory->Counters + CounterIndex;
 
-v2 GetRelPos(world *World, world_position P)
-{
-    v2 Result = V2(0, 0);
-    return (Result);
+        if(Counter->HitCount)
+        {
+            /*char TextBuffer[256];
+            _snprintf_s(TextBuffer, sizeof(TextBuffer), "  %d: %I64ucy %uh %I64ucy/h\n", CounterIndex,
+                        Counter->CycleCount, Counter->HitCount, Counter->CycleCount / Counter->HitCount);
+            OutputDebugStringA(TextBuffer);*/
+            Log.AddLog("[cycle_counter] ind=%d cycles=%d hits=%d cph=%d\n", //
+                       CounterIndex, Counter->CycleCount, Counter->HitCount, Counter->CycleCount / Counter->HitCount);
+            Counter->HitCount = 0;
+            Counter->CycleCount = 0;
+        }
+    }
+#endif
 }
-v3 GetRelPos(world *World, world_position P, r32 Z)
-{
-    v3 Result = V3(0, 0, 0);
-    return (Result);
-}
+
+// game layer iteration
+// internal void EngineUpdateAndRender(GLFWwindow *Window, game_memory *Memory, game_input *Input);

@@ -355,8 +355,9 @@ internal m4x4 *CreateInstancingTransformMatrices(memory_arena *WorldArena,  //
     return (Result);
 }
 
-// TODO(me): Clear above
-inline move_spec DefaultMoveSpec(void)
+// TODO(me): переделать всё что выше
+inline move_spec //
+DefaultMoveSpec(void)
 {
     move_spec Result;
 
