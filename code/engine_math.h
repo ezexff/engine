@@ -1,3 +1,112 @@
+//
+// NOTE(me): Vectors
+//
+union v2 {
+    struct
+    {
+        r32 x, y;
+    };
+    r32 E[2];
+};
+
+union v3 {
+    struct
+    {
+        r32 x, y, z;
+    };
+    struct
+    {
+        r32 r, g, b;
+    };
+    struct
+    {
+        v2 xy;
+        r32 Ignored0_;
+    };
+    struct
+    {
+        r32 Ignored1_;
+        v2 yz;
+    };
+    r32 E[3];
+};
+
+union v4 {
+    struct
+    {
+        union {
+            v3 xyz;
+            struct
+            {
+                r32 x, y, z;
+            };
+        };
+
+        r32 w;
+    };
+    struct
+    {
+        union {
+            v3 rgb;
+            struct
+            {
+                r32 r, g, b;
+            };
+        };
+
+        r32 a;
+    };
+    struct
+    {
+        v2 xy;
+        r32 Ignored0_;
+        r32 Ignored1_;
+    };
+    struct
+    {
+        r32 Ignored2_;
+        v2 yz;
+        r32 Ignored3_;
+    };
+    struct
+    {
+        r32 Ignored4_;
+        r32 Ignored5_;
+        v2 zw;
+    };
+    r32 E[4];
+};
+
+//
+// NOTE(me): Rectangles
+//
+struct rectangle2
+{
+    v2 Min;
+    v2 Max;
+};
+
+struct rectangle3
+{
+    v3 Min;
+    v3 Max;
+};
+
+//
+// NOTE(me): Matrices
+//
+struct m4x4
+{
+    // NOTE(me): These are stored ROW MAJOR - E[ROW][COLUMN]!!!
+    r32 E[4][4];
+};
+
+struct m4x4_inv
+{
+    m4x4 Forward;
+    m4x4 Inverse;
+};
+
 // v2 init
 inline v2 V2i(s32 X, s32 Y);
 inline v2 V2i(u32 X, u32 Y);
@@ -62,6 +171,7 @@ inline v4 AiLerp(v4 A, r32 t, v4 B);
 inline v2 GetMinCorner(rectangle2 Rect);
 inline v2 GetMaxCorner(rectangle2 Rect);
 inline v2 GetCenter(rectangle2 Rect);
+inline v2 GetDim(rectangle2 Rect);
 inline rectangle2 RectMinMax(v2 Min, v2 Max);
 inline rectangle2 RectMinDim(v2 Min, v2 Dim);
 inline rectangle2 RectCenterHalfDim(v2 Center, v2 HalfDim);
@@ -74,6 +184,7 @@ inline v2 GetBarycentric(rectangle2 A, v2 P);
 inline v3 GetMinCorner(rectangle3 Rect);
 inline v3 GetMaxCorner(rectangle3 Rect);
 inline v3 GetCenter(rectangle3 Rect);
+inline v3 GetDim(rectangle3 Rect);
 inline rectangle3 RectMinMax(v3 Min, v3 Max);
 inline rectangle3 RectMinDim(v3 Min, v3 Dim);
 inline rectangle3 RectCenterHalfDim(v3 Center, v3 HalfDim);
@@ -669,6 +780,12 @@ inline v2 GetCenter(rectangle2 Rect)
     return (Result);
 }
 
+inline v2 GetDim(rectangle2 Rect)
+{
+    v2 Result = Rect.Max - Rect.Min;
+    return (Result);
+}
+
 inline rectangle2 RectMinMax(v2 Min, v2 Max)
 {
     rectangle2 Result;
@@ -752,6 +869,12 @@ inline v3 GetMaxCorner(rectangle3 Rect)
 inline v3 GetCenter(rectangle3 Rect)
 {
     v3 Result = 0.5f * (Rect.Min + Rect.Max);
+    return (Result);
+}
+
+inline v3 GetDim(rectangle3 Rect)
+{
+    v3 Result = Rect.Max - Rect.Min;
     return (Result);
 }
 

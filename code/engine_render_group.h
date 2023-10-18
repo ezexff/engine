@@ -34,6 +34,8 @@ struct render_entry_texture
     render_entity_basis EntityBasis;
     u32 Texture;
     v2 Dim;
+    b32 FlipVertically;
+    r32 Repeat;
 };
 
 enum render_group_entry_type
@@ -53,8 +55,10 @@ struct render_group_entry_header
 
 struct render_group
 {
+    b32 IsOrthogonal;
     r32 CameraPitch;
     r32 CameraYaw;
+    r32 CameraRenderZ;
 
     render_basis *DefaultBasis;
 

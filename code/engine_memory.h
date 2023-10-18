@@ -93,6 +93,27 @@ inline void CheckArena(memory_arena *Arena)
 //
 // NOTE(me): String
 //
+struct buffer
+{
+    umm Count;
+    u8 *Data;
+};
+typedef buffer string;
+
+inline u32 StringLength(char *String)
+{
+    u32 Count = 0;
+    if(String)
+    {
+        while(*String++)
+        {
+            ++Count;
+        }
+    }
+
+    return (Count);
+}
+
 inline char *PushStringZ(memory_arena *Arena, char *Source)
 {
     u32 Size = 1;

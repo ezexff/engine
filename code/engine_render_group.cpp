@@ -23,7 +23,7 @@ UpdateBufferFBO(game_offscreen_buffer *Buffer)
 
 internal render_group *                                         //
 AllocateRenderGroup(memory_arena *Arena, u32 MaxPushBufferSize, //
-                    r32 CameraPitch, r32 CameraYaw)
+                    r32 CameraPitch, r32 CameraYaw, r32 CameraRenderZ, b32 IsOrthogonal = false)
 {
     render_group *Result = PushStruct(Arena, render_group);
     Result->PushBufferBase = (uint8 *)PushSize(Arena, MaxPushBufferSize);
@@ -38,6 +38,9 @@ AllocateRenderGroup(memory_arena *Arena, u32 MaxPushBufferSize, //
     // glfwGetFramebufferSize(Window, &Result->DisplayWidth, &Result->DisplayHeight);
     Result->CameraPitch = CameraPitch;
     Result->CameraYaw = CameraYaw;
+    Result->CameraRenderZ = CameraRenderZ;
+
+    Result->IsOrthogonal = IsOrthogonal;
 
     return (Result);
 }
@@ -120,7 +123,7 @@ internal void //
 glDrawRect(rectangle2 R, r32 Z, v3 Color)
 {
     r32 VRectangle[] = {
-        // bot
+        // ground
         R.Min.x, R.Min.y, Z, // 0
         R.Max.x, R.Min.y, Z, // 1
         R.Max.x, R.Max.y, Z, // 2
@@ -176,7 +179,7 @@ internal void //
 glDrawRectOutline(rectangle2 R, r32 Z, v3 Color, r32 LineWidth)
 {
     r32 VRectangle[] = {
-        // bot
+        // ground
         R.Min.x, R.Min.y, Z, // 0
         R.Max.x, R.Min.y, Z, // 1
         R.Max.x, R.Max.y, Z, // 2
@@ -208,7 +211,7 @@ glDrawRectOutline(rectangle2 R, r32 Z, v3 Color, r32 LineWidth)
 }
 
 inline void //
-PushTexture(render_group *Group, v3 Offset, v2 Dim, u32 Texture)
+PushTexture(render_group *Group, v3 Offset, v2 Dim, u32 Texture, b32 FlipVertically = false, r32 Repeat = 1.0f)
 {
     render_entry_texture *Piece = PushRenderElement(Group, render_entry_texture);
     if(Piece)
@@ -217,14 +220,16 @@ PushTexture(render_group *Group, v3 Offset, v2 Dim, u32 Texture)
         Piece->EntityBasis.Offset = Offset - V3(0.5f * Dim, 0);
         Piece->Texture = Texture;
         Piece->Dim = Dim;
+        Piece->FlipVertically = FlipVertically;
+        Piece->Repeat = Repeat;
     }
 }
 
 internal void //
-glDrawTexture(rectangle2 R, r32 Z, u32 Texture, r32 Repeat = 1.0f)
+glDrawTexture(rectangle2 R, r32 Z, u32 Texture, b32 FlipVertically, r32 Repeat)
 {
     r32 VRect[] = {
-        // bot
+        // ground
         R.Min.x, R.Min.y, Z, // 0
         R.Max.x, R.Min.y, Z, // 1
         R.Max.x, R.Max.y, Z, // 2
@@ -232,6 +237,13 @@ glDrawTexture(rectangle2 R, r32 Z, u32 Texture, r32 Repeat = 1.0f)
     };
 
     r32 UVRect[] = {
+        0,      0,      // 0
+        Repeat, 0,      // 1
+        Repeat, Repeat, // 2
+        0,      Repeat  // 3
+    };
+
+    r32 UVRectFlippedVertically[] = {
         0,      Repeat, // 0
         Repeat, Repeat, // 1
         Repeat, 0,      // 2
@@ -246,7 +258,14 @@ glDrawTexture(rectangle2 R, r32 Z, u32 Texture, r32 Repeat = 1.0f)
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 
     glVertexPointer(3, GL_FLOAT, 0, VRect);
-    glTexCoordPointer(2, GL_FLOAT, 0, UVRect);
+    if(FlipVertically)
+    {
+        glTexCoordPointer(2, GL_FLOAT, 0, UVRectFlippedVertically);
+    }
+    else
+    {
+        glTexCoordPointer(2, GL_FLOAT, 0, UVRect);
+    }
     glDrawArrays(GL_QUADS, 0, 4);
 
     glDisableClientState(GL_VERTEX_ARRAY);
@@ -255,7 +274,6 @@ glDrawTexture(rectangle2 R, r32 Z, u32 Texture, r32 Repeat = 1.0f)
     glDisable(GL_TEXTURE_2D);
 }
 
-
 internal void                                                                //
 RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //, loaded_bitmap *OutputTarget)
 {
@@ -263,9 +281,6 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
 
     v2 ScreenCenter = {0.5f * (r32)OutputTarget->Width, //
                        0.5f * (r32)OutputTarget->Height};
-
-    r32 AspectRatio = (r32)OutputTarget->Width / (r32)OutputTarget->Height;
-    r32 FOV = 0.1f;
 
     glBindFramebuffer(GL_FRAMEBUFFER, OutputTarget->FBO);
 
@@ -284,22 +299,38 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Buffer->DepthTexture, 0);*/
 
-    glViewport(0, 0, OutputTarget->Width, OutputTarget->Height);
-    glEnable(GL_DEPTH_TEST);
-    // glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
-    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glLoadIdentity();
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, //
-              -FOV, FOV, FOV * 2, 1000);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // set camera
-    glRotatef(-RenderGroup->CameraPitch, 1.0f, 0.0f, 0.0f);
-    glRotatef(-RenderGroup->CameraYaw, 0.0f, 0.0f, 1.0f);
-    // TODO(me): think about real z for camera
-    v2 WorldOrigin1 = {};
-    glTranslatef(-WorldOrigin1.x, -WorldOrigin1.y, -1.7f);
+    glViewport(0, 0, OutputTarget->Width, OutputTarget->Height);
+    if(RenderGroup->IsOrthogonal)
+    {
+        glDisable(GL_DEPTH_TEST);
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, OutputTarget->Width, 0, OutputTarget->Height, 0, 1);
+        glMatrixMode(GL_MODELVIEW);
+    }
+    else
+    {
+        r32 AspectRatio = (r32)OutputTarget->Width / (r32)OutputTarget->Height;
+        r32 FOV = 0.1f;
+        glEnable(GL_DEPTH_TEST);
+        // glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
+        // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glLoadIdentity();
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glFrustum(-AspectRatio * FOV, AspectRatio * FOV, //
+                  -FOV, FOV, FOV * 2, 1000);
+
+        // set camera
+        glRotatef(-RenderGroup->CameraPitch, 1.0f, 0.0f, 0.0f);
+        glRotatef(-RenderGroup->CameraYaw, 0.0f, 0.0f, 1.0f);
+        // TODO(me): think about real z for camera
+        v2 WorldOrigin1 = {};
+        glTranslatef(-WorldOrigin1.x, -WorldOrigin1.y, -RenderGroup->CameraRenderZ);
+    }
 
     for(u32 BaseAddress = 0; //
         BaseAddress < RenderGroup->PushBufferSize;)
@@ -338,7 +369,7 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
         {
             render_entry_texture *Entry = (render_entry_texture *)Data;
             v2 P = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis, ScreenCenter);
-            glDrawTexture({P, P + Entry->Dim}, 0.0f, Entry->Texture);
+            glDrawTexture({P, P + Entry->Dim}, 0.0f, Entry->Texture, Entry->FlipVertically, Entry->Repeat);
 
             BaseAddress += sizeof(*Entry);
         }
@@ -396,17 +427,15 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
         }
     }
 
-    glDisable(GL_DEPTH_TEST);
-
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     END_TIMED_BLOCK(RenderGroupToOutput);
 }
 
-internal void                                                          //
-RenderImGuiToOutput(game_input *Input,                                 //
-                    game_state *GameState, transient_state *TranState, //
-                    game_offscreen_buffer *Buffer)
+internal void                                                  //
+RenderImGui(game_input *Input,                                 //
+            game_state *GameState, transient_state *TranState, //
+            game_offscreen_buffer *Buffer)
 {
     debug *Debug = GameState->Debug;
     app_settings *Settings = GameState->Settings;
@@ -688,19 +717,25 @@ RenderImGuiToOutput(game_input *Input,                                 //
 
         if(ImGui::CollapsingHeader("Render"))
         {
+            ImGui::InputFloat("CameraRenderZ", &GameState->CameraRenderZ, 0.5, 2, "%.10f", 0);
+
             ImGui::Text("Test Render Texture");
-            ImGui::Image((void *)(intptr_t)Buffer->DrawTexture, ImVec2(1920 / 4, 1080 / 4), ImVec2(0, 0),
-                         ImVec2(1, -1));
+            ImGui::Image((void *)(intptr_t)Buffer->DrawTexture, //
+                         ImVec2((r32)Buffer->Width / 4, (r32)Buffer->Height / 4), ImVec2(0, 0), ImVec2(1, -1));
 
             ImGui::Text("Test Depth Texture");
-            ImGui::Image((void *)(intptr_t)Buffer->DepthTexture, ImVec2(1920 / 4, 1080 / 4), ImVec2(0, 0),
-                         ImVec2(1, -1));
+            ImGui::Image((void *)(intptr_t)Buffer->DepthTexture, //
+                         ImVec2((r32)Buffer->Width / 4, (r32)Buffer->Height / 4), ImVec2(0, 0), ImVec2(1, -1));
 
             ImGui::InputInt("GroundBufferIndex", &Debug->GroundBufferIndex, 1, 1, 0);
             ground_buffer *GroundBuffer = TranState->GroundBuffers + Debug->GroundBufferIndex;
             ImGui::Text("Test Ground Texture");
-            ImGui::Image((void *)(intptr_t)GroundBuffer->DrawBuffer.Texture, ImVec2(1920 / 4, 1080 / 4), ImVec2(0, 0),
-                         ImVec2(1, -1));
+            /*ImGui::Image((void *)(intptr_t)GroundBuffer->DrawBuffer.Texture,                                //
+                         ImVec2((r32)GroundBuffer->DrawBuffer.Width, (r32)GroundBuffer->DrawBuffer.Height), //
+                         ImVec2(0, 0), ImVec2(1, -1));*/
+            ImGui::Image((void *)(intptr_t)GroundBuffer->DrawBuffer.Texture,                                //
+                         ImVec2((r32)GroundBuffer->DrawBuffer.Width, (r32)GroundBuffer->DrawBuffer.Height), //
+                         ImVec2(0, 1), ImVec2(1, 0));
 
             ImGui::Text("Environment Objects Rendering System");
             ImGui::Text("SStMeshesCount=%d", Render->SStMeshesCount);

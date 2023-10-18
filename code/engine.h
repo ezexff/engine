@@ -120,6 +120,7 @@ struct game_state
     world_position CameraP;
     r32 CameraPitch;
     r32 CameraYaw;
+    r32 CameraRenderZ;
 
     string TestTexture1Name;
     u32 TestTexture1;

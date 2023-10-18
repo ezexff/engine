@@ -20,6 +20,8 @@ internal u32 LoadTexture(string *FileName)
 {
     u32 Result;
 
+    // stbi_set_flip_vertically_on_load(true);
+
     // TODO(me): переделать?
     char *Dir = "assets/textures/";
     u64 FullPathLength = StringLength(Dir) + FileName->Count - 1;
@@ -34,7 +36,6 @@ internal u32 LoadTexture(string *FileName)
     {
         FullPath[i + StringLength(Dir)] = FileName->Data[i];
     }
-
     glGenTextures(1, &Result);
     glBindTexture(GL_TEXTURE_2D, Result);
     // Texture wrapping or filtering options

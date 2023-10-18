@@ -156,8 +156,8 @@ internal sim_region *BeginSim(memory_arena *SimArena, game_state *GameState, wor
     SimRegion->Origin = Origin;
     SimRegion->UpdatableBounds =
         AddRadiusTo(Bounds, V3(SimRegion->MaxEntityRadius, SimRegion->MaxEntityRadius, SimRegion->MaxEntityRadius));
-    SimRegion->Bounds =
-        AddRadiusTo(SimRegion->UpdatableBounds, V3(UpdateSafetyMargin, UpdateSafetyMargin, UpdateSafetyMarginZ));
+    SimRegion->Bounds = AddRadiusTo(SimRegion->UpdatableBounds, //
+                                    V3(UpdateSafetyMargin, UpdateSafetyMargin, UpdateSafetyMarginZ));
 
     // TODO(casey): Need to be more specific about entity counts
     SimRegion->MaxEntityCount = 4096;

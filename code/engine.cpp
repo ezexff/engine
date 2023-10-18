@@ -8,53 +8,30 @@
 
 #include "engine_random.h"
 
-#define BITMAP_BYTES_PER_PIXEL 4
-/*internal void //
-ClearBitmap(loaded_bitmap *Bitmap)
-{
-    if(Bitmap->Memory)
-    {
-        int32 TotalBitmapSize = Bitmap->Width * Bitmap->Height * BITMAP_BYTES_PER_PIXEL;
-        ZeroSize(TotalBitmapSize, Bitmap->Memory);
-    }
-}*/
-/*internal loaded_bitmap //
-MakeEmptyBitmap(memory_arena *Arena, int32 Width, int32 Height, bool32 ClearToZero = true)
-{
-    loaded_bitmap Result = {};
-
-    Result.Width = Width;
-    Result.Height = Height;
-    Result.Pitch = Result.Width * BITMAP_BYTES_PER_PIXEL;
-    int32 TotalBitmapSize = Width * Height * BITMAP_BYTES_PER_PIXEL;
-    Result.Memory = PushSize(Arena, TotalBitmapSize);
-    if(ClearToZero)
-    {
-        ClearBitmap(&Result);
-    }
-
-    return (Result);
-}*/
-
 internal void                                                      //
 FillGroundChunk(transient_state *TranState, game_state *GameState, //
                 ground_buffer *GroundBuffer,                       //
                 world_position *ChunkP)
 {
-    // TODO(casey): Decide what our pushbuffer size is!
     temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
-    render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4), //
-                                                    GameState->CameraPitch, GameState->CameraYaw);
+    GroundBuffer->P = *ChunkP;
 
     loaded_texture *Buffer = &GroundBuffer->DrawBuffer;
     r32 Width = (r32)Buffer->Width;
     r32 Height = (r32)Buffer->Height;
+    v2 HalfDim = 0.5f * V2(Width, Height);
+
+    render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4), //
+                                                    0, 0, 0, true);
 
     glBindFramebuffer(GL_FRAMEBUFFER, Buffer->FBO);
 
     // Create Render Texture Attachment
     glBindTexture(GL_TEXTURE_2D, Buffer->Texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Buffer->Width, Buffer->Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Buffer->Width, Buffer->Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Buffer->Width, Buffer->Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Buffer->Texture, 0);
@@ -69,23 +46,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    Clear(RenderGroup, V4(1.0f, 1.0f, 0.0f, 0.5f));
-
-    // loaded_bitmap *Buffer = &GroundBuffer->Bitmap;
-    u32 TestTexture1 = GameState->TestTexture1;
-
-    GroundBuffer->P = *ChunkP;
-
-    // real32 Width = (real32)Buffer->Width;
-    // real32 Height = (real32)Buffer->Height;
-    // real32 Width = GameState->World->ChunkDimInMeters.x;
-    // real32 Height = GameState->World->ChunkDimInMeters.y;
-    v2 HalfDim = 0.5f * V2(Width, Height);
-
-    v3 RelP = Subtract(GameState->World, ChunkP, &GameState->CameraP);
-    PushRect(RenderGroup, V3(RelP.xy, 0), V2(HalfDim.x, HalfDim.y), V4(1, 0, 0, 1));
-
-#if 0
+#if 1
     for(int32 ChunkOffsetY = -1; //
         ChunkOffsetY <= 1;       //
         ++ChunkOffsetY)
@@ -101,35 +62,37 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
             // TODO(casey): Make random number generation more systemic
             // TODO(casey): Look into wang hashing or some other spatial seed generation "thing"!
             random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
-            // RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
 
+            // v2 Center = V2(ChunkOffsetX * Width + HalfDim.x, ChunkOffsetY * Height + HalfDim.y);
             v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
 
-            v2 P = Center + Hadamard(HalfDim, V2(RandomBilateral(&Series), RandomBilateral(&Series)));
+            // PushTexture(RenderGroup, V3(Center, 0), V2(Width, Height), GameState->TestTexture1, true, 2.0f);
 
-            /*for(uint32 GrassIndex = 0; //
-                GrassIndex < 1;        //
+            for(uint32 GrassIndex = 0; //
+                GrassIndex < 10;       //
                 ++GrassIndex)
             {
                 // loaded_bitmap *Stamp;
+                v4 Color;
+                v2 Dim;
                 if(RandomChoice(&Series, 2))
                 {
                     // Stamp = GameState->Grass + RandomChoice(&Series, ArrayCount(GameState->Grass));
+                    Color = V4(1, 0, 0, 1);
+                    Dim = V2(64, 64);
                 }
                 else
                 {
                     // Stamp = GameState->Stone + RandomChoice(&Series, ArrayCount(GameState->Stone));
+                    Color = V4(1, 1, 0, 1);
+                    Dim = V2(32, 32);
                 }
 
-                // v2 BitmapCenter = 0.5f * V2i(Stamp->Width, Stamp->Height);
-                v2 Offset = {Width * RandomUnilateral(&Series), Height * RandomUnilateral(&Series)};
-                // v2 P = Center + Offset - BitmapCenter;
-                v2 P = Center + Offset;
+                v2 RandomValue = V2(RandomBilateral(&Series), RandomBilateral(&Series));
+                v2 P = Center + Hadamard(HalfDim, RandomValue);
 
-                PushRect(RenderGroup, V3(P.x + Offset.x, P.y + Offset.y, 0), V2(5, 5), V4(1, 0, 0, 1));
-                // PushBitmap(RenderGroup, Stamp, V3(P, 0.0f));
-            }*/
-            PushRect(RenderGroup, V3(Center, 0), V2(Width, Height), V4(1, 0, 0, 1));
+                PushRect(RenderGroup, V3(P, 0), Dim, Color);
+            }
         }
     }
 #endif
@@ -618,8 +581,12 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         uint32 CameraTileZ = ScreenBaseZ;
         NewCameraP = ChunkPositionFromTilePosition(World, CameraTileX, CameraTileY, CameraTileZ);
         GameState->CameraP = NewCameraP;
-        GameState->CameraPitch = 90.0f;
-        GameState->CameraYaw = -45.0f;
+        // GameState->CameraPitch = 90.0f;
+        // GameState->CameraYaw = -45.0f;
+        // GameState->CameraRenderZ = 1.7f;
+        GameState->CameraPitch = 0.0f;
+        GameState->CameraYaw = 0.0f;
+        GameState->CameraRenderZ = 50.0f;
 
         AddMonstar(GameState, CameraTileX - 3, CameraTileY + 2, CameraTileZ);
 
@@ -654,7 +621,9 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         Render->Animator.Timer = 1.0f;
 
         // TODO(me): remove
-        GameState->TestTexture1Name = PushString(WorldArena, "lamp.png");
+        // GameState->TestTexture1Name = PushString(WorldArena, "lamp.png");
+        GameState->TestTexture1Name = PushString(WorldArena, "pole.png");
+        // GameState->TestTexture1Name = PushString(WorldArena, "clip.png");
         GameState->TestTexture1 = LoadTexture(&GameState->TestTexture1Name);
 
         glGenFramebuffers(1, &Buffer->FBO);
@@ -1173,8 +1142,9 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
             ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
             // GroundBuffer->Bitmap = MakeEmptyBitmap(TranArena, GroundBufferWidth, GroundBufferHeight, false);
             // GroundBuffer->Texture = U32Max;
-            GroundBuffer->DrawBuffer.Width = (s32)GroundBufferWidth * 32;
-            GroundBuffer->DrawBuffer.Height = (s32)GroundBufferHeight * 32;
+            s32 GroundTextureSizeMultiplyer = 32;
+            GroundBuffer->DrawBuffer.Width = (s32)GroundBufferWidth * GroundTextureSizeMultiplyer;
+            GroundBuffer->DrawBuffer.Height = (s32)GroundBufferHeight * GroundTextureSizeMultiplyer;
             glGenTextures(1, &GroundBuffer->DrawBuffer.Texture);
             glGenTextures(1, &GroundBuffer->DrawBuffer.DepthTexture);
             GroundBuffer->P = NullPosition();
@@ -1416,8 +1386,9 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     temporary_memory RenderMemory = BeginTemporaryMemory(&TranState->TranArena);
     // TODO(casey): Decide what our pushbuffer size is!
 
-    render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4), //
-                                                    GameState->CameraPitch, GameState->CameraYaw);
+    render_group *RenderGroup =
+        AllocateRenderGroup(&TranState->TranArena, Megabytes(4), //
+                            GameState->CameraPitch, GameState->CameraYaw, GameState->CameraRenderZ);
 
     // Clear(RenderGroup, V4(0.25f, 0.25f, 0.25f, 0.0f));
     Clear(RenderGroup, V4(0.45f, 0.55f, 0.60f, 1.0f));
@@ -1437,13 +1408,12 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     glEnable(GL_LINE_SMOOTH);*/
     if(Debug->DrawSimRegionBounds)
     {
-        v3 BoundsDim = SimRegion->Bounds.Max - SimRegion->Bounds.Min;
-        PushRectOutline(RenderGroup, V3(0, 0, 0), BoundsDim.xy, V4(1, 1, 0, 1));
+        PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimBounds).xy, V4(1, 1, 0, 1));
     }
     if(Debug->DrawSimRegionUpdatableBounds)
     {
-        v3 BoundsDim = SimRegion->UpdatableBounds.Max - SimRegion->UpdatableBounds.Min;
-        PushRectOutline(RenderGroup, V3(0, 0, 0), BoundsDim.xy, V4(0, 1, 0, 1));
+        // PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimRegion->Bounds).xy, V4(0, 1, 0, 1));
+        PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimRegion->UpdatableBounds).xy, V4(0, 1, 0, 1));
     }
     // glDisable(GL_LINE_SMOOTH);
 
@@ -1689,9 +1659,9 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                 //  PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, V3(0, 0, 0));
                 // PushRectOutline(RenderGroup, V3(0, 0, 0), V2(GroundSideInMeters, GroundSideInMeters),
                 //                 V4(1.0f, 1.0f, 0.0f, 1.0f));
-                PushRectOutline(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
-                // PushTexture(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, Texture);
-                PushTexture(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GameState->TestTexture1);
+                // PushRectOutline(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
+                // PushTexture(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GameState->TestTexture1, true);
+                PushTexture(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, Texture);
             }
         }
     }
@@ -1799,6 +1769,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     // NOTE(me): Draw Buffer Texture
     //
     // TODO(me): Texture rendering through shader?
+    glDisable(GL_DEPTH_TEST);
     glViewport(0, 0, DrawBuffer->Width, DrawBuffer->Height);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -1841,7 +1812,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
 
     glDisable(GL_TEXTURE_2D);
 
-    RenderImGuiToOutput(Input, GameState, TranState, Buffer);
+    RenderImGui(Input, GameState, TranState, Buffer);
 
     EndSim(SimRegion, GameState);
     EndTemporaryMemory(RenderMemory);
