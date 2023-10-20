@@ -17,6 +17,22 @@ extern "C"
 
 #include "engine_types.h"
 
+    struct app_settings
+    {
+        r32 MouseSensitivity;
+
+        // Display mode radio buttons state
+        b32 RBFullscreenIsActive;
+        b32 RBWindowedIsActive;
+
+        s32 NewFrameRate;
+
+        b32 RBCappedIsActive;
+        b32 RBUncappedIsActive;
+
+        b32 RBVSyncIsActive;
+    };
+
     //
     // NOTE(me): Buffers
     //

@@ -16,7 +16,60 @@ internal string ReadStringFromFile(memory_arena *WorldArena, FILE *In)
     return (Result);
 }
 
-internal u32 LoadTexture(string *FileName)
+internal loaded_texture //
+glLoadTexture(memory_arena *WorldArena, char *FileName)
+{
+    char *TexturesDir = "assets/textures/";
+
+    loaded_texture Result;
+    Result.Name = PushString(WorldArena, FileName);
+
+    // stbi_set_flip_vertically_on_load(true);
+
+    // u64 FullPathLength = StringLength(TexturesDir) + Result.Name.Count - 1;
+    u64 FullPathLength = StringLength(TexturesDir) + Result.Name.Count;
+    char *FullPath = (char *)malloc(FullPathLength);
+    for(u32 i = 0; i < StringLength(TexturesDir); i++)
+    {
+        FullPath[i] = TexturesDir[i];
+    }
+
+    for(u32 i = 0; i < Result.Name.Count; i++)
+    {
+        FullPath[StringLength(TexturesDir) + i] = Result.Name.Data[i];
+    }
+    glGenTextures(1, &Result.ID);
+    glBindTexture(GL_TEXTURE_2D, Result.ID);
+    // Texture wrapping or filtering options
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    // int32 Width, Height, NrChannels;
+    unsigned char *data = stbi_load(FullPath, &Result.Width, &Result.Height, &Result.NrChannels, 0);
+    if(data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Result.Width, Result.Height, 0, //
+                     Result.NrChannels == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        // Bitmap texture failed to load at path: Path
+        char TempBuffer[256];
+        _snprintf_s(TempBuffer, sizeof(TempBuffer), "[error] Texture loading: %s\n", FullPath);
+        OutputDebugStringA(TempBuffer);
+        Log.AddLog(TempBuffer);
+    }
+
+    free(FullPath);
+    stbi_image_free(data);
+
+    return (Result);
+}
+/*internal u32 LoadTexture(string *FileName)
 {
     u32 Result;
 
@@ -64,7 +117,7 @@ internal u32 LoadTexture(string *FileName)
     stbi_image_free(data);
 
     return (Result);
-}
+}*/
 
 //
 // NOTE(me): 3d-model
@@ -383,8 +436,9 @@ internal loaded_model *LoadModel(memory_arena *WorldArena, char *FileName)
             fread(&Mesh->Material.WithTexture, sizeof(b32), 1, In);
             if(Mesh->Material.WithTexture)
             {
-                Mesh->Material.TextureName = ReadStringFromFile(WorldArena, In);
-                Mesh->Material.Texture = LoadTexture(&Mesh->Material.TextureName);
+                // Mesh->Material.TextureName = ReadStringFromFile(WorldArena, In);
+                //  TODO(me): rework new load texture func
+                //  Mesh->Material.Texture = LoadTexture(&Mesh->Material.TextureName);
             }
         }
 
@@ -532,6 +586,7 @@ internal void CreateHill(v3 *Positions, s32 PosX, s32 PosY, s32 PosZ, s32 Radius
     }
 }
 
+#if 0
 internal loaded_model *CreateTerrainModel(memory_arena *WorldArena)
 {
     loaded_model *Result = PushStruct(WorldArena, loaded_model);
@@ -641,10 +696,12 @@ internal loaded_model *CreateTerrainModel(memory_arena *WorldArena)
 
     Mesh->Material.WithTexture = true;
     Mesh->Material.TextureName = PushString(WorldArena, "pole.png");
-    Mesh->Material.Texture = LoadTexture(&Mesh->Material.TextureName);
+    // TODO(me): rework new load texture func
+    // Mesh->Material.Texture = LoadTexture(&Mesh->Material.TextureName);
 
     return (Result);
 }
+#endif
 
 //
 // NOTE(me): Grass
@@ -721,8 +778,9 @@ internal loaded_model *CreateGrassModel(memory_arena *WorldArena)
     Mesh->Material.Shininess = 0.0f;
 
     Mesh->Material.WithTexture = true;
-    Mesh->Material.TextureName = PushString(WorldArena, "trava.png");
-    Mesh->Material.Texture = LoadTexture(&Mesh->Material.TextureName);
+    // Mesh->Material.TextureName = PushString(WorldArena, "trava.png");
+    //  TODO(me): rework new load texture func
+    //  Mesh->Material.Texture = LoadTexture(&Mesh->Material.TextureName);
 
     return (Result);
 }
@@ -787,8 +845,9 @@ internal loaded_model *CreateTexturedSquareModel(memory_arena *WorldArena, char 
     Mesh->Material.Shininess = 0.0f;
 
     Mesh->Material.WithTexture = true;
-    Mesh->Material.TextureName = PushString(WorldArena, TextureName);
-    Mesh->Material.Texture = LoadTexture(&Mesh->Material.TextureName);
+    // Mesh->Material.TextureName = PushString(WorldArena, TextureName);
+    //  TODO(me): rework new load texture func
+    //  Mesh->Material.Texture = LoadTexture(&Mesh->Material.TextureName);
 
     return (Result);
 }

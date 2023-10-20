@@ -1,4 +1,21 @@
 //
+// NOTE(me): Texture
+//
+struct loaded_texture
+{
+    string Name;
+    int32 Width;
+    int32 Height;
+    int32 NrChannels;
+    u32 ID; // OpenGL texture
+
+    // NOTE(me): Only for buffer rendering
+    // TODO(me): мб убрать отсюда?
+    u32 DepthTexture;
+    u32 FBO;
+};
+
+//
 // NOTE(me): 3d-model
 //
 struct node
@@ -61,8 +78,9 @@ struct material
     r32 Shininess;
 
     b32 WithTexture;
-    string TextureName;
-    u32 Texture;
+    loaded_texture Texture;
+    // string TextureName;
+    // u32 Texture;
 };
 
 struct single_mesh
@@ -102,7 +120,7 @@ struct single_mesh
 
 struct loaded_model
 {
-    //v3 WorldPos;
+    // v3 WorldPos;
 
     string Name;
     u32 MeshesCount;
@@ -117,7 +135,7 @@ struct animator // таймер аниимации модели
 };
 
 internal string ReadStringFromFile(memory_arena *WorldArena, FILE *In);
-internal u32 LoadTexture(string *FileName);
+// internal u32 LoadTexture(string *FileName);
 
 // 3d-model
 internal loaded_model *LoadModel(memory_arena *WorldArena, char *FileName);

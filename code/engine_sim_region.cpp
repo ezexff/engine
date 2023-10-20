@@ -5,7 +5,9 @@ internal sim_entity_hash *GetHashFromStorageIndex(sim_region *SimRegion, uint32 
     sim_entity_hash *Result = 0;
 
     uint32 HashValue = StorageIndex;
-    for(uint32 Offset = 0; Offset < ArrayCount(SimRegion->Hash); ++Offset)
+    for(uint32 Offset = 0;                    //
+        Offset < ArrayCount(SimRegion->Hash); //
+        ++Offset)
     {
         uint32 HashMask = (ArrayCount(SimRegion->Hash) - 1);
         uint32 HashIndex = ((HashValue + Offset) & HashMask);
@@ -182,9 +184,13 @@ internal sim_region *BeginSim(memory_arena *SimArena, game_state *GameState, wor
                 world_chunk *Chunk = GetWorldChunk(World, ChunkX, ChunkY, ChunkZ);
                 if(Chunk) // На чанке есть сущности | Chunk have entities
                 {
-                    for(world_entity_block *Block = &Chunk->FirstBlock; Block; Block = Block->Next)
+                    for(world_entity_block *Block = &Chunk->FirstBlock; //
+                        Block;                                          //
+                        Block = Block->Next)
                     {
-                        for(uint32 EntityIndexIndex = 0; EntityIndexIndex < Block->EntityCount; ++EntityIndexIndex)
+                        for(uint32 EntityIndexIndex = 0;           //
+                            EntityIndexIndex < Block->EntityCount; //
+                            ++EntityIndexIndex)
                         {
                             uint32 LowEntityIndex = Block->LowEntityIndex[EntityIndexIndex];
                             low_entity *Low = GameState->LowEntities + LowEntityIndex;
@@ -213,7 +219,9 @@ internal void EndSim(sim_region *Region, game_state *GameState)
     // in the world??
 
     sim_entity *Entity = Region->Entities;
-    for(uint32 EntityIndex = 0; EntityIndex < Region->EntityCount; ++EntityIndex, ++Entity)
+    for(uint32 EntityIndex = 0;            //
+        EntityIndex < Region->EntityCount; //
+        ++EntityIndex, ++Entity)
     {
         low_entity *Stored = GameState->LowEntities + Entity->StorageIndex;
 
@@ -322,7 +330,9 @@ internal bool32 CanCollide(game_state *GameState, sim_entity *A, sim_entity *B)
 
             // TODO(casey): BETTER HASH FUNCTION
             uint32 HashBucket = A->StorageIndex & (ArrayCount(GameState->CollisionRuleHash) - 1);
-            for(pairwise_collision_rule *Rule = GameState->CollisionRuleHash[HashBucket]; Rule; Rule = Rule->NextInHash)
+            for(pairwise_collision_rule *Rule = GameState->CollisionRuleHash[HashBucket]; //
+                Rule;                                                                     //
+                Rule = Rule->NextInHash)
             {
                 if((Rule->StorageIndexA == A->StorageIndex) && (Rule->StorageIndexB == B->StorageIndex))
                 {
@@ -418,11 +428,14 @@ internal bool32 EntitiesOverlap(sim_entity *Entity, sim_entity *TestEntity, v3 E
 {
     bool32 Result = false;
 
-    for(uint32 VolumeIndex = 0; !Result && (VolumeIndex < Entity->Collision->VolumeCount); ++VolumeIndex)
+    for(uint32 VolumeIndex = 0;                                    //
+        !Result && (VolumeIndex < Entity->Collision->VolumeCount); //
+        ++VolumeIndex)
     {
         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
 
-        for(uint32 TestVolumeIndex = 0; !Result && (TestVolumeIndex < TestEntity->Collision->VolumeCount);
+        for(uint32 TestVolumeIndex = 0;                                        //
+            !Result && (TestVolumeIndex < TestEntity->Collision->VolumeCount); //
             ++TestVolumeIndex)
         {
             sim_entity_collision_volume *TestVolume = TestEntity->Collision->Volumes + TestVolumeIndex;
@@ -482,7 +495,9 @@ internal void MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entit
         DistanceRemaining = 10000.0f;
     }
 
-    for(uint32 Iteration = 0; Iteration < 4; ++Iteration)
+    for(uint32 Iteration = 0; //
+        Iteration < 4;        //
+        ++Iteration)
     {
         real32 tMin = 1.0f;
         real32 tMax = 0.0f;
@@ -509,7 +524,9 @@ internal void MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entit
             if(!IsSet(Entity, EntityFlag_Nonspatial))
             {
                 // TODO(casey): Spatial partition here!
-                for(uint32 TestHighEntityIndex = 0; TestHighEntityIndex < SimRegion->EntityCount; ++TestHighEntityIndex)
+                for(uint32 TestHighEntityIndex = 0;               //
+                    TestHighEntityIndex < SimRegion->EntityCount; //
+                    ++TestHighEntityIndex)
                 {
                     sim_entity *TestEntity = SimRegion->Entities + TestHighEntityIndex;
 
@@ -520,11 +537,14 @@ internal void MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entit
                         EntitiesOverlap(Entity, TestEntity, OverlapEpsilon * V3(1, 1, 1))) ||
                        CanCollide(GameState, Entity, TestEntity))
                     {
-                        for(uint32 VolumeIndex = 0; VolumeIndex < Entity->Collision->VolumeCount; ++VolumeIndex)
+                        for(uint32 VolumeIndex = 0;                       //
+                            VolumeIndex < Entity->Collision->VolumeCount; //
+                            ++VolumeIndex)
                         {
                             sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
 
-                            for(uint32 TestVolumeIndex = 0; TestVolumeIndex < TestEntity->Collision->VolumeCount;
+                            for(uint32 TestVolumeIndex = 0;                           //
+                                TestVolumeIndex < TestEntity->Collision->VolumeCount; //
                                 ++TestVolumeIndex)
                             {
                                 sim_entity_collision_volume *TestVolume =
@@ -559,7 +579,9 @@ internal void MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entit
                                         bool32 HitThis = false;
 
                                         v3 TestWallNormal = {};
-                                        for(uint32 WallIndex = 0; WallIndex < ArrayCount(Walls); ++WallIndex)
+                                        for(uint32 WallIndex = 0;          //
+                                            WallIndex < ArrayCount(Walls); //
+                                            ++WallIndex)
                                         {
                                             test_wall *Wall = Walls + WallIndex;
 
@@ -593,7 +615,9 @@ internal void MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entit
                                         bool32 HitThis = false;
 
                                         v3 TestWallNormal = {};
-                                        for(uint32 WallIndex = 0; WallIndex < ArrayCount(Walls); ++WallIndex)
+                                        for(uint32 WallIndex = 0;          //
+                                            WallIndex < ArrayCount(Walls); //
+                                            ++WallIndex)
                                         {
                                             test_wall *Wall = Walls + WallIndex;
 
@@ -682,7 +706,9 @@ internal void MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entit
     // TODO(casey): Handle overlapping precisely by moving it into the collision loop?
     {
         // TODO(casey): Spatial partition here!
-        for(uint32 TestHighEntityIndex = 0; TestHighEntityIndex < SimRegion->EntityCount; ++TestHighEntityIndex)
+        for(uint32 TestHighEntityIndex = 0;               //
+            TestHighEntityIndex < SimRegion->EntityCount; //
+            ++TestHighEntityIndex)
         {
             sim_entity *TestEntity = SimRegion->Entities + TestHighEntityIndex;
             if(CanOverlap(GameState, Entity, TestEntity) && EntitiesOverlap(Entity, TestEntity))
@@ -772,7 +798,9 @@ internal void MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entit
         DistanceRemaining = 10000.0f;
     }
 
-    for(uint32 Iteration = 0; Iteration < 4; ++Iteration)
+    for(uint32 Iteration = 0; //
+        Iteration < 4;        //
+        ++Iteration)
     {
         real32 tMin = 1.0f;
         real32 tMax = 1.0f;
@@ -798,7 +826,9 @@ internal void MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entit
             // loop in the case where the test entity is non-spatial!
 
             // TODO(casey): Spatial partition here!
-            for(uint32 TestHighEntityIndex = 0; TestHighEntityIndex < SimRegion->EntityCount; ++TestHighEntityIndex)
+            for(uint32 TestHighEntityIndex = 0;               //
+                TestHighEntityIndex < SimRegion->EntityCount; //
+                ++TestHighEntityIndex)
             {
                 sim_entity *TestEntity = SimRegion->Entities + TestHighEntityIndex;
 
@@ -845,7 +875,9 @@ internal void MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entit
                         bool32 HitThis = false;
 
                         v3 TestWallNormal = {};
-                        for(uint32 WallIndex = 0; WallIndex < ArrayCount(Walls); ++WallIndex)
+                        for(uint32 WallIndex = 0;          //
+                            WallIndex < ArrayCount(Walls); //
+                            ++WallIndex)
                         {
                             test_wall *Wall = Walls + WallIndex;
 

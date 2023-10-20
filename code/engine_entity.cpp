@@ -152,7 +152,7 @@ internal void MovePlayerEOM(world *World, entity_player *Player, entity_clip *Pl
     // v2 OldPlayerPos = V2(Player->Position.x, Player->Position.y);
 
     // TODO
-    // отрисовать кубы вокруг границ тиррейна и добавить с ними коллизии
+    // отрисовать кубы вокруг границ террейна и добавить с ними коллизии
     // высота и ширина на плоскости XY
 
     // NOTE(me): Minkowski Collision Detection
@@ -167,7 +167,7 @@ internal void MovePlayerEOM(world *World, entity_player *Player, entity_clip *Pl
         return m.contains_point(p);
     }*/
 
-    // границы тиррейна
+    // границы террейна
     // v2 TerrainCenterPos = PlayerClip->CenterPos;
     // r32 TerrainSide = PlayerClip->Side;
     // v2 TerrainCenterPos = V2(-10.0f, -10.0f);
@@ -278,8 +278,8 @@ internal void MovePlayerEOM(world *World, entity_player *Player, entity_clip *Pl
 
 internal r32 TerrainGetHeight(entity_envobject *Terrain, r32 x, r32 y)
 {
-    // алгоритм нахождения приблизительной высоты на карте
-    // 1. если позиция камеры вне карты, то высоту не меняем
+    // алгоритм нахождения приблизительной высоты на террейне
+    // 1. если позиция камеры вне террейна, то высоту не меняем
     // 2. находим X и Y индексы клетки в массиве Terrain Map
     // 3. находим BaseOffset смещение от нулевой позиции в клетке (Camera.x - X) и (Camera.y - Y)
     // 4. находим первый вес h1 для текущей позиции камеры и позиции, смещённой на 1 по оси x

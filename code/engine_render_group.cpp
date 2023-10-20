@@ -274,6 +274,89 @@ glDrawTexture(rectangle2 R, r32 Z, u32 Texture, b32 FlipVertically, r32 Repeat)
     glDisable(GL_TEXTURE_2D);
 }
 
+inline void //
+PushModel(render_group *Group, v3 Offset, v2 Dim, loaded_model *Model, b32 IsFill = true)
+{
+    render_entry_model *Piece = PushRenderElement(Group, render_entry_model);
+    if(Piece)
+    {
+        Piece->EntityBasis.Basis = Group->DefaultBasis;
+        Piece->EntityBasis.Offset = Offset - V3(0.5f * Dim, 0);
+        Piece->Dim = Dim;
+        Piece->Model = Model;
+        Piece->IsFill = IsFill;
+    }
+}
+
+internal void //
+glDrawModel(rectangle2 R, r32 Z, loaded_model *Model, b32 IsFill)
+{
+    // Log.AddLog("glDrawModel\n");
+
+    glTranslatef(R.Min.x, R.Min.y, 0);
+
+    if(!IsFill)
+    {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    }
+    else
+    {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    }
+
+    single_mesh *Mesh = &Model->Meshes[0];
+
+    if(Mesh->Material.WithTexture)
+    {
+        glEnable(GL_TEXTURE_2D);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, Mesh->Material.Texture.ID);
+    }
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    // glEnableClientState(GL_COLOR_ARRAY);
+
+    glVertexPointer(3, GL_FLOAT, 0, Mesh->Positions);
+    glTexCoordPointer(2, GL_FLOAT, 0, Mesh->TexCoords);
+    // glColorPointer(3, GL_FLOAT, 0, VertColors);
+
+    glDrawElements(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT, Mesh->Indices);
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_TEXTURE_2D);
+
+    glTranslatef(-R.Min.x, -R.Min.y, 0);
+    // glDisableClientState(GL_COLOR_ARRAY);
+
+    /*glPolygonMode(GL_FRONT_AND_BACK, IsFill ? GL_FILL : GL_LINE);
+
+    // single_mesh *Mesh = &Model->Meshes[0];
+    for(u32 MeshIndex = 0;              //
+        MeshIndex < Model->MeshesCount; //
+        MeshIndex++)
+    {
+        single_mesh *Mesh = Model->Meshes + MeshIndex;
+
+        glEnableClientState(GL_VERTEX_ARRAY);
+        // glEnableClientState(GL_COLOR_ARRAY);
+
+        glVertexPointer(3, GL_FLOAT, 0, Mesh->Positions);
+        // glColorPointer(3, GL_FLOAT, 0, VertColors);
+
+        glDrawElements(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT, Mesh->Indices);
+
+        glDisableClientState(GL_VERTEX_ARRAY);
+        // glDisableClientState(GL_COLOR_ARRAY);
+    }
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);*/
+}
+
 internal void                                                                //
 RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //, loaded_bitmap *OutputTarget)
 {
@@ -335,13 +418,15 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
     for(u32 BaseAddress = 0; //
         BaseAddress < RenderGroup->PushBufferSize;)
     {
-        render_group_entry_header *Header = (render_group_entry_header *)(RenderGroup->PushBufferBase + BaseAddress);
+        render_group_entry_header *Header = (render_group_entry_header *) //
+            (RenderGroup->PushBufferBase + BaseAddress);
         BaseAddress += sizeof(*Header);
 
         void *Data = (uint8 *)Header + sizeof(*Header);
         switch(Header->Type)
         {
-        case RenderGroupEntryType_render_entry_clear: {
+        case RenderGroupEntryType_render_entry_clear: //
+        {
             render_entry_clear *Entry = (render_entry_clear *)Data;
 
             /*DrawRectangle(OutputTarget, V2(0.0f, 0.0f), V2((real32)OutputTarget->Width,
@@ -364,6 +449,17 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
             }
             break;
             */
+
+        case RenderGroupEntryType_render_entry_model: //
+        {
+            render_entry_model *Entry = (render_entry_model *)Data;
+            Assert(Entry->Model);
+            v2 P = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis, ScreenCenter);
+            glDrawModel({P, P + Entry->Dim}, 0.0f, Entry->Model, Entry->IsFill);
+
+            BaseAddress += sizeof(*Entry);
+        }
+        break;
 
         case RenderGroupEntryType_render_entry_texture: //
         {
@@ -437,7 +533,7 @@ RenderImGui(game_input *Input,                                 //
             game_state *GameState, transient_state *TranState, //
             game_offscreen_buffer *Buffer)
 {
-    debug *Debug = GameState->Debug;
+    game_debug *Debug = GameState->Debug;
     app_settings *Settings = GameState->Settings;
     render *Render = GameState->Render;
 
@@ -733,7 +829,7 @@ RenderImGui(game_input *Input,                                 //
             /*ImGui::Image((void *)(intptr_t)GroundBuffer->DrawBuffer.Texture,                                //
                          ImVec2((r32)GroundBuffer->DrawBuffer.Width, (r32)GroundBuffer->DrawBuffer.Height), //
                          ImVec2(0, 0), ImVec2(1, -1));*/
-            ImGui::Image((void *)(intptr_t)GroundBuffer->DrawBuffer.Texture,                                //
+            ImGui::Image((void *)(intptr_t)GroundBuffer->DrawBuffer.ID,                                     //
                          ImVec2((r32)GroundBuffer->DrawBuffer.Width, (r32)GroundBuffer->DrawBuffer.Height), //
                          ImVec2(0, 1), ImVec2(1, 0));
 

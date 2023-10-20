@@ -8,11 +8,213 @@
 
 #include "engine_random.h"
 
+internal loaded_model * //
+CreateTerrainChunkModel(memory_arena *WorldArena, u32 Width, u32 Height)
+{
+    loaded_model *Result = PushStruct(WorldArena, loaded_model);
+
+    // Для включения в просчёты максимального значения
+    Width = Width + 1;
+    Height = Height + 1;
+
+    Result->Name = PushString(WorldArena, "TerrainModel");
+
+    Result->MeshesCount = 1;
+
+    Result->Meshes = PushArray(WorldArena, Result->MeshesCount, single_mesh);
+
+    single_mesh *Mesh = &Result->Meshes[0];
+
+    Mesh->Name = PushString(WorldArena, "TerrainMesh");
+
+    Mesh->VerticesCount = Width * Height;
+
+    Mesh->Positions = PushArray(WorldArena, Mesh->VerticesCount, v3);
+    Mesh->TexCoords = PushArray(WorldArena, Mesh->VerticesCount, v2);
+
+    /*int VertexIndex = 0;
+    for(u32 i = 0; i < Width; i++)
+    {
+        for(u32 j = 0; j < Height; j++)
+        {
+            Mesh->Positions[VertexIndex] = V3((r32)i, (r32)j, (rand() % 10) * 0.02f);
+            Mesh->TexCoords[VertexIndex] = V2((r32)i, (r32)j);
+            VertexIndex++;
+        }
+    }*/
+    int VertexIndex = 0;
+    for(u32 Y = 0;  //
+        Y < Height; //
+        Y++)
+    {
+        for(u32 X = 0; //
+            X < Width; //
+            X++, VertexIndex++)
+        {
+            Mesh->Positions[VertexIndex] = V3((r32)X, (r32)Y, 0.0f);
+            // Mesh->Positions[VertexIndex] = V3((r32)X, (r32)Y, (rand() % 10) * 0.02f);
+            Mesh->TexCoords[VertexIndex] = V2((r32)X, (r32)Y);
+        }
+    }
+    /*for(u32 i = 0; i < Width; i++)
+    {
+        for(u32 j = 0; j < Height; j++)
+        {
+            Mesh->Positions[VertexIndex] = V3((r32)i, (r32)j, (rand() % 10) * 0.02f);
+            Mesh->TexCoords[VertexIndex] = V2((r32)i, (r32)j);
+            VertexIndex++;
+        }
+    }*/
+
+    Mesh->IndicesCount = (Width - 1) * (Height - 1) * 6;
+    Mesh->Indices = PushArray(WorldArena, Mesh->IndicesCount, u32);
+
+    for(u32 i = 0; i < Width - 1; i++)
+    {
+        u32 Pos = i * Height; // номер ячейки массива использующий сквозную нумерацию
+        for(u32 j = 0; j < Height - 1; j++)
+        {
+            // Flat[ x * Height * depth + y * depth + z ] = elements[x][y][z]
+            u32 TmpIndex = i * (Height - 1) * 6 + j * 6;
+
+            // первый треугольник на плоскости (левая верхняя часть квадрата)
+            Mesh->Indices[TmpIndex + 0] = Pos;
+            Mesh->Indices[TmpIndex + 1] = Pos + 1; // переход к следующей вершине (перемещение по оси y)
+            Mesh->Indices[TmpIndex + 2] =
+                Pos + 1 + Height; // переход к вершине во второй размерности (перемещение по оси x)
+
+            // второй треугольник на плоскости (правая нижняя часть квадрата)
+            Mesh->Indices[TmpIndex + 3] = Pos + 1 + Height;
+            Mesh->Indices[TmpIndex + 4] = Pos + Height;
+            Mesh->Indices[TmpIndex + 5] = Pos;
+            Pos++;
+        }
+    }
+
+    // касательные и бикасательные для маппинга нормалей
+    // Mesh->Tangents = PushArray(WorldArena, Mesh->VerticesCount, v3);
+    // fread(Mesh->Tangents, sizeof(v3) * Mesh->VerticesCount, 1, In);
+
+    // создание холмов
+    /*for(u32 i = 0; i < 10; i++)
+    {
+        u32 HillX = rand() % TMapW;
+        u32 HillY = rand() % TMapH;
+        u32 HillZ = rand() % 10;
+        u32 HillRadius = rand() % 50;
+        CreateHill(Mesh->Positions, HillX, HillY, HillZ, HillRadius);
+    }
+
+    // создание ямы
+    u32 PitX = 20;
+    u32 PitY = 10;
+    s32 PitZ = -5;
+    u32 PitRadius = 5;
+    CreateHill(Mesh->Positions, PitX, PitY, PitZ, PitRadius);
+
+    // заполнение карты нормалей террейна
+    Mesh->Normals = PushArray(WorldArena, Mesh->VerticesCount, v3);
+    for(u32 i = 0; i < TMapW; i++)
+    {
+        for(u32 j = 0; j < TMapH; j++)
+        {
+            u32 TmpIndex = i * TMapH + j;
+            u32 TmpIndex1 = (i + 1) * TMapH + j; // [i+1][j]
+            u32 TmpIndex2 = i * TMapH + j + 1;   // [i][j+1]
+
+            // 3 соседние вершины дают нормаль, направленную вверх
+            CalcNormal(Mesh->Positions[TmpIndex],  //
+                       Mesh->Positions[TmpIndex1], //
+                       Mesh->Positions[TmpIndex2], //
+                       &Mesh->Normals[TmpIndex]);  // полученная нормаль
+        }
+    }*/
+
+    Mesh->Material.Ambient = V4(0.2f, 0.2f, 0.2f, 1.0f);
+    Mesh->Material.Diffuse = V4(0.8f, 0.8f, 0.8f, 1.0f);
+    Mesh->Material.Specular = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Mesh->Material.Emission = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Mesh->Material.Shininess = 0.0f;
+
+    Mesh->WithMaterial = true;
+    /*Mesh->Material.Ambient = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Mesh->Material.Diffuse = V4(0.1f, 0.35f, 0.1f, 1.0f);
+    Mesh->Material.Specular = V4(0.45f, 0.55f, 0.45f, 1.0f);
+    Mesh->Material.Emission = V4(0.0f, 0.0f, 0.0f, 1.0f);
+    Mesh->Material.Shininess = 0.25f;*/
+
+    Mesh->Material.WithTexture = true;
+    Mesh->Material.Texture = glLoadTexture(WorldArena, "pole.png");
+
+    return (Result);
+}
+
 internal void                                                      //
 FillGroundChunk(transient_state *TranState, game_state *GameState, //
                 ground_buffer *GroundBuffer,                       //
                 world_position *ChunkP)
 {
+#if 1
+    GroundBuffer->P = *ChunkP;
+
+    r32 Width = GameState->World->ChunkDimInMeters.x;
+    r32 Height = GameState->World->ChunkDimInMeters.y;
+
+    single_mesh *Mesh = &GroundBuffer->TerrainModel->Meshes[0];
+
+    for(int32 ChunkOffsetY = -1; //
+        ChunkOffsetY <= 1;       //
+        ++ChunkOffsetY)
+    {
+        for(int32 ChunkOffsetX = -1; //
+            ChunkOffsetX <= 1;       //
+            ++ChunkOffsetX)
+        {
+            int32 ChunkX = ChunkP->ChunkX + ChunkOffsetX;
+            int32 ChunkY = ChunkP->ChunkY + ChunkOffsetY;
+            int32 ChunkZ = ChunkP->ChunkZ;
+
+            // TODO(casey): Make random number generation more systemic
+            // TODO(casey): Look into wang hashing or some other spatial seed generation "thing"!
+            random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
+
+            // v2 Center = V2(ChunkOffsetX * Width + HalfDim.x, ChunkOffsetY * Height + HalfDim.y);
+            v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
+
+            r32 MaxTerrainHeight = 0.2f;
+
+            int VertexIndex = 0;
+            for(u32 Y = 0;      //
+                Y < Height + 1; //
+                Y++)
+            {
+                for(u32 X = 0;     //
+                    X < Width + 1; //
+                    X++, VertexIndex++)
+                {
+                    // r32 RandomZ2 = (r32)(rand() % 10) * 0.02f;
+
+                    //
+                    {
+                        if((X == 0) || (Y == 0) || (X == Width) || (Y == Height))
+                        {
+                            //if((ChunkOffsetX == 0) && (ChunkOffsetY == 0))
+                            {
+                                //r32 RandomZ1 = RandomUnilateral(&Series) * MaxTerrainHeight;
+                                //Mesh->Positions[VertexIndex] = V3((r32)X, (r32)Y, RandomZ1);
+                            }
+                        }
+                        else
+                        {
+                            r32 RandomZ1 = RandomUnilateral(&Series) * MaxTerrainHeight;
+                            Mesh->Positions[VertexIndex] = V3((r32)X, (r32)Y, RandomZ1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+#else
     temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
     GroundBuffer->P = *ChunkP;
 
@@ -46,7 +248,6 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-#if 1
     for(int32 ChunkOffsetY = -1; //
         ChunkOffsetY <= 1;       //
         ++ChunkOffsetY)
@@ -66,7 +267,8 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
             // v2 Center = V2(ChunkOffsetX * Width + HalfDim.x, ChunkOffsetY * Height + HalfDim.y);
             v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
 
-            // PushTexture(RenderGroup, V3(Center, 0), V2(Width, Height), GameState->TestTexture1, true, 2.0f);
+            PushTexture(RenderGroup, V3(Center, 0), V2(Width, Height), GameState->TestTexture1.Texture, //
+                        true, 2.0f);
 
             for(uint32 GrassIndex = 0; //
                 GrassIndex < 10;       //
@@ -95,7 +297,6 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
             }
         }
     }
-#endif
 
     /*for(int32 ChunkOffsetY = -1; //
         ChunkOffsetY <= 1;       //
@@ -131,6 +332,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
 
     RenderGroupToOutput(RenderGroup, Buffer);
     EndTemporaryMemory(GroundMemory);
+#endif
 }
 
 inline world_position //
@@ -222,7 +424,9 @@ internal void InitHitPoints(low_entity *EntityLow, uint32 HitPointCount)
 {
     Assert(HitPointCount <= ArrayCount(EntityLow->Sim.HitPoint));
     EntityLow->Sim.HitPointMax = HitPointCount;
-    for(uint32 HitPointIndex = 0; HitPointIndex < EntityLow->Sim.HitPointMax; ++HitPointIndex)
+    for(uint32 HitPointIndex = 0;                   //
+        HitPointIndex < EntityLow->Sim.HitPointMax; //
+        ++HitPointIndex)
     {
         hit_point *HitPoint = EntityLow->Sim.HitPoint + HitPointIndex;
         HitPoint->Flags = 0;
@@ -292,9 +496,12 @@ ClearCollisionRulesFor(game_state *GameState, uint32 StorageIndex)
     // of the free list, and when you're done, do a pass through all
     // the new things on the free list, and remove the reverse of
     // those pairs.
-    for(uint32 HashBucket = 0; HashBucket < ArrayCount(GameState->CollisionRuleHash); ++HashBucket)
+    for(uint32 HashBucket = 0;                                 //
+        HashBucket < ArrayCount(GameState->CollisionRuleHash); //
+        ++HashBucket)
     {
-        for(pairwise_collision_rule **Rule = &GameState->CollisionRuleHash[HashBucket]; *Rule;)
+        for(pairwise_collision_rule **Rule = &GameState->CollisionRuleHash[HashBucket]; //
+            *Rule;)
         {
             if(((*Rule)->StorageIndexA == StorageIndex) || ((*Rule)->StorageIndexB == StorageIndex))
             {
@@ -326,7 +533,9 @@ AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageInde
     // TODO(casey): BETTER HASH FUNCTION
     pairwise_collision_rule *Found = 0;
     uint32 HashBucket = StorageIndexA & (ArrayCount(GameState->CollisionRuleHash) - 1);
-    for(pairwise_collision_rule *Rule = GameState->CollisionRuleHash[HashBucket]; Rule; Rule = Rule->NextInHash)
+    for(pairwise_collision_rule *Rule = GameState->CollisionRuleHash[HashBucket]; //
+        Rule;                                                                     //
+        Rule = Rule->NextInHash)
     {
         if((Rule->StorageIndexA == StorageIndexA) && (Rule->StorageIndexB == StorageIndexB))
         {
@@ -590,8 +799,8 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
 
         AddMonstar(GameState, CameraTileX - 3, CameraTileY + 2, CameraTileZ);
 
-        GameState->Debug = PushStruct(WorldArena, debug);
-        debug *Debug = GameState->Debug;
+        GameState->Debug = PushStruct(WorldArena, game_debug);
+        game_debug *Debug = GameState->Debug;
         Debug->ProcessAnimations = true;
         Debug->DrawSimRegionBounds = false;
         Debug->DrawSimRegionUpdatableBounds = false;
@@ -621,10 +830,8 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         Render->Animator.Timer = 1.0f;
 
         // TODO(me): remove
-        // GameState->TestTexture1Name = PushString(WorldArena, "lamp.png");
-        GameState->TestTexture1Name = PushString(WorldArena, "pole.png");
-        // GameState->TestTexture1Name = PushString(WorldArena, "clip.png");
-        GameState->TestTexture1 = LoadTexture(&GameState->TestTexture1Name);
+        // GameState->TestTexture1 = LoadTexture(&GameState->TestTexture1Name);
+        GameState->TestTexture1 = glLoadTexture(WorldArena, "pole.png");
 
         glGenFramebuffers(1, &Buffer->FBO);
         glGenTextures(1, &Buffer->DrawTexture);
@@ -1145,17 +1352,19 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
             s32 GroundTextureSizeMultiplyer = 32;
             GroundBuffer->DrawBuffer.Width = (s32)GroundBufferWidth * GroundTextureSizeMultiplyer;
             GroundBuffer->DrawBuffer.Height = (s32)GroundBufferHeight * GroundTextureSizeMultiplyer;
-            glGenTextures(1, &GroundBuffer->DrawBuffer.Texture);
+            glGenTextures(1, &GroundBuffer->DrawBuffer.ID);
             glGenTextures(1, &GroundBuffer->DrawBuffer.DepthTexture);
             GroundBuffer->P = NullPosition();
             GroundBuffer->DrawBuffer.FBO = Buffer->GroundFBO;
+
+            GroundBuffer->TerrainModel = CreateTerrainChunkModel(TranArena, GroundBufferWidth, GroundBufferHeight);
         }
 
         TranState->IsInitialized = true;
     }
 
     // Local pointers for game_state sctructs
-    debug *Debug = GameState->Debug;
+    game_debug *Debug = GameState->Debug;
     app_settings *Settings = GameState->Settings;
     world *World = GameState->World;
     render *Render = GameState->Render;
@@ -1214,7 +1423,9 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         }*/
     }
 
-    for(int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)
+    for(int ControllerIndex = 0;                          //
+        ControllerIndex < ArrayCount(Input->Controllers); //
+        ++ControllerIndex)
     {
         game_controller_input *Controller = GetController(Input, ControllerIndex);
         controlled_hero *ConHero = GameState->ControlledHeroes + ControllerIndex;
@@ -1361,17 +1572,17 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     loaded_texture *DrawBuffer = &DrawBuffer_;
     DrawBuffer->Width = Buffer->Width;
     DrawBuffer->Height = Buffer->Height;
-    DrawBuffer->Texture = Buffer->DrawTexture;
+    DrawBuffer->ID = Buffer->DrawTexture;
     DrawBuffer->FBO = Buffer->FBO;
 
     glBindFramebuffer(GL_FRAMEBUFFER, DrawBuffer->FBO);
 
     // Create Render Texture Attachment
-    glBindTexture(GL_TEXTURE_2D, DrawBuffer->Texture);
+    glBindTexture(GL_TEXTURE_2D, DrawBuffer->ID);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Buffer->Width, Buffer->Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, DrawBuffer->Texture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, DrawBuffer->ID, 0);
 
     //  Create Depth Texture Attachment
     glBindTexture(GL_TEXTURE_2D, Buffer->DepthTexture);
@@ -1646,7 +1857,6 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         if(IsValid(GroundBuffer->P))
         {
             // loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
-            u32 Texture = GroundBuffer->DrawBuffer.Texture;
             v3 Delta = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);
 
             if((Delta.z >= -1.0f) && (Delta.z < 1.0f))
@@ -1661,7 +1871,8 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                 //                 V4(1.0f, 1.0f, 0.0f, 1.0f));
                 // PushRectOutline(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
                 // PushTexture(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GameState->TestTexture1, true);
-                PushTexture(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, Texture);
+                // PushTexture(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GroundBuffer->DrawBuffer.Texture);
+                PushModel(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GroundBuffer->TerrainModel);
             }
         }
     }
@@ -1688,9 +1899,10 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                     ++ChunkX)
                 {
 #if 0
-                    temporary_memory GroundMemory1 = BeginTemporaryMemory(&TranState->TranArena);
-                    render_group *RenderGroup1 =
-                        AllocateRenderGroup(&TranState->TranArena, Megabytes(4), Window, GameState);
+                    // temporary_memory GroundMemory1 = BeginTemporaryMemory(&TranState->TranArena);
+                    // render_group *RenderGroup1 =
+                    //     AllocateRenderGroup(&TranState->TranArena, Megabytes(4), //
+                    //                         GameState->CameraPitch, GameState->CameraYaw, GameState->CameraRenderZ);
 
                     // Clear(RenderGroup1, V4(1.0f, 1.0f, 0.0f, 1.0f));
 
@@ -1699,18 +1911,20 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
 
                     if(Debug->DrawSimChunks)
                     {
-                        PushRectOutline(RenderGroup1, RelP, World->ChunkDimInMeters.xy, V4(1, 0, 0, 1));
+                        PushRectOutline(RenderGroup, V3(RelP.xy, 0), World->ChunkDimInMeters.xy, V4(1, 0, 0, 1));
+                        // PushModel(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GroundBuffer->TerrainModel,
+                        // false);
                     }
-                    if(Debug->DrawChunkWhereCamera &&           //
+                    /*if(Debug->DrawChunkWhereCamera &&           //
                        (GameState->CameraP.ChunkX == ChunkX) && //
                        (GameState->CameraP.ChunkY == ChunkY))
                     {
-                        PushRect(RenderGroup1, RelP, World->ChunkDimInMeters.xy,
+                        PushRect(RenderGroup, RelP, World->ChunkDimInMeters.xy,
                                  V4(140.0f / 255.0f, 140.0f / 255.0f, 218.0f / 255.0f, 1));
-                    }
+                    }*/
 
-                    RenderGroupToOutput(RenderGroup1);
-                    EndTemporaryMemory(GroundMemory1);
+                    // RenderGroupToOutput(RenderGroup1);
+                    // EndTemporaryMemory(GroundMemory1);
 #else
                     world_position ChunkCenterP = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
                     v3 RelP = Subtract(World, &ChunkCenterP, &GameState->CameraP);
@@ -1798,7 +2012,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
 
     glEnable(GL_TEXTURE_2D);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, DrawBuffer->Texture);
+    glBindTexture(GL_TEXTURE_2D, DrawBuffer->ID);
 
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);

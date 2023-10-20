@@ -38,6 +38,14 @@ struct render_entry_texture
     r32 Repeat;
 };
 
+struct render_entry_model
+{
+    render_entity_basis EntityBasis;
+    loaded_model *Model;
+    v2 Dim;
+    b32 IsFill;
+};
+
 enum render_group_entry_type
 {
     RenderGroupEntryType_render_entry_clear,
@@ -46,6 +54,7 @@ enum render_group_entry_type
     RenderGroupEntryType_render_entry_rectangle_outline,
     RenderGroupEntryType_render_entry_coordinate_system,
     RenderGroupEntryType_render_entry_texture,
+    RenderGroupEntryType_render_entry_model,
 };
 
 struct render_group_entry_header

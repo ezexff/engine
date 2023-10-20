@@ -17,25 +17,9 @@ global_variable app_log Log;
 #include "engine_render.h"
 #include "engine_render_group.h"
 
-struct app_settings
+struct game_debug
 {
-    r32 MouseSensitivity;
-
-    // Display Mode radio buttons state
-    b32 RBFullscreenIsActive;
-    b32 RBWindowedIsActive;
-
-    s32 NewFrameRate;
-
-    b32 RBCappedIsActive;
-    b32 RBUncappedIsActive;
-
-    b32 RBVSyncIsActive;
-};
-
-struct debug
-{
-    // imgui vars
+    // NOTE(me): ImGui vars
     bool DrawSimRegionBounds;
     bool DrawSimRegionUpdatableBounds;
     bool DrawSimChunks;
@@ -81,23 +65,6 @@ struct game_state;
 internal void AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageIndexB, bool32 ShouldCollide);
 internal void ClearCollisionRulesFor(game_state *GameState, uint32 StorageIndex);
 
-/*struct loaded_bitmap
-{
-    v2 Align;
-
-    int32 Width;
-    int32 Height;
-    int32 Pitch;
-    void *Memory;
-};*/
-struct loaded_texture
-{
-    int32 Width;
-    int32 Height;
-    u32 Texture;
-    u32 DepthTexture;
-    u32 FBO;
-};
 struct ground_buffer
 {
     // NOTE(casey): An invalid P tells us that this ground_buffer has not been filled
@@ -105,6 +72,7 @@ struct ground_buffer
     // u32 Texture;
     // loaded_bitmap Bitmap;
     loaded_texture DrawBuffer;
+    loaded_model *TerrainModel;
 };
 
 struct game_state
@@ -122,8 +90,9 @@ struct game_state
     r32 CameraYaw;
     r32 CameraRenderZ;
 
-    string TestTexture1Name;
-    u32 TestTexture1;
+    // string TestTexture1Name;
+    // u32 TestTexture1;
+    loaded_texture TestTexture1;
 
     // real32 MetersToPixels;
     // real32 PixelsToMeters;
@@ -148,7 +117,7 @@ struct game_state
     sim_entity_collision_volume_group *StandardRoomCollision;
 
     // TODO(me): переделать? убрать?
-    debug *Debug;
+    game_debug *Debug;
 
     // TODO(me): rework below
     render *Render;

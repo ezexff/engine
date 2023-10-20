@@ -29,7 +29,8 @@ InitializeArena(memory_arena *Arena, memory_index Size, void *Base)
 // #define ConstZ(Z) {sizeof(Z) - 1, (u8 *)(Z)}
 
 #define CopyArray(Count, Source, Dest) Copy((Count) * sizeof(*(Source)), (Source), (Dest))
-inline void *Copy(memory_index Size, void *SourceInit, void *DestInit)
+inline void * //
+Copy(memory_index Size, void *SourceInit, void *DestInit)
 {
     u8 *Source = (u8 *)SourceInit;
     u8 *Dest = (u8 *)DestInit;
@@ -76,7 +77,8 @@ BeginTemporaryMemory(memory_arena *Arena)
     return (Result);
 }
 
-inline void EndTemporaryMemory(temporary_memory TempMem)
+inline void //
+EndTemporaryMemory(temporary_memory TempMem)
 {
     memory_arena *Arena = TempMem.Arena;
     Assert(Arena->Used >= TempMem.Used);
@@ -85,7 +87,8 @@ inline void EndTemporaryMemory(temporary_memory TempMem)
     --Arena->TempCount;
 }
 
-inline void CheckArena(memory_arena *Arena)
+inline void //
+CheckArena(memory_arena *Arena)
 {
     Assert(Arena->TempCount == 0);
 }
@@ -100,7 +103,8 @@ struct buffer
 };
 typedef buffer string;
 
-inline u32 StringLength(char *String)
+inline u32 //
+StringLength(char *String)
 {
     u32 Count = 0;
     if(String)
@@ -114,7 +118,8 @@ inline u32 StringLength(char *String)
     return (Count);
 }
 
-inline char *PushStringZ(memory_arena *Arena, char *Source)
+inline char * //
+PushStringZ(memory_arena *Arena, char *Source)
 {
     u32 Size = 1;
     for(char *At = Source; *At; ++At)
@@ -131,7 +136,8 @@ inline char *PushStringZ(memory_arena *Arena, char *Source)
     return (Dest);
 }
 
-internal string PushString(memory_arena *Arena, char *Source)
+internal string //
+PushString(memory_arena *Arena, char *Source)
 {
     string Result;
     Result.Count = StringLength(Source) + 1;
@@ -141,7 +147,8 @@ internal string PushString(memory_arena *Arena, char *Source)
     return (Result);
 }
 
-inline b32 operator==(string A, string B)
+inline b32 //
+operator==(string A, string B)
 {
     b32 Result = false;
 
@@ -160,7 +167,8 @@ inline b32 operator==(string A, string B)
     return (Result);
 }
 
-inline b32 operator==(string A, char *B)
+inline b32 //
+operator==(string A, char *B)
 {
     b32 Result = false;
 
