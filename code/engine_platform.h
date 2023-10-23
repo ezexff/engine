@@ -170,9 +170,8 @@ extern "C"
 #if ENGINE_INTERNAL
     enum
     {
-        DebugCycleCounter_EngineUpdateAndRender,
-        DebugCycleCounter_RenderGroupToOutput,
-
+        /* 0 */ DebugCycleCounter_EngineUpdateAndRender,
+        /* 1 */ DebugCycleCounter_RenderGroupToOutput,
         DebugCycleCounter_Count,
     };
     typedef struct debug_cycle_counter
@@ -187,7 +186,9 @@ extern "C"
 #define END_TIMED_BLOCK(ID)                                                                                            \
     DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += __rdtsc() - StartCycleCount##ID;                 \
     ++DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount;
-    debug_cycle_counter Counters[DebugCycleCounter_Count];
+#define END_TIMED_BLOCK_COUNTED(ID, Count)                                                                             \
+    DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += __rdtsc() - StartCycleCount##ID;                 \
+    DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount += (Count);
 #endif
 
     //

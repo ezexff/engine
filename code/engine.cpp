@@ -198,10 +198,10 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
                     {
                         if((X == 0) || (Y == 0) || (X == Width) || (Y == Height))
                         {
-                            //if((ChunkOffsetX == 0) && (ChunkOffsetY == 0))
+                            // if((ChunkOffsetX == 0) && (ChunkOffsetY == 0))
                             {
-                                //r32 RandomZ1 = RandomUnilateral(&Series) * MaxTerrainHeight;
-                                //Mesh->Positions[VertexIndex] = V3((r32)X, (r32)Y, RandomZ1);
+                                // r32 RandomZ1 = RandomUnilateral(&Series) * MaxTerrainHeight;
+                                // Mesh->Positions[VertexIndex] = V3((r32)X, (r32)Y, RandomZ1);
                             }
                         }
                         else
@@ -463,7 +463,8 @@ internal add_low_entity_result AddPlayer(game_state *GameState)
     return (Entity);
 }
 
-internal add_low_entity_result AddMonstar(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
+internal add_low_entity_result //
+AddMonstar(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
 {
     world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
     add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Monstar, P, GameState->MonstarCollision);
@@ -2026,7 +2027,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
 
     glDisable(GL_TEXTURE_2D);
 
-    RenderImGui(Input, GameState, TranState, Buffer);
+    RenderImGui(Input, GameState, TranState, Buffer, SimRegion);
 
     EndSim(SimRegion, GameState);
     EndTemporaryMemory(RenderMemory);

@@ -346,7 +346,8 @@ internal bool32 CanCollide(game_state *GameState, sim_entity *A, sim_entity *B)
     return (Result);
 }
 
-internal bool32 HandleCollision(game_state *GameState, sim_entity *A, sim_entity *B)
+internal bool32 //
+HandleCollision(game_state *GameState, sim_entity *A, sim_entity *B)
 {
     bool32 StopsOnCollision = false;
 
@@ -450,14 +451,19 @@ internal bool32 EntitiesOverlap(sim_entity *Entity, sim_entity *TestEntity, v3 E
 }
 
 #if 1
-internal void MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, real32 dt,
-                         move_spec *MoveSpec, v3 ddP)
+internal void //
+MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, real32 dt, move_spec *MoveSpec, v3 ddP)
 {
     Assert(!IsSet(Entity, EntityFlag_Nonspatial));
 
     world *World = SimRegion->World;
 
     if(Entity->Type == EntityType_Hero)
+    {
+        int BreakHere = 5;
+    }
+
+    if(Entity->Type == EntityType_Sword)
     {
         int BreakHere = 5;
     }
@@ -529,6 +535,11 @@ internal void MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entit
                     ++TestHighEntityIndex)
                 {
                     sim_entity *TestEntity = SimRegion->Entities + TestHighEntityIndex;
+
+                    if(TestEntity->Type == EntityType_Monstar)
+                    {
+                        int BreakHere = 5;
+                    }
 
                     // TODO(casey): Robustness!
                     real32 OverlapEpsilon = 0.001f;
@@ -711,7 +722,8 @@ internal void MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entit
             ++TestHighEntityIndex)
         {
             sim_entity *TestEntity = SimRegion->Entities + TestHighEntityIndex;
-            if(CanOverlap(GameState, Entity, TestEntity) && EntitiesOverlap(Entity, TestEntity))
+            if(CanOverlap(GameState, Entity, TestEntity) && //
+               EntitiesOverlap(Entity, TestEntity))
             {
                 HandleOverlap(GameState, Entity, TestEntity, dt, &Ground);
             }
@@ -719,7 +731,9 @@ internal void MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entit
     }
 
     Ground += Entity->P.z - GetEntityGroundPoint(Entity).z;
-    if((Entity->P.z <= Ground) || (IsSet(Entity, EntityFlag_ZSupported) && (Entity->dP.z == 0.0f)))
+    if((Entity->P.z <= Ground) ||               //
+       (IsSet(Entity, EntityFlag_ZSupported) && //
+        (Entity->dP.z == 0.0f)))
     {
         Entity->P.z = Ground;
         Entity->dP.z = 0;

@@ -531,7 +531,8 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
 internal void                                                  //
 RenderImGui(game_input *Input,                                 //
             game_state *GameState, transient_state *TranState, //
-            game_offscreen_buffer *Buffer)
+            game_offscreen_buffer *Buffer,                     //
+            sim_region *SimRegion)
 {
     game_debug *Debug = GameState->Debug;
     app_settings *Settings = GameState->Settings;
@@ -790,6 +791,60 @@ RenderImGui(game_input *Input,                                 //
 
         if(ImGui::CollapsingHeader("Entities"))
         {
+            ImGui::Text("SimEntities");
+            sim_entity *Entity = SimRegion->Entities;
+            for(u32 EntityIndex = 0;                  //
+                EntityIndex < SimRegion->EntityCount; //
+                ++EntityIndex, ++Entity)
+            {
+                if(Entity->Updatable)
+                {
+                    char *EntityType = "EntityType";
+                    if(Entity->Type == EntityType_Null)
+                    {
+                        EntityType = "Null";
+                    }
+                    else if(Entity->Type == EntityType_Space)
+                    {
+                        EntityType = "Space";
+                    }
+                    else if(Entity->Type == EntityType_Hero)
+                    {
+                        EntityType = "Hero";
+                    }
+                    else if(Entity->Type == EntityType_Wall)
+                    {
+                        EntityType = "Wall";
+                    }
+                    else if(Entity->Type == EntityType_Familiar)
+                    {
+                        EntityType = "Familiar";
+                    }
+                    else if(Entity->Type == EntityType_Monstar)
+                    {
+                        EntityType = "Monstar";
+                    }
+                    else if(Entity->Type == EntityType_Sword)
+                    {
+                        EntityType = "Sword";
+                    }
+                    else if(Entity->Type == EntityType_Stairwell)
+                    {
+                        EntityType = "Stairwell";
+                    }
+
+                    // if(ImGui::TreeNode("SimRegion->Entities"))
+                    if(ImGui::TreeNode((void *)(intptr_t)EntityIndex, "Entity%d(%s)", EntityIndex, EntityType))
+                    {
+                        ImGui::Text("Type=%s", EntityType);
+                        ImGui::Text("P=(%f,%f,%f)", Entity->P.x, Entity->P.y, Entity->P.z);
+                        ImGui::Text("dP=(%f,%f,%f)", Entity->dP.x, Entity->dP.y, Entity->dP.z);
+                        ImGui::Text("DistanceLimit=%f", Entity->DistanceLimit);
+                        ImGui::Text("HitPointMax=%u", Entity->HitPointMax);
+                        ImGui::TreePop();
+                    }
+                }
+            }
             /*
             ImGui::Text("EnvObjectsCount=%d", Render->EnvObjectsCount);
             if(ImGui::TreeNode("EnvObjects"))
