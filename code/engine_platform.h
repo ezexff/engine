@@ -153,20 +153,27 @@ extern "C"
 #define PLATFORM_TOGGLE_VSYNC(name) void name(void)
     typedef PLATFORM_TOGGLE_VSYNC(platform_toggle_vsync);
 
+    struct platform_work_queue;
+#define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(platform_work_queue *Queue, void *Data)
+    typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
+    typedef void platform_add_entry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data);
+    typedef void platform_complete_all_work(platform_work_queue *Queue);
+
     typedef struct platform_api
     {
         platform_toggle_fullscreen *ToggleFullscreen;
-
         platform_set_framerate *SetFrameRate;
-
         platform_toggle_framerate_cap *ToggleFrameRateCap;
-
         platform_toggle_vsync *ToggleVSync;
+
+        platform_work_queue *HighPriorityQueue;
+        platform_add_entry *AddEntry;
+        platform_complete_all_work *CompleteAllWork;
     } platform_api;
 
-//
-// NOTE(me): Performance Counters
-//
+    //
+    // NOTE(me): Performance Counters
+    //
 #if ENGINE_INTERNAL
     enum
     {

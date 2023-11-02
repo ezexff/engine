@@ -1,46 +1,19 @@
-/*internal void //
-UpdateBufferFBO(game_offscreen_buffer *Buffer)
-{
-    glBindFramebuffer(GL_FRAMEBUFFER, Buffer->FBO);
-
-    // Create Texture Attachment
-    glBindTexture(GL_TEXTURE_2D, Buffer->Texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Buffer->Width, Buffer->Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Buffer->Texture, 0);
-
-    // Create Depth Texture Attachment
-    glBindTexture(GL_TEXTURE_2D, Buffer->DepthTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, Buffer->Width, Buffer->Height, 0, GL_DEPTH_COMPONENT,
-                 GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Buffer->DepthTexture, 0);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}*/
-
-internal render_group *                                         //
-AllocateRenderGroup(memory_arena *Arena, u32 MaxPushBufferSize, //
-                    r32 CameraPitch, r32 CameraYaw, r32 CameraRenderZ, b32 IsOrthogonal = false)
+internal render_group *                                                //
+AllocateRenderGroup(memory_arena *Arena, u32 MaxPushBufferSize,        //
+                    r32 CameraPitch, r32 CameraYaw, r32 CameraRenderZ, //
+                    b32 IsOrthogonal = false)
 {
     render_group *Result = PushStruct(Arena, render_group);
     Result->PushBufferBase = (uint8 *)PushSize(Arena, MaxPushBufferSize);
 
-    Result->DefaultBasis = PushStruct(Arena, render_basis);
-    Result->DefaultBasis->P = V3(0, 0, 0);
-    // Result->MetersToPixels = MetersToPixels;
-
     Result->MaxPushBufferSize = MaxPushBufferSize;
     Result->PushBufferSize = 0;
 
-    // glfwGetFramebufferSize(Window, &Result->DisplayWidth, &Result->DisplayHeight);
-    Result->CameraPitch = CameraPitch;
-    Result->CameraYaw = CameraYaw;
-    Result->CameraRenderZ = CameraRenderZ;
+    Result->Transform.IsOrthogonal = IsOrthogonal;
 
-    Result->IsOrthogonal = IsOrthogonal;
+    Result->Transform.CameraPitch = CameraPitch;
+    Result->Transform.CameraYaw = CameraYaw;
+    Result->Transform.CameraRenderZ = CameraRenderZ;
 
     return (Result);
 }
@@ -69,21 +42,6 @@ PushRenderElement_(render_group *Group, uint32 Size, render_group_entry_type Typ
     return (Result);
 }
 
-inline v2 //
-GetRenderEntityBasisP(render_group *RenderGroup, render_entity_basis *EntityBasis, v2 ScreenCenter)
-{
-    // TODO(casey): Figure out exactly how z-based XY displacement should work.
-    // v3 EntityBaseP = RenderGroup->MetersToPixels * EntityBasis->Basis->P;
-    // v3 EntityBaseP = EntityBasis->Basis->P;
-    // real32 ZFudge = 1.0f + 0.1f * EntityBaseP.z;
-    // v2 EntityGroundPoint = ScreenCenter + ZFudge * EntityBaseP.xy + EntityBasis->Offset.xy;
-    // v2 EntityGroundPoint = ScreenCenter + EntityBasis->Offset.xy;
-    // v2 Center = EntityGroundPoint + V2(0, EntityBaseP.z + EntityBasis->Offset.z);
-    v2 Center = EntityBasis->Basis->P.xy + EntityBasis->Offset.xy;
-
-    return (Center);
-}
-
 inline void //
 Clear(render_group *Group, v4 Color)
 {
@@ -97,14 +55,13 @@ Clear(render_group *Group, v4 Color)
 inline void //
 PushRect(render_group *Group, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1))
 {
-    render_entry_rectangle *Piece = PushRenderElement(Group, render_entry_rectangle);
-    if(Piece)
-    {
-        Piece->EntityBasis.Basis = Group->DefaultBasis;
-        Piece->EntityBasis.Offset = Offset - V3(0.5f * Dim, 0);
-        Piece->Color = Color;
-        Piece->Dim = Dim;
-    }
+    v3 P = (Offset - V3(0.5f * Dim, 0));
+    P = P + Group->Transform.OffsetP;
+
+    render_entry_rectangle *Entry = PushRenderElement(Group, render_entry_rectangle);
+    Entry->Color = Color;
+    Entry->P = P.xy;
+    Entry->Dim = Dim;
 }
 
 internal void //
@@ -151,15 +108,14 @@ glDrawRect(rectangle2 R, r32 Z, v3 Color)
 inline void //
 PushRectOutline(render_group *Group, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1), r32 LineWidth = 1)
 {
-    render_entry_rectangle_outline *Piece = PushRenderElement(Group, render_entry_rectangle_outline);
-    if(Piece)
-    {
-        Piece->EntityBasis.Basis = Group->DefaultBasis;
-        Piece->EntityBasis.Offset = Offset - V3(0.5f * Dim, 0);
-        Piece->Color = Color;
-        Piece->Dim = Dim;
-        Piece->LineWidth = LineWidth;
-    }
+    v3 P = (Offset - V3(0.5f * Dim, 0));
+    P = P + Group->Transform.OffsetP;
+
+    render_entry_rectangle_outline *Entry = PushRenderElement(Group, render_entry_rectangle_outline);
+    Entry->Color = Color;
+    Entry->P = P.xy;
+    Entry->Dim = Dim;
+    Entry->LineWidth = LineWidth;
 }
 
 internal void                                                                  //
@@ -213,16 +169,15 @@ glDrawRectOutline(rectangle2 R, r32 Z, v3 Color, r32 LineWidth)
 inline void //
 PushTexture(render_group *Group, v3 Offset, v2 Dim, u32 Texture, b32 FlipVertically = false, r32 Repeat = 1.0f)
 {
-    render_entry_texture *Piece = PushRenderElement(Group, render_entry_texture);
-    if(Piece)
-    {
-        Piece->EntityBasis.Basis = Group->DefaultBasis;
-        Piece->EntityBasis.Offset = Offset - V3(0.5f * Dim, 0);
-        Piece->Texture = Texture;
-        Piece->Dim = Dim;
-        Piece->FlipVertically = FlipVertically;
-        Piece->Repeat = Repeat;
-    }
+    v3 P = (Offset - V3(0.5f * Dim, 0));
+    P = P + Group->Transform.OffsetP;
+
+    render_entry_texture *Entry = PushRenderElement(Group, render_entry_texture);
+    Entry->Texture = Texture;
+    Entry->P = P.xy;
+    Entry->Dim = Dim;
+    Entry->FlipVertically = FlipVertically;
+    Entry->Repeat = Repeat;
 }
 
 internal void //
@@ -277,15 +232,14 @@ glDrawTexture(rectangle2 R, r32 Z, u32 Texture, b32 FlipVertically, r32 Repeat)
 inline void //
 PushModel(render_group *Group, v3 Offset, v2 Dim, loaded_model *Model, b32 IsFill = true)
 {
-    render_entry_model *Piece = PushRenderElement(Group, render_entry_model);
-    if(Piece)
-    {
-        Piece->EntityBasis.Basis = Group->DefaultBasis;
-        Piece->EntityBasis.Offset = Offset - V3(0.5f * Dim, 0);
-        Piece->Dim = Dim;
-        Piece->Model = Model;
-        Piece->IsFill = IsFill;
-    }
+    v3 P = (Offset - V3(0.5f * Dim, 0));
+    P = P + Group->Transform.OffsetP;
+
+    render_entry_model *Entry = PushRenderElement(Group, render_entry_model);
+    Entry->Model = Model;
+    Entry->P = P.xy;
+    Entry->Dim = Dim;
+    Entry->IsFill = IsFill;
 }
 
 internal void //
@@ -362,8 +316,8 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
 {
     BEGIN_TIMED_BLOCK(RenderGroupToOutput);
 
-    v2 ScreenCenter = {0.5f * (r32)OutputTarget->Width, //
-                       0.5f * (r32)OutputTarget->Height};
+    /*v2 ScreenCenter = {0.5f * (r32)OutputTarget->Width, //
+                       0.5f * (r32)OutputTarget->Height};*/
 
     glBindFramebuffer(GL_FRAMEBUFFER, OutputTarget->FBO);
 
@@ -386,7 +340,7 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     glViewport(0, 0, OutputTarget->Width, OutputTarget->Height);
-    if(RenderGroup->IsOrthogonal)
+    if(RenderGroup->Transform.IsOrthogonal)
     {
         glDisable(GL_DEPTH_TEST);
         glMatrixMode(GL_PROJECTION);
@@ -408,15 +362,16 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
                   -FOV, FOV, FOV * 2, 1000);
 
         // set camera
-        glRotatef(-RenderGroup->CameraPitch, 1.0f, 0.0f, 0.0f);
-        glRotatef(-RenderGroup->CameraYaw, 0.0f, 0.0f, 1.0f);
+        glRotatef(-RenderGroup->Transform.CameraPitch, 1.0f, 0.0f, 0.0f);
+        glRotatef(-RenderGroup->Transform.CameraYaw, 0.0f, 0.0f, 1.0f);
         // TODO(me): think about real z for camera
         v2 WorldOrigin1 = {};
-        glTranslatef(-WorldOrigin1.x, -WorldOrigin1.y, -RenderGroup->CameraRenderZ);
+        glTranslatef(-WorldOrigin1.x, -WorldOrigin1.y, -RenderGroup->Transform.CameraRenderZ);
     }
 
-    for(u32 BaseAddress = 0; //
-        BaseAddress < RenderGroup->PushBufferSize;)
+    for(u32 BaseAddress = 0;                       //
+        BaseAddress < RenderGroup->PushBufferSize; //
+    )
     {
         render_group_entry_header *Header = (render_group_entry_header *) //
             (RenderGroup->PushBufferBase + BaseAddress);
@@ -429,33 +384,18 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
         {
             render_entry_clear *Entry = (render_entry_clear *)Data;
 
-            /*DrawRectangle(OutputTarget, V2(0.0f, 0.0f), V2((real32)OutputTarget->Width,
-        (real32)OutputTarget->Height), Entry->Color);*/
             glClearColor(Entry->Color.r, Entry->Color.g, Entry->Color.b, Entry->Color.a);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             BaseAddress += sizeof(*Entry);
         }
         break;
-            /*
-            case RenderGroupEntryType_render_entry_bitmap: {
-                render_entry_bitmap *Entry = (render_entry_bitmap *)Data;
-
-                v2 P = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis, ScreenCenter);
-                Assert(Entry->Bitmap);
-                DrawBitmap(OutputTarget, Entry->Bitmap, P.x, P.y, Entry->Color.a);
-
-                BaseAddress += sizeof(*Entry);
-            }
-            break;
-            */
 
         case RenderGroupEntryType_render_entry_model: //
         {
             render_entry_model *Entry = (render_entry_model *)Data;
             Assert(Entry->Model);
-            v2 P = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis, ScreenCenter);
-            glDrawModel({P, P + Entry->Dim}, 0.0f, Entry->Model, Entry->IsFill);
+            glDrawModel({Entry->P, Entry->P + Entry->Dim}, 0.0f, Entry->Model, Entry->IsFill);
 
             BaseAddress += sizeof(*Entry);
         }
@@ -464,8 +404,8 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
         case RenderGroupEntryType_render_entry_texture: //
         {
             render_entry_texture *Entry = (render_entry_texture *)Data;
-            v2 P = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis, ScreenCenter);
-            glDrawTexture({P, P + Entry->Dim}, 0.0f, Entry->Texture, Entry->FlipVertically, Entry->Repeat);
+            glDrawTexture({Entry->P, Entry->P + Entry->Dim}, 0.0f, Entry->Texture, Entry->FlipVertically,
+                          Entry->Repeat);
 
             BaseAddress += sizeof(*Entry);
         }
@@ -474,8 +414,7 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
         case RenderGroupEntryType_render_entry_rectangle: //
         {
             render_entry_rectangle *Entry = (render_entry_rectangle *)Data;
-            v2 P = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis, ScreenCenter);
-            glDrawRect({P, P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+            glDrawRect({Entry->P, Entry->P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
 
             BaseAddress += sizeof(*Entry);
         }
@@ -484,8 +423,7 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
         case RenderGroupEntryType_render_entry_rectangle_outline: //
         {
             render_entry_rectangle_outline *Entry = (render_entry_rectangle_outline *)Data;
-            v2 P = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis, ScreenCenter);
-            glDrawRectOutline({P, P + Entry->Dim}, 0.0f,                          //
+            glDrawRectOutline({Entry->P, Entry->P + Entry->Dim}, 0.0f,            //
                               V3(Entry->Color.x, Entry->Color.y, Entry->Color.z), //
                               Entry->LineWidth);
 

@@ -8,6 +8,27 @@
 
 #include "engine_random.h"
 
+/* TODO(me): TEST
+struct tile_render_work
+{
+    render_group *RenderGroup;
+    loaded_bitmap *OutputTarget;
+    rectangle2i ClipRect;
+};
+
+internal PLATFORM_WORK_QUEUE_CALLBACK(DoTestWork)
+{
+    tile_render_work *Work = (tile_render_work *)Data;
+
+    RenderGroupToOutput(Work->RenderGroup, Work->OutputTarget, Work->ClipRect, true);
+    RenderGroupToOutput(Work->RenderGroup, Work->OutputTarget, Work->ClipRect, false);
+}*/
+
+internal PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork2)
+{
+    Log.AddLog("[thread] %u: %s\n", GetCurrentThreadId(), (char *)Data);
+}
+
 internal loaded_model * //
 CreateTerrainChunkModel(memory_arena *WorldArena, u32 Width, u32 Height)
 {
@@ -569,9 +590,8 @@ AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageInde
     }
 }
 
-sim_entity_collision_volume_group //
- *MakeSimpleGroundedCollision(game_state *GameState, real32 DimX, real32 DimY,
-                                                               real32 DimZ)
+sim_entity_collision_volume_group * //
+MakeSimpleGroundedCollision(game_state *GameState, real32 DimX, real32 DimY, real32 DimZ)
 {
     // TODO(casey): NOT WORLD ARENA!  Change to using the fundamental types arena, etc.
     sim_entity_collision_volume_group *Group = PushStruct(&GameState->WorldArena, sim_entity_collision_volume_group);
@@ -584,8 +604,8 @@ sim_entity_collision_volume_group //
     return (Group);
 }
 
-sim_entity_collision_volume_group //
- *MakeNullCollision(game_state *GameState)
+sim_entity_collision_volume_group * //
+MakeNullCollision(game_state *GameState)
 {
     // TODO(casey): NOT WORLD ARENA!  Change to using the fundamental types arena, etc.
     sim_entity_collision_volume_group *Group = PushStruct(&GameState->WorldArena, sim_entity_collision_volume_group);
@@ -1341,6 +1361,8 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                         (uint8 *)Memory->TransientStorage + sizeof(transient_state));
         memory_arena *TranArena = &TranState->TranArena;
 
+        TranState->TestQueue = Platform.HighPriorityQueue;
+
         TranState->GroundBufferCount = 64;
         TranState->GroundBuffers = PushArray(TranArena, TranState->GroundBufferCount, ground_buffer);
         for(uint32 GroundBufferIndex = 0;                     //
@@ -1360,6 +1382,9 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
 
             GroundBuffer->TerrainModel = CreateTerrainChunkModel(TranArena, GroundBufferWidth, GroundBufferHeight);
         }
+
+        // TODO(me): Testing only
+        Platform.AddEntry(TranState->TestQueue, DoWorkerWork2, "Testing work hm...");
 
         TranState->IsInitialized = true;
     }
@@ -1632,25 +1657,22 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     // TODO(casey): Move this out into handmade_entity.cpp!
     // entity_visible_piece_group PieceGroup;
     // PieceGroup.GameState = GameState;
-    sim_entity *Entity = SimRegion->Entities;
     for(u32 EntityIndex = 0;                  //
         EntityIndex < SimRegion->EntityCount; //
-        ++EntityIndex, ++Entity)
+        ++EntityIndex)
     {
+        sim_entity *Entity = SimRegion->Entities + EntityIndex;
         if(Entity->Updatable)
         {
-            // PieceGroup.PieceCount = 0;
             r32 dt = Input->dtForFrame;
 
             // TODO(casey): This is incorrect, should be computed after update!!!!
-
             move_spec MoveSpec = DefaultMoveSpec();
             v3 ddP = {};
 
-            render_basis *Basis = PushStruct(&TranState->TranArena, render_basis);
-            RenderGroup->DefaultBasis = Basis;
-
-            // hero_bitmaps *HeroBitmaps = &GameState->HeroBitmaps[Entity->FacingDirection];
+            //
+            // NOTE(me): Pre-physics entity work
+            //
             switch(Entity->Type)
             {
             case EntityType_Hero: //
@@ -1696,25 +1718,6 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                         }
                     }
                 }
-
-                if(Debug->DrawPlayerHitbox)
-                {
-                    PushRectCollisionVolumes(RenderGroup, Entity, V4(0, 1, 0, 1));
-                }
-            }
-            break;
-
-            case EntityType_Wall: //
-            {
-                PushRectCollisionVolumes(RenderGroup, Entity, V4(1, 0, 0, 1));
-            }
-            break;
-
-            case EntityType_Stairwell: //
-            {
-                // PushRect(&PieceGroup, V2(0, 0), 0, Entity->WalkableDim, V4(1, 0.5f, 0, 1), 0.0f);
-                // PushRect(&PieceGroup, V2(0, 0), Entity->WalkableHeight, Entity->WalkableDim, V4(1, 1, 0, 1),
-                // 0.0f);
             }
             break;
 
@@ -1729,7 +1732,6 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                     ClearCollisionRulesFor(GameState, Entity->StorageIndex);
                     MakeEntityNonSpatial(Entity);
                 }
-                PushRectCollisionVolumes(RenderGroup, Entity, V4(1, 1, 0, 1));
             }
             break;
 
@@ -1753,11 +1755,62 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                 if(Entity->tBob > (2.0f * Pi32))
                 {
                     Entity->tBob -= (2.0f * Pi32);
+                }*/
+            }
+            break;
+            }
+
+            if(!IsSet(Entity, EntityFlag_Nonspatial) && //
+               IsSet(Entity, EntityFlag_Moveable))
+            {
+                MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, &MoveSpec, ddP);
+            }
+
+            // Basis->P = GetEntityGroundPoint(Entity);
+            RenderGroup->Transform.OffsetP = GetEntityGroundPoint(Entity);
+
+            //
+            // NOTE(me): Post-physics entity work
+            //
+            switch(Entity->Type)
+            {
+            case EntityType_Hero: //
+            {
+                if(Debug->DrawPlayerHitbox)
+                {
+                    PushRectCollisionVolumes(RenderGroup, Entity, V4(0, 1, 0, 1));
                 }
+            }
+            break;
+
+            case EntityType_Wall: //
+            {
+                PushRectCollisionVolumes(RenderGroup, Entity, V4(1, 0, 0, 1));
+            }
+            break;
+
+            case EntityType_Stairwell: //
+            {
+                // PushRect(&PieceGroup, V2(0, 0), 0, Entity->WalkableDim, V4(1, 0.5f, 0, 1), 0.0f);
+                // PushRect(&PieceGroup, V2(0, 0), Entity->WalkableHeight, Entity->WalkableDim, V4(1, 1, 0, 1),
+                // 0.0f);
+            }
+            break;
+
+            case EntityType_Sword: //
+            {
+                PushRectCollisionVolumes(RenderGroup, Entity, V4(1, 1, 0, 1));
+            }
+            break;
+
+            case EntityType_Familiar: //
+            {
+                /*
                 real32 BobSin = Sin(2.0f * Entity->tBob);
                 PushBitmap(&PieceGroup, &GameState->Shadow, V2(0, 0), 0, HeroBitmaps->Align,
                            (0.5f * ShadowAlpha) + 0.2f * BobSin, 0.0f);
-                PushBitmap(&PieceGroup, &HeroBitmaps->Head, V2(0, 0), 0.25f * BobSin, HeroBitmaps->Align);*/
+                PushBitmap(&PieceGroup, &HeroBitmaps->Head, V2(0, 0), 0.25f * BobSin, HeroBitmaps->Align);
+                */
             }
             break;
 
@@ -1775,14 +1828,6 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
             break;
 
                 InvalidDefaultCase;
-            }
-
-            Basis->P = GetEntityGroundPoint(Entity);
-
-            if(!IsSet(Entity, EntityFlag_Nonspatial) && //
-               IsSet(Entity, EntityFlag_Moveable))
-            {
-                MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, &MoveSpec, ddP);
             }
         }
     }
@@ -1862,10 +1907,6 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
 
             if((Delta.z >= -1.0f) && (Delta.z < 1.0f))
             {
-                render_basis *Basis = PushStruct(&TranState->TranArena, render_basis);
-                RenderGroup->DefaultBasis = Basis;
-                Basis->P = Delta;
-
                 // real32 GroundSideInMeters = World->ChunkDimInMeters.x;
                 //  PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, V3(0, 0, 0));
                 // PushRectOutline(RenderGroup, V3(0, 0, 0), V2(GroundSideInMeters, GroundSideInMeters),
@@ -1873,7 +1914,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                 // PushRectOutline(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
                 // PushTexture(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GameState->TestTexture1, true);
                 // PushTexture(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GroundBuffer->DrawBuffer.Texture);
-                PushModel(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GroundBuffer->TerrainModel);
+                PushModel(RenderGroup, Delta, World->ChunkDimInMeters.xy, GroundBuffer->TerrainModel);
             }
         }
     }
@@ -1968,9 +2009,11 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                     {
                         Log.AddLog("[fillgroundchunk] TmpGroundBufferIndex=%d (%d,%d)\n", //
                                    TmpGroundBufferIndex, ChunkCenterP.ChunkX, ChunkCenterP.ChunkY);
+#if 0
                         FillGroundChunk(TranState, GameState, //
                                         FurthestBuffer,       //
                                         &ChunkCenterP);
+#endif
                     }
 #endif
                 }

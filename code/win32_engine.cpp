@@ -22,7 +22,7 @@ global_variable b32 GlobalShowMouseCursor = true;
 global_variable b32 MouseCursorInited = true;
 global_variable b32 MousePosChanged = false;
 
-game_controller_input *NewKeyboardController;
+global_variable game_controller_input *NewKeyboardController;
 global_variable r32 MouseOffsetX, MouseOffsetY;
 global_variable r32 MouseLastX, MouseLastY;
 global_variable r64 DeltaTime = 0.0f;
@@ -46,6 +46,9 @@ global_variable game_offscreen_buffer GlobalBuffer = {};
 // #pragma comment(lib, "legacy_stdio_definitions")
 // #endif
 
+//
+// NOTE(me): Settings
+//
 PLATFORM_TOGGLE_FRAMERATE_CAP(PlatformToggleFrameRateCap)
 {
     GlobalUncappedFrameRate = !GlobalUncappedFrameRate;
@@ -77,6 +80,9 @@ PLATFORM_TOGGLE_FULLSCREEN(PlatformToggleFullscreen)
     }
 }
 
+//
+// NOTE(me): Inputs
+//
 internal void GlfwProcessKey(int32 Key, int32 KeyCode, int32 Action, game_button_state *NewState)
 {
     if((Key == KeyCode) && (Action == GLFW_PRESS))
@@ -151,15 +157,169 @@ internal void KeyCallback(GLFWwindow *Window, int Key, int Scancode, int Action,
 #endif
 }
 
-internal void GlfwErrorCallback(int Error, const char *Description)
+//
+// NOTE(me): Threads
+//
+struct platform_work_queue_entry
+{
+    platform_work_queue_callback *Callback;
+    void *Data;
+};
+
+struct platform_work_queue
+{
+    uint32 volatile CompletionGoal;
+    uint32 volatile CompletionCount;
+
+    uint32 volatile NextEntryToWrite;
+    uint32 volatile NextEntryToRead;
+    HANDLE SemaphoreHandle;
+
+    platform_work_queue_entry Entries[256];
+};
+
+internal void //
+Win32AddEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data)
+{
+    // TODO(casey): Switch to InterlockedCompareExchange eventually
+    // so that any thread can add?
+    uint32 NewNextEntryToWrite = (Queue->NextEntryToWrite + 1) % ArrayCount(Queue->Entries);
+    Assert(NewNextEntryToWrite != Queue->NextEntryToRead);
+    platform_work_queue_entry *Entry = Queue->Entries + Queue->NextEntryToWrite;
+    Entry->Callback = Callback;
+    Entry->Data = Data;
+    ++Queue->CompletionGoal;
+    _WriteBarrier();
+    Queue->NextEntryToWrite = NewNextEntryToWrite;
+    ReleaseSemaphore(Queue->SemaphoreHandle, 1, 0);
+}
+
+internal bool32 //
+Win32DoNextWorkQueueEntry(platform_work_queue *Queue)
+{
+    bool32 WeShouldSleep = false;
+
+    uint32 OriginalNextEntryToRead = Queue->NextEntryToRead;
+    uint32 NewNextEntryToRead = (OriginalNextEntryToRead + 1) % ArrayCount(Queue->Entries);
+    if(OriginalNextEntryToRead != Queue->NextEntryToWrite)
+    {
+        uint32 Index = InterlockedCompareExchange((LONG volatile *)&Queue->NextEntryToRead, NewNextEntryToRead,
+                                                  OriginalNextEntryToRead);
+        if(Index == OriginalNextEntryToRead)
+        {
+            platform_work_queue_entry Entry = Queue->Entries[Index];
+            Entry.Callback(Queue, Entry.Data);
+            InterlockedIncrement((LONG volatile *)&Queue->CompletionCount);
+        }
+    }
+    else
+    {
+        WeShouldSleep = true;
+    }
+
+    return (WeShouldSleep);
+}
+
+internal void //
+Win32CompleteAllWork(platform_work_queue *Queue)
+{
+    while(Queue->CompletionGoal != Queue->CompletionCount)
+    {
+        Win32DoNextWorkQueueEntry(Queue);
+    }
+
+    Queue->CompletionGoal = 0;
+    Queue->CompletionCount = 0;
+}
+
+struct win32_thread_info
+{
+    int LogicalThreadIndex;
+    platform_work_queue *Queue;
+};
+DWORD WINAPI //
+ThreadProc(LPVOID lpParameter)
+{
+    win32_thread_info *ThreadInfo = (win32_thread_info *)lpParameter;
+
+    for(;;)
+    {
+        if(Win32DoNextWorkQueueEntry(ThreadInfo->Queue))
+        {
+            WaitForSingleObjectEx(ThreadInfo->Queue->SemaphoreHandle, INFINITE, FALSE);
+        }
+    }
+
+    //    return(0);
+}
+
+internal PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork)
+{
+    char Buffer[256];
+    wsprintf(Buffer, "Thread %u: %s\n", GetCurrentThreadId(), (char *)Data);
+    OutputDebugStringA(Buffer);
+}
+
+//
+// NOTE(me): Debug
+//
+internal void //
+GlfwErrorCallback(int Error, const char *Description)
 {
     fprintf(stderr, "Glfw Error %d: %s\n", Error, Description);
 }
 
+//
+// NOTE(me): Main
+//
 int main(int, char **)
 // int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode)
 {
     win32_state Win32State = {};
+
+    win32_thread_info ThreadInfo[7];
+
+    platform_work_queue Queue = {};
+
+    uint32 InitialCount = 0;
+    uint32 ThreadCount = ArrayCount(ThreadInfo);
+    Queue.SemaphoreHandle = CreateSemaphoreEx(0, InitialCount, ThreadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
+    for(uint32 ThreadIndex = 0;    //
+        ThreadIndex < ThreadCount; //
+        ++ThreadIndex)
+    {
+        win32_thread_info *Info = ThreadInfo + ThreadIndex;
+        Info->Queue = &Queue;
+        Info->LogicalThreadIndex = ThreadIndex;
+
+        DWORD ThreadID;
+        HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Info, 0, &ThreadID);
+        CloseHandle(ThreadHandle);
+    }
+
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A0");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A1");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A2");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A3");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A4");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A5");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A6");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A7");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A8");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A9");
+
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B0");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B1");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B2");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B3");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B4");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B5");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B6");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B7");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B8");
+    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B9");
+
+    Win32CompleteAllWork(&Queue);
 
     // Setup window
     glfwSetErrorCallback(GlfwErrorCallback);
@@ -264,12 +424,14 @@ int main(int, char **)
     GameMemory.PermanentStorageSize = Megabytes(32);
     GameMemory.TransientStorageSize = Megabytes(32);
 
-#if ENGINE_INTERNAL
     GameMemory.PlatformAPI.ToggleFullscreen = PlatformToggleFullscreen;
     GameMemory.PlatformAPI.SetFrameRate = PlatformSetFrameRate;
     GameMemory.PlatformAPI.ToggleFrameRateCap = PlatformToggleFrameRateCap;
     GameMemory.PlatformAPI.ToggleVSync = PlatformToggleVSync;
-#endif
+
+    GameMemory.PlatformAPI.HighPriorityQueue = &Queue;
+    GameMemory.PlatformAPI.AddEntry = Win32AddEntry;
+    GameMemory.PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
 
     Win32State.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
     Win32State.GameMemoryBlock =
