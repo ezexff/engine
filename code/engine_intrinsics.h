@@ -8,6 +8,13 @@
 #define Minimum(A, B) ((A < B) ? (A) : (B))
 #define Maximum(A, B) ((A > B) ? (A) : (B))
 
+#if COMPILER_MSVC
+#define CompletePreviousWritesBeforeFutureWrites _WriteBarrier();
+#else
+// TODO(casey): Need to define these on GCC/LLVM?
+#define CompletePreviousWritesBeforeFutureWrites
+#endif
+
 inline s32 RoundReal32ToInt32(r32 Real32)
 {
     s32 Result = (s32)roundf(Real32);

@@ -140,10 +140,20 @@ struct game_state
     bool ShowAnotherWindow;
 };
 
+struct task_with_memory
+{
+    bool32 BeingUsed;
+    memory_arena Arena;
+
+    temporary_memory MemoryFlush;
+};
+
 struct transient_state
 {
     bool32 IsInitialized;
     memory_arena TranArena;
+
+    task_with_memory Tasks[4];
 
     u32 GroundBufferCount;
     ground_buffer *GroundBuffers;

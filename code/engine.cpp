@@ -8,21 +8,69 @@
 
 #include "engine_random.h"
 
-/* TODO(me): TEST
-struct tile_render_work
+//
+// NOTE(me): Task with Memory
+//
+internal task_with_memory *BeginTaskWithMemory(transient_state *TranState)
 {
-    render_group *RenderGroup;
-    loaded_bitmap *OutputTarget;
-    rectangle2i ClipRect;
+    task_with_memory *FoundTask = 0;
+
+    for(uint32 TaskIndex = 0;                     //
+        TaskIndex < ArrayCount(TranState->Tasks); //
+        ++TaskIndex)
+    {
+        task_with_memory *Task = TranState->Tasks + TaskIndex;
+        if(!Task->BeingUsed)
+        {
+            FoundTask = Task;
+            Task->BeingUsed = true;
+            Task->MemoryFlush = BeginTemporaryMemory(&Task->Arena);
+            break;
+        }
+    }
+
+    return (FoundTask);
+}
+
+inline void EndTaskWithMemory(task_with_memory *Task)
+{
+    EndTemporaryMemory(Task->MemoryFlush);
+
+    CompletePreviousWritesBeforeFutureWrites;
+    Task->BeingUsed = false;
+}
+
+struct test_work
+{
+    // render_group *RenderGroup;
+    // loaded_bitmap *Buffer;
+    task_with_memory *Task;
 };
-
-internal PLATFORM_WORK_QUEUE_CALLBACK(DoTestWork)
+internal PLATFORM_WORK_QUEUE_CALLBACK(TestWork)
 {
-    tile_render_work *Work = (tile_render_work *)Data;
+    test_work *Work = (test_work *)Data;
 
-    RenderGroupToOutput(Work->RenderGroup, Work->OutputTarget, Work->ClipRect, true);
-    RenderGroupToOutput(Work->RenderGroup, Work->OutputTarget, Work->ClipRect, false);
-}*/
+    // RenderGroupToOutput(Work->RenderGroup, Work->Buffer);
+    Log.AddLog("[test_work] TestWorkWithMemory\n");
+
+    EndTaskWithMemory(Work->Task);
+}
+
+internal void //
+TestFuctionTaskWithMemory(transient_state *TranState)
+{
+    task_with_memory *Task = BeginTaskWithMemory(TranState);
+    if(Task)
+    {
+        test_work *Work = PushStruct(&Task->Arena, test_work);
+
+        //    Work->RenderGroup = RenderGroup;
+        //    Work->Buffer = Buffer;
+        Work->Task = Task;
+
+        Platform.AddEntry(TranState->LowPriorityQueue, TestWork, Work);
+    }
+}
 
 internal PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork2)
 {
@@ -1361,6 +1409,16 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                         (uint8 *)Memory->TransientStorage + sizeof(transient_state));
         memory_arena *TranArena = &TranState->TranArena;
 
+        for(uint32_t TaskIndex = 0;                   //
+            TaskIndex < ArrayCount(TranState->Tasks); //
+            ++TaskIndex)
+        {
+            task_with_memory *Task = TranState->Tasks + TaskIndex;
+
+            Task->BeingUsed = false;
+            SubArena(&Task->Arena, &TranState->TranArena, Megabytes(1));
+        }
+
         TranState->HighPriorityQueue = Platform.HighPriorityQueue;
         TranState->LowPriorityQueue = Platform.LowPriorityQueue;
 
@@ -1386,6 +1444,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
 
         // TODO(me): Testing only
         Platform.AddEntry(TranState->HighPriorityQueue, DoWorkerWork2, "Testing work hm...");
+        TestFuctionTaskWithMemory(TranState);
 
         TranState->IsInitialized = true;
     }
@@ -1652,7 +1711,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     }
     // if(Debug->DrawSimRegionUpdatableBounds)
     {
-        // PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimRegion->Bounds).xy, V4(0, 1, 0, 1));
+        PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimRegion->Bounds).xy, V4(1, 0.5, 0, 1));
         PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimRegion->UpdatableBounds).xy, V4(1.0f, 0.0f, 1.0f, 1));
     }
     // glDisable(GL_LINE_SMOOTH);
@@ -1899,7 +1958,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
 #endif
     */
 
-    // NOTE(casey): Ground chunk rendering
+    // NOTE(me): Render ground chunks
     for(uint32 GroundBufferIndex = 0;                     //
         GroundBufferIndex < TranState->GroundBufferCount; //
         ++GroundBufferIndex)
@@ -1912,24 +1971,46 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
 
             if((Delta.z >= -1.0f) && (Delta.z < 1.0f))
             {
-                // real32 GroundSideInMeters = World->ChunkDimInMeters.x;
-                //  PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, V3(0, 0, 0));
-                // PushRectOutline(RenderGroup, V3(0, 0, 0), V2(GroundSideInMeters, GroundSideInMeters),
-                //                 V4(1.0f, 1.0f, 0.0f, 1.0f));
-                // PushTexture(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GameState->TestTexture1, true);
-                // PushTexture(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GroundBuffer->DrawBuffer.Texture);
-                PushRectOutline(RenderGroup, Delta, World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
+                // PushTexture(RenderGroup, Delta, World->ChunkDimInMeters.xy, GroundBuffer->DrawBuffer.ID);
                 // PushModel(RenderGroup, Delta, World->ChunkDimInMeters.xy, GroundBuffer->TerrainModel);
+                PushRectOutline(RenderGroup, Delta, World->ChunkDimInMeters.xy, V4(1, 0, 0, 1));
             }
         }
     }
 
+// NOTE(me): Render sim region chunks
+#if 0
+    world_position MinChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMinCorner(SimRegion->Bounds));
+    world_position MaxChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMaxCorner(SimRegion->Bounds));
+
+    for(s32 ChunkZ = MinChunkP.ChunkZ; //
+        ChunkZ <= MaxChunkP.ChunkZ;    //
+        ++ChunkZ)
+    {
+        for(s32 ChunkY = MinChunkP.ChunkY; //
+            ChunkY <= MaxChunkP.ChunkY;    //
+            ++ChunkY)
+        {
+            for(s32 ChunkX = MinChunkP.ChunkX; //
+                ChunkX <= MaxChunkP.ChunkX;    //
+                ++ChunkX)
+            {
+
+                world_position ChunkCenterP = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
+                v3 RelP = Subtract(World, &ChunkCenterP, &GameState->CameraP);
+
+                if(Debug->DrawSimChunks)
+                {
+                    PushRectOutline(RenderGroup, V3(RelP.xy, 0), World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
+                }
+            }
+        }
+    }
+#endif
+
     // NOTE(casey): Ground chunk updating
     if(Debug->DrawSimChunks || Debug->DrawChunkWhereCamera)
     {
-        // v2 ScreenCenter = {0.5f * (real32)Render->DisplayWidth, //
-        //                    0.5f * (real32)Render->DisplayHeight};
-
         world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMinCorner(CameraBoundsInMeters));
         world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMaxCorner(CameraBoundsInMeters));
 
@@ -1945,34 +2026,6 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                     ChunkX <= MaxChunkP.ChunkX;    //
                     ++ChunkX)
                 {
-#if 0
-                    // temporary_memory GroundMemory1 = BeginTemporaryMemory(&TranState->TranArena);
-                    // render_group *RenderGroup1 =
-                    //     AllocateRenderGroup(&TranState->TranArena, Megabytes(4), //
-                    //                         GameState->CameraPitch, GameState->CameraYaw, GameState->CameraRenderZ);
-
-                    // Clear(RenderGroup1, V4(1.0f, 1.0f, 0.0f, 1.0f));
-
-                    world_position ChunkCenterP = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
-                    v3 RelP = Subtract(World, &ChunkCenterP, &GameState->CameraP);
-
-                    if(Debug->DrawSimChunks)
-                    {
-                        PushRectOutline(RenderGroup, V3(RelP.xy, 0), World->ChunkDimInMeters.xy, V4(1, 0, 0, 1));
-                        // PushModel(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GroundBuffer->TerrainModel,
-                        // false);
-                    }
-                    /*if(Debug->DrawChunkWhereCamera &&           //
-                       (GameState->CameraP.ChunkX == ChunkX) && //
-                       (GameState->CameraP.ChunkY == ChunkY))
-                    {
-                        PushRect(RenderGroup, RelP, World->ChunkDimInMeters.xy,
-                                 V4(140.0f / 255.0f, 140.0f / 255.0f, 218.0f / 255.0f, 1));
-                    }*/
-
-                    // RenderGroupToOutput(RenderGroup1);
-                    // EndTemporaryMemory(GroundMemory1);
-#else
                     world_position ChunkCenterP = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
                     v3 RelP = Subtract(World, &ChunkCenterP, &GameState->CameraP);
 
@@ -2020,7 +2073,6 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                                         &ChunkCenterP);
 #endif
                     }
-#endif
                 }
             }
         }

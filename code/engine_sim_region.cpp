@@ -137,8 +137,9 @@ internal sim_entity *AddEntity(game_state *GameState, sim_region *SimRegion, uin
     return (Dest);
 }
 
-internal sim_region *BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_position Origin,
-                              rectangle3 Bounds, real32 dt)
+internal sim_region *                                                 //
+BeginSim(memory_arena *SimArena, game_state *GameState, world *World, //
+         world_position Origin, rectangle3 Bounds, real32 dt)
 {
     // TODO(casey): If entities were stored in the world, we wouldn't need the game state here!
 
