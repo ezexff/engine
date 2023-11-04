@@ -167,6 +167,8 @@ extern "C"
         platform_toggle_vsync *ToggleVSync;
 
         platform_work_queue *HighPriorityQueue;
+        platform_work_queue *LowPriorityQueue;
+
         platform_add_entry *AddEntry;
         platform_complete_all_work *CompleteAllWork;
     } platform_api;

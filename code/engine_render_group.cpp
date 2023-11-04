@@ -15,6 +15,8 @@ AllocateRenderGroup(memory_arena *Arena, u32 MaxPushBufferSize,        //
     Result->Transform.CameraYaw = CameraYaw;
     Result->Transform.CameraRenderZ = CameraRenderZ;
 
+    Result->Transform.OffsetP = V3(0, 0, 0);
+
     return (Result);
 }
 
@@ -56,7 +58,7 @@ inline void //
 PushRect(render_group *Group, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1))
 {
     v3 P = (Offset - V3(0.5f * Dim, 0));
-    P = P + Group->Transform.OffsetP;
+    P += Group->Transform.OffsetP;
 
     render_entry_rectangle *Entry = PushRenderElement(Group, render_entry_rectangle);
     Entry->Color = Color;
@@ -109,7 +111,7 @@ inline void //
 PushRectOutline(render_group *Group, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1), r32 LineWidth = 1)
 {
     v3 P = (Offset - V3(0.5f * Dim, 0));
-    P = P + Group->Transform.OffsetP;
+    P += Group->Transform.OffsetP;
 
     render_entry_rectangle_outline *Entry = PushRenderElement(Group, render_entry_rectangle_outline);
     Entry->Color = Color;
@@ -170,7 +172,7 @@ inline void //
 PushTexture(render_group *Group, v3 Offset, v2 Dim, u32 Texture, b32 FlipVertically = false, r32 Repeat = 1.0f)
 {
     v3 P = (Offset - V3(0.5f * Dim, 0));
-    P = P + Group->Transform.OffsetP;
+    P += Group->Transform.OffsetP;
 
     render_entry_texture *Entry = PushRenderElement(Group, render_entry_texture);
     Entry->Texture = Texture;
@@ -233,7 +235,7 @@ inline void //
 PushModel(render_group *Group, v3 Offset, v2 Dim, loaded_model *Model, b32 IsFill = true)
 {
     v3 P = (Offset - V3(0.5f * Dim, 0));
-    P = P + Group->Transform.OffsetP;
+    P += Group->Transform.OffsetP;
 
     render_entry_model *Entry = PushRenderElement(Group, render_entry_model);
     Entry->Model = Model;

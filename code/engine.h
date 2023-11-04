@@ -148,7 +148,8 @@ struct transient_state
     u32 GroundBufferCount;
     ground_buffer *GroundBuffers;
 
-    platform_work_queue *TestQueue;
+    platform_work_queue *HighPriorityQueue;
+    platform_work_queue *LowPriorityQueue;
 
     // uint32 GroundBufferCount;
     // loaded_bitmap GroundBitmapTemplate;

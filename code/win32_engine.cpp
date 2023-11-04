@@ -47,6 +47,15 @@ global_variable game_offscreen_buffer GlobalBuffer = {};
 // #endif
 
 //
+// NOTE(me): Debug
+//
+internal void //
+GlfwErrorCallback(int Error, const char *Description)
+{
+    fprintf(stderr, "Glfw Error %d: %s\n", Error, Description);
+}
+
+//
 // NOTE(me): Settings
 //
 PLATFORM_TOGGLE_FRAMERATE_CAP(PlatformToggleFrameRateCap)
@@ -232,21 +241,16 @@ Win32CompleteAllWork(platform_work_queue *Queue)
     Queue->CompletionCount = 0;
 }
 
-struct win32_thread_info
-{
-    int LogicalThreadIndex;
-    platform_work_queue *Queue;
-};
 DWORD WINAPI //
 ThreadProc(LPVOID lpParameter)
 {
-    win32_thread_info *ThreadInfo = (win32_thread_info *)lpParameter;
+    platform_work_queue *Queue = (platform_work_queue *)lpParameter;
 
     for(;;)
     {
-        if(Win32DoNextWorkQueueEntry(ThreadInfo->Queue))
+        if(Win32DoNextWorkQueueEntry(Queue))
         {
-            WaitForSingleObjectEx(ThreadInfo->Queue->SemaphoreHandle, INFINITE, FALSE);
+            WaitForSingleObjectEx(Queue->SemaphoreHandle, INFINITE, FALSE);
         }
     }
 
@@ -260,13 +264,25 @@ internal PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork)
     OutputDebugStringA(Buffer);
 }
 
-//
-// NOTE(me): Debug
-//
 internal void //
-GlfwErrorCallback(int Error, const char *Description)
+Win32MakeQueue(platform_work_queue *Queue, u32 ThreadCount)
 {
-    fprintf(stderr, "Glfw Error %d: %s\n", Error, Description);
+    Queue->CompletionGoal = 0;
+    Queue->CompletionCount = 0;
+
+    Queue->NextEntryToWrite = 0;
+    Queue->NextEntryToRead = 0;
+
+    uint32 InitialCount = 0;
+    Queue->SemaphoreHandle = CreateSemaphoreEx(0, InitialCount, ThreadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
+    for(uint32 ThreadIndex = 0;    //
+        ThreadIndex < ThreadCount; //
+        ++ThreadIndex)
+    {
+        DWORD ThreadID;
+        HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Queue, 0, &ThreadID);
+        CloseHandle(ThreadHandle);
+    }
 }
 
 //
@@ -277,26 +293,13 @@ int main(int, char **)
 {
     win32_state Win32State = {};
 
-    win32_thread_info ThreadInfo[7];
+    platform_work_queue HighPriorityQueue = {};
+    Win32MakeQueue(&HighPriorityQueue, 6);
 
-    platform_work_queue Queue = {};
+    platform_work_queue LowPriorityQueue = {};
+    Win32MakeQueue(&LowPriorityQueue, 2);
 
-    uint32 InitialCount = 0;
-    uint32 ThreadCount = ArrayCount(ThreadInfo);
-    Queue.SemaphoreHandle = CreateSemaphoreEx(0, InitialCount, ThreadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
-    for(uint32 ThreadIndex = 0;    //
-        ThreadIndex < ThreadCount; //
-        ++ThreadIndex)
-    {
-        win32_thread_info *Info = ThreadInfo + ThreadIndex;
-        Info->Queue = &Queue;
-        Info->LogicalThreadIndex = ThreadIndex;
-
-        DWORD ThreadID;
-        HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Info, 0, &ThreadID);
-        CloseHandle(ThreadHandle);
-    }
-
+#if 0
     Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A0");
     Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A1");
     Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A2");
@@ -320,6 +323,7 @@ int main(int, char **)
     Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B9");
 
     Win32CompleteAllWork(&Queue);
+#endif
 
     // Setup window
     glfwSetErrorCallback(GlfwErrorCallback);
@@ -429,7 +433,8 @@ int main(int, char **)
     GameMemory.PlatformAPI.ToggleFrameRateCap = PlatformToggleFrameRateCap;
     GameMemory.PlatformAPI.ToggleVSync = PlatformToggleVSync;
 
-    GameMemory.PlatformAPI.HighPriorityQueue = &Queue;
+    GameMemory.PlatformAPI.HighPriorityQueue = &HighPriorityQueue;
+    GameMemory.PlatformAPI.LowPriorityQueue = &LowPriorityQueue;
     GameMemory.PlatformAPI.AddEntry = Win32AddEntry;
     GameMemory.PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
 

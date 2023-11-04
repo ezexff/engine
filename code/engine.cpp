@@ -250,14 +250,14 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
     glBindFramebuffer(GL_FRAMEBUFFER, Buffer->FBO);
 
     // Create Render Texture Attachment
-    glBindTexture(GL_TEXTURE_2D, Buffer->Texture);
+    glBindTexture(GL_TEXTURE_2D, Buffer->ID);
     // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Buffer->Width, Buffer->Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Buffer->Width, Buffer->Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Buffer->Texture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Buffer->ID, 0);
 
     //  Create Depth Texture Attachment
     glBindTexture(GL_TEXTURE_2D, Buffer->DepthTexture);
@@ -288,7 +288,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
             // v2 Center = V2(ChunkOffsetX * Width + HalfDim.x, ChunkOffsetY * Height + HalfDim.y);
             v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
 
-            PushTexture(RenderGroup, V3(Center, 0), V2(Width, Height), GameState->TestTexture1.Texture, //
+            PushTexture(RenderGroup, V3(Center, 0), V2(Width, Height), GameState->TestTexture1.ID, //
                         true, 2.0f);
 
             for(uint32 GrassIndex = 0; //
@@ -816,7 +816,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         // GameState->CameraRenderZ = 1.7f;
         GameState->CameraPitch = 0.0f;
         GameState->CameraYaw = 0.0f;
-        GameState->CameraRenderZ = 50.0f;
+        GameState->CameraRenderZ = 100.0f;
 
         AddMonstar(GameState, CameraTileX - 3, CameraTileY + 2, CameraTileZ);
 
@@ -1361,7 +1361,8 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                         (uint8 *)Memory->TransientStorage + sizeof(transient_state));
         memory_arena *TranArena = &TranState->TranArena;
 
-        TranState->TestQueue = Platform.HighPriorityQueue;
+        TranState->HighPriorityQueue = Platform.HighPriorityQueue;
+        TranState->LowPriorityQueue = Platform.LowPriorityQueue;
 
         TranState->GroundBufferCount = 64;
         TranState->GroundBuffers = PushArray(TranArena, TranState->GroundBufferCount, ground_buffer);
@@ -1384,7 +1385,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         }
 
         // TODO(me): Testing only
-        Platform.AddEntry(TranState->TestQueue, DoWorkerWork2, "Testing work hm...");
+        Platform.AddEntry(TranState->HighPriorityQueue, DoWorkerWork2, "Testing work hm...");
 
         TranState->IsInitialized = true;
     }
@@ -1643,14 +1644,16 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
 
     glLineWidth(1);
     glEnable(GL_LINE_SMOOTH);*/
-    if(Debug->DrawSimRegionBounds)
+    PushRectOutline(RenderGroup, V3(0, 0, 0), V2(CameraWidthInMeters, CameraHeightInMeters), V4(1.0f, 1.0f, 0.0f, 1));
+
+    // if(Debug->DrawSimRegionBounds)
     {
-        PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimBounds).xy, V4(1, 1, 0, 1));
+        PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimBounds).xy, V4(0.0f, 1.0f, 1.0f, 1));
     }
-    if(Debug->DrawSimRegionUpdatableBounds)
+    // if(Debug->DrawSimRegionUpdatableBounds)
     {
         // PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimRegion->Bounds).xy, V4(0, 1, 0, 1));
-        PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimRegion->UpdatableBounds).xy, V4(0, 1, 0, 1));
+        PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimRegion->UpdatableBounds).xy, V4(1.0f, 0.0f, 1.0f, 1));
     }
     // glDisable(GL_LINE_SMOOTH);
 
@@ -1832,6 +1835,8 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         }
     }
 
+    RenderGroup->Transform.OffsetP = V3(0, 0, 0);
+
     /*world_position WorldOrigin = {};
     v3 Diff = Subtract(SimRegion->World, &WorldOrigin, &SimRegion->Origin);
     // DrawRectangle(Buffer, Diff.XY, V2(10.0f, 10.0f), 1.0f, 1.0f, 0.0f);
@@ -1911,10 +1916,10 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                 //  PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, V3(0, 0, 0));
                 // PushRectOutline(RenderGroup, V3(0, 0, 0), V2(GroundSideInMeters, GroundSideInMeters),
                 //                 V4(1.0f, 1.0f, 0.0f, 1.0f));
-                // PushRectOutline(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
                 // PushTexture(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GameState->TestTexture1, true);
                 // PushTexture(RenderGroup, V3(0, 0, 0), World->ChunkDimInMeters.xy, GroundBuffer->DrawBuffer.Texture);
-                PushModel(RenderGroup, Delta, World->ChunkDimInMeters.xy, GroundBuffer->TerrainModel);
+                PushRectOutline(RenderGroup, Delta, World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
+                // PushModel(RenderGroup, Delta, World->ChunkDimInMeters.xy, GroundBuffer->TerrainModel);
             }
         }
     }
@@ -2009,7 +2014,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                     {
                         Log.AddLog("[fillgroundchunk] TmpGroundBufferIndex=%d (%d,%d)\n", //
                                    TmpGroundBufferIndex, ChunkCenterP.ChunkX, ChunkCenterP.ChunkY);
-#if 0
+#if 1
                         FillGroundChunk(TranState, GameState, //
                                         FurthestBuffer,       //
                                         &ChunkCenterP);
