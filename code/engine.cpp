@@ -884,10 +884,10 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         Settings->RBFullscreenIsActive = false;
         Settings->RBWindowedIsActive = true;
         Settings->MouseSensitivity = 25.0;
-        Settings->NewFrameRate = 60;
-        Settings->RBCappedIsActive = true;
-        Settings->RBUncappedIsActive = false;
-        Settings->RBVSyncIsActive = false;
+        Settings->NewGameUpdateHz = 60;
+        Settings->RBCappedIsActive = false;
+        //Settings->RBUncappedIsActive = false;
+        Settings->RBVSyncIsActive = true;
 
         GameState->Render = PushStruct(WorldArena, render);
         render *Render = GameState->Render;
@@ -2137,4 +2137,42 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     CheckArena(&TranState->TranArena);
 
     END_TIMED_BLOCK(EngineUpdateAndRender);
+}
+
+internal void //
+GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundBuffer)
+{
+    game_state *GameState = (game_state *)Memory->PermanentStorage;
+
+    // GameOutputSound(GameState, SoundBuffer, 400);
+    // GameOutputSound(game_state *GameState, game_sound_output_buffer *SoundBuffer, int ToneHz);
+
+    int ToneHz = 1000;
+
+    int16 ToneVolume = 3000;
+    int WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
+
+    int16 *SampleOut = SoundBuffer->Samples;
+    for(int SampleIndex = 0;                    //
+        SampleIndex < SoundBuffer->SampleCount; //
+        ++SampleIndex)
+    {
+        // TODO(casey): Draw this out for people
+#if 1
+        real32 SineValue = sinf(GameState->tSine);
+        int16 SampleValue = (int16)(SineValue * ToneVolume);
+#else
+        int16 SampleValue = 0;
+#endif
+        *SampleOut++ = SampleValue;
+        *SampleOut++ = SampleValue;
+
+#if 1
+        GameState->tSine += Tau32*1.0f/(real32)WavePeriod;
+        if(GameState->tSine > Tau32)
+        {
+            GameState->tSine -= Tau32;
+        }
+#endif
+    }
 }

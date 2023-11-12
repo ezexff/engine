@@ -3,8 +3,11 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include <stdio.h>
+#include <dsound.h>
 
 #include <GLFW/glfw3.h>
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
 
 #include "engine_platform.h"
 
@@ -25,16 +28,22 @@ global_variable b32 MousePosChanged = false;
 global_variable game_controller_input *NewKeyboardController;
 global_variable r32 MouseOffsetX, MouseOffsetY;
 global_variable r32 MouseLastX, MouseLastY;
-global_variable r64 DeltaTime = 0.0f;
-global_variable r64 LastTime = 0.0f;
 
-global_variable b32 GlobalUncappedFrameRate = false;
-global_variable s32 GlobalMaxFrameRate = 60;
-global_variable b32 GlobalIsVSyncEnabled = false;
+// global_variable b32 GlobalUncappedFrameRate = false;
+global_variable r32 GlobalGameUpdateHz;
+global_variable b32 GlobalIsVSyncEnabled = true;
+global_variable b32 GlobalToggleVSync = false;
 
 global_variable GLFWwindow *GlobalWindow;
 global_variable game_offscreen_buffer GlobalBuffer = {};
 // game_controller_input *KeyboardController = &Input.Controllers[0];
+
+global_variable int64 GlobalPerfCountFrequency;
+global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
+// bool32 GlobalIsGameUpdateHzChanged = false;
+
+#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
+typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
 // #pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
 
@@ -47,7 +56,7 @@ global_variable game_offscreen_buffer GlobalBuffer = {};
 // #endif
 
 //
-// NOTE(me): Debug
+// NOTE(me): Other
 //
 internal void //
 GlfwErrorCallback(int Error, const char *Description)
@@ -55,23 +64,212 @@ GlfwErrorCallback(int Error, const char *Description)
     fprintf(stderr, "Glfw Error %d: %s\n", Error, Description);
 }
 
+internal r32 //
+Win32GetMonitorRefreshHz(HWND Window)
+{
+    r32 Result;
+
+    int MonitorRefreshHz = 60;
+    HDC RefreshDC = GetDC(Window);
+    int Win32RefreshRate = GetDeviceCaps(RefreshDC, VREFRESH);
+    ReleaseDC(Window, RefreshDC);
+    if(Win32RefreshRate > 1)
+    {
+        MonitorRefreshHz = Win32RefreshRate;
+    }
+    Result = (r32)MonitorRefreshHz;
+
+    return (Result);
+}
+
+//
+// NOTE(me): Timers
+//
+inline LARGE_INTEGER //
+Win32GetWallClock(void)
+{
+    LARGE_INTEGER Result;
+    QueryPerformanceCounter(&Result);
+    return (Result);
+}
+
+inline real32 //
+Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End)
+{
+    real32 Result = ((real32)(End.QuadPart - Start.QuadPart) / //
+                     (real32)GlobalPerfCountFrequency);
+    return (Result);
+}
+
+//
+// NOTE(me): Sound
+//
+internal void //
+Win32InitDSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize)
+{
+    // NOTE(casey): Load the library
+    HMODULE DSoundLibrary = LoadLibraryA("dsound.dll");
+    if(DSoundLibrary)
+    {
+        // NOTE(casey): Get a DirectSound object! - cooperative
+        direct_sound_create *DirectSoundCreate =
+            (direct_sound_create *)GetProcAddress(DSoundLibrary, "DirectSoundCreate");
+
+        // TODO(casey): Double-check that this works on XP - DirectSound8 or 7??
+        LPDIRECTSOUND DirectSound;
+        if(DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &DirectSound, 0)))
+        {
+            WAVEFORMATEX WaveFormat = {};
+            WaveFormat.wFormatTag = WAVE_FORMAT_PCM;
+            WaveFormat.nChannels = 2;
+            WaveFormat.nSamplesPerSec = SamplesPerSecond;
+            WaveFormat.wBitsPerSample = 16;
+            WaveFormat.nBlockAlign = (WaveFormat.nChannels * WaveFormat.wBitsPerSample) / 8;
+            WaveFormat.nAvgBytesPerSec = WaveFormat.nSamplesPerSec * WaveFormat.nBlockAlign;
+            WaveFormat.cbSize = 0;
+
+            if(SUCCEEDED(DirectSound->SetCooperativeLevel(Window, DSSCL_PRIORITY)))
+            {
+                DSBUFFERDESC BufferDescription = {};
+                BufferDescription.dwSize = sizeof(BufferDescription);
+                BufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
+
+                // NOTE(casey): "Create" a primary buffer
+                // TODO(casey): DSBCAPS_GLOBALFOCUS?
+                LPDIRECTSOUNDBUFFER PrimaryBuffer;
+                if(SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &PrimaryBuffer, 0)))
+                {
+                    HRESULT Error = PrimaryBuffer->SetFormat(&WaveFormat);
+                    if(SUCCEEDED(Error))
+                    {
+                        // NOTE(casey): We have finally set the format!
+                        OutputDebugStringA("Primary buffer format was set.\n");
+                    }
+                    else
+                    {
+                        // TODO(casey): Diagnostic
+                    }
+                }
+                else
+                {
+                    // TODO(casey): Diagnostic
+                }
+            }
+            else
+            {
+                // TODO(casey): Diagnostic
+            }
+
+            // TODO(casey): DSBCAPS_GETCURRENTPOSITION2
+            DSBUFFERDESC BufferDescription = {};
+            BufferDescription.dwSize = sizeof(BufferDescription);
+            BufferDescription.dwFlags = DSBCAPS_GETCURRENTPOSITION2;
+            BufferDescription.dwBufferBytes = BufferSize;
+            BufferDescription.lpwfxFormat = &WaveFormat;
+            HRESULT Error = DirectSound->CreateSoundBuffer(&BufferDescription, &GlobalSecondaryBuffer, 0);
+            if(SUCCEEDED(Error))
+            {
+                OutputDebugStringA("Secondary buffer created successfully.\n");
+            }
+        }
+        else
+        {
+            // TODO(casey): Diagnostic
+        }
+    }
+    else
+    {
+        // TODO(casey): Diagnostic
+    }
+}
+
+internal void //
+Win32ClearBuffer(win32_sound_output *SoundOutput)
+{
+    VOID *Region1;
+    DWORD Region1Size;
+    VOID *Region2;
+    DWORD Region2Size;
+    if(SUCCEEDED(GlobalSecondaryBuffer->Lock(0, SoundOutput->SecondaryBufferSize, //
+                                             &Region1, &Region1Size,              //
+                                             &Region2, &Region2Size,              //
+                                             0)))
+    {
+        // TODO(casey): assert that Region1Size/Region2Size is valid
+        uint8 *DestSample = (uint8 *)Region1;
+        for(DWORD ByteIndex = 0;     //
+            ByteIndex < Region1Size; //
+            ++ByteIndex)
+        {
+            *DestSample++ = 0;
+        }
+
+        DestSample = (uint8 *)Region2;
+        for(DWORD ByteIndex = 0;     //
+            ByteIndex < Region2Size; //
+            ++ByteIndex)
+        {
+            *DestSample++ = 0;
+        }
+
+        GlobalSecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
+    }
+}
+
+internal void //
+Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD BytesToWrite,
+                     game_sound_output_buffer *SourceBuffer)
+{
+    // TODO(casey): More strenuous test!
+    VOID *Region1;
+    DWORD Region1Size;
+    VOID *Region2;
+    DWORD Region2Size;
+    if(SUCCEEDED(GlobalSecondaryBuffer->Lock(ByteToLock, BytesToWrite, //
+                                             &Region1, &Region1Size,   //
+                                             &Region2, &Region2Size,   //
+                                             0)))
+    {
+        // TODO(casey): assert that Region1Size/Region2Size is valid
+
+        // TODO(casey): Collapse these two loops
+        DWORD Region1SampleCount = Region1Size / SoundOutput->BytesPerSample;
+        int16 *DestSample = (int16 *)Region1;
+        int16 *SourceSample = SourceBuffer->Samples;
+        for(DWORD SampleIndex = 0;            //
+            SampleIndex < Region1SampleCount; //
+            ++SampleIndex)
+        {
+            *DestSample++ = *SourceSample++;
+            *DestSample++ = *SourceSample++;
+            ++SoundOutput->RunningSampleIndex;
+        }
+
+        DWORD Region2SampleCount = Region2Size / SoundOutput->BytesPerSample;
+        DestSample = (int16 *)Region2;
+        for(DWORD SampleIndex = 0;            //
+            SampleIndex < Region2SampleCount; //
+            ++SampleIndex)
+        {
+            *DestSample++ = *SourceSample++;
+            *DestSample++ = *SourceSample++;
+            ++SoundOutput->RunningSampleIndex;
+        }
+
+        GlobalSecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
+    }
+}
+
 //
 // NOTE(me): Settings
 //
-PLATFORM_TOGGLE_FRAMERATE_CAP(PlatformToggleFrameRateCap)
-{
-    GlobalUncappedFrameRate = !GlobalUncappedFrameRate;
-}
 
 PLATFORM_TOGGLE_VSYNC(PlatformToggleVSync)
 {
-    GlobalIsVSyncEnabled = !GlobalIsVSyncEnabled;
+    GlobalIsVSyncEnabled = NewIsVSyncEnabled;
+    GlobalGameUpdateHz = NewGameUpdateHz;
+    GlobalToggleVSync = GlobalIsVSyncEnabled;
     glfwSwapInterval(GlobalIsVSyncEnabled);
-}
-
-PLATFORM_SET_FRAMERATE(PlatformSetFrameRate)
-{
-    GlobalMaxFrameRate = NewFrameRate;
 }
 
 PLATFORM_TOGGLE_FULLSCREEN(PlatformToggleFullscreen)
@@ -325,6 +523,9 @@ int main(int, char **)
     Win32CompleteAllWork(&Queue);
 #endif
 
+    LARGE_INTEGER PerfCountFrequencyResult;
+    QueryPerformanceFrequency(&PerfCountFrequencyResult);
+
     // Setup window
     glfwSetErrorCallback(GlfwErrorCallback);
     if(!glfwInit())
@@ -358,157 +559,316 @@ int main(int, char **)
     // Create window with graphics context
     GLFWwindow *Window = glfwCreateWindow(1280, 720, "Engine window title", NULL, NULL);
     GlobalWindow = Window;
-    if(Window == NULL)
+    if(Window)
     {
-        InvalidCodePath;
-    }
-    glfwSetCursorPosCallback(Window, CursorPositionCallback);
-    glfwSetKeyCallback(Window, KeyCallback);
-    glfwMakeContextCurrent(Window);
-    glfwSwapInterval(GlobalIsVSyncEnabled); // Enable vsync
+        glfwSetCursorPosCallback(Window, CursorPositionCallback);
+        glfwSetKeyCallback(Window, KeyCallback);
+        glfwMakeContextCurrent(Window);
+        glfwSwapInterval(GlobalIsVSyncEnabled); // Enable vsync
 
-    // Glad
-    if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-    {
-        // std::cout << "Failed to initialize OpenGL context" << std::endl;
-        InvalidCodePath;
-    }
-    // GLEW
-    /*glewExperimental = GL_TRUE;
-    GLenum glewError = glewInit();
-    if(glewError != GLEW_OK)
-    {
-        glfwTerminate();
-        exit(EXIT_FAILURE);
-    }*/
+        // Glad
+        if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+        {
+            // std::cout << "Failed to initialize OpenGL context" << std::endl;
+            InvalidCodePath;
+        }
+        // GLEW
+        /*glewExperimental = GL_TRUE;
+        GLenum glewError = glewInit();
+        if(glewError != GLEW_OK)
+        {
+            glfwTerminate();
+            exit(EXIT_FAILURE);
+        }*/
 
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    (void)io;
-    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+        // Setup Dear ImGui context
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO &io = ImGui::GetIO();
+        (void)io;
+        // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+        // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    // ImGui::StyleColorsClassic();
+        // Setup Dear ImGui style
+        ImGui::StyleColorsDark();
+        // ImGui::StyleColorsClassic();
 
-    // Setup Platform/Renderer backends
-    ImGui_ImplGlfw_InitForOpenGL(Window, true);
-    ImGui_ImplOpenGL3_Init(glsl_version);
+        // Setup Platform/Renderer backends
+        ImGui_ImplGlfw_InitForOpenGL(Window, true);
+        ImGui_ImplOpenGL3_Init(glsl_version);
 
-    // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use
-    // ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-    // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application
-    // (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling
-    // ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-    // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double
-    // backslash \\ !
-    // io.Fonts->AddFontDefault();
-    // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-    // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-    // io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-    // io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
-    // ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL,
-    // io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
+        // Load Fonts
+        // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use
+        // ImGui::PushFont()/PopFont() to select them.
+        // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among
+        // multiple.
+        // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application
+        // (e.g. use an assertion, or display an error and quit).
+        // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling
+        // ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
+        // - Read 'docs/FONTS.md' for more instructions and details.
+        // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double
+        // backslash \\ !
+        // io.Fonts->AddFontDefault();
+        // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+        // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
+        // io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
+        // io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
+        // ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL,
+        // io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
 
-    // Init game memory
+        // NOTE(me): Init DirectSound
+        HWND HWNDWindow = glfwGetWin32Window(Window);
+
+        GlobalGameUpdateHz = Win32GetMonitorRefreshHz(HWNDWindow);
+        r32 TargetSecondsPerFrame = 1.0f / GlobalGameUpdateHz;
+
+        win32_sound_output SoundOutput = {};
+        // TODO(casey): Make this like sixty seconds?
+        SoundOutput.SamplesPerSecond = 48000;
+        SoundOutput.BytesPerSample = sizeof(int16) * 2;
+        SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
+        // TODO(casey): Actually compute this variance and see what the lowest reasonable value is.
+        SoundOutput.SafetyBytes = (int)(((real32)SoundOutput.SamplesPerSecond * //
+                                         (real32)SoundOutput.BytesPerSample / GlobalGameUpdateHz) /
+                                        3.0f);
+        Win32InitDSound(HWNDWindow, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
+        Win32ClearBuffer(&SoundOutput);
+        GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+
+        int16 *Samples = (int16 *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize, //
+                                               MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
+        // NOTE(me): Init game memory
 #if ENGINE_INTERNAL
-    LPVOID BaseAddress = (LPVOID)Terabytes(2);
+        LPVOID BaseAddress = (LPVOID)Terabytes(2);
 #else
-    LPVOID BaseAddress = 0;
+        LPVOID BaseAddress = 0;
 #endif
 
-    game_memory GameMemory = {};
-    GameMemory.PermanentStorageSize = Megabytes(32);
-    GameMemory.TransientStorageSize = Megabytes(32);
+        game_memory GameMemory = {};
+        GameMemory.PermanentStorageSize = Megabytes(32);
+        GameMemory.TransientStorageSize = Megabytes(32);
 
-    GameMemory.PlatformAPI.ToggleFullscreen = PlatformToggleFullscreen;
-    GameMemory.PlatformAPI.SetFrameRate = PlatformSetFrameRate;
-    GameMemory.PlatformAPI.ToggleFrameRateCap = PlatformToggleFrameRateCap;
-    GameMemory.PlatformAPI.ToggleVSync = PlatformToggleVSync;
+        GameMemory.PlatformAPI.ToggleFullscreen = PlatformToggleFullscreen;
+        GameMemory.PlatformAPI.ToggleVSync = PlatformToggleVSync;
 
-    GameMemory.PlatformAPI.HighPriorityQueue = &HighPriorityQueue;
-    GameMemory.PlatformAPI.LowPriorityQueue = &LowPriorityQueue;
-    GameMemory.PlatformAPI.AddEntry = Win32AddEntry;
-    GameMemory.PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
+        GameMemory.PlatformAPI.HighPriorityQueue = &HighPriorityQueue;
+        GameMemory.PlatformAPI.LowPriorityQueue = &LowPriorityQueue;
+        GameMemory.PlatformAPI.AddEntry = Win32AddEntry;
+        GameMemory.PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
 
-    Win32State.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
-    Win32State.GameMemoryBlock =
-        VirtualAlloc(BaseAddress, (size_t)Win32State.TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    GameMemory.PermanentStorage = Win32State.GameMemoryBlock;
-    GameMemory.TransientStorage = ((uint8 *)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
+        Win32State.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
+        Win32State.GameMemoryBlock =
+            VirtualAlloc(BaseAddress, (size_t)Win32State.TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+        GameMemory.PermanentStorage = Win32State.GameMemoryBlock;
+        GameMemory.TransientStorage = ((uint8 *)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
 
-    if(GameMemory.PermanentStorage && GameMemory.TransientStorage)
-    {
-        game_input Input[2] = {}; // KW:INPUT_CONTROLLERS
-        game_input *NewInput = &Input[0];
-        game_input *OldInput = &Input[1];
-
-        // Main loop
-        while(!glfwWindowShouldClose(Window))
+        if(Samples && GameMemory.PermanentStorage && GameMemory.TransientStorage)
         {
-            r64 CurrentTime = glfwGetTime();
-            DeltaTime = CurrentTime - LastTime;
+            game_input Input[2] = {}; // KW:INPUT_CONTROLLERS
+            game_input *NewInput = &Input[0];
+            game_input *OldInput = &Input[1];
 
-            r64 MaximumMS = 1.0f / GlobalMaxFrameRate;
-            if(DeltaTime >= MaximumMS || GlobalUncappedFrameRate)
+            LARGE_INTEGER LastCounter = Win32GetWallClock();
+            LARGE_INTEGER FlipWallClock = Win32GetWallClock();
+
+            bool32 SoundIsValid = false;
+
+            // NOTE(me): Main loop
+            r64 DeltaFrameTime = 0.0f;
+            r64 EndFrameTime = 0.0f;
+            while(!glfwWindowShouldClose(Window))
             {
-                LastTime = CurrentTime;
-                Input->dtForFrame = (r32)DeltaTime; // TODO(me): r64 Input->dtForFrame?
+                r64 StartFrameTime = glfwGetTime(); // ms
+                DeltaFrameTime = StartFrameTime - EndFrameTime;
 
-                NewInput->MouseX = MouseLastX;
-                NewInput->MouseY = MouseLastY;
-                NewInput->MouseZ = 0.0f;
-                if(MousePosChanged)
+                TargetSecondsPerFrame = 1.0f / GlobalGameUpdateHz;
+
+                if(DeltaFrameTime >= TargetSecondsPerFrame)
                 {
-                    NewInput->MouseOffsetX = MouseOffsetX * Input->dtForFrame;
-                    NewInput->MouseOffsetY = MouseOffsetY * Input->dtForFrame;
-                    MousePosChanged = false;
+                    EndFrameTime = StartFrameTime;
+                    Input->dtForFrame = (r32)DeltaFrameTime;
+
+                    // NOTE(me): Inputs
+                    NewInput->MouseX = MouseLastX;
+                    NewInput->MouseY = MouseLastY;
+                    NewInput->MouseZ = 0.0f;
+                    if(MousePosChanged)
+                    {
+                        NewInput->MouseOffsetX = MouseOffsetX * Input->dtForFrame;
+                        NewInput->MouseOffsetY = MouseOffsetY * Input->dtForFrame;
+                        MousePosChanged = false;
+                    }
+                    else
+                    {
+                        NewInput->MouseOffsetX = 0.0f;
+                        NewInput->MouseOffsetY = 0.0f;
+                    }
+                    NewInput->ShowMouseCursorMode = GlobalShowMouseCursor;
+
+                    game_controller_input *OldKeyboardController = GetController(OldInput, 0);
+                    NewKeyboardController = GetController(NewInput, 0);
+                    *NewKeyboardController = {};
+                    NewKeyboardController->IsConnected = true;
+                    for(int ButtonIndex = 0;                                      //
+                        ButtonIndex < ArrayCount(NewKeyboardController->Buttons); //
+                        ++ButtonIndex)
+                    {
+                        NewKeyboardController->Buttons[ButtonIndex].EndedDown =
+                            OldKeyboardController->Buttons[ButtonIndex].EndedDown;
+                    }
+
+                    // Poll and handle events (inputs, window resize, etc.)
+                    // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to
+                    // use your inputs.
+                    // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or
+                    // clear/overwrite your copy of the mouse data.
+                    // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main
+                    // application, or clear/overwrite your copy of the keyboard data. Generally you may always pass all
+                    // inputs to dear imgui, and hide them from your application based on those two flags.
+                    glfwPollEvents();
+
+                    glfwGetFramebufferSize(Window, &GlobalBuffer.Width, &GlobalBuffer.Height);
+
+                    EngineUpdateAndRender(&GameMemory, NewInput, &GlobalBuffer);
+
+                    LARGE_INTEGER AudioWallClock = Win32GetWallClock();
+                    real32 FromBeginToAudioSeconds = Win32GetSecondsElapsed(FlipWallClock, AudioWallClock);
+
+                    DWORD PlayCursor;
+                    DWORD WriteCursor;
+                    if(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor) == DS_OK)
+                    {
+                        /* NOTE(casey):
+
+                           Here is how sound output computation works.
+
+                           We define a safety value that is the number
+                           of samples we think our game update loop
+                           may vary by (let's say up to 2ms)
+
+                           When we wake up to write audio, we will look
+                           and see what the play cursor position is and we
+                           will forecast ahead where we think the play
+                           cursor will be on the next frame boundary.
+
+                           We will then look to see if the write cursor is
+                           before that by at least our safety value.  If
+                           it is, the target fill position is that frame
+                           boundary plus one frame.  This gives us perfect
+                           audio sync in the case of a card that has low
+                           enough latency.
+
+                           If the write cursor is _after_ that safety
+                           margin, then we assume we can never sync the
+                           audio perfectly, so we will write one frame's
+                           worth of audio plus the safety margin's worth
+                           of guard samples.
+                        */
+                        if(!SoundIsValid)
+                        {
+                            SoundOutput.RunningSampleIndex = WriteCursor / SoundOutput.BytesPerSample;
+                            SoundIsValid = true;
+                        }
+
+                        DWORD ByteToLock = ((SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) %
+                                            SoundOutput.SecondaryBufferSize);
+
+                        DWORD ExpectedSoundBytesPerFrame =
+                            (int)((real32)(SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample) /
+                                  GlobalGameUpdateHz);
+                        real32 SecondsLeftUntilFlip = (TargetSecondsPerFrame - FromBeginToAudioSeconds);
+                        DWORD ExpectedBytesUntilFlip = (DWORD)((SecondsLeftUntilFlip / TargetSecondsPerFrame) *
+                                                               (real32)ExpectedSoundBytesPerFrame);
+
+                        DWORD ExpectedFrameBoundaryByte = PlayCursor + ExpectedBytesUntilFlip;
+
+                        DWORD SafeWriteCursor = WriteCursor;
+                        if(SafeWriteCursor < PlayCursor)
+                        {
+                            SafeWriteCursor += SoundOutput.SecondaryBufferSize;
+                        }
+                        Assert(SafeWriteCursor >= PlayCursor);
+                        SafeWriteCursor += SoundOutput.SafetyBytes;
+
+                        bool32 AudioCardIsLowLatency = (SafeWriteCursor < ExpectedFrameBoundaryByte);
+
+                        DWORD TargetCursor = 0;
+                        if(AudioCardIsLowLatency)
+                        {
+                            TargetCursor = (ExpectedFrameBoundaryByte + ExpectedSoundBytesPerFrame);
+                        }
+                        else
+                        {
+                            TargetCursor = (WriteCursor + ExpectedSoundBytesPerFrame + SoundOutput.SafetyBytes);
+                        }
+                        TargetCursor = (TargetCursor % SoundOutput.SecondaryBufferSize);
+
+                        DWORD BytesToWrite = 0;
+                        if(ByteToLock > TargetCursor)
+                        {
+                            BytesToWrite = (SoundOutput.SecondaryBufferSize - ByteToLock);
+                            BytesToWrite += TargetCursor;
+                        }
+                        else
+                        {
+                            BytesToWrite = TargetCursor - ByteToLock;
+                        }
+
+                        game_sound_output_buffer SoundBuffer = {};
+                        SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
+                        SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
+                        SoundBuffer.Samples = Samples;
+                        GameGetSoundSamples(&GameMemory, &SoundBuffer);
+
+#if 0
+                        DWORD UnwrappedWriteCursor = WriteCursor;
+                        if(UnwrappedWriteCursor < PlayCursor)
+                        {
+                            UnwrappedWriteCursor += SoundOutput.SecondaryBufferSize;
+                        }
+                        DWORD AudioLatencyBytes = 0;
+                        real32 AudioLatencySeconds = 0;
+                        AudioLatencyBytes = UnwrappedWriteCursor - PlayCursor;
+                        AudioLatencySeconds = (((real32)AudioLatencyBytes / (real32)SoundOutput.BytesPerSample) /
+                                               (real32)SoundOutput.SamplesPerSecond);
+
+                        char TextBuffer[256];
+                        _snprintf_s(TextBuffer, sizeof(TextBuffer),
+                                    "BTL:%u TC:%u BTW:%u - PC:%u WC:%u DELTA:%u (%fs)\n", ByteToLock, TargetCursor,
+                                    BytesToWrite, PlayCursor, WriteCursor, AudioLatencyBytes, AudioLatencySeconds);
+                        OutputDebugStringA(TextBuffer);
+#endif
+
+                        Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
+                    }
+                    else
+                    {
+                        SoundIsValid = false;
+                    }
+
+                    FlipWallClock = Win32GetWallClock();
+
+                    game_input *Temp = NewInput;
+                    NewInput = OldInput;
+                    OldInput = Temp;
+
+                    if(GlobalToggleVSync)
+                    {
+                        GlobalGameUpdateHz = Win32GetMonitorRefreshHz(HWNDWindow);
+                        TargetSecondsPerFrame = 1.0f / GlobalGameUpdateHz;
+                        GlobalToggleVSync = false;
+                    }
+
+                    glfwSwapBuffers(Window);
                 }
-                else
-                {
-                    NewInput->MouseOffsetX = 0.0f;
-                    NewInput->MouseOffsetY = 0.0f;
-                }
-                NewInput->ShowMouseCursorMode = GlobalShowMouseCursor;
-
-                game_controller_input *OldKeyboardController = GetController(OldInput, 0);
-                NewKeyboardController = GetController(NewInput, 0);
-                *NewKeyboardController = {};
-                NewKeyboardController->IsConnected = true;
-                for(int ButtonIndex = 0; ButtonIndex < ArrayCount(NewKeyboardController->Buttons); ++ButtonIndex)
-                {
-                    NewKeyboardController->Buttons[ButtonIndex].EndedDown =
-                        OldKeyboardController->Buttons[ButtonIndex].EndedDown;
-                }
-
-                // Poll and handle events (inputs, window resize, etc.)
-                // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use
-                // your inputs.
-                // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or
-                // clear/overwrite your copy of the mouse data.
-                // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application,
-                // or clear/overwrite your copy of the keyboard data. Generally you may always pass all inputs to dear
-                // imgui, and hide them from your application based on those two flags.
-                glfwPollEvents();
-
-                glfwGetFramebufferSize(Window, &GlobalBuffer.Width, &GlobalBuffer.Height);
-
-                EngineUpdateAndRender(&GameMemory, NewInput, &GlobalBuffer);
-
-                game_input *Temp = NewInput;
-                NewInput = OldInput;
-                OldInput = Temp;
-
-                glfwSwapBuffers(Window);
             }
         }
+    }
+    else
+    {
+        InvalidCodePath;
     }
 
     // Cleanup

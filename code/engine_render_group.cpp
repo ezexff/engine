@@ -582,78 +582,33 @@ RenderImGui(game_input *Input,                                 //
             }
             ImGui::Spacing();
 
-            b32 ToggleFrameRateCap = false;
-            b32 ToggleVSync = false;
-            ImGui::Text("Change Frame Rate Mode");
+            ImGui::Text("Change Game Update Hz");
             ImGui::SameLine();
             if(ImGui::RadioButton("Capped", Settings->RBCappedIsActive))
             {
-                if(!Settings->RBCappedIsActive)
-                {
-                    if(Settings->RBUncappedIsActive)
-                    {
-                        ToggleFrameRateCap = true;
-                    }
-                    if(Settings->RBVSyncIsActive)
-                    {
-                        ToggleVSync = true;
-                        ToggleFrameRateCap = true;
-                    }
-                    Settings->RBCappedIsActive = true;
-                    Settings->RBUncappedIsActive = false;
-                    Settings->RBVSyncIsActive = false;
-                }
+                Settings->RBCappedIsActive = true;
+                Settings->RBVSyncIsActive = false;
+                Platform.ToggleVSync(false, Settings->NewGameUpdateHz);
             }
             ImGui::SameLine();
-            if(ImGui::RadioButton("Uncapped", Settings->RBUncappedIsActive))
-            {
-                if(!Settings->RBUncappedIsActive)
-                {
-                    if(Settings->RBCappedIsActive)
-                    {
-                        ToggleFrameRateCap = true;
-                    }
-                    if(Settings->RBVSyncIsActive)
-                    {
-                        ToggleVSync = true;
-                    }
-                    Settings->RBCappedIsActive = false;
-                    Settings->RBUncappedIsActive = true;
-                    Settings->RBVSyncIsActive = false;
-                }
-            }
-            ImGui::SameLine();
+
             if(ImGui::RadioButton("VSync", Settings->RBVSyncIsActive))
             {
-                if(!Settings->RBVSyncIsActive)
-                {
-                    if(Settings->RBCappedIsActive)
-                    {
-                        ToggleFrameRateCap = true;
-                    }
-                    Settings->RBUncappedIsActive = false;
-                    Settings->RBCappedIsActive = false;
-                    Settings->RBVSyncIsActive = true;
-                    ToggleVSync = true;
-                }
+                Settings->RBCappedIsActive = false;
+                Settings->RBVSyncIsActive = true;
+                Platform.ToggleVSync(true, Settings->NewGameUpdateHz);
             }
 
-            if(ToggleVSync)
-            {
-                Platform.ToggleVSync();
-            }
-            if(ToggleFrameRateCap)
-            {
-                Platform.ToggleFrameRateCap();
-            }
             ImGui::Spacing();
 
             // TODO(me): vsync/unlimited fps/custom fps???
             if(Settings->RBCappedIsActive)
             {
-                ImGui::Text("Set FrameRate");
-                ImGui::SliderInt("##FrameRate", &Settings->NewFrameRate, 60, 240);
-                Platform.SetFrameRate(Settings->NewFrameRate);
+                ImGui::Text("Set FPS");
+                s32 NewGameUpdateHz = (s32)Settings->NewGameUpdateHz;
+                ImGui::SliderInt("##FPS", &NewGameUpdateHz, 15, 2048);
+                Settings->NewGameUpdateHz = (r32)NewGameUpdateHz;
+                Platform.ToggleVSync(false, Settings->NewGameUpdateHz);
             }
             ImGui::Spacing();
 

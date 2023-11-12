@@ -75,6 +75,11 @@ struct ground_buffer
     loaded_model *TerrainModel;
 };
 
+struct game_assets
+{
+    //
+};
+
 struct game_state
 {
     bool32 IsInitialized;
@@ -89,6 +94,8 @@ struct game_state
     r32 CameraPitch;
     r32 CameraYaw;
     r32 CameraRenderZ;
+
+    r32 tSine; // TODO(me): for testing
 
     // string TestTexture1Name;
     // u32 TestTexture1;
@@ -138,6 +145,8 @@ struct game_state
     // TODO(me): для тестов, убрать
     bool ShowDemoWindow;
     bool ShowAnotherWindow;
+
+    game_assets Assets;
 };
 
 struct task_with_memory
