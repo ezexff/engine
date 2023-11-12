@@ -523,9 +523,6 @@ int main(int, char **)
     Win32CompleteAllWork(&Queue);
 #endif
 
-    LARGE_INTEGER PerfCountFrequencyResult;
-    QueryPerformanceFrequency(&PerfCountFrequencyResult);
-
     // Setup window
     glfwSetErrorCallback(GlfwErrorCallback);
     if(!glfwInit())
@@ -620,6 +617,10 @@ int main(int, char **)
         // NOTE(me): Init DirectSound
         HWND HWNDWindow = glfwGetWin32Window(Window);
 
+        LARGE_INTEGER PerfCountFrequencyResult;
+        QueryPerformanceFrequency(&PerfCountFrequencyResult);
+        GlobalPerfCountFrequency = PerfCountFrequencyResult.QuadPart;
+
         GlobalGameUpdateHz = Win32GetMonitorRefreshHz(HWNDWindow);
         r32 TargetSecondsPerFrame = 1.0f / GlobalGameUpdateHz;
 
@@ -670,8 +671,9 @@ int main(int, char **)
             game_input *NewInput = &Input[0];
             game_input *OldInput = &Input[1];
 
-            LARGE_INTEGER LastCounter = Win32GetWallClock();
-            LARGE_INTEGER FlipWallClock = Win32GetWallClock();
+            //LARGE_INTEGER LastCounter = Win32GetWallClock();
+            //LARGE_INTEGER FlipWallClock = Win32GetWallClock();
+            r64 FlipWallClock = glfwGetTime();
 
             bool32 SoundIsValid = false;
 
@@ -733,8 +735,10 @@ int main(int, char **)
 
                     EngineUpdateAndRender(&GameMemory, NewInput, &GlobalBuffer);
 
-                    LARGE_INTEGER AudioWallClock = Win32GetWallClock();
-                    real32 FromBeginToAudioSeconds = Win32GetSecondsElapsed(FlipWallClock, AudioWallClock);
+                    //LARGE_INTEGER AudioWallClock = Win32GetWallClock();
+                    //real32 FromBeginToAudioSeconds = Win32GetSecondsElapsed(FlipWallClock, AudioWallClock);
+                    r64 AudioWallClock = glfwGetTime();
+                    r32 FromBeginToAudioSeconds = (r32)(AudioWallClock - FlipWallClock);
 
                     DWORD PlayCursor;
                     DWORD WriteCursor;
@@ -848,7 +852,8 @@ int main(int, char **)
                         SoundIsValid = false;
                     }
 
-                    FlipWallClock = Win32GetWallClock();
+                    //FlipWallClock = Win32GetWallClock();
+                    FlipWallClock = glfwGetTime();
 
                     game_input *Temp = NewInput;
                     NewInput = OldInput;
