@@ -1,12 +1,20 @@
 @echo off
-call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
-CLS
+REM Init
+REM call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+REM CLS
+REM (ezexff): Run vcvarsall if need
+where /q cl
+IF %ERRORLEVEL% == 1 (call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64)
 
-REM Compiler parameters
+REM Compiler options
 SET CommonCompilerFlags=-MTd -nologo -fp:fast -Gm- -GR- -EHa- -Zo -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4456 -FC -Z7 -D_CRT_SECURE_NO_WARNINGS
 SET CommonCompilerFlags=-DENGINE_INTERNAL=1 -DENGINE_SLOW=1 -DENGINE_WIN32=1 %CommonCompilerFlags%
+
+REM Linker options
 SET CommonLinkerFlags= -incremental:no -opt:ref user32.lib gdi32.lib winmm.lib opengl32.lib shell32.lib "..\code\libs\glfw\lib-vc2022\glfw3_mt.lib" /NODEFAULTLIB:LIBCMT.lib /subsystem:windows /ENTRY:mainCRTStartup
-REM "..\code\libs\glew\glew32.lib"
+REM Link compiled imgui .obj files
+SET CommonLinkerFlags= %CommonLinkerFlags% imgui.obj imgui_demo.obj imgui_draw.obj imgui_impl_glfw.obj imgui_impl_opengl3.obj imgui_tables.obj imgui_widgets.obj
+REM CommonLinkerFlags= %CommonLinkerFlags% "..\code\libs\glew\glew32.lib"
 
 REM Includes
 SET ImGui=/I..\code\libs\imgui
@@ -16,7 +24,10 @@ SET StbImage=/I..\code\libs\stb
 SET Includes=%ImGui% %GLFW% %Glad% %StbImage%
 
 REM Sources
-SET Sources=..\code\win32_engine.cpp ..\code\libs\imgui\imgui*.cpp
+SET Sources=..\code\win32_engine.cpp
+
+REM Recomplie imgui .obj files
+REM SET Sources=..\code\win32_engine.cpp ..\code\libs\imgui\imgui*.cpp
 
 IF NOT EXIST ..\build mkdir ..\build
 pushd ..\build

@@ -11,6 +11,18 @@ struct win32_sound_output
     // TODO(casey): Math gets simpler if we add a "bytes per second" field?
 };
 
+struct win32_debug_time_marker
+{
+    DWORD OutputPlayCursor;
+    DWORD OutputWriteCursor;
+    DWORD OutputLocation;
+    DWORD OutputByteCount;
+    DWORD ExpectedFlipPlayCursor;
+
+    DWORD FlipPlayCursor;
+    DWORD FlipWriteCursor;
+};
+
 struct win32_state
 {
     // NOTE(me): Allocated memory block

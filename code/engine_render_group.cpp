@@ -621,6 +621,25 @@ RenderImGui(game_input *Input,                                 //
             ImGui::Checkbox("Log Cycle Counters", &Debug->LogCycleCounters);
         }
 
+        if(ImGui::CollapsingHeader("Audio"))
+        {
+            ImGui::Text("1st line (previous frames):");
+            ImGui::Text("White - PlayCursor");
+            ImGui::Text("Red - WriteCursor");
+            ImGui::Text("Purple - FlipPlayCursor+480*BytesPerSample");
+            ImGui::Text("2nd line (prepare audio for writing):");
+            ImGui::Text("White - PlayCursor");
+            ImGui::Text("Red - WriteCursor");
+            ImGui::Text("3rd line:");
+            ImGui::Text("White - ByteToLock");
+            ImGui::Text("Red - BTL + BytesToWrite");
+            ImGui::Text("4th line (current frame):");
+            ImGui::Text("White - PlayCursor");
+            ImGui::Text("Red - WriteCursor");
+            ImGui::Text("Yellow - ExpectedFlipPlayCursor");
+            ImGui::Spacing();
+        }
+
         if(ImGui::CollapsingHeader("Memory"))
         {
             ImGui::Text("PermanentStorage");
