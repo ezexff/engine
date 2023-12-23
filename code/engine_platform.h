@@ -14,22 +14,47 @@
 extern "C"
 {
 #endif
-
+    
 #include "engine_types.h"
-
+    
+    // TODO(ezexff): Support WriteBarrier and etc. with other compilers
+#include <intrin.h>
+    
+    inline uint32
+        SafeTruncateUInt64(uint64 Value)
+    {
+        // TODO(casey): Defines for maximum values
+        Assert(Value <= 0xFFFFFFFF);
+        uint32 Result = (uint32)Value;
+        return(Result);
+    }
+    
     struct app_settings
     {
         r32 MouseSensitivity;
-
+        
         // Display mode radio buttons state
         b32 RBFullscreenIsActive;
         b32 RBWindowedIsActive;
-
+        
         b32 RBCappedIsActive;
         b32 RBVSyncIsActive;
         r32 NewGameUpdateHz;
     };
-
+    
+    //
+    // NOTE(ezexff): Read files
+    //
+    typedef struct platform_file_handle
+    {
+        b32 NoErrors;
+    } platform_file_handle;
+    
+    typedef struct platform_file_group
+    {
+        u32 FileCount;
+    } platform_file_group;
+    
     //
     // NOTE(me): Sound
     //
@@ -39,7 +64,7 @@ extern "C"
         int SampleCount;
         int16 *Samples;
     } game_sound_output_buffer;
-
+    
     //
     // NOTE(me): Dispaly buffer for rendering
     //
@@ -52,7 +77,7 @@ extern "C"
         u32 DepthTexture;
         u32 GroundFBO;
     } game_offscreen_buffer;
-
+    
     //
     // NOTE(me): Inputs
     //
@@ -61,14 +86,14 @@ extern "C"
         int HalfTransitionCount;
         bool32 EndedDown;
     } game_button_state;
-
+    
     typedef struct game_controller_input
     {
         bool32 IsConnected;
         bool32 IsAnalog;
         real32 StickAverageX;
         real32 StickAverageY;
-
+        
         union {
             game_button_state Buttons[22];
             struct
@@ -83,30 +108,30 @@ extern "C"
                 game_button_state Key7;
                 game_button_state Key8;
                 game_button_state Key9;
-
+                
                 game_button_state MoveUp;
                 game_button_state MoveDown;
                 game_button_state MoveLeft;
                 game_button_state MoveRight;
-
+                
                 game_button_state ActionUp;
                 game_button_state ActionDown;
                 game_button_state ActionLeft;
                 game_button_state ActionRight;
-
+                
                 game_button_state LeftShoulder;
                 game_button_state RightShoulder;
-
+                
                 game_button_state Back;
                 game_button_state Start;
-
+                
                 // NOTE(casey): All buttons must be added above this line
-
+                
                 game_button_state Terminator;
             };
         };
     } game_controller_input;
-
+    
     enum game_input_mouse_button
     {
         PlatformMouseButton_Left,
@@ -114,66 +139,89 @@ extern "C"
         PlatformMouseButton_Right,
         PlatformMouseButton_Extended0,
         PlatformMouseButton_Extended1,
-
+        
         PlatformMouseButton_Count,
     };
     typedef struct game_input
     {
         real32 dtForFrame;
-
+        
         game_controller_input Controllers[5];
-
+        
         // TODO(me): переделать?
         game_button_state MouseButtons[PlatformMouseButton_Count];
         r32 MouseX, MouseY, MouseZ;
         // b32 ShiftDown, AltDown, ControlDown;
-
+        
         r32 MouseOffsetX, MouseOffsetY;
         // r32 MouseCenterDiffX, MouseCenterDiffY;
         // r32 MouseCenterX, MouseCenterY;
         b32 ShowMouseCursorMode;
-
+        
         bool32 ExecutableReloaded;
-
+        
     } game_input;
-
+    
     inline game_controller_input *GetController(game_input *Input, int unsigned ControllerIndex)
     {
         Assert(ControllerIndex < ArrayCount(Input->Controllers));
-
+        
         game_controller_input *Result = &Input->Controllers[ControllerIndex];
         return (Result);
     }
-
+    
     //
     // NOTE(me): Platform API
     //
 #define PLATFORM_TOGGLE_FULLSCREEN(name) void name(void)
     typedef PLATFORM_TOGGLE_FULLSCREEN(platform_toggle_fullscreen);
-
+    
 #define PLATFORM_TOGGLE_VSYNC(name) void name(b32 NewIsVSyncEnabled, r32 NewGameUpdateHz)
     typedef PLATFORM_TOGGLE_VSYNC(platform_toggle_vsync);
-
+    
+    // Work in thread
     struct platform_work_queue;
 #define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(platform_work_queue *Queue, void *Data)
     typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
     typedef void platform_add_entry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data);
     typedef void platform_complete_all_work(platform_work_queue *Queue);
-
+    
+    
+    // Read files
+#define PLATFORM_GET_ALL_FILE_OF_TYPE_BEGIN(name) platform_file_group *name(char *Type)
+    typedef PLATFORM_GET_ALL_FILE_OF_TYPE_BEGIN(platform_get_all_files_of_type_begin);
+    
+#define PLATFORM_GET_ALL_FILE_OF_TYPE_END(name) void name(platform_file_group *FileGroup)
+    typedef PLATFORM_GET_ALL_FILE_OF_TYPE_END(platform_get_all_files_of_type_end);
+    
+#define PLATFORM_OPEN_FILE(name) platform_file_handle *name(platform_file_group *FileGroup)
+    typedef PLATFORM_OPEN_FILE(platform_open_next_file);
+    
+#define PLATFORM_READ_DATA_FROM_FILE(name) void name(platform_file_handle *Source, u64 Offset, u64 Size, void *Dest)
+    typedef PLATFORM_READ_DATA_FROM_FILE(platform_read_data_from_file);
+    
+#define PLATFORM_FILE_ERROR(name) void name(platform_file_handle *Handle, char *Message)
+    typedef PLATFORM_FILE_ERROR(platform_file_error);
+    
+#define PlatformNoFileErrors(Handle) ((Handle)->NoErrors)
+    
     typedef struct platform_api
     {
         platform_toggle_fullscreen *ToggleFullscreen;
         // platform_set_framerate *SetFrameRate;
         //  platform_toggle_framerate_cap *ToggleFrameRateCap;
         platform_toggle_vsync *ToggleVSync;
-
-        platform_work_queue *HighPriorityQueue;
-        platform_work_queue *LowPriorityQueue;
-
+        
         platform_add_entry *AddEntry;
         platform_complete_all_work *CompleteAllWork;
+        
+        platform_get_all_files_of_type_begin *GetAllFilesOfTypeBegin;
+        platform_get_all_files_of_type_end *GetAllFilesOfTypeEnd;
+        platform_open_next_file *OpenNextFile;
+        platform_read_data_from_file *ReadDataFromFile;
+        platform_file_error *FileError;
     } platform_api;
-
+    
     //
     // NOTE(me): Performance Counters
     //
@@ -189,18 +237,18 @@ extern "C"
         uint64 CycleCount;
         uint32 HitCount;
     } debug_cycle_counter;
-
+    
     extern struct game_memory *DebugGlobalMemory;
-
+    
 #define BEGIN_TIMED_BLOCK(ID) uint64 StartCycleCount##ID = __rdtsc();
 #define END_TIMED_BLOCK(ID)                                                                                            \
-    DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += __rdtsc() - StartCycleCount##ID;                 \
-    ++DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount;
+DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += __rdtsc() - StartCycleCount##ID;                 \
+++DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount;
 #define END_TIMED_BLOCK_COUNTED(ID, Count)                                                                             \
-    DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += __rdtsc() - StartCycleCount##ID;                 \
-    DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount += (Count);
+DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += __rdtsc() - StartCycleCount##ID;                 \
+DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount += (Count);
 #endif
-
+    
     //
     // NOTE(me): Game Memory
     //
@@ -208,22 +256,25 @@ extern "C"
     {
         uint64 PermanentStorageSize;
         void *PermanentStorage; // NOTE(casey): REQUIRED to be cleared to zero at startup
-
+        
         uint64 TransientStorageSize;
         void *TransientStorage; // NOTE(casey): REQUIRED to be cleared to zero at startup
-
+        
+        platform_work_queue *HighPriorityQueue;
+        platform_work_queue *LowPriorityQueue;
+        
         platform_api PlatformAPI;
-
+        
 #if ENGINE_INTERNAL
         debug_cycle_counter Counters[DebugCycleCounter_Count];
 #endif
-
+        
     } game_memory;
     /*
     #define GAME_UPDATE_AND_RENDER(name) void name(game_memory *Memory, game_input *Input, game_offscreen_buffer
     *Buffer) typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
     */
-
+    
     //
     // NOTE(me): ImGui Log App
     //
@@ -237,20 +288,20 @@ extern "C"
         ImGuiTextFilter Filter;
         ImVector<int> LineOffsets; // Index to lines offset. We maintain this with AddLog() calls.
         bool AutoScroll;           // Keep scrolling if already at the bottom.
-
+        
         app_log()
         {
             AutoScroll = true;
             Clear();
         }
-
+        
         void Clear()
         {
             Buf.clear();
             LineOffsets.clear();
             LineOffsets.push_back(0);
         }
-
+        
         void AddLog(const char *fmt, ...) IM_FMTARGS(2)
         {
             int old_size = Buf.size();
@@ -260,9 +311,9 @@ extern "C"
             va_end(args);
             for(int new_size = Buf.size(); old_size < new_size; old_size++)
                 if(Buf[old_size] == '\n')
-                    LineOffsets.push_back(old_size + 1);
+                LineOffsets.push_back(old_size + 1);
         }
-
+        
         void Draw(const char *title, bool *p_open = NULL)
         {
             if(!ImGui::Begin(title, p_open))
@@ -270,14 +321,14 @@ extern "C"
                 ImGui::End();
                 return;
             }
-
+            
             // Options menu
             if(ImGui::BeginPopup("Options"))
             {
                 ImGui::Checkbox("Auto-scroll", &AutoScroll);
                 ImGui::EndPopup();
             }
-
+            
             // Main window
             if(ImGui::Button("Options"))
                 ImGui::OpenPopup("Options");
@@ -287,15 +338,15 @@ extern "C"
             bool copy = ImGui::Button("Copy");
             ImGui::SameLine();
             Filter.Draw("Filter", -100.0f);
-
+            
             ImGui::Separator();
             ImGui::BeginChild("scrolling", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
-
+            
             if(clear)
                 Clear();
             if(copy)
                 ImGui::LogToClipboard();
-
+            
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
             const char *buf = Buf.begin();
             const char *buf_end = Buf.end();
@@ -309,7 +360,7 @@ extern "C"
                 {
                     const char *line_start = buf + LineOffsets[line_no];
                     const char *line_end =
-                        (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
+                    (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
                     if(Filter.PassFilter(line_start, line_end))
                         ImGui::TextUnformatted(line_start, line_end);
                 }
@@ -338,22 +389,22 @@ extern "C"
                     {
                         const char *line_start = buf + LineOffsets[line_no];
                         const char *line_end =
-                            (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
+                        (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
                         ImGui::TextUnformatted(line_start, line_end);
                     }
                 }
                 clipper.End();
             }
             ImGui::PopStyleVar();
-
+            
             if(AutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
                 ImGui::SetScrollHereY(1.0f);
-
+            
             ImGui::EndChild();
             ImGui::End();
         }
     };
-
+    
 #ifdef __cplusplus
 }
 #endif

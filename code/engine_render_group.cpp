@@ -5,18 +5,20 @@ AllocateRenderGroup(memory_arena *Arena, u32 MaxPushBufferSize,        //
 {
     render_group *Result = PushStruct(Arena, render_group);
     Result->PushBufferBase = (uint8 *)PushSize(Arena, MaxPushBufferSize);
-
+    
     Result->MaxPushBufferSize = MaxPushBufferSize;
     Result->PushBufferSize = 0;
-
+    
     Result->Transform.IsOrthogonal = IsOrthogonal;
-
+    
     Result->Transform.CameraPitch = CameraPitch;
     Result->Transform.CameraYaw = CameraYaw;
     Result->Transform.CameraRenderZ = CameraRenderZ;
-
+    
     Result->Transform.OffsetP = V3(0, 0, 0);
-
+    
+    Result->MissingResourceCount = 0;
+    
     return (Result);
 }
 
@@ -25,13 +27,13 @@ inline void * //
 PushRenderElement_(render_group *Group, uint32 Size, render_group_entry_type Type)
 {
     void *Result = 0;
-
+    
     Size += sizeof(render_group_entry_header);
-
+    
     if((Group->PushBufferSize + Size) < Group->MaxPushBufferSize)
     {
         render_group_entry_header *Header =
-            (render_group_entry_header *)(Group->PushBufferBase + Group->PushBufferSize);
+        (render_group_entry_header *)(Group->PushBufferBase + Group->PushBufferSize);
         Header->Type = Type;
         Result = (uint8 *)Header + sizeof(*Header);
         Group->PushBufferSize += Size;
@@ -40,7 +42,7 @@ PushRenderElement_(render_group *Group, uint32 Size, render_group_entry_type Typ
     {
         InvalidCodePath;
     }
-
+    
     return (Result);
 }
 
@@ -59,7 +61,7 @@ PushRect(render_group *Group, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1))
 {
     v3 P = (Offset - V3(0.5f * Dim, 0));
     P += Group->Transform.OffsetP;
-
+    
     render_entry_rectangle *Entry = PushRenderElement(Group, render_entry_rectangle);
     Entry->Color = Color;
     Entry->P = P.xy;
@@ -88,21 +90,21 @@ glDrawRect(rectangle2 R, r32 Z, v3 Color)
         R.Max.x, R.Max.y, Z, // 2
         R.Min.x, R.Max.y, Z, // 3
     };
-
+    
     r32 VertColors[] = {
         Color.x, Color.y, Color.z, // 0
         Color.x, Color.y, Color.z, // 1
         Color.x, Color.y, Color.z, // 2
         Color.x, Color.y, Color.z, // 3
     };
-
+    
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
-
+    
     glVertexPointer(3, GL_FLOAT, 0, VRectangle);
     glColorPointer(3, GL_FLOAT, 0, VertColors);
     glDrawArrays(GL_QUADS, 0, 4);
-
+    
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
 }
@@ -112,7 +114,7 @@ PushRectOutline(render_group *Group, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1
 {
     v3 P = (Offset - V3(0.5f * Dim, 0));
     P += Group->Transform.OffsetP;
-
+    
     render_entry_rectangle_outline *Entry = PushRenderElement(Group, render_entry_rectangle_outline);
     Entry->Color = Color;
     Entry->P = P.xy;
@@ -143,27 +145,27 @@ glDrawRectOutline(rectangle2 R, r32 Z, v3 Color, r32 LineWidth)
         R.Max.x, R.Max.y, Z, // 2
         R.Min.x, R.Max.y, Z, // 3
     };
-
+    
     r32 VertColors[] = {
         Color.x, Color.y, Color.z, // 0
         Color.x, Color.y, Color.z, // 1
         Color.x, Color.y, Color.z, // 2
         Color.x, Color.y, Color.z, // 3
     };
-
+    
     glLineWidth(LineWidth);
     glEnable(GL_LINE_SMOOTH);
-
+    
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
-
+    
     glVertexPointer(3, GL_FLOAT, 0, VRectangle);
     glColorPointer(3, GL_FLOAT, 0, VertColors);
     glDrawArrays(GL_LINE_LOOP, 0, 4);
-
+    
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
-
+    
     glLineWidth(1);
     glDisable(GL_LINE_SMOOTH);
 }
@@ -173,7 +175,7 @@ PushTexture(render_group *Group, v3 Offset, v2 Dim, u32 Texture, b32 FlipVertica
 {
     v3 P = (Offset - V3(0.5f * Dim, 0));
     P += Group->Transform.OffsetP;
-
+    
     render_entry_texture *Entry = PushRenderElement(Group, render_entry_texture);
     Entry->Texture = Texture;
     Entry->P = P.xy;
@@ -192,28 +194,28 @@ glDrawTexture(rectangle2 R, r32 Z, u32 Texture, b32 FlipVertically, r32 Repeat)
         R.Max.x, R.Max.y, Z, // 2
         R.Min.x, R.Max.y, Z, // 3
     };
-
+    
     r32 UVRect[] = {
         0,      0,      // 0
         Repeat, 0,      // 1
         Repeat, Repeat, // 2
         0,      Repeat  // 3
     };
-
+    
     r32 UVRectFlippedVertically[] = {
         0,      Repeat, // 0
         Repeat, Repeat, // 1
         Repeat, 0,      // 2
         0,      0       // 3
     };
-
+    
     glEnable(GL_TEXTURE_2D);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, Texture);
-
+    
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-
+    
     glVertexPointer(3, GL_FLOAT, 0, VRect);
     if(FlipVertically)
     {
@@ -224,10 +226,10 @@ glDrawTexture(rectangle2 R, r32 Z, u32 Texture, b32 FlipVertically, r32 Repeat)
         glTexCoordPointer(2, GL_FLOAT, 0, UVRect);
     }
     glDrawArrays(GL_QUADS, 0, 4);
-
+    
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-
+    
     glDisable(GL_TEXTURE_2D);
 }
 
@@ -236,7 +238,7 @@ PushModel(render_group *Group, v3 Offset, v2 Dim, loaded_model *Model, b32 IsFil
 {
     v3 P = (Offset - V3(0.5f * Dim, 0));
     P += Group->Transform.OffsetP;
-
+    
     render_entry_model *Entry = PushRenderElement(Group, render_entry_model);
     Entry->Model = Model;
     Entry->P = P.xy;
@@ -248,9 +250,9 @@ internal void //
 glDrawModel(rectangle2 R, r32 Z, loaded_model *Model, b32 IsFill)
 {
     // Log.AddLog("glDrawModel\n");
-
+    
     glTranslatef(R.Min.x, R.Min.y, 0);
-
+    
     if(!IsFill)
     {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -259,36 +261,36 @@ glDrawModel(rectangle2 R, r32 Z, loaded_model *Model, b32 IsFill)
     {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
-
+    
     single_mesh *Mesh = &Model->Meshes[0];
-
+    
     if(Mesh->Material.WithTexture)
     {
         glEnable(GL_TEXTURE_2D);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, Mesh->Material.Texture.ID);
     }
-
+    
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     // glEnableClientState(GL_COLOR_ARRAY);
-
+    
     glVertexPointer(3, GL_FLOAT, 0, Mesh->Positions);
     glTexCoordPointer(2, GL_FLOAT, 0, Mesh->TexCoords);
     // glColorPointer(3, GL_FLOAT, 0, VertColors);
-
+    
     glDrawElements(GL_TRIANGLES, Mesh->IndicesCount, GL_UNSIGNED_INT, Mesh->Indices);
-
+    
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-
+    
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glBindTexture(GL_TEXTURE_2D, 0);
     glDisable(GL_TEXTURE_2D);
-
+    
     glTranslatef(-R.Min.x, -R.Min.y, 0);
     // glDisableClientState(GL_COLOR_ARRAY);
-
+    
     /*glPolygonMode(GL_FRONT_AND_BACK, IsFill ? GL_FILL : GL_LINE);
 
     // single_mesh *Mesh = &Model->Meshes[0];
@@ -317,12 +319,12 @@ internal void                                                                //
 RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //, loaded_bitmap *OutputTarget)
 {
     BEGIN_TIMED_BLOCK(RenderGroupToOutput);
-
+    
     /*v2 ScreenCenter = {0.5f * (r32)OutputTarget->Width, //
                        0.5f * (r32)OutputTarget->Height};*/
-
+    
     glBindFramebuffer(GL_FRAMEBUFFER, OutputTarget->FBO);
-
+    
     // Create Render Texture Attachment
     /*glBindTexture(GL_TEXTURE_2D, Buffer->RenderTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Buffer->Width, Buffer->Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -337,10 +339,10 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Buffer->DepthTexture, 0);*/
-
+    
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
+    
     glViewport(0, 0, OutputTarget->Width, OutputTarget->Height);
     if(RenderGroup->Transform.IsOrthogonal)
     {
@@ -362,7 +364,7 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
         glLoadIdentity();
         glFrustum(-AspectRatio * FOV, AspectRatio * FOV, //
                   -FOV, FOV, FOV * 2, 1000);
-
+        
         // set camera
         glRotatef(-RenderGroup->Transform.CameraPitch, 1.0f, 0.0f, 0.0f);
         glRotatef(-RenderGroup->Transform.CameraYaw, 0.0f, 0.0f, 1.0f);
@@ -370,69 +372,69 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
         v2 WorldOrigin1 = {};
         glTranslatef(-WorldOrigin1.x, -WorldOrigin1.y, -RenderGroup->Transform.CameraRenderZ);
     }
-
+    
     for(u32 BaseAddress = 0;                       //
         BaseAddress < RenderGroup->PushBufferSize; //
-    )
+        )
     {
         render_group_entry_header *Header = (render_group_entry_header *) //
-            (RenderGroup->PushBufferBase + BaseAddress);
+        (RenderGroup->PushBufferBase + BaseAddress);
         BaseAddress += sizeof(*Header);
-
+        
         void *Data = (uint8 *)Header + sizeof(*Header);
         switch(Header->Type)
         {
-        case RenderGroupEntryType_render_entry_clear: //
-        {
-            render_entry_clear *Entry = (render_entry_clear *)Data;
-
-            glClearColor(Entry->Color.r, Entry->Color.g, Entry->Color.b, Entry->Color.a);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-            BaseAddress += sizeof(*Entry);
-        }
-        break;
-
-        case RenderGroupEntryType_render_entry_model: //
-        {
-            render_entry_model *Entry = (render_entry_model *)Data;
-            Assert(Entry->Model);
-            glDrawModel({Entry->P, Entry->P + Entry->Dim}, 0.0f, Entry->Model, Entry->IsFill);
-
-            BaseAddress += sizeof(*Entry);
-        }
-        break;
-
-        case RenderGroupEntryType_render_entry_texture: //
-        {
-            render_entry_texture *Entry = (render_entry_texture *)Data;
-            glDrawTexture({Entry->P, Entry->P + Entry->Dim}, 0.0f, Entry->Texture, Entry->FlipVertically,
-                          Entry->Repeat);
-
-            BaseAddress += sizeof(*Entry);
-        }
-        break;
-
-        case RenderGroupEntryType_render_entry_rectangle: //
-        {
-            render_entry_rectangle *Entry = (render_entry_rectangle *)Data;
-            glDrawRect({Entry->P, Entry->P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
-
-            BaseAddress += sizeof(*Entry);
-        }
-        break;
-
-        case RenderGroupEntryType_render_entry_rectangle_outline: //
-        {
-            render_entry_rectangle_outline *Entry = (render_entry_rectangle_outline *)Data;
-            glDrawRectOutline({Entry->P, Entry->P + Entry->Dim}, 0.0f,            //
-                              V3(Entry->Color.x, Entry->Color.y, Entry->Color.z), //
-                              Entry->LineWidth);
-
-            BaseAddress += sizeof(*Entry);
-        }
-        break;
-
+            case RenderGroupEntryType_render_entry_clear: //
+            {
+                render_entry_clear *Entry = (render_entry_clear *)Data;
+                
+                glClearColor(Entry->Color.r, Entry->Color.g, Entry->Color.b, Entry->Color.a);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                
+                BaseAddress += sizeof(*Entry);
+            }
+            break;
+            
+            case RenderGroupEntryType_render_entry_model: //
+            {
+                render_entry_model *Entry = (render_entry_model *)Data;
+                Assert(Entry->Model);
+                glDrawModel({Entry->P, Entry->P + Entry->Dim}, 0.0f, Entry->Model, Entry->IsFill);
+                
+                BaseAddress += sizeof(*Entry);
+            }
+            break;
+            
+            case RenderGroupEntryType_render_entry_texture: //
+            {
+                render_entry_texture *Entry = (render_entry_texture *)Data;
+                glDrawTexture({Entry->P, Entry->P + Entry->Dim}, 0.0f, Entry->Texture, Entry->FlipVertically,
+                              Entry->Repeat);
+                
+                BaseAddress += sizeof(*Entry);
+            }
+            break;
+            
+            case RenderGroupEntryType_render_entry_rectangle: //
+            {
+                render_entry_rectangle *Entry = (render_entry_rectangle *)Data;
+                glDrawRect({Entry->P, Entry->P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+                
+                BaseAddress += sizeof(*Entry);
+            }
+            break;
+            
+            case RenderGroupEntryType_render_entry_rectangle_outline: //
+            {
+                render_entry_rectangle_outline *Entry = (render_entry_rectangle_outline *)Data;
+                glDrawRectOutline({Entry->P, Entry->P + Entry->Dim}, 0.0f,            //
+                                  V3(Entry->Color.x, Entry->Color.y, Entry->Color.z), //
+                                  Entry->LineWidth);
+                
+                BaseAddress += sizeof(*Entry);
+            }
+            break;
+            
             /*case RenderGroupEntryType_render_entry_coordinate_system: {
                 render_entry_coordinate_system *Entry = (render_entry_coordinate_system *)Data;
 
@@ -458,13 +460,13 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_texture *OutputTarget) //,
             }
             break;
             */
-
+            
             InvalidDefaultCase;
         }
     }
-
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+    
     END_TIMED_BLOCK(RenderGroupToOutput);
 }
 
@@ -477,57 +479,57 @@ RenderImGui(game_input *Input,                                 //
     game_debug *Debug = GameState->Debug;
     app_settings *Settings = GameState->Settings;
     render *Render = GameState->Render;
-
+    
     // Start the Dear ImGui frame
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-
+    
     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its
     // code to learn more about Dear ImGui!).
     if(GameState->ShowDemoWindow && Input->ShowMouseCursorMode)
     {
         ImGui::ShowDemoWindow(&GameState->ShowDemoWindow);
     }
-
+    
     // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
     if(Input->ShowMouseCursorMode)
     {
         static float f = 0.0f;
         static int counter = 0;
-
+        
         ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!" and append into it.
-
+        
         ImGui::Text("This is some useful text."); // Display some text (you can use a format strings too)
         ImGui::Checkbox("Demo Window",
                         &GameState->ShowDemoWindow); // Edit bools storing our window open/close state
         ImGui::Checkbox("Another Window", &GameState->ShowAnotherWindow);
-
+        
         ImGui::SliderFloat("float", &f, 0.0f, 1.0f); // Edit 1 float using a slider from 0.0f to 1.0f
         // ImGui::ColorEdit3("clear color", (float *)&GameState->ClearColor); // Edit 3 floats representing a color
-
+        
         if(ImGui::Button("Button")) // Buttons return true when clicked (most widgets return true when edited/activated)
             counter++;
         ImGui::SameLine();
         ImGui::Text("counter = %d", counter);
-
+        
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                     ImGui::GetIO().Framerate);
         ImGui::End();
     }
-
+    
     // 3. Show another simple window.
     if(GameState->ShowAnotherWindow && Input->ShowMouseCursorMode)
     {
         ImGui::Begin("Another Window",
                      &GameState->ShowAnotherWindow); // Pass a pointer to our bool variable (the window will have a
-                                                     // closing button that will clear the bool when clicked)
+        // closing button that will clear the bool when clicked)
         ImGui::Text("Hello from another window!");
         if(ImGui::Button("Close Me"))
             GameState->ShowAnotherWindow = false;
         ImGui::End();
     }
-
+    
     // NOTE(me): Developer Menu
     if(Input->ShowMouseCursorMode)
     {
@@ -549,7 +551,7 @@ RenderImGui(game_input *Input,                                 //
                     GameState->CameraPitch,       //
                     GameState->CameraYaw);
         ImGui::Spacing();
-
+        
         ImGui::SetNextItemOpen(true);
         if(ImGui::CollapsingHeader("Settings"))
         {
@@ -575,13 +577,13 @@ RenderImGui(game_input *Input,                                 //
                     ChangeDisplayMode = true;
                 }
             }
-
+            
             if(ChangeDisplayMode)
             {
                 Platform.ToggleFullscreen();
             }
             ImGui::Spacing();
-
+            
             ImGui::Text("Change Game Update Hz");
             ImGui::SameLine();
             if(ImGui::RadioButton("Capped", Settings->RBCappedIsActive))
@@ -591,16 +593,16 @@ RenderImGui(game_input *Input,                                 //
                 Platform.ToggleVSync(false, Settings->NewGameUpdateHz);
             }
             ImGui::SameLine();
-
+            
             if(ImGui::RadioButton("VSync", Settings->RBVSyncIsActive))
             {
                 Settings->RBCappedIsActive = false;
                 Settings->RBVSyncIsActive = true;
                 Platform.ToggleVSync(true, Settings->NewGameUpdateHz);
             }
-
+            
             ImGui::Spacing();
-
+            
             // TODO(me): vsync/unlimited fps/custom fps???
             if(Settings->RBCappedIsActive)
             {
@@ -611,16 +613,16 @@ RenderImGui(game_input *Input,                                 //
                 Platform.ToggleVSync(false, Settings->NewGameUpdateHz);
             }
             ImGui::Spacing();
-
+            
             ImGui::Text("Change Mouse Sensitivity");
             ImGui::SliderFloat("##MouseSensitivity", &Settings->MouseSensitivity, 0.0f, 100.0f);
             ImGui::Spacing();
-
+            
             ImGui::Checkbox("Process Animations", &Debug->ProcessAnimations);
-
+            
             ImGui::Checkbox("Log Cycle Counters", &Debug->LogCycleCounters);
         }
-
+        
         if(ImGui::CollapsingHeader("Audio"))
         {
             ImGui::Text("1st line (previous frames):");
@@ -639,7 +641,7 @@ RenderImGui(game_input *Input,                                 //
             ImGui::Text("Yellow - ExpectedFlipPlayCursor");
             ImGui::Spacing();
         }
-
+        
         if(ImGui::CollapsingHeader("Memory"))
         {
             ImGui::Text("PermanentStorage");
@@ -647,7 +649,7 @@ RenderImGui(game_input *Input,                                 //
                         GameState->WorldArena.Size / 1024, GameState->WorldArena.Size / 1024 / 1024);
             ImGui::Text("   Used %d(KB), %d(MB)", //
                         GameState->WorldArena.Used / 1024, GameState->WorldArena.Used / 1024 / 1024);
-
+            
             ImGui::Text("TransientStorage");
             ImGui::Text("   TempCount=%d", TranState->TranArena.TempCount);
             ImGui::Text("   Size %d(KB), %d(MB)", //
@@ -655,7 +657,28 @@ RenderImGui(game_input *Input,                                 //
             ImGui::Text("   Used %d(KB), %d(MB)", //
                         TranState->TranArena.Used / 1024, TranState->TranArena.Used / 1024 / 1024);
         }
-
+        
+        if(ImGui::CollapsingHeader("Assets"))
+        {
+            ImGui::Text("Test LoadBitmap");
+            bitmap_id ID = {};
+            ID.Value = 1;
+            LoadBitmap(TranState->Assets, ID);
+            
+            asset_slot *TmpSlot = TranState->Assets->Slots + ID.Value;
+            if(TmpSlot->State == AssetState_Loaded)
+            {
+                int x123 = 0;
+            }
+            
+            /*ImGui::Image((void *)(intptr_t)GroundBuffer->DrawBuffer.Texture,                                //
+                         ImVec2((r32)GroundBuffer->DrawBuffer.Width, (r32)GroundBuffer->DrawBuffer.Height), //
+                         ImVec2(0, 0), ImVec2(1, -1));*/
+            //ImGui::Image((void *)(intptr_t)GroundBuffer->DrawBuffer.ID,                                     //
+            //ImVec2((r32)GroundBuffer->DrawBuffer.Width, (r32)GroundBuffer->DrawBuffer.Height), //
+            //ImVec2(0, 1), ImVec2(1, 0));
+        }
+        
         if(ImGui::CollapsingHeader("World"))
         {
             // ImGui::Text("ChunkDimInMeters=%d", World->ChunkDimInMeters);
@@ -689,7 +712,7 @@ RenderImGui(game_input *Input,                                 //
             ImGui::Text("CameraSPX=%f", CameraSP.x);
             ImGui::Text("CameraSPY=%f", CameraSP.y);*/
         }
-
+        
         if(ImGui::CollapsingHeader("Camera"))
         {
             ImGui::Text("CameraP");
@@ -702,7 +725,7 @@ RenderImGui(game_input *Input,                                 //
             ImGui::InputFloat("Pitch", &GameState->CameraPitch, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("Yaw", &GameState->CameraYaw, 0.5, 2, "%.10f", 0);
         }
-
+        
         if(ImGui::CollapsingHeader("Entities"))
         {
             ImGui::Text("SimEntities");
@@ -746,7 +769,7 @@ RenderImGui(game_input *Input,                                 //
                     {
                         EntityType = "Stairwell";
                     }
-
+                    
                     // if(ImGui::TreeNode("SimRegion->Entities"))
                     if(ImGui::TreeNode((void *)(intptr_t)EntityIndex, "Entity%d(%s)", EntityIndex, EntityType))
                     {
@@ -779,19 +802,19 @@ RenderImGui(game_input *Input,                                 //
                 ImGui::TreePop();
             }*/
         }
-
+        
         if(ImGui::CollapsingHeader("Render"))
         {
             ImGui::InputFloat("CameraRenderZ", &GameState->CameraRenderZ, 0.5, 2, "%.10f", 0);
-
+            
             ImGui::Text("Test Render Texture");
             ImGui::Image((void *)(intptr_t)Buffer->DrawTexture, //
                          ImVec2((r32)Buffer->Width / 4, (r32)Buffer->Height / 4), ImVec2(0, 0), ImVec2(1, -1));
-
+            
             ImGui::Text("Test Depth Texture");
             ImGui::Image((void *)(intptr_t)Buffer->DepthTexture, //
                          ImVec2((r32)Buffer->Width / 4, (r32)Buffer->Height / 4), ImVec2(0, 0), ImVec2(1, -1));
-
+            
             ImGui::InputInt("GroundBufferIndex", &Debug->GroundBufferIndex, 1, 1, 0);
             ground_buffer *GroundBuffer = TranState->GroundBuffers + Debug->GroundBufferIndex;
             ImGui::Text("Test Ground Texture");
@@ -801,7 +824,7 @@ RenderImGui(game_input *Input,                                 //
             ImGui::Image((void *)(intptr_t)GroundBuffer->DrawBuffer.ID,                                     //
                          ImVec2((r32)GroundBuffer->DrawBuffer.Width, (r32)GroundBuffer->DrawBuffer.Height), //
                          ImVec2(0, 1), ImVec2(1, 0));
-
+            
             ImGui::Text("Environment Objects Rendering System");
             ImGui::Text("SStMeshesCount=%d", Render->SStMeshesCount);
             if(ImGui::TreeNode("SStMeshes"))
@@ -848,7 +871,7 @@ RenderImGui(game_input *Input,                                 //
             ImGui::Text("GrVerticesCountSum=%d", Render->GrVerticesCountSum);
             ImGui::Text("GrInstancesCountSum=%d", Render->GrInstancesCountSum);
         }
-
+        
         if(ImGui::CollapsingHeader("Light Sources"))
         {
             ImGui::Text("Directional");
@@ -859,7 +882,7 @@ RenderImGui(game_input *Input,                                 //
             ImGui::InputFloat("DLDiffuseIntensity", &Render->DirLight.Base.DiffuseIntensity, 0.5, 2, "%.10f", 0);
             ImGui::ColorEdit3("DLColor", (float *)&Render->DirLight.Base.Color.E);
             ImGui::Spacing();
-
+            
             ImGui::Text("Point");
             ImGui::InputFloat("PLPosX", &Render->PointLights[0].WorldPosition.x, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("PLPosY", &Render->PointLights[0].WorldPosition.y, 0.5, 2, "%.10f", 0);
@@ -871,14 +894,14 @@ RenderImGui(game_input *Input,                                 //
             ImGui::InputFloat("PLAttExp", &Render->PointLights[0].Atten.Exp, 0.5, 2, "%.10f", 0);
             ImGui::ColorEdit3("PLColor", (float *)&Render->PointLights[0].Base.Color.E);
             ImGui::Spacing();
-
+            
             ImGui::Text("Spot");
             ImGui::InputFloat("SLPosX", &Render->SpotLights[0].Base.WorldPosition.x, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("SLPosY", &Render->SpotLights[0].Base.WorldPosition.y, 0.5, 2, "%.10f", 0);
             ImGui::InputFloat("SLPosZ", &Render->SpotLights[0].Base.WorldPosition.z, 0.5, 2, "%.10f", 0);
             ImGui::ColorEdit3("SLColor", (float *)&Render->SpotLights[0].Base.Base.Color.E);
         }
-
+        
         if(ImGui::CollapsingHeader("Shadows"))
         {
             ImGui::InputFloat("ShadowMapSize", &Render->ShadowMapSize, 0.5, 2, "%.10f", 0);
@@ -893,7 +916,7 @@ RenderImGui(game_input *Input,                                 //
             ImGui::Text("ShadowMap");
             ImGui::Image((void *)(intptr_t)Render->DepthMap, ImVec2(1920 / 4, 1080 / 4), ImVec2(0, 0), ImVec2(1, -1));
         }
-
+        
         if(ImGui::CollapsingHeader("Water"))
         {
             ImGui::InputFloat("WaterWaveSpeed", &Render->WaterWaveSpeed, 0.5, 2, "%.10f", 0);
@@ -908,21 +931,21 @@ RenderImGui(game_input *Input,                                 //
             ImGui::Image((void *)(intptr_t)Render->WaterRefrTexture, ImVec2(1920 / 4, 1080 / 4), //
                          ImVec2(0, 0), ImVec2(1, -1));
         }
-
+        
         ImGui::End();
     }
-
+    
     // NOTE(me): Draw Log App
     if(Input->ShowMouseCursorMode)
     {
         Log.Draw("Log");
-
+        
         if(Debug->LogCycleCounters)
         {
             LogCycleCounters(DebugGlobalMemory);
         }
     }
-
+    
     // ImGui rendering
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

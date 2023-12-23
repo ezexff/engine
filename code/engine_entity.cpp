@@ -116,33 +116,33 @@ internal void MovePlayerEOM(world *World, entity_player *Player, entity_clip *Pl
     // v' = gliding velocity vector
     // v' = v - 1 * Inner(v, r) * r
     //
-
+    
     // исправление вектора ускорения при движении по диагонали
     r32 ddPLength = LengthSq(ddPFromKeys);
     if(ddPLength > 1.0f)
     {
         ddPFromKeys *= (1.0f / SquareRoot(ddPLength));
     }
-
+    
     // поворот вектора ускорения в зависимости от направления взгляда игрока
     // r32 Angle = Player->CameraYaw / 180 * Pi32;
     r32 Angle = Player->CameraYaw * Pi32 / 180;
     v2 ddP = {};
     ddP.x = ddPFromKeys.x * Cos(Angle) - ddPFromKeys.y * Sin(Angle);
     ddP.y = ddPFromKeys.x * Sin(Angle) + ddPFromKeys.y * Cos(Angle);
-
+    
     // мультипликатор ускорения
     ddP *= Speed;
-
+    
     // добавляем к ускорению Force of Friction (силу трения)
     ddP += -1.0f * Player->dP;
-
+    
     // New position: p' = (a/2)*t^2 + vt + p
     v2 PlayerDelta = (0.5f * ddP * Square(dt) + Player->dP * dt);
-
+    
     // Update velocity: v' = at + v
     Player->dP = ddP * dt + Player->dP;
-
+    
     // Update position
     Player->P = Offset(World, Player->P, PlayerDelta);
     // v2 OldPlayerPos = V2(Player->Position.x, Player->Position.y);
@@ -150,11 +150,11 @@ internal void MovePlayerEOM(world *World, entity_player *Player, entity_clip *Pl
     // Player->Position.x = NewPlayerPos.x;
     // Player->Position.y = NewPlayerPos.y;
     // v2 OldPlayerPos = V2(Player->Position.x, Player->Position.y);
-
+    
     // TODO
     // отрисовать кубы вокруг границ террейна и добавить с ними коллизии
     // высота и ширина на плоскости XY
-
+    
     // NOTE(me): Minkowski Collision Detection
     /*func collision(a : Shape, b : Shape)->bool
     {
@@ -166,13 +166,13 @@ internal void MovePlayerEOM(world *World, entity_player *Player, entity_clip *Pl
         let p : Point = b.center();
         return m.contains_point(p);
     }*/
-
+    
     // границы террейна
     // v2 TerrainCenterPos = PlayerClip->CenterPos;
     // r32 TerrainSide = PlayerClip->Side;
     // v2 TerrainCenterPos = V2(-10.0f, -10.0f);
     // r32 TerrainSide = 10.0f;
-
+    
     // TODO(me):
     /*
     enum sim_entity_flags
@@ -205,7 +205,7 @@ internal void MovePlayerEOM(world *World, entity_player *Player, entity_clip *Pl
     // in camera space
     // v2 TmpPlayerP = GetPosInCameraSpace(World, &Player->P, &Player->P);
     // v2 TmpPlayerClipP = GetPosInCameraSpace(World, &Player->P, &PlayerClip->P);
-
+    
     // for(u32 i = 0; i < 4; i++)
     //{
     /*r32 tMin = 1.0f;
@@ -255,7 +255,7 @@ internal void MovePlayerEOM(world *World, entity_player *Player, entity_clip *Pl
         WallNormal = v2{0, 1};
         HitHighEntityIndex = 1;
     }*/
-
+    
     // OldPlayerPos += tMin * PlayerDelta;
     // world_position OldPlayerP = Player->P;
     // Player->P = Offset(World, OldPlayerP, tMin * PlayerDelta);
@@ -272,10 +272,11 @@ internal void MovePlayerEOM(world *World, entity_player *Player, entity_clip *Pl
         break;
     }*/
     //}
-
+    
 }
 #endif
 
+#if 0
 internal r32 TerrainGetHeight(entity_envobject *Terrain, r32 x, r32 y)
 {
     // алгоритм нахождения приблизительной высоты на террейне
@@ -289,32 +290,32 @@ internal r32 TerrainGetHeight(entity_envobject *Terrain, r32 x, r32 y)
     // по формуле: h2 = ((1 - BaseOffsetX) * TMap[X][Y + 1].z + BaseOffsetX * TMap[X + 1][Y + 1].z)
     // 6. находим приблизительную высоту по формуле:
     // Result = (1 - BaseOffsetY) * h1 + BaseOffsetY * h2
-
+    
     r32 Result;
-
+    
     // GameState->EnvObjects[0]->Model->Meshes[0]
     v3 *Positions = Terrain->Model->Meshes[0].Positions;
-
+    
     if(!IsPosOnTerrain(x, y))
     {
         return 0.0f;
     }
-
+    
     int32 X = (int32)x;
     int32 Y = (int32)y;
     r32 BaseOffsetX = x - X;
     r32 BaseOffsetY = y - Y;
-
+    
     u32 Index0 = X * TMapH + Y;       // [i][j]
     u32 Index1 = (X + 1) * TMapH + Y; // [i+1][j]
     r32 h1 = ((1 - BaseOffsetX) * Positions[Index0].z + BaseOffsetX * Positions[Index1].z);
-
+    
     u32 Index2 = X * TMapH + Y + 1;       // [i][j+1]
     u32 Index3 = (X + 1) * TMapH + Y + 1; // [i+1][j+1]
     r32 h2 = ((1 - BaseOffsetX) * Positions[Index2].z + BaseOffsetX * Positions[Index3].z);
-
+    
     Result = (1 - BaseOffsetY) * h1 + BaseOffsetY * h2;
-
+    
     return (Result);
 }
 
@@ -328,7 +329,7 @@ internal m4x4 *CreateInstancingTransformMatrices(memory_arena *WorldArena,  //
                                                  v3 RZMM)                   // Rotate Z rand() Min, Max, Precision
 {
     m4x4 *Result = PushArray(WorldArena, Count, m4x4);
-
+    
     for(u32 i = 0; i < Count; i++)
     {
         v3 TranslationVec = V3(0, 0, 0);
@@ -336,34 +337,35 @@ internal m4x4 *CreateInstancingTransformMatrices(memory_arena *WorldArena,  //
         TranslationVec.y = (r32)(rand()) / (r32)(RAND_MAX / (TMapH - 2));
         TranslationVec.z = TerrainGetHeight(Terrain, TranslationVec.x, TranslationVec.y);
         m4x4 TranslationM = Translation(TranslationVec);
-
+        
         r32 RotX = DebugGetRandomNumberR32(RXMM.x, RXMM.y, (u32)RXMM.z);
         r32 RotY = DebugGetRandomNumberR32(RYMM.x, RYMM.y, (u32)RYMM.z);
         r32 RotZ = DebugGetRandomNumberR32(RZMM.x, RZMM.y, (u32)RZMM.z);
         m4x4 RotationM = XRotation(Rotate.x) * YRotation(Rotate.y) * ZRotation(Rotate.z) //
-                         * XRotation(RotX) * YRotation(RotY) * ZRotation(RotZ);
-
+            * XRotation(RotX) * YRotation(RotY) * ZRotation(RotZ);
+        
         r32 Scale = DebugGetRandomNumberR32(SMM.x, SMM.y, (u32)SMM.z);
         // v3 ScaleVec = V3(Scale, Scale, Scale);
         // m4x4 ScalingM = Scaling(ScaleVec);
         m4x4 ScalingM = Scaling(Scale);
-
+        
         Result[i] = TranslationM * RotationM * ScalingM;
         Result[i] = Transpose(Result[i]); // opengl to glsl format
     }
-
+    
     return (Result);
 }
+#endif
 
 // TODO(me): переделать всё что выше
 inline move_spec //
 DefaultMoveSpec(void)
 {
     move_spec Result;
-
+    
     Result.UnitMaxAccelVector = false;
     Result.Speed = 1.0f;
     Result.Drag = 0.0f;
-
+    
     return (Result);
 }

@@ -8,99 +8,31 @@
 
 #include "engine_random.h"
 
-//
-// NOTE(me): Task with Memory
-//
-internal task_with_memory *BeginTaskWithMemory(transient_state *TranState)
-{
-    task_with_memory *FoundTask = 0;
-
-    for(uint32 TaskIndex = 0;                     //
-        TaskIndex < ArrayCount(TranState->Tasks); //
-        ++TaskIndex)
-    {
-        task_with_memory *Task = TranState->Tasks + TaskIndex;
-        if(!Task->BeingUsed)
-        {
-            FoundTask = Task;
-            Task->BeingUsed = true;
-            Task->MemoryFlush = BeginTemporaryMemory(&Task->Arena);
-            break;
-        }
-    }
-
-    return (FoundTask);
-}
-
-inline void EndTaskWithMemory(task_with_memory *Task)
-{
-    EndTemporaryMemory(Task->MemoryFlush);
-
-    CompletePreviousWritesBeforeFutureWrites;
-    Task->BeingUsed = false;
-}
-
-struct test_work
-{
-    // render_group *RenderGroup;
-    // loaded_bitmap *Buffer;
-    task_with_memory *Task;
-};
-internal PLATFORM_WORK_QUEUE_CALLBACK(TestWork)
-{
-    test_work *Work = (test_work *)Data;
-
-    // RenderGroupToOutput(Work->RenderGroup, Work->Buffer);
-    Log.AddLog("[test_work] TestWorkWithMemory\n");
-
-    EndTaskWithMemory(Work->Task);
-}
-
-internal void //
-TestFuctionTaskWithMemory(transient_state *TranState)
-{
-    task_with_memory *Task = BeginTaskWithMemory(TranState);
-    if(Task)
-    {
-        test_work *Work = PushStruct(&Task->Arena, test_work);
-
-        //    Work->RenderGroup = RenderGroup;
-        //    Work->Buffer = Buffer;
-        Work->Task = Task;
-
-        Platform.AddEntry(TranState->LowPriorityQueue, TestWork, Work);
-    }
-}
-
-internal PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork2)
-{
-    Log.AddLog("[thread] %u: %s\n", GetCurrentThreadId(), (char *)Data);
-}
-
+#if 0
 internal loaded_model * //
 CreateTerrainChunkModel(memory_arena *WorldArena, u32 Width, u32 Height)
 {
     loaded_model *Result = PushStruct(WorldArena, loaded_model);
-
+    
     // Для включения в просчёты максимального значения
     Width = Width + 1;
     Height = Height + 1;
-
+    
     Result->Name = PushString(WorldArena, "TerrainModel");
-
+    
     Result->MeshesCount = 1;
-
+    
     Result->Meshes = PushArray(WorldArena, Result->MeshesCount, single_mesh);
-
+    
     single_mesh *Mesh = &Result->Meshes[0];
-
+    
     Mesh->Name = PushString(WorldArena, "TerrainMesh");
-
+    
     Mesh->VerticesCount = Width * Height;
-
+    
     Mesh->Positions = PushArray(WorldArena, Mesh->VerticesCount, v3);
     Mesh->TexCoords = PushArray(WorldArena, Mesh->VerticesCount, v2);
-
+    
     /*int VertexIndex = 0;
     for(u32 i = 0; i < Width; i++)
     {
@@ -134,10 +66,10 @@ CreateTerrainChunkModel(memory_arena *WorldArena, u32 Width, u32 Height)
             VertexIndex++;
         }
     }*/
-
+    
     Mesh->IndicesCount = (Width - 1) * (Height - 1) * 6;
     Mesh->Indices = PushArray(WorldArena, Mesh->IndicesCount, u32);
-
+    
     for(u32 i = 0; i < Width - 1; i++)
     {
         u32 Pos = i * Height; // номер ячейки массива использующий сквозную нумерацию
@@ -145,13 +77,13 @@ CreateTerrainChunkModel(memory_arena *WorldArena, u32 Width, u32 Height)
         {
             // Flat[ x * Height * depth + y * depth + z ] = elements[x][y][z]
             u32 TmpIndex = i * (Height - 1) * 6 + j * 6;
-
+            
             // первый треугольник на плоскости (левая верхняя часть квадрата)
             Mesh->Indices[TmpIndex + 0] = Pos;
             Mesh->Indices[TmpIndex + 1] = Pos + 1; // переход к следующей вершине (перемещение по оси y)
             Mesh->Indices[TmpIndex + 2] =
                 Pos + 1 + Height; // переход к вершине во второй размерности (перемещение по оси x)
-
+            
             // второй треугольник на плоскости (правая нижняя часть квадрата)
             Mesh->Indices[TmpIndex + 3] = Pos + 1 + Height;
             Mesh->Indices[TmpIndex + 4] = Pos + Height;
@@ -159,11 +91,11 @@ CreateTerrainChunkModel(memory_arena *WorldArena, u32 Width, u32 Height)
             Pos++;
         }
     }
-
+    
     // касательные и бикасательные для маппинга нормалей
     // Mesh->Tangents = PushArray(WorldArena, Mesh->VerticesCount, v3);
     // fread(Mesh->Tangents, sizeof(v3) * Mesh->VerticesCount, 1, In);
-
+    
     // создание холмов
     /*for(u32 i = 0; i < 10; i++)
     {
@@ -198,39 +130,40 @@ CreateTerrainChunkModel(memory_arena *WorldArena, u32 Width, u32 Height)
                        &Mesh->Normals[TmpIndex]);  // полученная нормаль
         }
     }*/
-
+    
     Mesh->Material.Ambient = V4(0.2f, 0.2f, 0.2f, 1.0f);
     Mesh->Material.Diffuse = V4(0.8f, 0.8f, 0.8f, 1.0f);
     Mesh->Material.Specular = V4(0.0f, 0.0f, 0.0f, 1.0f);
     Mesh->Material.Emission = V4(0.0f, 0.0f, 0.0f, 1.0f);
     Mesh->Material.Shininess = 0.0f;
-
+    
     Mesh->WithMaterial = true;
     /*Mesh->Material.Ambient = V4(0.0f, 0.0f, 0.0f, 1.0f);
     Mesh->Material.Diffuse = V4(0.1f, 0.35f, 0.1f, 1.0f);
     Mesh->Material.Specular = V4(0.45f, 0.55f, 0.45f, 1.0f);
     Mesh->Material.Emission = V4(0.0f, 0.0f, 0.0f, 1.0f);
     Mesh->Material.Shininess = 0.25f;*/
-
+    
     Mesh->Material.WithTexture = true;
     Mesh->Material.Texture = glLoadTexture(WorldArena, "pole.png");
-
+    
     return (Result);
 }
+#endif
 
 internal void                                                      //
 FillGroundChunk(transient_state *TranState, game_state *GameState, //
                 ground_buffer *GroundBuffer,                       //
                 world_position *ChunkP)
 {
-#if 1
+#if 0
     GroundBuffer->P = *ChunkP;
-
+    
     r32 Width = GameState->World->ChunkDimInMeters.x;
     r32 Height = GameState->World->ChunkDimInMeters.y;
-
+    
     single_mesh *Mesh = &GroundBuffer->TerrainModel->Meshes[0];
-
+    
     for(int32 ChunkOffsetY = -1; //
         ChunkOffsetY <= 1;       //
         ++ChunkOffsetY)
@@ -242,16 +175,16 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
             int32 ChunkX = ChunkP->ChunkX + ChunkOffsetX;
             int32 ChunkY = ChunkP->ChunkY + ChunkOffsetY;
             int32 ChunkZ = ChunkP->ChunkZ;
-
+            
             // TODO(casey): Make random number generation more systemic
             // TODO(casey): Look into wang hashing or some other spatial seed generation "thing"!
             random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
-
+            
             // v2 Center = V2(ChunkOffsetX * Width + HalfDim.x, ChunkOffsetY * Height + HalfDim.y);
             v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
-
+            
             r32 MaxTerrainHeight = 0.2f;
-
+            
             int VertexIndex = 0;
             for(u32 Y = 0;      //
                 Y < Height + 1; //
@@ -262,7 +195,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
                     X++, VertexIndex++)
                 {
                     // r32 RandomZ2 = (r32)(rand() % 10) * 0.02f;
-
+                    
                     //
                     {
                         if((X == 0) || (Y == 0) || (X == Width) || (Y == Height))
@@ -286,17 +219,17 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
 #else
     temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
     GroundBuffer->P = *ChunkP;
-
+    
     loaded_texture *Buffer = &GroundBuffer->DrawBuffer;
     r32 Width = (r32)Buffer->Width;
     r32 Height = (r32)Buffer->Height;
     v2 HalfDim = 0.5f * V2(Width, Height);
-
+    
     render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4), //
                                                     0, 0, 0, true);
-
+    
     glBindFramebuffer(GL_FRAMEBUFFER, Buffer->FBO);
-
+    
     // Create Render Texture Attachment
     glBindTexture(GL_TEXTURE_2D, Buffer->ID);
     // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Buffer->Width, Buffer->Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -306,7 +239,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Buffer->ID, 0);
-
+    
     //  Create Depth Texture Attachment
     glBindTexture(GL_TEXTURE_2D, Buffer->DepthTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, Buffer->Width, Buffer->Height, 0, GL_DEPTH_COMPONENT,
@@ -314,9 +247,9 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Buffer->DepthTexture, 0);
-
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+    
     for(int32 ChunkOffsetY = -1; //
         ChunkOffsetY <= 1;       //
         ++ChunkOffsetY)
@@ -328,17 +261,17 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
             int32 ChunkX = ChunkP->ChunkX + ChunkOffsetX;
             int32 ChunkY = ChunkP->ChunkY + ChunkOffsetY;
             int32 ChunkZ = ChunkP->ChunkZ;
-
+            
             // TODO(casey): Make random number generation more systemic
             // TODO(casey): Look into wang hashing or some other spatial seed generation "thing"!
             random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
-
+            
             // v2 Center = V2(ChunkOffsetX * Width + HalfDim.x, ChunkOffsetY * Height + HalfDim.y);
             v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
-
+            
             PushTexture(RenderGroup, V3(Center, 0), V2(Width, Height), GameState->TestTexture1.ID, //
                         true, 2.0f);
-
+            
             for(uint32 GrassIndex = 0; //
                 GrassIndex < 10;       //
                 ++GrassIndex)
@@ -358,15 +291,15 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
                     Color = V4(1, 1, 0, 1);
                     Dim = V2(32, 32);
                 }
-
+                
                 v2 RandomValue = V2(RandomBilateral(&Series), RandomBilateral(&Series));
                 v2 P = Center + Hadamard(HalfDim, RandomValue);
-
+                
                 PushRect(RenderGroup, V3(P, 0), Dim, Color);
             }
         }
     }
-
+    
     /*for(int32 ChunkOffsetY = -1; //
         ChunkOffsetY <= 1;       //
         ++ChunkOffsetY)
@@ -398,7 +331,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, //
             }
         }
     }*/
-
+    
     RenderGroupToOutput(RenderGroup, Buffer);
     EndTemporaryMemory(GroundMemory);
 #endif
@@ -409,16 +342,16 @@ ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY, int3
                               v3 AdditionalOffset = V3(0, 0, 0))
 {
     world_position BasePos = {};
-
+    
     r32 TileSideInMeters = 1.4f;
     r32 TileDepthInMeters = 3.0f;
-
+    
     v3 TileDim = V3(TileSideInMeters, TileSideInMeters, TileDepthInMeters);
     v3 Offset = Hadamard(TileDim, V3((real32)AbsTileX, (real32)AbsTileY, (real32)AbsTileZ));
     world_position Result = MapIntoChunkSpace(World, BasePos, AdditionalOffset + Offset);
-
+    
     Assert(IsCanonical(World, Result.Offset_));
-
+    
     return (Result);
 }
 
@@ -432,23 +365,23 @@ AddLowEntity(game_state *GameState, entity_type Type, world_position P)
 {
     Assert(GameState->LowEntityCount < ArrayCount(GameState->LowEntities));
     uint32 EntityIndex = GameState->LowEntityCount++;
-
+    
     low_entity *EntityLow = GameState->LowEntities + EntityIndex;
     *EntityLow = {};
     EntityLow->Sim.Type = Type;
     EntityLow->Sim.Collision = GameState->NullCollision;
     EntityLow->P = NullPosition();
-
+    
     ChangeEntityLocation(&GameState->WorldArena, GameState->World, EntityIndex, EntityLow, P);
-
+    
     add_low_entity_result Result;
     Result.Low = EntityLow;
     Result.LowIndex = EntityIndex;
-
+    
     // TODO(casey): Do we need to have a begin/end paradigm for adding
     // entities so that they can be brought into the high set when they
     // are added and are in the camera region?
-
+    
     return (Result);
 }
 
@@ -465,7 +398,7 @@ internal add_low_entity_result AddStandardRoom(game_state *GameState, uint32 Abs
     world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
     add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Space, P, GameState->StandardRoomCollision);
     AddFlags(&Entity.Low->Sim, EntityFlag_Traversable);
-
+    
     return (Entity);
 }
 
@@ -474,7 +407,7 @@ internal add_low_entity_result AddWall(game_state *GameState, uint32 AbsTileX, u
     world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
     add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Wall, P, GameState->WallCollision);
     AddFlags(&Entity.Low->Sim, EntityFlag_Collides);
-
+    
     return (Entity);
 }
 
@@ -485,7 +418,7 @@ internal add_low_entity_result AddStair(game_state *GameState, uint32 AbsTileX, 
     AddFlags(&Entity.Low->Sim, EntityFlag_Collides);
     Entity.Low->Sim.WalkableDim = Entity.Low->Sim.Collision->TotalVolume.Dim.xy;
     Entity.Low->Sim.WalkableHeight = GameState->TypicalFloorHeight;
-
+    
     return (Entity);
 }
 
@@ -507,9 +440,9 @@ internal add_low_entity_result AddSword(game_state *GameState)
 {
     add_low_entity_result Entity = AddLowEntity(GameState, EntityType_Sword, NullPosition());
     Entity.Low->Sim.Collision = GameState->SwordCollision;
-
+    
     AddFlags(&Entity.Low->Sim, EntityFlag_Moveable);
-
+    
     return (Entity);
 }
 
@@ -518,17 +451,17 @@ internal add_low_entity_result AddPlayer(game_state *GameState)
     world_position P = GameState->CameraP;
     add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Hero, P, GameState->PlayerCollision);
     AddFlags(&Entity.Low->Sim, EntityFlag_Collides | EntityFlag_Moveable);
-
+    
     InitHitPoints(Entity.Low, 3);
-
+    
     add_low_entity_result Sword = AddSword(GameState);
     Entity.Low->Sim.Sword.Index = Sword.LowIndex;
-
+    
     if(GameState->CameraFollowingEntityIndex == 0)
     {
         GameState->CameraFollowingEntityIndex = Entity.LowIndex;
     }
-
+    
     return (Entity);
 }
 
@@ -538,9 +471,9 @@ AddMonstar(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTi
     world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
     add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Monstar, P, GameState->MonstarCollision);
     AddFlags(&Entity.Low->Sim, EntityFlag_Collides | EntityFlag_Moveable);
-
+    
     InitHitPoints(Entity.Low, 3);
-
+    
     return (Entity);
 }
 
@@ -549,7 +482,7 @@ internal add_low_entity_result AddFamiliar(game_state *GameState, uint32 AbsTile
     world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
     add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Familiar, P, GameState->FamiliarCollision);
     AddFlags(&Entity.Low->Sim, EntityFlag_Collides | EntityFlag_Moveable);
-
+    
     return (Entity);
 }
 
@@ -577,7 +510,7 @@ ClearCollisionRulesFor(game_state *GameState, uint32 StorageIndex)
             {
                 pairwise_collision_rule *RemovedRule = *Rule;
                 *Rule = (*Rule)->NextInHash;
-
+                
                 RemovedRule->NextInHash = GameState->FirstFreeCollisionRule;
                 GameState->FirstFreeCollisionRule = RemovedRule;
             }
@@ -599,7 +532,7 @@ AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageInde
         StorageIndexA = StorageIndexB;
         StorageIndexB = Temp;
     }
-
+    
     // TODO(casey): BETTER HASH FUNCTION
     pairwise_collision_rule *Found = 0;
     uint32 HashBucket = StorageIndexA & (ArrayCount(GameState->CollisionRuleHash) - 1);
@@ -613,7 +546,7 @@ AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageInde
             break;
         }
     }
-
+    
     if(!Found)
     {
         Found = GameState->FirstFreeCollisionRule;
@@ -625,11 +558,11 @@ AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageInde
         {
             Found = PushStruct(&GameState->WorldArena, pairwise_collision_rule);
         }
-
+        
         Found->NextInHash = GameState->CollisionRuleHash[HashBucket];
         GameState->CollisionRuleHash[HashBucket] = Found;
     }
-
+    
     if(Found)
     {
         Found->StorageIndexA = StorageIndexA;
@@ -648,7 +581,7 @@ MakeSimpleGroundedCollision(game_state *GameState, real32 DimX, real32 DimY, rea
     Group->TotalVolume.OffsetP = V3(0, 0, 0.5f * DimZ);
     Group->TotalVolume.Dim = V3(DimX, DimY, DimZ);
     Group->Volumes[0] = Group->TotalVolume;
-
+    
     return (Group);
 }
 
@@ -662,7 +595,7 @@ MakeNullCollision(game_state *GameState)
     Group->TotalVolume.OffsetP = V3(0, 0, 0);
     // TODO(casey): Should this be negative?
     Group->TotalVolume.Dim = V3(0, 0, 0);
-
+    
     return (Group);
 }
 
@@ -758,17 +691,17 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     DebugGlobalMemory = Memory;
 #endif
     BEGIN_TIMED_BLOCK(EngineUpdateAndRender);
-
+    
     Platform = Memory->PlatformAPI;
-
+    
     Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) ==
            (ArrayCount(Input->Controllers[0].Buttons)));
-
+    
     // u32 GroundBufferWidth = 256;
     // u32 GroundBufferHeight = 256;
     u32 GroundBufferWidth = 8;
     u32 GroundBufferHeight = 8;
-
+    
     //
     // NOTE(me): Permanent initialization
     //
@@ -780,30 +713,30 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         InitializeArena(&GameState->WorldArena, Memory->PermanentStorageSize - sizeof(game_state),
                         (uint8 *)Memory->PermanentStorage + sizeof(game_state));
         memory_arena *WorldArena = &GameState->WorldArena;
-
+        
         // NOTE(casey): Reserve entity slot 0 for the null entity
         AddLowEntity(GameState, EntityType_Null, NullPosition());
-
+        
         GameState->TypicalFloorHeight = 3.0f;
         // GameState->MetersToPixels = 42.0f;
         // GameState->PixelsToMeters = 1.0f / GameState->MetersToPixels;
-
+        
         // v3 WorldChunkDimInMeters = V3(GameState->PixelsToMeters * (r32)GroundBufferWidth,  //
         //                               GameState->PixelsToMeters * (r32)GroundBufferHeight, //
         //                               GameState->TypicalFloorHeight);
         v3 WorldChunkDimInMeters = V3((r32)GroundBufferWidth,  //
                                       (r32)GroundBufferHeight, //
                                       GameState->TypicalFloorHeight);
-
+        
         GameState->World = PushStruct(&GameState->WorldArena, world);
         world *World = GameState->World;
         InitializeWorld(World, WorldChunkDimInMeters);
-
+        
         uint32 TilesPerWidth = 17;
         uint32 TilesPerHeight = 9;
         r32 TileSideInMeters = 1.4f;
         r32 TileDepthInMeters = GameState->TypicalFloorHeight;
-
+        
         GameState->NullCollision = MakeNullCollision(GameState);
         GameState->SwordCollision = MakeSimpleGroundedCollision(GameState, //
                                                                 1.0f, 0.5f, 0.1f);
@@ -822,7 +755,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                                                                        TilesPerWidth * TileSideInMeters,  //
                                                                        TilesPerHeight * TileSideInMeters, //
                                                                        0.9f * TileDepthInMeters);
-
+        
         uint32 ScreenBaseX = 0;
         uint32 ScreenBaseY = 0;
         uint32 ScreenBaseZ = 0;
@@ -852,7 +785,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                         ScreenY * TilesPerHeight + TilesPerHeight / 2, //
                         AbsTileZ);
         AddWall(GameState, AbsTileX, AbsTileY, AbsTileZ);
-
+        
         world_position NewCameraP = {};
         uint32 CameraTileX = ScreenBaseX * TilesPerWidth + 17 / 2;
         uint32 CameraTileY = ScreenBaseY * TilesPerHeight + 9 / 2;
@@ -865,9 +798,9 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         GameState->CameraPitch = 0.0f;
         GameState->CameraYaw = 0.0f;
         GameState->CameraRenderZ = 100.0f;
-
+        
         AddMonstar(GameState, CameraTileX - 3, CameraTileY + 2, CameraTileZ);
-
+        
         GameState->Debug = PushStruct(WorldArena, game_debug);
         game_debug *Debug = GameState->Debug;
         Debug->ProcessAnimations = true;
@@ -878,7 +811,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         Debug->DrawPlayerHitbox = true;
         Debug->LogCycleCounters = false;
         Debug->GroundBufferIndex = 0;
-
+        
         GameState->Settings = PushStruct(WorldArena, app_settings);
         app_settings *Settings = GameState->Settings;
         Settings->RBFullscreenIsActive = false;
@@ -888,7 +821,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         Settings->RBCappedIsActive = false;
         //Settings->RBUncappedIsActive = false;
         Settings->RBVSyncIsActive = true;
-
+        
         GameState->Render = PushStruct(WorldArena, render);
         render *Render = GameState->Render;
         Render->FOV = 0.1f;
@@ -897,17 +830,17 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         Render->MStMeshesCount = 0;
         Render->GrMeshesCount = 0;
         Render->Animator.Timer = 1.0f;
-
+        
         // TODO(me): remove
         // GameState->TestTexture1 = LoadTexture(&GameState->TestTexture1Name);
-        GameState->TestTexture1 = glLoadTexture(WorldArena, "pole.png");
-
+        //GameState->TestTexture1 = glLoadTexture(WorldArena, "pole.png");
+        
         glGenFramebuffers(1, &Buffer->FBO);
         glGenTextures(1, &Buffer->DrawTexture);
         glGenTextures(1, &Buffer->DepthTexture);
-
+        
         glGenFramebuffers(1, &Buffer->GroundFBO);
-
+        
         /*GameState->Player = PushStruct(WorldArena, entity_player);
         entity_player *Player = GameState->Player;
         // Player->Position = V3(5, 5, 0);
@@ -929,7 +862,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         PlayerClip->P.ChunkX = -5;
         PlayerClip->P.ChunkX = -5;
         PlayerClip->Side = 50.0f;*/
-
+        
         //
         // NOTE(me): Источники света
         //
@@ -1377,27 +1310,27 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         Render->ClipTexture = LoadTexture(&Render->ClipTextureName);
         Render->LightgTextureName = PushString(WorldArena, "lamp.png");
         Render->LightTexture = LoadTexture(&Render->LightgTextureName);*/
-
+        
         // ImGui Demo Window
         GameState->ShowDemoWindow = false;
         GameState->ShowAnotherWindow = false;
-
+        
         // TODO(me): удалить?
         Log.AddLog("[test] Hello %d world\n", 123);
         Log.AddLog("[test] 567657657\n");
         Log.AddLog("[test] 1\n");
         Log.AddLog("[test] 2\n");
-
+        
         // String example
         // string TestStr = PushString(WorldArena, "fdsfsdfss");
-
+        
         // Assert example
         // int32 xxx = 1;
         // Assert(xxx < 0);
-
+        
         GameState->IsInitialized = true;
     }
-
+    
     //
     // NOTE(casey): Transient initialization
     //
@@ -1408,20 +1341,21 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         InitializeArena(&TranState->TranArena, Memory->TransientStorageSize - sizeof(transient_state),
                         (uint8 *)Memory->TransientStorage + sizeof(transient_state));
         memory_arena *TranArena = &TranState->TranArena;
-
+        
+        TranState->HighPriorityQueue = Memory->HighPriorityQueue;
+        TranState->LowPriorityQueue = Memory->LowPriorityQueue;
         for(uint32_t TaskIndex = 0;                   //
             TaskIndex < ArrayCount(TranState->Tasks); //
             ++TaskIndex)
         {
             task_with_memory *Task = TranState->Tasks + TaskIndex;
-
+            
             Task->BeingUsed = false;
             SubArena(&Task->Arena, &TranState->TranArena, Megabytes(1));
         }
-
-        TranState->HighPriorityQueue = Platform.HighPriorityQueue;
-        TranState->LowPriorityQueue = Platform.LowPriorityQueue;
-
+        
+        TranState->Assets = AllocateGameAssets(&TranState->TranArena, Megabytes(64), TranState);
+        
         TranState->GroundBufferCount = 64;
         TranState->GroundBuffers = PushArray(TranArena, TranState->GroundBufferCount, ground_buffer);
         for(uint32 GroundBufferIndex = 0;                     //
@@ -1438,32 +1372,32 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
             glGenTextures(1, &GroundBuffer->DrawBuffer.DepthTexture);
             GroundBuffer->P = NullPosition();
             GroundBuffer->DrawBuffer.FBO = Buffer->GroundFBO;
-
-            GroundBuffer->TerrainModel = CreateTerrainChunkModel(TranArena, GroundBufferWidth, GroundBufferHeight);
+            
+            //GroundBuffer->TerrainModel = CreateTerrainChunkModel(TranArena, GroundBufferWidth, GroundBufferHeight);
         }
-
+        
         // TODO(me): Testing only
         Platform.AddEntry(TranState->HighPriorityQueue, DoWorkerWork2, "Testing work hm...");
         TestFuctionTaskWithMemory(TranState);
-
+        
         TranState->IsInitialized = true;
     }
-
+    
     // Local pointers for game_state sctructs
     game_debug *Debug = GameState->Debug;
     app_settings *Settings = GameState->Settings;
     world *World = GameState->World;
     render *Render = GameState->Render;
-
+    
     // real32 MetersToPixels = GameState->MetersToPixels;
     // real32 PixelsToMeters = GameState->PixelsToMeters;
-
+    
     // entity_player *Player = GameState->Player;
     // entity_clip *PlayerClip = GameState->Clip;
     // entity_envobject **EnvObjects = GameState->EnvObjects; // TODO(me): избавиться от 16
     // entity_grassobject **GrassObjects = GameState->GrassObjects;
     //  world_position *CameraP = &GameState->CameraP;
-
+    
     //
     // NOTE(me): Inputs
     //
@@ -1484,7 +1418,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         {
             GameState->CameraYaw -= 360;
         }
-
+        
         // по вертикали
         r32 XAngle = Input->MouseOffsetY;
         GameState->CameraPitch += XAngle * Settings->MouseSensitivity;
@@ -1496,7 +1430,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         {
             GameState->CameraPitch = 180;
         }
-
+        
         // по вертикали (inversed)
         /*GameState->CameraPitchInversed -= XAngle * Settings->MouseSensitivity;
         if(GameState->CameraPitchInversed < 0)
@@ -1508,7 +1442,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
             GameState->CameraPitchInversed = 180;
         }*/
     }
-
+    
     for(int ControllerIndex = 0;                          //
         ControllerIndex < ArrayCount(Input->Controllers); //
         ++ControllerIndex)
@@ -1528,7 +1462,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
             ConHero->dZ = 0.0f;
             ConHero->ddP = {};
             ConHero->dSword = {};
-
+            
             if(Controller->IsAnalog)
             {
                 // NOTE(casey): Use analog movement tuning
@@ -1554,12 +1488,12 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                     ConHero->ddP.x = 1.0f;
                 }
             }
-
+            
             if(Controller->Start.EndedDown)
             {
                 ConHero->dZ = 3.0f;
             }
-
+            
             if(Controller->ActionUp.EndedDown)
             {
                 ConHero->dSword = V2(0.0f, 1.0f);
@@ -1578,7 +1512,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
             }
         }
     }
-
+    
     //
     // NOTE(me): World Sim
     //
@@ -1595,18 +1529,18 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     real32 CameraWidthInMeters = SimChunksInCamera * World->ChunkDimInMeters.x;
     real32 CameraHeightInMeters = SimChunksInCamera * World->ChunkDimInMeters.y;
     rectangle3 CameraBoundsInMeters = RectCenterDim(V3(0, 0, 0), V3(CameraWidthInMeters, CameraHeightInMeters, 0.0f));
-
+    
     // v3 SimBoundsExpansion = V3(15.0f, 15.0f, 15.0f);
     v3 SimBoundsExpansion = V3(15.0f, 15.0f, 15.0f);
     rectangle3 SimBounds = AddRadiusTo(CameraBoundsInMeters, SimBoundsExpansion);
-
+    
     temporary_memory SimMemory = BeginTemporaryMemory(&TranState->TranArena);
     sim_region *SimRegion = BeginSim(&TranState->TranArena, GameState, GameState->World, //
                                      GameState->CameraP, SimBounds, Input->dtForFrame);
-
+    
     // r32 ScreenCenterX = 0.5f * Render->DisplayWidth;
     // r32 ScreenCenterY = 0.5f * Render->DisplayHeight;
-
+    
     // Высота камеры игрока на террейне (ландшафте)
     /*Player->Position.z =
         TerrainGetHeight(EnvObjects[0], Player->Position.x, Player->Position.y) + Player->CameraZOffset;*/
@@ -1617,7 +1551,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     // Перемещение клип текстуры игрока
     // v3 ClipTextureNewPos = Player->Position - V3(Player->Width * 0.05f, Player->Height * 0.05f, 0);
     // EnvObjects[13]->TranslateMatrix = Translation(ClipTextureNewPos);
-
+    
     // Формируем матрицы преобразований у объектов окружения
     /*for(u32 i = 0; i < Render->EnvObjectsCount; i++)
     {
@@ -1650,7 +1584,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
             Render->Animator.Timer = 5.0f; // начинаем проигрывать анимацию заново
         }
     }*/
-
+    
     //
     // NOTE(me): Render
     //
@@ -1660,16 +1594,16 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     DrawBuffer->Height = Buffer->Height;
     DrawBuffer->ID = Buffer->DrawTexture;
     DrawBuffer->FBO = Buffer->FBO;
-
+    
     glBindFramebuffer(GL_FRAMEBUFFER, DrawBuffer->FBO);
-
+    
     // Create Render Texture Attachment
     glBindTexture(GL_TEXTURE_2D, DrawBuffer->ID);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Buffer->Width, Buffer->Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, DrawBuffer->ID, 0);
-
+    
     //  Create Depth Texture Attachment
     glBindTexture(GL_TEXTURE_2D, Buffer->DepthTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, Buffer->Width, Buffer->Height, 0, GL_DEPTH_COMPONENT,
@@ -1677,16 +1611,16 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Buffer->DepthTexture, 0);
-
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+    
     temporary_memory RenderMemory = BeginTemporaryMemory(&TranState->TranArena);
     // TODO(casey): Decide what our pushbuffer size is!
-
+    
     render_group *RenderGroup =
         AllocateRenderGroup(&TranState->TranArena, Megabytes(4), //
                             GameState->CameraPitch, GameState->CameraYaw, GameState->CameraRenderZ);
-
+    
     // Clear(RenderGroup, V4(0.25f, 0.25f, 0.25f, 0.0f));
     Clear(RenderGroup, V4(0.45f, 0.55f, 0.60f, 1.0f));
     // Clear(RenderGroup, V4(0.45f, 0.55f, 0.60f, 0.0f));
@@ -1694,7 +1628,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     //  glEnable(GL_DEPTH_TEST);
     //  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     //   glTranslatef(-CameraP->ChunkX * World->ChunkSideInMeters, -CameraP->ChunkY * World->ChunkSideInMeters, -10.0f);
-
+    
     // draw oxyz
     /*glPushMatrix();
     glScalef(5, 5, 5);
@@ -1704,7 +1638,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     glLineWidth(1);
     glEnable(GL_LINE_SMOOTH);*/
     PushRectOutline(RenderGroup, V3(0, 0, 0), V2(CameraWidthInMeters, CameraHeightInMeters), V4(1.0f, 1.0f, 0.0f, 1));
-
+    
     // if(Debug->DrawSimRegionBounds)
     {
         PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimBounds).xy, V4(0.0f, 1.0f, 1.0f, 1));
@@ -1715,7 +1649,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         PushRectOutline(RenderGroup, V3(0, 0, 0), GetDim(SimRegion->UpdatableBounds).xy, V4(1.0f, 0.0f, 1.0f, 1));
     }
     // glDisable(GL_LINE_SMOOTH);
-
+    
     // TODO(casey): Move this out into handmade_entity.cpp!
     // entity_visible_piece_group PieceGroup;
     // PieceGroup.GameState = GameState;
@@ -1727,180 +1661,180 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         if(Entity->Updatable)
         {
             r32 dt = Input->dtForFrame;
-
+            
             // TODO(casey): This is incorrect, should be computed after update!!!!
             move_spec MoveSpec = DefaultMoveSpec();
             v3 ddP = {};
-
+            
             //
             // NOTE(me): Pre-physics entity work
             //
             switch(Entity->Type)
             {
-            case EntityType_Hero: //
-            {
-                // TODO(casey): Now that we have some real usage examples, let's solidify
-                // the positioning system!
-                for(u32 ControlIndex = 0;                                   //
-                    ControlIndex < ArrayCount(GameState->ControlledHeroes); //
-                    ++ControlIndex)
+                case EntityType_Hero: //
                 {
-                    controlled_hero *ConHero = GameState->ControlledHeroes + ControlIndex;
-
-                    if(Entity->StorageIndex == ConHero->EntityIndex)
+                    // TODO(casey): Now that we have some real usage examples, let's solidify
+                    // the positioning system!
+                    for(u32 ControlIndex = 0;                                   //
+                        ControlIndex < ArrayCount(GameState->ControlledHeroes); //
+                        ++ControlIndex)
                     {
-                        if(ConHero->dZ != 0.0f)
+                        controlled_hero *ConHero = GameState->ControlledHeroes + ControlIndex;
+                        
+                        if(Entity->StorageIndex == ConHero->EntityIndex)
                         {
-                            Entity->dP.z = ConHero->dZ;
-                        }
-
-                        MoveSpec.UnitMaxAccelVector = true;
-                        MoveSpec.Speed = 50.0f;
-                        MoveSpec.Drag = 8.0f;
-                        // MoveSpec.Speed = 25.0f;
-                        // MoveSpec.Drag = 1.0f;
-#if 1
-                        r32 Angle = GameState->CameraYaw * Pi32 / 180;
-                        ddP.x = ConHero->ddP.x * Cos(Angle) - ConHero->ddP.y * Sin(Angle);
-                        ddP.y = ConHero->ddP.x * Sin(Angle) + ConHero->ddP.y * Cos(Angle);
-                        ddP.z = 0;
-#else
-                        ddP = V3(ConHero->ddP, 0);
-#endif
-
-                        if((ConHero->dSword.x != 0.0f) || (ConHero->dSword.y != 0.0f))
-                        {
-                            sim_entity *Sword = Entity->Sword.Ptr;
-                            if(Sword && IsSet(Sword, EntityFlag_Nonspatial))
+                            if(ConHero->dZ != 0.0f)
                             {
-                                Sword->DistanceLimit = 5.0f;
-                                MakeEntitySpatial(Sword, Entity->P, Entity->dP + 5.0f * V3(ConHero->dSword, 0));
-                                AddCollisionRule(GameState, Sword->StorageIndex, Entity->StorageIndex, false);
+                                Entity->dP.z = ConHero->dZ;
+                            }
+                            
+                            MoveSpec.UnitMaxAccelVector = true;
+                            MoveSpec.Speed = 50.0f;
+                            MoveSpec.Drag = 8.0f;
+                            // MoveSpec.Speed = 25.0f;
+                            // MoveSpec.Drag = 1.0f;
+#if 1
+                            r32 Angle = GameState->CameraYaw * Pi32 / 180;
+                            ddP.x = ConHero->ddP.x * Cos(Angle) - ConHero->ddP.y * Sin(Angle);
+                            ddP.y = ConHero->ddP.x * Sin(Angle) + ConHero->ddP.y * Cos(Angle);
+                            ddP.z = 0;
+#else
+                            ddP = V3(ConHero->ddP, 0);
+#endif
+                            
+                            if((ConHero->dSword.x != 0.0f) || (ConHero->dSword.y != 0.0f))
+                            {
+                                sim_entity *Sword = Entity->Sword.Ptr;
+                                if(Sword && IsSet(Sword, EntityFlag_Nonspatial))
+                                {
+                                    Sword->DistanceLimit = 5.0f;
+                                    MakeEntitySpatial(Sword, Entity->P, Entity->dP + 5.0f * V3(ConHero->dSword, 0));
+                                    AddCollisionRule(GameState, Sword->StorageIndex, Entity->StorageIndex, false);
+                                }
                             }
                         }
                     }
                 }
-            }
-            break;
-
-            case EntityType_Sword: //
-            {
-                MoveSpec.UnitMaxAccelVector = false;
-                MoveSpec.Speed = 0.0f;
-                MoveSpec.Drag = 0.0f;
-
-                if(Entity->DistanceLimit == 0.0f)
+                break;
+                
+                case EntityType_Sword: //
                 {
-                    ClearCollisionRulesFor(GameState, Entity->StorageIndex);
-                    MakeEntityNonSpatial(Entity);
+                    MoveSpec.UnitMaxAccelVector = false;
+                    MoveSpec.Speed = 0.0f;
+                    MoveSpec.Drag = 0.0f;
+                    
+                    if(Entity->DistanceLimit == 0.0f)
+                    {
+                        ClearCollisionRulesFor(GameState, Entity->StorageIndex);
+                        MakeEntityNonSpatial(Entity);
+                    }
                 }
-            }
-            break;
-
-            case EntityType_Familiar: //
-            {
-                /*sim_entity *ClosestHero = 0;
-                real32 ClosestHeroDSq = Square(10.0f); // NOTE(casey): Ten meter maximum search!
-
-                if(ClosestHero && (ClosestHeroDSq > Square(3.0f)))
+                break;
+                
+                case EntityType_Familiar: //
                 {
-                    real32 Acceleration = 0.5f;
-                    real32 OneOverLength = Acceleration / SquareRoot(ClosestHeroDSq);
-                    ddP = OneOverLength * (ClosestHero->P - Entity->P);
+                    /*sim_entity *ClosestHero = 0;
+                    real32 ClosestHeroDSq = Square(10.0f); // NOTE(casey): Ten meter maximum search!
+    
+                    if(ClosestHero && (ClosestHeroDSq > Square(3.0f)))
+                    {
+                        real32 Acceleration = 0.5f;
+                        real32 OneOverLength = Acceleration / SquareRoot(ClosestHeroDSq);
+                        ddP = OneOverLength * (ClosestHero->P - Entity->P);
+                    }
+    
+                    MoveSpec.UnitMaxAccelVector = true;
+                    MoveSpec.Speed = 50.0f;
+                    MoveSpec.Drag = 8.0f;
+    
+                    Entity->tBob += dt;
+                    if(Entity->tBob > (2.0f * Pi32))
+                    {
+                        Entity->tBob -= (2.0f * Pi32);
+                    }*/
                 }
-
-                MoveSpec.UnitMaxAccelVector = true;
-                MoveSpec.Speed = 50.0f;
-                MoveSpec.Drag = 8.0f;
-
-                Entity->tBob += dt;
-                if(Entity->tBob > (2.0f * Pi32))
-                {
-                    Entity->tBob -= (2.0f * Pi32);
-                }*/
+                break;
             }
-            break;
-            }
-
+            
             if(!IsSet(Entity, EntityFlag_Nonspatial) && //
                IsSet(Entity, EntityFlag_Moveable))
             {
                 MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, &MoveSpec, ddP);
             }
-
+            
             // Basis->P = GetEntityGroundPoint(Entity);
             RenderGroup->Transform.OffsetP = GetEntityGroundPoint(Entity);
-
+            
             //
             // NOTE(me): Post-physics entity work
             //
             switch(Entity->Type)
             {
-            case EntityType_Hero: //
-            {
-                if(Debug->DrawPlayerHitbox)
+                case EntityType_Hero: //
                 {
-                    PushRectCollisionVolumes(RenderGroup, Entity, V4(0, 1, 0, 1));
+                    if(Debug->DrawPlayerHitbox)
+                    {
+                        PushRectCollisionVolumes(RenderGroup, Entity, V4(0, 1, 0, 1));
+                    }
                 }
-            }
-            break;
-
-            case EntityType_Wall: //
-            {
-                PushRectCollisionVolumes(RenderGroup, Entity, V4(1, 0, 0, 1));
-            }
-            break;
-
-            case EntityType_Stairwell: //
-            {
-                // PushRect(&PieceGroup, V2(0, 0), 0, Entity->WalkableDim, V4(1, 0.5f, 0, 1), 0.0f);
-                // PushRect(&PieceGroup, V2(0, 0), Entity->WalkableHeight, Entity->WalkableDim, V4(1, 1, 0, 1),
-                // 0.0f);
-            }
-            break;
-
-            case EntityType_Sword: //
-            {
-                PushRectCollisionVolumes(RenderGroup, Entity, V4(1, 1, 0, 1));
-            }
-            break;
-
-            case EntityType_Familiar: //
-            {
-                /*
-                real32 BobSin = Sin(2.0f * Entity->tBob);
-                PushBitmap(&PieceGroup, &GameState->Shadow, V2(0, 0), 0, HeroBitmaps->Align,
-                           (0.5f * ShadowAlpha) + 0.2f * BobSin, 0.0f);
-                PushBitmap(&PieceGroup, &HeroBitmaps->Head, V2(0, 0), 0.25f * BobSin, HeroBitmaps->Align);
-                */
-            }
-            break;
-
-            case EntityType_Monstar: //
-            {
-                PushRectCollisionVolumes(RenderGroup, Entity, V4(0.5f, 0, 0.5f, 1));
-            }
-            break;
-
-            case EntityType_Space: //
-            {
-                PushRectOutlineCollisionVolumes(RenderGroup, Entity, V4(0, 0, 1, 1), 2);
-                // DrawCollisionRectOutline(Entity, 0.0f, V3(0, 0, 1));
-            }
-            break;
-
+                break;
+                
+                case EntityType_Wall: //
+                {
+                    PushRectCollisionVolumes(RenderGroup, Entity, V4(1, 0, 0, 1));
+                }
+                break;
+                
+                case EntityType_Stairwell: //
+                {
+                    // PushRect(&PieceGroup, V2(0, 0), 0, Entity->WalkableDim, V4(1, 0.5f, 0, 1), 0.0f);
+                    // PushRect(&PieceGroup, V2(0, 0), Entity->WalkableHeight, Entity->WalkableDim, V4(1, 1, 0, 1),
+                    // 0.0f);
+                }
+                break;
+                
+                case EntityType_Sword: //
+                {
+                    PushRectCollisionVolumes(RenderGroup, Entity, V4(1, 1, 0, 1));
+                }
+                break;
+                
+                case EntityType_Familiar: //
+                {
+                    /*
+                    real32 BobSin = Sin(2.0f * Entity->tBob);
+                    PushBitmap(&PieceGroup, &GameState->Shadow, V2(0, 0), 0, HeroBitmaps->Align,
+                               (0.5f * ShadowAlpha) + 0.2f * BobSin, 0.0f);
+                    PushBitmap(&PieceGroup, &HeroBitmaps->Head, V2(0, 0), 0.25f * BobSin, HeroBitmaps->Align);
+                    */
+                }
+                break;
+                
+                case EntityType_Monstar: //
+                {
+                    PushRectCollisionVolumes(RenderGroup, Entity, V4(0.5f, 0, 0.5f, 1));
+                }
+                break;
+                
+                case EntityType_Space: //
+                {
+                    PushRectOutlineCollisionVolumes(RenderGroup, Entity, V4(0, 0, 1, 1), 2);
+                    // DrawCollisionRectOutline(Entity, 0.0f, V3(0, 0, 1));
+                }
+                break;
+                
                 InvalidDefaultCase;
             }
         }
     }
-
+    
     RenderGroup->Transform.OffsetP = V3(0, 0, 0);
-
+    
     /*world_position WorldOrigin = {};
     v3 Diff = Subtract(SimRegion->World, &WorldOrigin, &SimRegion->Origin);
     // DrawRectangle(Buffer, Diff.XY, V2(10.0f, 10.0f), 1.0f, 1.0f, 0.0f);
     DrawRectangle({Diff.xy, V2(10.0f, 10.0f)}, 0.0f, V3(1, 0, 0));*/
-
+    
     /*
     #if 1
         // glViewport(0, 0, Render->DisplayWidth, Render->DisplayHeight);
@@ -1957,7 +1891,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
 
 #endif
     */
-
+    
     // NOTE(me): Render ground chunks
     for(uint32 GroundBufferIndex = 0;                     //
         GroundBufferIndex < TranState->GroundBufferCount; //
@@ -1968,7 +1902,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         {
             // loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
             v3 Delta = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);
-
+            
             if((Delta.z >= -1.0f) && (Delta.z < 1.0f))
             {
                 // PushTexture(RenderGroup, Delta, World->ChunkDimInMeters.xy, GroundBuffer->DrawBuffer.ID);
@@ -1977,12 +1911,12 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
             }
         }
     }
-
-// NOTE(me): Render sim region chunks
+    
+    // NOTE(me): Render sim region chunks
 #if 0
     world_position MinChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMinCorner(SimRegion->Bounds));
     world_position MaxChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMaxCorner(SimRegion->Bounds));
-
+    
     for(s32 ChunkZ = MinChunkP.ChunkZ; //
         ChunkZ <= MaxChunkP.ChunkZ;    //
         ++ChunkZ)
@@ -1995,10 +1929,10 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                 ChunkX <= MaxChunkP.ChunkX;    //
                 ++ChunkX)
             {
-
+                
                 world_position ChunkCenterP = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
                 v3 RelP = Subtract(World, &ChunkCenterP, &GameState->CameraP);
-
+                
                 if(Debug->DrawSimChunks)
                 {
                     PushRectOutline(RenderGroup, V3(RelP.xy, 0), World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
@@ -2007,13 +1941,13 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         }
     }
 #endif
-
+    
     // NOTE(casey): Ground chunk updating
     if(Debug->DrawSimChunks || Debug->DrawChunkWhereCamera)
     {
         world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMinCorner(CameraBoundsInMeters));
         world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMaxCorner(CameraBoundsInMeters));
-
+        
         for(s32 ChunkZ = MinChunkP.ChunkZ; //
             ChunkZ <= MaxChunkP.ChunkZ;    //
             ++ChunkZ)
@@ -2028,7 +1962,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                 {
                     world_position ChunkCenterP = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
                     v3 RelP = Subtract(World, &ChunkCenterP, &GameState->CameraP);
-
+                    
                     u32 TmpGroundBufferIndex = 0;
                     // TODO(casey): This is super inefficient fix it!
                     real32 FurthestBufferLengthSq = 0.0f;
@@ -2062,7 +1996,7 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                             FurthestBuffer = GroundBuffer;
                         }
                     }
-
+                    
                     if(FurthestBuffer)
                     {
                         Log.AddLog("[fillgroundchunk] TmpGroundBufferIndex=%d (%d,%d)\n", //
@@ -2077,9 +2011,9 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
             }
         }
     }
-
+    
     RenderGroupToOutput(RenderGroup, DrawBuffer);
-
+    
     //
     // NOTE(me): Draw Buffer Texture
     //
@@ -2090,19 +2024,19 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     glLoadIdentity();
     glOrtho(0, DrawBuffer->Width, 0, DrawBuffer->Height, 0, 1);
     glMatrixMode(GL_MODELVIEW);
-
+    
     r32 MinX = 0.0f;
     r32 MaxX = (r32)DrawBuffer->Width;
     r32 MinY = 0.0f;
     r32 MaxY = (r32)DrawBuffer->Height;
-
+    
     r32 VRect[] = {
         MinX, MinY, // 0
         MaxX, MinY, // 1
         MaxX, MaxY, // 2
         MinX, MaxY  // 3
     };
-
+    
     r32 Repeat = 1.0f;
     r32 UVRect[] = {
         0,      0,      // 0
@@ -2110,32 +2044,32 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         Repeat, Repeat, // 2
         0,      Repeat  // 3
     };
-
+    
     glEnable(GL_TEXTURE_2D);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, DrawBuffer->ID);
-
+    
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-
+    
     glVertexPointer(2, GL_FLOAT, 0, VRect);
     glTexCoordPointer(2, GL_FLOAT, 0, UVRect);
     glDrawArrays(GL_QUADS, 0, 4);
-
+    
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-
+    
     glDisable(GL_TEXTURE_2D);
-
+    
     RenderImGui(Input, GameState, TranState, Buffer, SimRegion);
-
+    
     EndSim(SimRegion, GameState);
     EndTemporaryMemory(RenderMemory);
     EndTemporaryMemory(SimMemory);
-
+    
     CheckArena(&GameState->WorldArena);
     CheckArena(&TranState->TranArena);
-
+    
     END_TIMED_BLOCK(EngineUpdateAndRender);
 }
 
@@ -2143,15 +2077,15 @@ internal void //
 GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundBuffer)
 {
     game_state *GameState = (game_state *)Memory->PermanentStorage;
-
+    
     // GameOutputSound(GameState, SoundBuffer, 400);
     // GameOutputSound(game_state *GameState, game_sound_output_buffer *SoundBuffer, int ToneHz);
-
+    
     int ToneHz = 1000;
-
+    
     int16 ToneVolume = 3000;
     int WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
-
+    
     int16 *SampleOut = SoundBuffer->Samples;
     for(int SampleIndex = 0;                    //
         SampleIndex < SoundBuffer->SampleCount; //
@@ -2166,7 +2100,7 @@ GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundBuffer)
 #endif
         *SampleOut++ = SampleValue;
         *SampleOut++ = SampleValue;
-
+        
 #if 1
         GameState->tSine += Tau32*1.0f/(real32)WavePeriod;
         if(GameState->tSine > Tau32)

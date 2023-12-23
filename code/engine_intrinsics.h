@@ -8,12 +8,19 @@
 #define Minimum(A, B) ((A < B) ? (A) : (B))
 #define Maximum(A, B) ((A > B) ? (A) : (B))
 
-#if COMPILER_MSVC
+//#if COMPILER_MSVC
+#define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
 #define CompletePreviousWritesBeforeFutureWrites _WriteBarrier();
-#else
+inline u32 AtomicCompareExchangeUInt32(u32 volatile *Value, u32 New, u32 Expected)
+{
+    u32 Result = _InterlockedCompareExchange((long *)Value, New, Expected);
+    
+    return(Result);
+}
+//#else
 // TODO(casey): Need to define these on GCC/LLVM?
-#define CompletePreviousWritesBeforeFutureWrites
-#endif
+//#define CompletePreviousWritesBeforeFutureWrites
+//#endif
 
 inline s32 RoundReal32ToInt32(r32 Real32)
 {
@@ -60,13 +67,13 @@ inline s32 FloorReal32ToInt32(r32 Real32)
 internal r32 DebugGetRandomNumberR32(r32 Min, r32 Max, u32 Precision)
 {
     r32 Result;
-
+    
     // получить случайное число как целое число с порядком precision
     Result = (r32)(rand() % (int)pow(10, Precision));
-
+    
     // получить вещественное число
     Result = (r32)(Min + (Result / pow(10, Precision)) * (Max - Min));
-
+    
     return (Result);
 }
 

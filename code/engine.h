@@ -7,9 +7,11 @@ global_variable app_log Log;
 #include "engine_intrinsics.h"
 #include "engine_math.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+//#define STB_IMAGE_IMPLEMENTATION
+//#include "stb_image.h"
 
+#include "engine_asset_type_id.h"
+#include "engine_asset_file_formats.h"
 #include "engine_asset.h"
 #include "engine_world.h"
 #include "engine_sim_region.h"
@@ -24,13 +26,13 @@ struct game_debug
     bool DrawSimRegionUpdatableBounds;
     bool DrawSimChunks;
     bool DrawChunkWhereCamera;
-
+    
     bool DrawPlayerHitbox;
-
+    
     bool LogCycleCounters;
-
+    
     bool ProcessAnimations;
-
+    
     s32 GroundBufferIndex;
 };
 
@@ -46,7 +48,7 @@ struct low_entity
 struct controlled_hero
 {
     uint32 EntityIndex;
-
+    
     // NOTE(casey): These are the controller requests for simulation
     v2 ddP;
     v2 dSword;
@@ -58,7 +60,7 @@ struct pairwise_collision_rule
     bool32 CanCollide;
     uint32 StorageIndexA;
     uint32 StorageIndexB;
-
+    
     pairwise_collision_rule *NextInHash;
 };
 struct game_state;
@@ -75,45 +77,40 @@ struct ground_buffer
     loaded_model *TerrainModel;
 };
 
-struct game_assets
-{
-    //
-};
-
 struct game_state
 {
     bool32 IsInitialized;
     memory_arena WorldArena;
-
+    
     world *World;
-
+    
     r32 TypicalFloorHeight;
-
+    
     uint32 CameraFollowingEntityIndex;
     world_position CameraP;
     r32 CameraPitch;
     r32 CameraYaw;
     r32 CameraRenderZ;
-
+    
     r32 tSine; // TODO(me): for testing
-
+    
     // string TestTexture1Name;
     // u32 TestTexture1;
     loaded_texture TestTexture1;
-
+    
     // real32 MetersToPixels;
     // real32 PixelsToMeters;
-
+    
     controlled_hero ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
-
+    
     // TODO(casey): Change the name to "stored entity"
     uint32 LowEntityCount;
     low_entity LowEntities[100000];
-
+    
     // TODO(casey): Must be power of two
     pairwise_collision_rule *CollisionRuleHash[256];
     pairwise_collision_rule *FirstFreeCollisionRule;
-
+    
     sim_entity_collision_volume_group *NullCollision;
     sim_entity_collision_volume_group *SwordCollision;
     sim_entity_collision_volume_group *StairCollision;
@@ -122,30 +119,30 @@ struct game_state
     sim_entity_collision_volume_group *FamiliarCollision;
     sim_entity_collision_volume_group *WallCollision;
     sim_entity_collision_volume_group *StandardRoomCollision;
-
+    
     // TODO(me): переделать? убрать?
     game_debug *Debug;
-
+    
     // TODO(me): rework below
     render *Render;
     app_settings *Settings;
-
+    
     // TODO(me): убрать
     entity_player *Player;
     entity_clip *Clip;
-
+    
     // TODO(me): поменять на u32 EnvObjectsCount; и entity_envobject *EnvObjects;
 #define ENV_OBJECTS_MAX 16
     entity_envobject *EnvObjects[ENV_OBJECTS_MAX];
-
+    
     // TODO(me): поменять как env_objects
 #define GRASS_OBJECTS_MAX 16
     entity_grassobject *GrassObjects[GRASS_OBJECTS_MAX];
-
+    
     // TODO(me): для тестов, убрать
     bool ShowDemoWindow;
     bool ShowAnotherWindow;
-
+    
     game_assets Assets;
 };
 
@@ -153,7 +150,7 @@ struct task_with_memory
 {
     bool32 BeingUsed;
     memory_arena Arena;
-
+    
     temporary_memory MemoryFlush;
 };
 
@@ -161,30 +158,102 @@ struct transient_state
 {
     bool32 IsInitialized;
     memory_arena TranArena;
-
+    
     task_with_memory Tasks[4];
-
+    
     u32 GroundBufferCount;
     ground_buffer *GroundBuffers;
-
+    
     platform_work_queue *HighPriorityQueue;
     platform_work_queue *LowPriorityQueue;
-
+    
+    game_assets *Assets;
+    
     // uint32 GroundBufferCount;
     // loaded_bitmap GroundBitmapTemplate;
     // ground_buffer *GroundBuffers;
 };
 
+
+//
+// NOTE(me): Task with Memory
+//
+internal task_with_memory *BeginTaskWithMemory(transient_state *TranState)
+{
+    task_with_memory *FoundTask = 0;
+    
+    for(uint32 TaskIndex = 0;                     //
+        TaskIndex < ArrayCount(TranState->Tasks); //
+        ++TaskIndex)
+    {
+        task_with_memory *Task = TranState->Tasks + TaskIndex;
+        if(!Task->BeingUsed)
+        {
+            FoundTask = Task;
+            Task->BeingUsed = true;
+            Task->MemoryFlush = BeginTemporaryMemory(&Task->Arena);
+            break;
+        }
+    }
+    
+    return (FoundTask);
+}
+
+inline void EndTaskWithMemory(task_with_memory *Task)
+{
+    EndTemporaryMemory(Task->MemoryFlush);
+    
+    CompletePreviousWritesBeforeFutureWrites;
+    Task->BeingUsed = false;
+}
+
+struct test_work
+{
+    // render_group *RenderGroup;
+    // loaded_bitmap *Buffer;
+    task_with_memory *Task;
+};
+internal PLATFORM_WORK_QUEUE_CALLBACK(TestWork)
+{
+    test_work *Work = (test_work *)Data;
+    
+    // RenderGroupToOutput(Work->RenderGroup, Work->Buffer);
+    Log.AddLog("[test_work] TestWorkWithMemory\n");
+    
+    EndTaskWithMemory(Work->Task);
+}
+
+internal void //
+TestFuctionTaskWithMemory(transient_state *TranState)
+{
+    task_with_memory *Task = BeginTaskWithMemory(TranState);
+    if(Task)
+    {
+        test_work *Work = PushStruct(&Task->Arena, test_work);
+        
+        //    Work->RenderGroup = RenderGroup;
+        //    Work->Buffer = Buffer;
+        Work->Task = Task;
+        
+        Platform.AddEntry(TranState->LowPriorityQueue, TestWork, Work);
+    }
+}
+
+internal PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork2)
+{
+    Log.AddLog("[thread] %u: %s\n", GetCurrentThreadId(), (char *)Data);
+}
+
 inline low_entity * //
 GetLowEntity(game_state *GameState, uint32 Index)
 {
     low_entity *Result = 0;
-
+    
     if((Index > 0) && (Index < GameState->LowEntityCount))
     {
         Result = GameState->LowEntities + Index;
     }
-
+    
     return (Result);
 }
 
@@ -198,7 +267,7 @@ LogCycleCounters(game_memory *Memory)
         ++CounterIndex)
     {
         debug_cycle_counter *Counter = Memory->Counters + CounterIndex;
-
+        
         if(Counter->HitCount)
         {
             /*char TextBuffer[256];
