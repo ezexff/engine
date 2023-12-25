@@ -169,6 +169,9 @@ struct transient_state
     
     game_assets *Assets;
     
+    b32 IsGLTextureGenerated;
+    u32 GLGeneratedTexture;
+    
     // uint32 GroundBufferCount;
     // loaded_bitmap GroundBitmapTemplate;
     // ground_buffer *GroundBuffers;

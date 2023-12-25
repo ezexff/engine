@@ -154,7 +154,6 @@ internal loaded_model *CreateTexturedSquareModel(memory_arena *WorldArena, char 
 
 // TODO(ezexff): Replace code above with new asset system code
 
-
 struct bitmap_id
 {
     u32 Value;

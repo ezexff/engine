@@ -479,6 +479,7 @@ RenderImGui(game_input *Input,                                 //
     game_debug *Debug = GameState->Debug;
     app_settings *Settings = GameState->Settings;
     render *Render = GameState->Render;
+    game_assets *Assets = TranState->Assets;
     
     // Start the Dear ImGui frame
     ImGui_ImplOpenGL3_NewFrame();
@@ -660,23 +661,111 @@ RenderImGui(game_input *Input,                                 //
         
         if(ImGui::CollapsingHeader("Assets"))
         {
-            ImGui::Text("Test LoadBitmap");
-            bitmap_id ID = {};
-            ID.Value = 1;
-            LoadBitmap(TranState->Assets, ID);
-            
-            asset_slot *TmpSlot = TranState->Assets->Slots + ID.Value;
-            if(TmpSlot->State == AssetState_Loaded)
+            char *TypeNames[] =
             {
-                int x123 = 0;
-            }
+                "None",
+                "Grass",
+                "Tuft",
+                "Stone",
+                "Clip",
+                "Music",
+            };
             
-            /*ImGui::Image((void *)(intptr_t)GroundBuffer->DrawBuffer.Texture,                                //
-                         ImVec2((r32)GroundBuffer->DrawBuffer.Width, (r32)GroundBuffer->DrawBuffer.Height), //
-                         ImVec2(0, 0), ImVec2(1, -1));*/
-            //ImGui::Image((void *)(intptr_t)GroundBuffer->DrawBuffer.ID,                                     //
-            //ImVec2((r32)GroundBuffer->DrawBuffer.Width, (r32)GroundBuffer->DrawBuffer.Height), //
-            //ImVec2(0, 1), ImVec2(1, 0));
+            char *TagNames[] =
+            {
+                "Opacity",
+                "Count"
+            };
+            
+            if(ImGui::TreeNode("Bitmaps"))
+            {
+                for(u32 TypeID = 1;
+                    TypeID < Asset_Music;
+                    TypeID++)
+                {
+                    asset_type *Type = Assets->AssetTypes + TypeID;
+                    u32 ThatTypeAssetsCount = Type->OnePastLastAssetIndex - Type->FirstAssetIndex;
+                    
+                    {
+                        if(ImGui::TreeNode((void *)(intptr_t)TypeID, "%s", TypeNames[TypeID]))
+                        {
+                            if(ThatTypeAssetsCount > 0)
+                            {
+                                for(u32 AssetIndex = Type->FirstAssetIndex;
+                                    AssetIndex < Type->OnePastLastAssetIndex;
+                                    AssetIndex++)
+                                {
+                                    asset *Asset = Assets->Assets + AssetIndex;;
+                                    eab_asset *EAB = &Asset->EAB;
+                                    if(ImGui::TreeNode((void *)(intptr_t)AssetIndex, "ID=%d", AssetIndex))
+                                    {
+                                        eab_bitmap *Bitmap = &EAB->Bitmap;
+                                        ImGui::Text("Width=%d\nHeight=%d", Bitmap->Dim[0], Bitmap->Dim[1]);
+                                        
+                                        u32 TagsCount = EAB->OnePastLastTagIndex - EAB->FirstTagIndex;
+                                        ImGui::Text("Tags:\n");
+                                        for(u32 TagIndex = 0;
+                                            TagIndex < TagsCount;
+                                            TagIndex++)
+                                        {
+                                            eab_tag *Tag = Assets->Tags + TagIndex;
+                                            ImGui::Text("  ID=%d %s=%d\n", TagIndex, TagNames[TagIndex], Tag->Value);
+                                        }
+                                        //ImGui::Spacing();
+                                        
+                                        // NOTE(ezexff): Load bitmap preview
+                                        ImGui::Text("Bitmap preview:");
+                                        bitmap_id ID = {};
+                                        ID.Value = AssetIndex;
+                                        LoadBitmap(Assets, ID);
+                                        
+                                        // Generate GL texture once
+                                        asset_slot *Slot = Assets->Slots + ID.Value;
+                                        if(Slot->State == AssetState_Loaded && !TranState->IsGLTextureGenerated)
+                                        {
+                                            loaded_bitmap *Bitmap = Slot->Bitmap;
+                                            
+                                            glGenTextures(1, &TranState->GLGeneratedTexture);
+                                            glBindTexture(GL_TEXTURE_2D, TranState->GLGeneratedTexture);
+                                            
+                                            // Texture wrapping
+                                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                                            
+                                            // Texture filtering
+                                            // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+                                            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+                                            
+                                            // Send texture to GPU
+                                            u32 BytesPerPixel = 4;
+                                            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Bitmap->Width, Bitmap->Height, 0, BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Bitmap->Memory);
+                                            glGenerateMipmap(GL_TEXTURE_2D);
+                                            
+                                            TranState->IsGLTextureGenerated = true;
+                                        }
+                                        
+                                        if(Slot->State == AssetState_Loaded && TranState->IsGLTextureGenerated)
+                                        {
+                                            ImGui::Image((void *)(intptr_t)TranState->GLGeneratedTexture,
+                                                         ImVec2((r32)256,(r32)256));
+                                        }
+                                        
+                                        ImGui::TreePop();
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                ImGui::Text("Assets of that type not found :(");
+                            }
+                            
+                            ImGui::TreePop();
+                        }
+                    }
+                }
+                ImGui::TreePop();
+            }
         }
         
         if(ImGui::CollapsingHeader("World"))

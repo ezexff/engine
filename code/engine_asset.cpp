@@ -1091,3 +1091,24 @@ LoadBitmap(game_assets *Assets, bitmap_id ID)
         }
     }    
 }
+
+internal uint32
+GetFirstSlotFrom(game_assets *Assets, asset_type_id TypeID)
+{
+    uint32 Result = 0;
+    
+    asset_type *Type = Assets->AssetTypes + TypeID;
+    if(Type->FirstAssetIndex != Type->OnePastLastAssetIndex)
+    {
+        Result = Type->FirstAssetIndex;
+    }
+    
+    return(Result);
+}
+
+inline bitmap_id
+GetFirstBitmapFrom(game_assets *Assets, asset_type_id TypeID)
+{
+    bitmap_id Result = {GetFirstSlotFrom(Assets, TypeID)};
+    return(Result);
+}
