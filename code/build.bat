@@ -23,8 +23,7 @@ REM /MTd /Zo (не нужен, если есть /Z7), /GL (оптимизаци
 SET ImGui=/I%LibsFolderPath%\imgui
 SET GLFW=/I%LibsFolderPath%\glfw\include
 SET Glad=/I%LibsFolderPath%\glad\include /I%LibsFolderPath%\glad\src
-SET StbImage=/I%LibsFolderPath%\stb
-SET Includes=%ImGui% %GLFW% %Glad% %StbImage%
+SET Includes=%ImGui% %GLFW% %Glad%
 
 SET LinkerOpts=/incremental:no /opt:ref /NODEFAULTLIB:LIBCMT.lib /SUBSYSTEM:windows /ENTRY:mainCRTStartup
 REM /NODEFAULTLIB /STACK:0x100000,0x100000 /VERBOSE

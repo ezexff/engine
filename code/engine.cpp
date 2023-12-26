@@ -8,6 +8,8 @@
 
 #include "engine_random.h"
 
+#include "engine_audio.cpp"
+
 #if 0
 internal loaded_model * //
 CreateTerrainChunkModel(memory_arena *WorldArena, u32 Width, u32 Height)
@@ -684,7 +686,7 @@ DrawHitpoints(sim_entity *Entity)
 #if ENGINE_INTERNAL
 game_memory *DebugGlobalMemory;
 #endif
-internal void //
+internal void
 EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer)
 {
 #if ENGINE_INTERNAL
@@ -713,6 +715,8 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         InitializeArena(&GameState->WorldArena, Memory->PermanentStorageSize - sizeof(game_state),
                         (uint8 *)Memory->PermanentStorage + sizeof(game_state));
         memory_arena *WorldArena = &GameState->WorldArena;
+        
+        InitializeAudioState(&GameState->AudioState, &GameState->WorldArena);
         
         // NOTE(casey): Reserve entity slot 0 for the null entity
         AddLowEntity(GameState, EntityType_Null, NullPosition());
@@ -1356,6 +1360,8 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
         
         TranState->Assets = AllocateGameAssets(&TranState->TranArena, Megabytes(64), TranState);
         
+        GameState->Music = PlaySound(&GameState->AudioState, GetFirstSoundFrom(TranState->Assets, Asset_Music));
+        
         TranState->GroundBufferCount = 64;
         TranState->GroundBuffers = PushArray(TranArena, TranState->GroundBufferCount, ground_buffer);
         for(uint32 GroundBufferIndex = 0;                     //
@@ -1388,6 +1394,15 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     app_settings *Settings = GameState->Settings;
     world *World = GameState->World;
     render *Render = GameState->Render;
+    
+    {
+        v2 MusicVolume;
+        //MusicVolume.y = SafeRatio0((r32)Input->MouseX, (r32)Buffer->Width);
+        //MusicVolume.x = 1.0f - MusicVolume.y;
+        MusicVolume.x = 0.5f;
+        MusicVolume.y = 0.5f;
+        ChangeVolume(&GameState->AudioState, GameState->Music, 0.01f, MusicVolume);
+    }
     
     // real32 MetersToPixels = GameState->MetersToPixels;
     // real32 PixelsToMeters = GameState->PixelsToMeters;
@@ -1707,9 +1722,12 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
                                 sim_entity *Sword = Entity->Sword.Ptr;
                                 if(Sword && IsSet(Sword, EntityFlag_Nonspatial))
                                 {
-                                    Sword->DistanceLimit = 5.0f;
-                                    MakeEntitySpatial(Sword, Entity->P, Entity->dP + 5.0f * V3(ConHero->dSword, 0));
+                                    Sword->DistanceLimit = 1.0f;
+                                    //Sword->DistanceLimit = 5.0f;
+                                    //MakeEntitySpatial(Sword, Entity->P, Entity->dP + 5.0f * V3(ConHero->dSword, 0));
                                     AddCollisionRule(GameState, Sword->StorageIndex, Entity->StorageIndex, false);
+                                    
+                                    PlaySound(&GameState->AudioState, GetFirstSoundFrom(TranState->Assets, Asset_Bloop));
                                 }
                             }
                         }
@@ -2073,40 +2091,11 @@ EngineUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buf
     END_TIMED_BLOCK(EngineUpdateAndRender);
 }
 
-internal void //
+internal void
 GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundBuffer)
 {
     game_state *GameState = (game_state *)Memory->PermanentStorage;
+    transient_state *TranState = (transient_state *)Memory->TransientStorage;
     
-    // GameOutputSound(GameState, SoundBuffer, 400);
-    // GameOutputSound(game_state *GameState, game_sound_output_buffer *SoundBuffer, int ToneHz);
-    
-    int ToneHz = 1000;
-    
-    int16 ToneVolume = 3000;
-    int WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
-    
-    int16 *SampleOut = SoundBuffer->Samples;
-    for(int SampleIndex = 0;                    //
-        SampleIndex < SoundBuffer->SampleCount; //
-        ++SampleIndex)
-    {
-        // TODO(casey): Draw this out for people
-#if 1
-        real32 SineValue = sinf(GameState->tSine);
-        int16 SampleValue = (int16)(SineValue * ToneVolume);
-#else
-        int16 SampleValue = 0;
-#endif
-        *SampleOut++ = SampleValue;
-        *SampleOut++ = SampleValue;
-        
-#if 1
-        GameState->tSine += Tau32*1.0f/(real32)WavePeriod;
-        if(GameState->tSine > Tau32)
-        {
-            GameState->tSine -= Tau32;
-        }
-#endif
-    }
+    OutputPlayingSounds(&GameState->AudioState, SoundBuffer, TranState->Assets, &TranState->TranArena);
 }

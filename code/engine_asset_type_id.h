@@ -35,7 +35,7 @@ enum asset_type_id
     // NOTE(casey): Sounds!
     //
     
-    //Asset_Bloop,
+    Asset_Bloop,
     //Asset_Crack,
     //Asset_Drop,
     //Asset_Glide,

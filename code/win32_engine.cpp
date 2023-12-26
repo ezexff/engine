@@ -35,7 +35,7 @@ global_variable r32 MouseLastX, MouseLastY;
 
 // global_variable b32 GlobalUncappedFrameRate = false;
 global_variable r32 GlobalGameUpdateHz;
-global_variable b32 GlobalIsVSyncEnabled = true;
+global_variable b32 GlobalIsVSyncEnabled = false;
 global_variable b32 GlobalToggleVSync = false;
 
 global_variable GLFWwindow *GlobalWindow;
@@ -312,6 +312,9 @@ Win32InitDSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize)
             DSBUFFERDESC BufferDescription = {};
             BufferDescription.dwSize = sizeof(BufferDescription);
             BufferDescription.dwFlags = DSBCAPS_GETCURRENTPOSITION2;
+#if ENGINE_INTERNAL
+            BufferDescription.dwFlags |= DSBCAPS_GLOBALFOCUS;
+#endif
             BufferDescription.dwBufferBytes = BufferSize;
             BufferDescription.lpwfxFormat = &WaveFormat;
             HRESULT Error = DirectSound->CreateSoundBuffer(&BufferDescription, &GlobalSecondaryBuffer, 0);
@@ -910,7 +913,8 @@ int main(int, char **)
         QueryPerformanceFrequency(&PerfCountFrequencyResult);
         GlobalPerfCountFrequency = PerfCountFrequencyResult.QuadPart;
         
-        GlobalGameUpdateHz = Win32GetMonitorRefreshHz(HWNDWindow);
+        //GlobalGameUpdateHz = Win32GetMonitorRefreshHz(HWNDWindow);
+        GlobalGameUpdateHz = 60.0f;
         r32 TargetSecondsPerFrame = 1.0f / GlobalGameUpdateHz;
         
         win32_sound_output SoundOutput = {};
@@ -919,14 +923,18 @@ int main(int, char **)
         SoundOutput.BytesPerSample = sizeof(int16) * 2;
         SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
         // TODO(casey): Actually compute this variance and see what the lowest reasonable value is.
-        SoundOutput.SafetyBytes = (int)(((real32)SoundOutput.SamplesPerSecond * //
-                                         (real32)SoundOutput.BytesPerSample / GlobalGameUpdateHz) /
-                                        3.0f);
+        r32 SafetyBytes = (r32)SoundOutput.SamplesPerSecond * (r32)SoundOutput.BytesPerSample;
+        
+        SafetyBytes /= GlobalGameUpdateHz * 0.5f;
+        //SafetyBytes /= 3.0f;
+        //SafetyBytes /= GlobalGameUpdateHz * 3.0f;
+        SoundOutput.SafetyBytes = (int)SafetyBytes;
         Win32InitDSound(HWNDWindow, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
         Win32ClearBuffer(&SoundOutput);
         GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
         
-        int16 *Samples = (int16 *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize, //
+        u32 MaxPossibleOverrun = 2*8*sizeof(u16);
+        int16 *Samples = (int16 *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize + MaxPossibleOverrun, //
                                                MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
         
         // NOTE(me): Init game memory
@@ -1125,7 +1133,8 @@ int main(int, char **)
                             
                             game_sound_output_buffer SoundBuffer = {};
                             SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
-                            SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
+                            SoundBuffer.SampleCount = Align8(BytesToWrite / SoundOutput.BytesPerSample);
+                            BytesToWrite = SoundBuffer.SampleCount*SoundOutput.BytesPerSample;
                             SoundBuffer.Samples = Samples;
                             GameGetSoundSamples(&GameMemory, &SoundBuffer);
                             
@@ -1185,12 +1194,14 @@ int main(int, char **)
                             }
                         }
 #endif
+                        // NOTE(ezexff): Save inputs state to next frame after flip
+                        {
+                            game_input *Temp = NewInput;
+                            NewInput = OldInput;
+                            OldInput = Temp;
+                        }
                         
-                        game_input *Temp = NewInput;
-                        NewInput = OldInput;
-                        OldInput = Temp;
-                        
-                        if(GlobalToggleVSync)
+                        /*if(GlobalToggleVSync)
                         {
                             GlobalGameUpdateHz = Win32GetMonitorRefreshHz(HWNDWindow);
                             TargetSecondsPerFrame = 1.0f / GlobalGameUpdateHz;
@@ -1198,7 +1209,7 @@ int main(int, char **)
                                                              (real32)SoundOutput.BytesPerSample / GlobalGameUpdateHz) /
                                                             3.0f);
                             GlobalToggleVSync = false;
-                        }
+                        }*/
                         
 #if DEBUG_AUDIO
                         ++DebugTimeMarkerIndex;

@@ -7,9 +7,6 @@ global_variable app_log Log;
 #include "engine_intrinsics.h"
 #include "engine_math.h"
 
-//#define STB_IMAGE_IMPLEMENTATION
-//#include "stb_image.h"
-
 #include "engine_asset_type_id.h"
 #include "engine_asset_file_formats.h"
 #include "engine_asset.h"
@@ -18,6 +15,8 @@ global_variable app_log Log;
 #include "engine_entity.h"
 #include "engine_render.h"
 #include "engine_render_group.h"
+
+#include "engine_audio.h"
 
 struct game_debug
 {
@@ -144,6 +143,9 @@ struct game_state
     bool ShowAnotherWindow;
     
     game_assets Assets;
+    
+    audio_state AudioState;
+    playing_sound *Music;
 };
 
 struct task_with_memory

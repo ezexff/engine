@@ -56,11 +56,17 @@ struct eab_bitmap
     u32 Dim[2];
     r32 AlignPercentage[2];
 };
+enum hha_sound_chain
+{
+    EABSoundChain_None,
+    EABSoundChain_Loop,
+    EABSoundChain_Advance,
+};
 struct eab_sound
 {
-    u32 FirstSampleIndex;
     u32 SampleCount;
-    u32 NextIDToPlay;
+    u32 ChannelCount;
+    u32 Chain; // NOTE(casey): hha_sound_chain
 };
 struct eab_asset
 {

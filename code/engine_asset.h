@@ -244,3 +244,90 @@ struct game_assets
     
     asset_type AssetTypes[Asset_Count];
 };
+
+inline loaded_sound *GetSound(game_assets *Assets, sound_id ID)
+{
+    Assert(ID.Value <= Assets->AssetCount);
+    asset_slot *Slot = Assets->Slots + ID.Value;
+    
+    loaded_sound *Result = 0;
+    if(Slot->State >= AssetState_Loaded)
+    {
+        CompletePreviousReadsBeforeFutureReads;
+        Result = Slot->Sound;
+    }
+    
+    return(Result);
+}
+
+inline eab_sound *
+GetSoundInfo(game_assets *Assets, sound_id ID)
+{
+    Assert(ID.Value <= Assets->AssetCount);
+    eab_sound *Result = &Assets->Assets[ID.Value].EAB.Sound;
+    
+    return(Result);
+}
+
+inline bool32
+IsValid(bitmap_id ID)
+{
+    bool32 Result = (ID.Value != 0);
+    
+    return(Result);
+}
+
+inline bool32
+IsValid(sound_id ID)
+{
+    bool32 Result = (ID.Value != 0);
+    
+    return(Result);
+}
+
+internal void LoadBitmap(game_assets *Assets, bitmap_id ID);
+internal void LoadSound(game_assets *Assets, sound_id ID);
+
+inline void 
+PrefetchBitmap(game_assets *Assets, bitmap_id ID)
+{
+    LoadBitmap(Assets, ID);
+}
+
+inline void 
+PrefetchSound(game_assets *Assets, sound_id ID)
+{
+    LoadSound(Assets, ID);
+}
+
+inline sound_id
+GetNextSoundInChain(game_assets *Assets, sound_id ID)
+{
+    sound_id Result = {};
+    
+    eab_sound *Info = GetSoundInfo(Assets, ID);
+    switch(Info->Chain)
+    {
+        case EABSoundChain_None:
+        {
+            // NOTE(casey): Nothing to do.
+        } break;
+        
+        case EABSoundChain_Loop:
+        {
+            Result = ID;
+        } break;
+        
+        case EABSoundChain_Advance:
+        {
+            Result.Value = ID.Value + 1;
+        } break;
+        
+        default:
+        {
+            InvalidCodePath;
+        } break;
+    }
+    
+    return(Result);
+}

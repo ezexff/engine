@@ -1092,6 +1092,55 @@ LoadBitmap(game_assets *Assets, bitmap_id ID)
     }    
 }
 
+internal void
+LoadSound(game_assets *Assets, sound_id ID)
+{
+    if(ID.Value &&
+       (AtomicCompareExchangeUInt32((uint32 *)&Assets->Slots[ID.Value].State, AssetState_Queued, AssetState_Unloaded) ==
+        AssetState_Unloaded))
+    {    
+        task_with_memory *Task = BeginTaskWithMemory(Assets->TranState);
+        if(Task)        
+        {
+            asset *Asset = Assets->Assets + ID.Value;
+            eab_sound *Info = &Asset->EAB.Sound;
+            
+            loaded_sound *Sound = PushStruct(&Assets->Arena, loaded_sound);
+            Sound->SampleCount = Info->SampleCount;
+            Sound->ChannelCount = Info->ChannelCount;
+            u32 ChannelSize = Sound->SampleCount*sizeof(int16);
+            u32 MemorySize = Sound->ChannelCount*ChannelSize;
+            
+            void *Memory = PushSize(&Assets->Arena, MemorySize);
+            
+            int16 *SoundAt = (int16 *)Memory;
+            for(u32 ChannelIndex = 0;
+                ChannelIndex < Sound->ChannelCount;
+                ++ChannelIndex)
+            {
+                Sound->Samples[ChannelIndex] = SoundAt;
+                SoundAt += ChannelSize;
+            }
+            
+            load_asset_work *Work = PushStruct(&Task->Arena, load_asset_work);
+            Work->Task = Task;
+            Work->Slot = Assets->Slots + ID.Value;
+            Work->Handle = GetFileHandleFor(Assets, Asset->FileIndex);
+            Work->Offset = Asset->EAB.DataOffset;
+            Work->Size = MemorySize;
+            Work->Destination = Memory;
+            Work->FinalState = AssetState_Loaded;
+            Work->Slot->Sound = Sound;
+            
+            Platform.AddEntry(Assets->TranState->LowPriorityQueue, LoadAssetWork, Work);
+        }
+        else
+        {
+            Assets->Slots[ID.Value].State = AssetState_Unloaded;
+        }
+    }
+}
+
 internal uint32
 GetFirstSlotFrom(game_assets *Assets, asset_type_id TypeID)
 {
@@ -1110,5 +1159,12 @@ inline bitmap_id
 GetFirstBitmapFrom(game_assets *Assets, asset_type_id TypeID)
 {
     bitmap_id Result = {GetFirstSlotFrom(Assets, TypeID)};
+    return(Result);
+}
+
+inline sound_id
+GetFirstSoundFrom(game_assets *Assets, asset_type_id TypeID)
+{
+    sound_id Result = {GetFirstSlotFrom(Assets, TypeID)};
     return(Result);
 }
