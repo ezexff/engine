@@ -34,6 +34,7 @@ Sin(r32 Angle)
     return(Result);
 }*/
 
+#include "immintrin.h"
 #include "math.h"
 
 inline s32 RoundReal32ToInt32(r32 Real32)
@@ -68,7 +69,9 @@ inline r32 Cos(r32 Angle)
 
 inline r32 Sin(r32 Angle)
 {
-    r32 Result = sinf(Angle);
+    // NOTE(ezexff): SVML Sine version
+    r32 Result = _mm_cvtss_f32(_mm_sin_ps(_mm_set_ss(Angle)));
+    //r32 Result = sinf(Angle);
     return (Result);
 }
 

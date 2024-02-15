@@ -31,19 +31,9 @@ u64 GlobalTimerFrequency;
 app_log *Log;
 b32 GlobalShowImGuiWindows = true; // All ImGui windows visibility
 
-//~ NOTE(ezexff): Message boxes
-void
-Win32ErrorMessageBox(char *Message)
-{
-    MessageBoxA(0, Message, 0, MB_OK);
-}
-
 //~ NOTE(ezexff): Callbacks and inputs
 // Add in beginning Win32MainWindowCallback for ImGui inputs
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-
-void
-Win32ToggleFullscreen(HWND Window);
 
 void
 ImGuiProcessPendingMessages(HWND Window)
@@ -74,6 +64,15 @@ ImGuiProcessPendingMessages(HWND Window)
     // - ImGui::IsKeyPressed(ImGuiKey_F1, Repeat
 }
 #endif
+
+void Win32ToggleFullscreen(HWND Window);
+
+//~ NOTE(ezexff): Message boxes
+void
+Win32ErrorMessageBox(char *Message)
+{
+    MessageBoxA(0, Message, 0, MB_OK);
+}
 
 void
 Win32ProcessKeyboardMessage(game_button_state *NewState, b32 IsDown)
