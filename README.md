@@ -9,16 +9,16 @@ Game engine that i wrote when learned low-level programming
 </details>
 
 ## Setup
-* Engine: Custom. Low-level programming. From scratch and without libs. Minimum number of dependencies. Only platform api and graphics api
-* Language: C++ but "C coding style" with some C++ features like function and operator overloading. That can help understand what compiler does with code and how code works on CPU in ASM instructions
-* IDE: [4Coder](https://4coder.net/)
-* Graphics API: OpenGL
-* Libraries: Only for debug version [ImGui](https://github.com/ocornut/imgui)
-* Debug: Visual Studio
-* Build: through `.bat` with MSVC
+* **Engine:** Custom. Low-level programming. From scratch and without libs. Minimum number of dependencies. Only platform api and graphics api
+* **Language:** C++ but "C coding style" with some C++ features like function and operator overloading. That can help understand what compiler does with code and how code works on CPU in ASM instructions
+* **IDE:** [4Coder](https://4coder.net/)
+* **Graphics API:** OpenGL
+* **Libraries:** Only for debug version [ImGui](https://github.com/ocornut/imgui)
+* **Debug:** Visual Studio
+* **Build:** through `.bat` with MSVC
   * Debug version with ImGui
   * Release version without CRT and ImGui
-* Asset: [Asset Builder](https://github.com/ezexff/asset-builder) pack assets into `.eab` (engine asset builder) file. Engine import assets from `.eab` files
+* **Asset:** [Asset Builder](https://github.com/ezexff/asset-builder) pack assets into `.eab` (engine asset builder) file. Engine import assets from `.eab` files
 * Main learning and inspiration resources
   * [Handmade Hero](https://handmadehero.org/)
   * [Begin End](https://www.youtube.com/channel/UCz29nMCtFP5cuyuLR_0dFkw)
