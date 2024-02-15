@@ -1,5 +1,12 @@
 # C++ Game Engine
 Game engine that i wrote when learned low-level programming
+<details>
+<summary>Screenshots</summary>
+
+### 16.02.2024
+<img src="https://i.imgur.com/P8EAYty.png" alt="1 - 16.02.2024">
+
+</details>
 
 ## Setup
 * Engine: Custom. Low-level programming. From scratch and without libs. Minimum number of dependencies. Only platform api and graphics api
