@@ -1,332 +1,237 @@
-//
-// NOTE(me): Texture
-//
-struct loaded_texture
+#pragma pack(push, 1)
+struct WAVE_header
 {
-    string Name;
-    int32 Width;
-    int32 Height;
-    int32 NrChannels;
-    u32 ID; // OpenGL texture
-    
-    // NOTE(me): Only for buffer rendering
-    // TODO(me): мб убрать отсюда?
-    u32 DepthTexture;
-    u32 FBO;
+    u32 RIFFID;
+    u32 Size;
+    u32 WAVEID;
 };
 
-//
-// NOTE(me): 3d-model
-//
-struct node
+#define RIFF_CODE(a, b, c, d) (((u32)(a) << 0) | ((u32)(b) << 8) | ((u32)(c) << 16) | ((u32)(d) << 24))
+enum
 {
-    string Name;
-    m4x4 Transformation;
-    
-    node *Parent;
-    
-    u32 ChildrenCount;
-    node **Children;
+    WAVE_ChunkID_fmt = RIFF_CODE('f', 'm', 't', ' '),
+    WAVE_ChunkID_data = RIFF_CODE('d', 'a', 't', 'a'),
+    WAVE_ChunkID_RIFF = RIFF_CODE('R', 'I', 'F', 'F'),
+    WAVE_ChunkID_WAVE = RIFF_CODE('W', 'A', 'V', 'E'),
+};
+struct WAVE_chunk
+{
+    u32 ID;
+    u32 Size;
 };
 
-struct position_key
+struct WAVE_fmt
 {
-    r64 Time;
-    v3 Value;
+    u16 wFormatTag;
+    u16 nChannels;
+    u32 nSamplesPerSec;
+    u32 nAvgBytesPerSec;
+    u16 nBlockAlign;
+    u16 wBitsPerSample;
+    u16 cbSize;
+    u16 wValidBitsPerSample;
+    u32 dwChannelMask;
+    u8 SubFormat[16];
+};
+#pragma pack(pop)
+
+struct riff_iterator
+{
+    u8 *At;
+    u8 *Stop;
 };
 
-struct rotation_key
+inline riff_iterator
+ParseChunkAt(void *At, void *Stop)
 {
-    r64 Time;
-    v4 Value;
-};
+    riff_iterator Iter;
+    
+    Iter.At = (u8 *)At;
+    Iter.Stop = (u8 *)Stop;
+    
+    return(Iter);
+}
 
-typedef position_key scaling_key;
-
-struct node_anim
+inline riff_iterator
+NextChunk(riff_iterator Iter)
 {
-    string Name;
+    WAVE_chunk *Chunk = (WAVE_chunk *)Iter.At;
+    u32 Size = (Chunk->Size + 1) & ~1;
+    Iter.At += sizeof(WAVE_chunk) + Size;
     
-    u32 PositionKeysCount;
-    position_key *PositionKeys;
-    
-    u32 RotationKeysCount;
-    rotation_key *RotationKeys;
-    
-    u32 ScalingKeysCount;
-    scaling_key *ScalingKeys;
-};
+    return(Iter);
+}
 
-struct animation // AiAnimation
+inline b32
+IsValid(riff_iterator Iter)
+{    
+    b32 Result = (Iter.At < Iter.Stop);
+    
+    return(Result);
+}
+
+inline void *
+GetChunkData(riff_iterator Iter)
 {
-    string Name;
+    void *Result = (Iter.At + sizeof(WAVE_chunk));
     
-    r64 Duration;        // Duration of the animation in ticks
-    r64 TicksPerSeconds; // Ticks per second
-    
-    u32 ChannelsCount;   // The number of bone animation channels
-    node_anim *Channels; // The node animation channels
-};
+    return(Result);
+}
 
-struct material
+inline u32
+GetType(riff_iterator Iter)
 {
-    string Name;
-    v4 Ambient;
-    v4 Diffuse;
-    v4 Specular;
-    v4 Emission;
-    r32 Shininess;
+    WAVE_chunk *Chunk = (WAVE_chunk *)Iter.At;
+    u32 Result = Chunk->ID;
     
-    b32 WithTexture;
-    loaded_texture Texture;
-    // string TextureName;
-    // u32 Texture;
-};
+    return(Result);
+}
 
-struct single_mesh
+inline u32
+GetChunkDataSize(riff_iterator Iter)
 {
-    string Name;
-    u32 VerticesCount;
+    WAVE_chunk *Chunk = (WAVE_chunk *)Iter.At;
+    u32 Result = Chunk->Size;
     
-    v3 *Positions;
-    v2 *TexCoords;
-    v3 *Normals;
-    v3 *Tangents; // Normal mapping
-    
-    u32 IndicesCount;
-    u32 *Indices;
-    
-    u32 *BoneIDs; // index1, index2, index3, index4, ...
-    r32 *Weights; // weight1, weight2, weight3, weight4, ...
-    
-    b32 WithMaterial;
-    material Material;
-    
-    b32 WithAnimations; // модель с костями и маркерами времени
-    
-    u32 BonesCount;
-    string *BoneNames;
-    m4x4 *BoneOffsets; // локальные смещения костей (относительно друг друга)
-    
-    node *BoneTransformsHierarchy; // глобальные преобразования костей (относительно всего меша)
-    
-    u32 AnimationsCount;
-    animation *Animations;
-    
-    b32 WithSceneTransform;
-    m4x4 SceneTransform;
-    m4x4 *FinalTransforms; // результат преобразований над костями при анимировании (передаётся в шейдер)
-};
+    return(Result);
+}
 
-struct loaded_model
+loaded_sound
+LoadFirstWAV(memory_arena *GameArena, platform_api *Platform)
 {
-    // v3 WorldPos;
+    loaded_sound Result = {};
+    u32 FileSize = 0;
     
-    string Name;
-    u32 MeshesCount;
-    single_mesh *Meshes;
-    
-    u32 TestNormalMap;
-};
-
-struct animator // таймер аниимации модели
-{
-    r32 Timer;
-};
-
-internal string ReadStringFromFile(memory_arena *WorldArena, FILE *In);
-// internal u32 LoadTexture(string *FileName);
-
-// 3d-model
-internal loaded_model *LoadModel(memory_arena *WorldArena, char *FileName);
-internal void GetBoneTransforms(single_mesh *Mesh, u32 AnimIndex, r32 TimeInSeconds);
-
-// terrain
-#define TMapW 100
-#define TMapH 100
-internal loaded_model *CreateTerrainModel(memory_arena *WorldArena);
-
-// grass
-internal loaded_model *CreateGrassModel(memory_arena *WorldArena);
-
-// other
-internal loaded_model *CreateTexturedSquareModel(memory_arena *WorldArena, char *TextureName);
-
-// TODO(ezexff): Replace code above with new asset system code
-
-struct bitmap_id
-{
-    u32 Value;
-};
-
-struct sound_id
-{
-    u32 Value;
-};
-
-struct loaded_bitmap
-{
-    v2 AlignPercentage;
-    real32 WidthOverHeight;
-    
-    int32 Width;
-    int32 Height;
-    int32 Pitch;
-    void *Memory;
-};
-
-struct loaded_sound
-{
-    uint32 SampleCount; // NOTE(casey): This is the sample count divided by 8
-    uint32 ChannelCount;
-    int16 *Samples[2];
-};
-
-enum asset_state
-{
-    AssetState_Unloaded,
-    AssetState_Queued,
-    AssetState_Loaded,
-    AssetState_Locked,
-};
-
-struct asset_slot
-{
-    asset_state State;
-    union
+    platform_file_group *FileGroup = Platform->GetAllFilesOfTypeBegin("wav");
+    u32 FileCount = FileGroup->FileCount;
+    FileCount = 1;
+    //platform_file_handle **FileHandles = (platform_file_handle **)malloc(FileCount * sizeof(platform_file_handle *));
+    platform_file_handle *FileHandles = PushArray(GameArena, FileCount, platform_file_handle);
+    for(u32 FileIndex = 0;
+        FileIndex < FileCount;
+        FileIndex++)
     {
-        loaded_bitmap *Bitmap;
-        loaded_sound *Sound;
-    };
-};
-
-struct asset
-{
-    eab_asset EAB;
-    u32 FileIndex;
-};
-
-struct asset_type
-{
-    u32 FirstAssetIndex;
-    u32 OnePastLastAssetIndex;
-};
-
-struct asset_file
-{
-    platform_file_handle *Handle;
-    
-    // TODO(casey): If we ever do thread stacks, AssetTypeArray
-    // doesn't actually need to be kept here probably.
-    eab_header Header;
-    eab_asset_type *AssetTypeArray;
-    
-    u32 TagBase;
-};
-
-struct game_assets
-{
-    // TODO(casey): Not thrilled about this back-pointer
-    struct transient_state *TranState;
-    memory_arena Arena;
-    
-    //r32 TagRange[Tag_Count];
-    
-    u32 FileCount;
-    asset_file *Files;
-    
-    u32 TagCount;
-    eab_tag *Tags;
-    
-    u32 AssetCount;
-    asset *Assets;
-    asset_slot *Slots;
-    
-    asset_type AssetTypes[Asset_Count];
-};
-
-inline loaded_sound *GetSound(game_assets *Assets, sound_id ID)
-{
-    Assert(ID.Value <= Assets->AssetCount);
-    asset_slot *Slot = Assets->Slots + ID.Value;
-    
-    loaded_sound *Result = 0;
-    if(Slot->State >= AssetState_Loaded)
-    {
-        CompletePreviousReadsBeforeFutureReads;
-        Result = Slot->Sound;
-    }
-    
-    return(Result);
-}
-
-inline eab_sound *
-GetSoundInfo(game_assets *Assets, sound_id ID)
-{
-    Assert(ID.Value <= Assets->AssetCount);
-    eab_sound *Result = &Assets->Assets[ID.Value].EAB.Sound;
-    
-    return(Result);
-}
-
-inline bool32
-IsValid(bitmap_id ID)
-{
-    bool32 Result = (ID.Value != 0);
-    
-    return(Result);
-}
-
-inline bool32
-IsValid(sound_id ID)
-{
-    bool32 Result = (ID.Value != 0);
-    
-    return(Result);
-}
-
-internal void LoadBitmap(game_assets *Assets, bitmap_id ID);
-internal void LoadSound(game_assets *Assets, sound_id ID);
-
-inline void 
-PrefetchBitmap(game_assets *Assets, bitmap_id ID)
-{
-    LoadBitmap(Assets, ID);
-}
-
-inline void 
-PrefetchSound(game_assets *Assets, sound_id ID)
-{
-    LoadSound(Assets, ID);
-}
-
-inline sound_id
-GetNextSoundInChain(game_assets *Assets, sound_id ID)
-{
-    sound_id Result = {};
-    
-    eab_sound *Info = GetSoundInfo(Assets, ID);
-    switch(Info->Chain)
-    {
-        case EABSoundChain_None:
-        {
-            // NOTE(casey): Nothing to do.
-        } break;
+        platform_file_handle *FileHandle = FileHandles + FileIndex;
+        FileHandle = Platform->OpenNextFile(FileGroup);
+        //FileHandles[FileIndex] = Platform->OpenNextFile(FileGroup);
         
-        case EABSoundChain_Loop:
+        if(FileHandle)
         {
-            Result = ID;
-        } break;
-        
-        case EABSoundChain_Advance:
-        {
-            Result.Value = ID.Value + 1;
-        } break;
-        
-        default:
-        {
-            InvalidCodePath;
-        } break;
+            WAVE_header TmpHeader;
+            Platform->ReadDataFromFile(FileHandle, 0, sizeof(WAVE_header), &TmpHeader);
+            FileSize = TmpHeader.Size;
+            
+            //u8 *ReadContents = (u8 *)malloc(FileSize);
+            u8 *ReadContents = (u8 *)PushSize(GameArena, FileSize);
+            Platform->ReadDataFromFile(FileHandle, 0, FileSize, ReadContents);
+            
+            Result.Free = ReadContents;
+            
+            u32 SectionFirstSampleIndex = 0;
+            u32 SectionSampleCount = 0;
+            
+            WAVE_header *Header = (WAVE_header *)ReadContents;
+            Assert(Header->RIFFID == WAVE_ChunkID_RIFF);
+            Assert(Header->WAVEID == WAVE_ChunkID_WAVE);
+            
+            u32 ChannelCount = 0;
+            u32 SampleDataSize = 0;
+            s16 *SampleData = 0;
+            for(riff_iterator Iter = ParseChunkAt(Header + 1, (u8 *)(Header + 1) + Header->Size - 4);
+                IsValid(Iter);
+                Iter = NextChunk(Iter))
+            {
+                switch(GetType(Iter))
+                {
+                    case WAVE_ChunkID_fmt:
+                    {
+                        WAVE_fmt *fmt = (WAVE_fmt *)GetChunkData(Iter);
+                        Assert(fmt->wFormatTag == 1); // NOTE(casey): Only support PCM
+                        Assert(fmt->nSamplesPerSec == 48000);
+                        Assert(fmt->wBitsPerSample == 16);
+                        Assert(fmt->nBlockAlign == (sizeof(s16)*fmt->nChannels));
+                        ChannelCount = fmt->nChannels;
+                    } break;
+                    
+                    case WAVE_ChunkID_data:
+                    {
+                        SampleData = (s16 *)GetChunkData(Iter);
+                        SampleDataSize = GetChunkDataSize(Iter);
+                    } break;
+                }
+            }
+            
+            Assert(ChannelCount && SampleData);
+            
+            Result.ChannelCount = ChannelCount;
+            u32 SampleCount = SampleDataSize / (ChannelCount*sizeof(s16));
+            if(ChannelCount == 1)
+            {
+                Result.Samples[0] = SampleData;
+                Result.Samples[1] = 0;
+            }
+            else if(ChannelCount == 2)
+            {
+                Result.Samples[0] = SampleData;
+                Result.Samples[1] = SampleData + SampleCount;
+                
+#if 0
+                for(u32 SampleIndex = 0;
+                    SampleIndex < SampleCount;
+                    ++SampleIndex)
+                {
+                    SampleData[2*SampleIndex + 0] = (s16)SampleIndex;
+                    SampleData[2*SampleIndex + 1] = (s16)SampleIndex;
+                }
+#endif
+                
+                for(u32 SampleIndex = 0;
+                    SampleIndex < SampleCount;
+                    ++SampleIndex)
+                {
+                    s16 Source = SampleData[2*SampleIndex];
+                    SampleData[2*SampleIndex] = SampleData[SampleIndex];
+                    SampleData[SampleIndex] = Source;
+                }
+            }
+            else
+            {
+                Assert(!"Invalid channel count in WAV file");
+            }
+            
+            // TODO(casey): Load right channels!
+            b32 AtEnd = true;
+            Result.ChannelCount = 1;
+            if(SectionSampleCount)
+            {
+                Assert((SectionFirstSampleIndex + SectionSampleCount) <= SampleCount);
+                AtEnd = ((SectionFirstSampleIndex + SectionSampleCount) == SampleCount);
+                SampleCount = SectionSampleCount;
+                for(u32 ChannelIndex = 0;
+                    ChannelIndex < Result.ChannelCount;
+                    ++ChannelIndex)
+                {
+                    Result.Samples[ChannelIndex] += SectionFirstSampleIndex;
+                }
+            }
+            
+            if(AtEnd)
+            {
+                for(u32 ChannelIndex = 0;
+                    ChannelIndex < Result.ChannelCount;
+                    ++ChannelIndex)
+                {
+                    for(u32 SampleIndex = SampleCount;
+                        SampleIndex < (SampleCount + 8);
+                        ++SampleIndex)
+                    {
+                        Result.Samples[ChannelIndex][SampleIndex] = 0;
+                    }
+                }
+            }
+            
+            Result.SampleCount = SampleCount;
+        }
     }
     
     return(Result);

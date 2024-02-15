@@ -3,48 +3,47 @@
 #include <limits.h>
 #include <float.h>
 
-typedef int8_t int8;
-typedef int16_t int16;
-typedef int32_t int32;
-typedef int64_t int64;
-typedef int32 bool32;
+typedef int8_t s8;
+typedef int16_t s16;
+typedef int32_t s32;
+typedef int64_t s64;
 
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef uint32_t uint32;
-typedef uint64_t uint64;
+typedef s32 b32;
+
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
 
 typedef intptr_t intptr;
 typedef uintptr_t uintptr;
+typedef intptr_t smm;
+typedef uintptr_t umm;
 
 typedef size_t memory_index;
 
-typedef float real32;
-typedef double real64;
+// NOTE(ezexff): Floating point fix for no CRT release compile (MSVC)
+#if !(ENGINE_INTERNAL)
+extern "C"
+{
+    int _fltused;
+}
+#pragma function(memset)
+void *
+memset(void *_Dst, int _Val, size_t _Size)
+{
+    unsigned char Val = *(unsigned char *)&_Val;
+    unsigned char *At = (unsigned char *)_Dst;
+    while(_Size--)
+    {
+        *At++ = Val;
+    }
+    return(_Dst);
+}
+#endif
 
-typedef int8 s8;
-typedef int8 s08;
-typedef int16 s16;
-typedef int32 s32;
-typedef int64 s64;
-typedef bool32 b32;
-
-typedef uint8 u8;
-typedef uint8 u08;
-typedef uint16 u16;
-typedef uint32 u32;
-typedef uint64 u64;
-
-typedef real32 r32;
-typedef real64 r64;
-// typedef real32 f32;
-// typedef real64 f64;
-
-typedef uintptr_t umm;
-typedef intptr_t smm;
-
-// typedef b32 b32x;
-// typedef u32 u32x;
+typedef float r32;
+typedef double r64;
 
 #define flag8(type) u8
 #define flag16(type) u16
@@ -76,22 +75,22 @@ typedef intptr_t smm;
 #define Pi32_4 0.78539816340f // pi/4 TODO(me): remove?
 #define Tau32 6.28318530717958647692f
 
-#if ENGINE_SLOW
+#if ENGINE_INTERNAL
 #define Assert(Expression)                                                                                             \
-    if(!(Expression))                                                                                                  \
-    {                                                                                                                  \
-        *(int *)0 = 0;                                                                                                 \
-    }
+if(!(Expression))                                                                                                  \
+{                                                                                                                  \
+*(int *)0 = 0;                                                                                                 \
+}
 #else
 #define Assert(Expression)
 #endif
 
 #define InvalidCodePath Assert(!"InvalidCodePath")
 #define InvalidDefaultCase                                                                                             \
-    default: {                                                                                                         \
-        InvalidCodePath;                                                                                               \
-    }                                                                                                                  \
-    break
+default: {                                                                                                         \
+InvalidCodePath;                                                                                               \
+}                                                                                                                  \
+break
 
 #define Kilobytes(Value) ((Value)*1024LL)
 #define Megabytes(Value) (Kilobytes(Value) * 1024LL)
@@ -105,3 +104,126 @@ typedef intptr_t smm;
 #define Align4(Value) ((Value + 3) & ~3)
 #define Align8(Value) ((Value + 7) & ~7)
 #define Align16(Value) ((Value + 15) & ~15)
+
+// NOTE(ezexff): Vectors
+union v2 {
+    struct
+    {
+        r32 x, y;
+    };
+    r32 E[2];
+};
+
+union v2s
+{
+    struct
+    {
+        s32 x, y;
+    };
+    s32 E[2];
+};
+
+union v3 {
+    struct
+    {
+        r32 x, y, z;
+    };
+    struct
+    {
+        r32 r, g, b;
+    };
+    struct
+    {
+        v2 xy;
+        r32 Ignored0_;
+    };
+    struct
+    {
+        r32 Ignored1_;
+        v2 yz;
+    };
+    r32 E[3];
+};
+
+union v3s
+{
+    struct
+    {
+        s32 x;
+        s32 y;
+        s32 z;
+    };
+    s32 E[3];
+};
+
+union v4 {
+    struct
+    {
+        union {
+            v3 xyz;
+            struct
+            {
+                r32 x, y, z;
+            };
+        };
+        
+        r32 w;
+    };
+    struct
+    {
+        union {
+            v3 rgb;
+            struct
+            {
+                r32 r, g, b;
+            };
+        };
+        
+        r32 a;
+    };
+    struct
+    {
+        v2 xy;
+        r32 Ignored0_;
+        r32 Ignored1_;
+    };
+    struct
+    {
+        r32 Ignored2_;
+        v2 yz;
+        r32 Ignored3_;
+    };
+    struct
+    {
+        r32 Ignored4_;
+        r32 Ignored5_;
+        v2 zw;
+    };
+    r32 E[4];
+};
+
+//~ NOTE(ezexff): Rectangles
+struct rectangle2
+{
+    v2 Min;
+    v2 Max;
+};
+
+struct rectangle3
+{
+    v3 Min;
+    v3 Max;
+};
+
+//~ NOTE(ezexff): Matrices
+struct m4x4
+{
+    // NOTE(ezexff): These are stored ROW MAJOR - E[ROW][COLUMN]!!!
+    r32 E[4][4];
+};
+
+struct m4x4_inv
+{
+    m4x4 Forward;
+    m4x4 Inverse;
+};

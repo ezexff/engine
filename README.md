@@ -1,37 +1,238 @@
 # C++ Game Engine
-Игровой движок, написанный на C++. Проект имеет кросплатформерную структуру (слой платформы и игровой код независимы друг от друга), а так же использует библиотеки [GLFW](https://www.glfw.org/), [ImGui](https://github.com/ocornut/imgui), [Glad](https://github.com/Dav1dde/glad) и [stb_image](https://github.com/nothings/stb).<br><br>
-![C++ Game Engine screenshot](https://i.imgur.com/08RFODw.png)
-![C++ Game Engine screenshot](https://i.imgur.com/DuFitsj.png)
-<details>
-<summary>Скриншоты прошлых версий</summary>
-<img src="https://i.imgur.com/ue5gFgL.png" alt="C++ Game Engine screenshot">
-<img src="https://i.imgur.com/BNUPyQj.png" alt="C++ Game Engine screenshot">
-<img src="https://i.imgur.com/lFqbDXQ.png" alt="C++ Game Engine screenshot">
-<img src="https://i.imgur.com/icJtm0k.png" alt="C++ Game Engine screenshot">
-<img src="https://i.imgur.com/vRpIoxd.png" alt="C++ Game Engine screenshot">
-<img src="https://i.imgur.com/gW81zeb.png" alt="C++ Game Engine screenshot">
-<img src="https://i.imgur.com/oZZdn5x.png" alt="C++ Game Engine screenshot">
-</details>
+Game engine that i wrote when learned low-level programming
 
 ## Setup
-* Engine: Custom (from scratch without libs - only platform api and graphics api - for now i use some libs like GLFW, stb_image because i want skip routine things with WIN_API and do it later)
-* Language: C++ (C coding style with some C++ features like function/operator overloading)
-* Libraries: ImGui (developer version only)
+* Engine: Custom. Low-level programming. From scratch and without libs. Minimum number of dependencies. Only platform api and graphics api
+* Language: C++ but "C coding style" with some C++ features like function and operator overloading. That can help understand what compiler does with code and how code works on CPU in ASM instructions
+* IDE: [4Coder](https://4coder.net/)
 * Graphics API: OpenGL
-* IDE: Visual Studio Code
-* Compile: through .bat with MSVC
-* Debug: through .bat with Visual Studio
-* Assets
-  * Creation 3d-models in Blender
-  * Importing 3d-model in Engine from my AssetLoader tool
-  * AssetLoader converts 3d-model from any type to my custom type (Assimp)
-* Main learning resources
+* Libraries: Only for debug version [ImGui](https://github.com/ocornut/imgui)
+* Debug: Visual Studio
+* Build: through `.bat` with MSVC
+  * Debug version with ImGui
+  * Release version without CRT and ImGui
+* Asset: [Asset Builder](https://github.com/ezexff/asset-builder) pack assets into `.eab` (engine asset builder) file. Engine import assets from `.eab` files
+* Main learning and inspiration resources
   * [Handmade Hero](https://handmadehero.org/)
   * [Begin End](https://www.youtube.com/channel/UCz29nMCtFP5cuyuLR_0dFkw)
   * [OGLDEV](https://ogldev.org/)
 
 ## Engine
-* Platform Layer (GLFW)
+<details>
+<summary>Platform-independent code</summary>
+
+* ### Types
+  * Custom names for C data types (int, float and etc.)
+  * Constant values
+    * Min and Max for int, float and etc.
+    * Pi, Tau
+  * Preprocessor directives
+    * Assert()
+    * InvalidCodePath
+    * InvalidDefaultCase
+    * Kilobytes(), Megabytes(), Gigabytes(), Terabytes()
+    * ArrayCount()
+  * No CRT
+    * _fltused
+    * memset()
+  * Vector declarations (v2, v2s, v3, v3s, v4)
+  * Rectangle declarations (rectangle2, rectangle3)
+  * Matrix declarations (m4x4, m4x4_inv)
+* ### Structs
+  * Memory
+    * `game_memory`
+  * Renderer
+    * `renderer_frame`
+  * Audio
+    * `game_sound_output_buffer`
+    * `loaded_sound`
+  * Input
+    * `platform_file_handle`
+    * `platform_file_group`
+    * `game_button_state`
+    * `game_controller_input`
+    * `game_input_mouse_button`
+    * `game_input`
+  * Other
+    * `platform_api` pointers to win32 functions
+      * Read data from files
+        * GetAllFilesOfTypeBegin
+        * GetAllFilesOfTypeEnd
+        * OpenNextFile
+        * ReadDataFromFile
+        * FileError
+  * Debug
+    * `imgui` context, variables for windows visibility and etc.
+* ### Functions
+  * `SafeTruncateUInt64()`
+  * `GetController()`
+* ### Export/import function declarations
+  * `UpdateAndRender()`
+  * `GetSoundSamples()`
+  * Renderer
+    * `BeginFrame()`
+    * `EndFrame()`
+---
+  
+</details>
+
+<details>
+<summary>Win32 code</summary>
+
+
+* ### Memory
+  * Alloc big memory block with VirtualAlloc()
+  * Pointers to platform API functions
+* ### Renderer (OpenGL)
+  * Load renderer from .dll
+  * Init Frame object
+  * Update Frame object at every frame with `BeginFrame()` and `EndFrame()`
+* ### Audio
+  * WASAPI
+  * ~~DirectSound~~
+* ### Input
+  * Keyboard
+  * Mouse (keys, wheel, cursor)
+  * Read files
+    * GetAllFilesOfType
+    * OpenNextFile
+    * FileError
+  * ~~XInput gamepad~~
+* ### Other
+  * Timer
+  * Fps lock
+  * Toggle fullscreen
+* ### Debug
+  * ImGui log app
+  * ImGui win32 window
+    * Settings
+      * Demo window
+      * Window mode
+      * Fps lock
+    * Renderer
+      * Frame info
+      * OpenGL info
+    * Audio
+      * WASAPI info
+    * Input
+      * Cheatsheet of implemented inputs
+---
+
+</details>
+
+<details>
+<summary>Game code</summary>
+
+* ### Memory
+  * ConstArena static storage
+  * TranArena updates every frame
+* ### Renderer (OpenGL)
+  * Render through camera with perspective projection
+  * Push buffer
+    * Clear
+    * RectOnGround
+    * RectOutlineOnGround
+* ### Audio (sound mixer)
+  * Play sound
+  * Play sine wave
+  * Sine wave tone volume
+  * Sine wave tone hz
+* ### Mode
+  * Test
+    * Render
+      * Clear screen
+  * World
+    * Input
+      * Camera X and Y from keyboard
+      * Camera Z from mouse wheel
+    * Render
+      * Clear screen
+      * Rectangle outline on ground
+      * Rectangle on ground
+* ### Other
+  * Math
+    * Intrinsics
+      * Scalar operations through processor instructions
+      * SIMD intrinsics for trigonometric math functions (SVML)
+    * Scalar operations
+    * Vectors operators and operations
+    * Rectangles operators and operations
+    * Matrices operators and operations
+  * Asset
+    * Reading file groups
+    * Import WAV file
+* ### Debug
+  * ImGui log app
+  * ImGui game window
+    * Memory
+      * ConstArena info
+      * TranArena info
+    * Audio
+      * Tone hz
+      * Tone volume
+      * Play loaded sound
+    * Frame
+      * Push buffer info
+      * Camera position and angle
+    * Input
+      * Mouse pos and delta
+      * Log mouse input
+      * Log keyboard input
+    * Mode
+      * Change game mode
+      * Background fill color
+
+</details>
+
+## Сборка проекта через MSVC Compiler при помощи build.bat
+1. Укажите в третьей строке файла [build.bat](code/build.bat) свой путь до `vcvarsall.bat`
+2. Запуск [build.bat](code/build.bat) скомпилирует исполняемый файл `build/win32_engine.exe`
+## Отладка проекта в Visual Studio при помощи debug.bat
+1. Запуск [debug.bat](code/debug.bat) откроет в Visual Studio исполняемый файл `build/win32_engine.exe`
+2. В обозревателе решений следует изменить рабочий каталог с `build` на `data`
+> **NOTE:** [debug.bat](code/debug.bat) необходимо запускать через CLI после `vcvarsall.bat`
+
+## Legacy
+<details>
+<summary>Screenshots</summary>
+
+### 26.12.2023
+<img src="https://i.imgur.com/ScSqF2k.png" alt="19 - 26.12.2023">
+<img src="https://i.imgur.com/mNnF25d.png" alt="18 - 26.12.2023">
+<img src="https://i.imgur.com/66SAlev.png" alt="17 - 26.12.2023">
+<img src="https://i.imgur.com/m0dVLfg.png" alt="16 - 26.12.2023">
+<img src="https://i.imgur.com/oRULiTy.png" alt="15 - 26.12.2023">
+<img src="https://i.imgur.com/2WkdFRJ.png" alt="14 - 26.12.2023">
+<img src="https://i.imgur.com/3KfLifH.png" alt="13 - 26.12.2023">
+<img src="https://i.imgur.com/SGAMw7X.png" alt="12 - 26.12.2023">
+<img src="https://i.imgur.com/yoag0Nv.png" alt="11 - 26.12.2023">
+<img src="https://i.imgur.com/qwDYdQb.png" alt="10 - 26.12.2023">
+
+### 26.08.2023
+<img src="https://i.imgur.com/08RFODw.png" alt="9 - 26.08.2023">
+<img src="https://i.imgur.com/DuFitsj.png" alt="8 - 26.08.2023">
+
+### 21.08.2023
+<img src="https://i.imgur.com/ue5gFgL.png" alt="7 - 21.08.2023">
+
+### 19.08.2023
+<img src="https://i.imgur.com/BNUPyQj.png" alt="6 - 19.08.2023">
+
+### 12.08.2023
+<img src="https://i.imgur.com/lFqbDXQ.png" alt="5 - 12.08.2023">
+<img src="https://i.imgur.com/icJtm0k.png" alt="4 - 12.08.2023">
+<img src="https://i.imgur.com/vRpIoxd.png" alt="3 - 12.08.2023">
+<img src="https://i.imgur.com/gW81zeb.png" alt="2 - 12.08.2023">
+
+### 06.01.2023
+<img src="https://i.imgur.com/oZZdn5x.png" alt="1 - 06.01.2023">
+
+</details>
+
+<details>
+<summary>Description</summary>
+
+* ### Platform Layer (GLFW)
   * Memory: big memory block from VirtualAlloc()
   * OpenGL (Glad) + GLSL
   * Framerate
@@ -46,7 +247,7 @@
   * Debug
     * ImGui: Logging, Diagramming and etc.
     * Performance Counters
-* Game Layer
+* ### Game Layer
   * Memory
     * WorldArena: static storage
       * GameState
@@ -95,10 +296,4 @@
     * Grass: Materials + Lighting
     * 3d-model: Materials + Lighting + Shadows (Depth Shader, Shadow Shader, Shadow acne, Peter panning, PCF)
 
-## Сборка проекта через MSVC Compiler при помощи build.bat
-1.  Укажите во второй строке файла [build.bat](code/build.bat) свой путь до **vcvarsall.bat**
-2.  Запуск [build.bat](code/build.bat) скомпилирует исполняемый файл **build/win32_engine.exe**
-## Отладка проекта в Visual Studio при помощи debug.bat
-1.  Укажите во второй строке файла [debug.bat](code/debug.bat) свой путь до **vcvarsall.bat**
-2.  Запуск [debug.bat](code/debug.bat) откроет в Visual Studio исполняемый файл **build/win32_engine.exe**
-3.  В обозревателе решений следует изменить рабочий каталог с **build** на **data**
+</details>

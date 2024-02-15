@@ -1,77 +1,244 @@
-#include <glad.c>
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-#include <stdio.h>
-#include <dsound.h>
+#define COBJMACROS
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <gl/gl.h>
 
-#include <GLFW/glfw3.h>
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>
+#include <mmdeviceapi.h>
+#include <audioclient.h>
+#include <timeapi.h>
 
 #include "engine_platform.h"
 
-#include "engine.cpp"
-// Dear ImGui: standalone example application for GLFW + OpenGL 3, using programmable pipeline
-// (GLFW is a cross-platform general purpose library for handling windows, inputs, OpenGL/Vulkan/Metal graphics context
-// creation, etc.) If you are new to Dear ImGui, read documentation from the docs/ folder + read the top of imgui.cpp.
-// Read online: https://github.com/ocornut/imgui/tree/master/docs
+#include "win32_engine_renderer.h"
 
-#include "win32_engine.h"
 
-#define DEBUG_AUDIO 0
+b32 GlobalRunning = false;
+b32 GlobalIsFullscreen = false;
+WINDOWPLACEMENT GlobalWindowPosition = {sizeof(GlobalWindowPosition)};
 
-// TODO(me): запаковать все переменные в win32_state структуру?
-global_variable b32 GlobalPause = false;
+game_controller_input *NewKeyboardController;
 
-global_variable b32 GlobalIsWindowMode = true;
-global_variable b32 GlobalShowMouseCursor = true;
-global_variable b32 MouseCursorInited = true;
-global_variable b32 MousePosChanged = false;
+IAudioClient* GlobalSoundClient;
+IAudioRenderClient* GlobalSoundRenderClient;
+#define FramesOfAudioLatency 1
+#define MonitorRefreshHz 144
+s32 GlobalGameUpdateHz = (MonitorRefreshHz);
 
-global_variable game_controller_input *NewKeyboardController;
-global_variable r32 MouseOffsetX, MouseOffsetY;
-global_variable r32 MouseLastX, MouseLastY;
+u64 GlobalTimerOffset;
+u64 GlobalTimerFrequency;
 
-// global_variable b32 GlobalUncappedFrameRate = false;
-global_variable r32 GlobalGameUpdateHz;
-global_variable b32 GlobalIsVSyncEnabled = false;
-global_variable b32 GlobalToggleVSync = false;
+#if ENGINE_INTERNAL
+app_log *Log;
+b32 GlobalShowImGuiWindows = true; // All ImGui windows visibility
 
-global_variable GLFWwindow *GlobalWindow;
-global_variable game_offscreen_buffer GlobalBuffer = {};
-// game_controller_input *KeyboardController = &Input.Controllers[0];
-
-global_variable int64 GlobalPerfCountFrequency;
-global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
-// bool32 GlobalIsGameUpdateHzChanged = false;
-
-#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
-typedef DIRECT_SOUND_CREATE(direct_sound_create);
-
-// #pragma comment(linker, "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
-
-// [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to maximize ease of testing and
-// compatibility with old VS compilers. To link with VS2010-era libraries, VS2015+ requires linking with
-// legacy_stdio_definitions.lib, which we do using this pragma. Your own project should not be affected, as you are
-// likely to link with a newer binary of GLFW that is adequate for your version of Visual Studio.
-// #if defined(_MSC_VER) && (_MSC_VER >= 1900) && !defined(IMGUI_DISABLE_WIN32_FUNCTIONS)
-// #pragma comment(lib, "legacy_stdio_definitions")
-// #endif
-
-//
-// NOTE(me): Other
-//
-internal void //
-GlfwErrorCallback(int Error, const char *Description)
+//~ NOTE(ezexff): Message boxes
+void
+Win32ErrorMessageBox(char *Message)
 {
-    fprintf(stderr, "Glfw Error %d: %s\n", Error, Description);
+    MessageBoxA(0, Message, 0, MB_OK);
 }
 
-//
-// NOTE(ezexff): Read files
-//
+//~ NOTE(ezexff): Callbacks and inputs
+// Add in beginning Win32MainWindowCallback for ImGui inputs
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+void
+Win32ToggleFullscreen(HWND Window);
+
+void
+ImGuiProcessPendingMessages(HWND Window)
+{
+    MSG Message;
+    while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
+    {
+        switch(Message.message)
+        {
+            case WM_QUIT:
+            {
+                GlobalRunning = false;
+            } break;
+            
+            default:
+            {
+                TranslateMessage(&Message);
+                DispatchMessageA(&Message);
+            } break;
+        }
+    }
+    
+    // - IsKeyDown()
+    // - IsKeyPressed()
+    // - IsKeyReleased()
+    //
+    // - bool Repeat = false;
+    // - ImGui::IsKeyPressed(ImGuiKey_F1, Repeat
+}
+#endif
+
+void
+Win32ProcessKeyboardMessage(game_button_state *NewState, b32 IsDown)
+{
+    if(NewState->EndedDown != IsDown)
+    {
+        NewState->EndedDown = IsDown;
+        ++NewState->HalfTransitionCount;
+    }
+}
+
+void
+Win32ProcessPendingMessages(game_controller_input *KeyboardController, game_input *Input)
+{
+    MSG Message;
+    while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
+    {
+        switch(Message.message)
+        {
+            case WM_QUIT:
+            {
+                GlobalRunning = false;
+            } break;
+            
+            case WM_SYSKEYDOWN:
+            case WM_SYSKEYUP:
+            case WM_KEYDOWN:
+            case WM_KEYUP:
+            {
+                u32 VKCode = (u32)Message.wParam;
+                
+                // NOTE(casey): Since we are comparing WasDown to IsDown,
+                // we MUST use == and != to convert these bit tests to actual
+                // 0 or 1 values.
+                // NOTE(ezexff): lParam flags
+                // 30 bit - The previous key state. The value is always 1 for a WM_KEYUP message.
+                // 31 bit - The transition state. The value is always 1 for a WM_KEYUP message.
+                b32 WasDown = ((Message.lParam & (1 << 30)) != 0);
+                b32 IsDown = ((Message.lParam & (1 << 31)) == 0);
+                if(WasDown != IsDown)
+                {
+                    if(VKCode == 'W')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->MoveUp, IsDown);
+                    }
+                    if(VKCode == 'S')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->MoveDown, IsDown);
+                    }
+                    if(VKCode == 'A')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->MoveLeft, IsDown);
+                    }
+                    if(VKCode == 'D')
+                    {
+                        Win32ProcessKeyboardMessage(&KeyboardController->MoveRight, IsDown);
+                    }
+                    if(VKCode == VK_UP)
+                    {
+                        OutputDebugStringA("VK_UP\n");
+                    }
+                    else if(VKCode == VK_DOWN)
+                    {
+                        OutputDebugStringA("VK_DOWN\n");
+                    }
+                    else if(VKCode == VK_LEFT)
+                    {
+                        OutputDebugStringA("VK_LEFT\n");
+                    }
+                    else if(VKCode == VK_RIGHT)
+                    {
+                        OutputDebugStringA("VK_RIGHT\n");
+                    }
+                    else if(VKCode == VK_ESCAPE)
+                    {
+                        OutputDebugStringA("VK_ESCAPE\n");
+                        GlobalRunning = false;
+                    }
+                    else if(VKCode == VK_SPACE)
+                    {
+                        OutputDebugStringA("VK_SPACE\n");
+                    }
+                }
+                
+                if(IsDown)
+                {
+                    bool AltKeyWasDown = (Message.lParam & (1 << 29));
+                    if((VKCode == VK_F4) && AltKeyWasDown)
+                    {
+                        GlobalRunning = false;
+                    }
+                    else if((VKCode == VK_RETURN) && AltKeyWasDown)
+                    {
+                        if(Message.hwnd)
+                        {
+                            GlobalIsFullscreen = !GlobalIsFullscreen;
+                            Win32ToggleFullscreen(Message.hwnd);
+                        }
+                    }
+#if ENGINE_INTERNAL
+                    else if(VKCode == VK_F1)
+                    {
+                        OutputDebugStringA("VK_F1\n");
+                        GlobalShowImGuiWindows = !GlobalShowImGuiWindows;
+                    }
+#endif
+                }
+            } break;
+            
+            case WM_MOUSEWHEEL:
+            {
+                Input->MouseDelta.z = GET_WHEEL_DELTA_WPARAM(Message.wParam) / WHEEL_DELTA;
+            } break;
+            
+            default:
+            {
+                TranslateMessage(&Message);
+                DispatchMessageA(&Message);
+            } break;
+        }
+    }
+}
+
+LRESULT CALLBACK
+Win32MainWindowCallback(HWND Window,
+                        UINT Message,
+                        WPARAM WParam,
+                        LPARAM LParam)
+{
+    // NOTE(ezexff): ImGui message handler
+    {
+#if ENGINE_INTERNAL
+        if (ImGui_ImplWin32_WndProcHandler(Window, Message, WParam, LParam))
+        {
+            return(true);
+        }
+#endif
+    }
+    
+    LRESULT Result = 0;
+    
+    switch(Message)
+    {
+        case WM_CLOSE:
+        {
+            OutputDebugStringA("WM_CLOSE\n");
+            GlobalRunning = false;
+        } break;
+        
+        case WM_DESTROY:
+        {
+            OutputDebugStringA("WM_DESTROY\n");
+            GlobalRunning = false;
+        } break;
+        
+        default:
+        {
+            Result = DefWindowProcA(Window, Message, WParam, LParam);
+        } break;
+    }
+    
+    return(Result);
+}
+
+//~ NOTE(ezexff): File i/o
 struct win32_platform_file_handle
 {
     platform_file_handle H;
@@ -88,9 +255,9 @@ struct win32_platform_file_group
 internal PLATFORM_GET_ALL_FILE_OF_TYPE_BEGIN(Win32GetAllFilesOfTypeBegin)
 {
     // TODO(casey): If we want, someday, make an actual arena used by Win32
-    win32_platform_file_group *Win32FileGroup = (win32_platform_file_group *)VirtualAlloc(
-                                                                                          0, sizeof(win32_platform_file_group),
-                                                                                          MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    win32_platform_file_group *Win32FileGroup = 
+    (win32_platform_file_group *)VirtualAlloc(0, sizeof(win32_platform_file_group),
+                                              MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     
     char *TypeAt = Type;
     char WildCard[32] = "*.";
@@ -147,8 +314,7 @@ internal PLATFORM_OPEN_FILE(Win32OpenNextFile)
     if(Win32FileGroup->FindHandle != INVALID_HANDLE_VALUE)
     {    
         // TODO(casey): If we want, someday, make an actual arena used by Win32
-        Result = (win32_platform_file_handle *)VirtualAlloc(
-                                                            0, sizeof(win32_platform_file_handle),
+        Result = (win32_platform_file_handle *)VirtualAlloc(0, sizeof(win32_platform_file_handle),
                                                             MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
         
         if(Result)
@@ -203,1040 +369,840 @@ internal PLATFORM_READ_DATA_FROM_FILE(Win32ReadDataFromFile)
     }
 }
 
-/*
-
-internal PLATFORM_FILE_ERROR(Win32CloseFile)
+//~ NOTE(ezexff): Screen mode: fullscreen or windowed
+void
+Win32ToggleFullscreen(HWND Window)
 {
-    CloseHandle(FileHandle);
-}
-
-*/
-
-internal r32 //
-Win32GetMonitorRefreshHz(HWND Window)
-{
-    r32 Result;
+    // NOTE(casey): This follows Raymond Chen's prescription
+    // for fullscreen toggling, see:
+    // http://blogs.msdn.com/b/oldnewthing/archive/2010/04/12/9994016.aspx
     
-    int MonitorRefreshHz = 60;
-    HDC RefreshDC = GetDC(Window);
-    int Win32RefreshRate = GetDeviceCaps(RefreshDC, VREFRESH);
-    ReleaseDC(Window, RefreshDC);
-    if(Win32RefreshRate > 1)
+    DWORD Style = GetWindowLong(Window, GWL_STYLE);
+    if(Style & WS_OVERLAPPEDWINDOW)
     {
-        MonitorRefreshHz = Win32RefreshRate;
-    }
-    Result = (r32)MonitorRefreshHz;
-    
-    return (Result);
-}
-
-//
-// NOTE(me): Timers
-//
-inline LARGE_INTEGER //
-Win32GetWallClock(void)
-{
-    LARGE_INTEGER Result;
-    QueryPerformanceCounter(&Result);
-    return (Result);
-}
-
-inline real32 //
-Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End)
-{
-    real32 Result = ((real32)(End.QuadPart - Start.QuadPart) / //
-                     (real32)GlobalPerfCountFrequency);
-    return (Result);
-}
-
-//
-// NOTE(me): Sound
-//
-internal void //
-Win32InitDSound(HWND Window, int32 SamplesPerSecond, int32 BufferSize)
-{
-    // NOTE(casey): Load the library
-    HMODULE DSoundLibrary = LoadLibraryA("dsound.dll");
-    if(DSoundLibrary)
-    {
-        // NOTE(casey): Get a DirectSound object! - cooperative
-        direct_sound_create *DirectSoundCreate =
-        (direct_sound_create *)GetProcAddress(DSoundLibrary, "DirectSoundCreate");
-        
-        // TODO(casey): Double-check that this works on XP - DirectSound8 or 7??
-        LPDIRECTSOUND DirectSound;
-        if(DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &DirectSound, 0)))
+        MONITORINFO MonitorInfo = {sizeof(MonitorInfo)};
+        if(GetWindowPlacement(Window, &GlobalWindowPosition) &&
+           GetMonitorInfo(MonitorFromWindow(Window, MONITOR_DEFAULTTOPRIMARY), &MonitorInfo))
         {
-            WAVEFORMATEX WaveFormat = {};
-            WaveFormat.wFormatTag = WAVE_FORMAT_PCM;
-            WaveFormat.nChannels = 2;
-            WaveFormat.nSamplesPerSec = SamplesPerSecond;
-            WaveFormat.wBitsPerSample = 16;
-            WaveFormat.nBlockAlign = (WaveFormat.nChannels * WaveFormat.wBitsPerSample) / 8;
-            WaveFormat.nAvgBytesPerSec = WaveFormat.nSamplesPerSec * WaveFormat.nBlockAlign;
-            WaveFormat.cbSize = 0;
-            
-            if(SUCCEEDED(DirectSound->SetCooperativeLevel(Window, DSSCL_PRIORITY)))
-            {
-                DSBUFFERDESC BufferDescription = {};
-                BufferDescription.dwSize = sizeof(BufferDescription);
-                BufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
-                
-                // NOTE(casey): "Create" a primary buffer
-                // TODO(casey): DSBCAPS_GLOBALFOCUS?
-                LPDIRECTSOUNDBUFFER PrimaryBuffer;
-                if(SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &PrimaryBuffer, 0)))
-                {
-                    HRESULT Error = PrimaryBuffer->SetFormat(&WaveFormat);
-                    if(SUCCEEDED(Error))
-                    {
-                        // NOTE(casey): We have finally set the format!
-                        OutputDebugStringA("Primary buffer format was set.\n");
-                    }
-                    else
-                    {
-                        // TODO(casey): Diagnostic
-                    }
-                }
-                else
-                {
-                    // TODO(casey): Diagnostic
-                }
-            }
-            else
-            {
-                // TODO(casey): Diagnostic
-            }
-            
-            // TODO(casey): DSBCAPS_GETCURRENTPOSITION2
-            DSBUFFERDESC BufferDescription = {};
-            BufferDescription.dwSize = sizeof(BufferDescription);
-            BufferDescription.dwFlags = DSBCAPS_GETCURRENTPOSITION2;
-#if ENGINE_INTERNAL
-            BufferDescription.dwFlags |= DSBCAPS_GLOBALFOCUS;
-#endif
-            BufferDescription.dwBufferBytes = BufferSize;
-            BufferDescription.lpwfxFormat = &WaveFormat;
-            HRESULT Error = DirectSound->CreateSoundBuffer(&BufferDescription, &GlobalSecondaryBuffer, 0);
-            if(SUCCEEDED(Error))
-            {
-                OutputDebugStringA("Secondary buffer created successfully.\n");
-            }
-        }
-        else
-        {
-            // TODO(casey): Diagnostic
+            SetWindowLong(Window, GWL_STYLE, Style & ~WS_OVERLAPPEDWINDOW);
+            SetWindowPos(Window, HWND_TOP,
+                         MonitorInfo.rcMonitor.left, MonitorInfo.rcMonitor.top,
+                         MonitorInfo.rcMonitor.right - MonitorInfo.rcMonitor.left,
+                         MonitorInfo.rcMonitor.bottom - MonitorInfo.rcMonitor.top,
+                         SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
         }
     }
     else
     {
-        // TODO(casey): Diagnostic
+        SetWindowLong(Window, GWL_STYLE, Style | WS_OVERLAPPEDWINDOW);
+        SetWindowPlacement(Window, &GlobalWindowPosition);
+        SetWindowPos(Window, 0, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                     SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
     }
 }
 
-internal void //
-Win32ClearBuffer(win32_sound_output *SoundOutput)
+//~ NOTE(ezexff): Audio
+void
+Win32InitWASAPI(s32 SamplesPerSecond, s32 BufferSizeInSamples)
 {
-    VOID *Region1;
-    DWORD Region1Size;
-    VOID *Region2;
-    DWORD Region2Size;
-    if(SUCCEEDED(GlobalSecondaryBuffer->Lock(0, SoundOutput->SecondaryBufferSize, //
-                                             &Region1, &Region1Size,              //
-                                             &Region2, &Region2Size,              //
-                                             0)))
-    {
-        // TODO(casey): assert that Region1Size/Region2Size is valid
-        uint8 *DestSample = (uint8 *)Region1;
-        for(DWORD ByteIndex = 0;     //
-            ByteIndex < Region1Size; //
-            ++ByteIndex)
-        {
-            *DestSample++ = 0;
-        }
-        
-        DestSample = (uint8 *)Region2;
-        for(DWORD ByteIndex = 0;     //
-            ByteIndex < Region2Size; //
-            ++ByteIndex)
-        {
-            *DestSample++ = 0;
-        }
-        
-        GlobalSecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
-    }
-}
-
-internal void //
-Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD BytesToWrite,
-                     game_sound_output_buffer *SourceBuffer)
-{
-    // TODO(casey): More strenuous test!
-    VOID *Region1;
-    DWORD Region1Size;
-    VOID *Region2;
-    DWORD Region2Size;
-    if(SUCCEEDED(GlobalSecondaryBuffer->Lock(ByteToLock, BytesToWrite, //
-                                             &Region1, &Region1Size,   //
-                                             &Region2, &Region2Size,   //
-                                             0)))
-    {
-        // TODO(casey): assert that Region1Size/Region2Size is valid
-        
-        // TODO(casey): Collapse these two loops
-        DWORD Region1SampleCount = Region1Size / SoundOutput->BytesPerSample;
-        int16 *DestSample = (int16 *)Region1;
-        int16 *SourceSample = SourceBuffer->Samples;
-        for(DWORD SampleIndex = 0;            //
-            SampleIndex < Region1SampleCount; //
-            ++SampleIndex)
-        {
-            *DestSample++ = *SourceSample++;
-            *DestSample++ = *SourceSample++;
-            ++SoundOutput->RunningSampleIndex;
-        }
-        
-        DWORD Region2SampleCount = Region2Size / SoundOutput->BytesPerSample;
-        DestSample = (int16 *)Region2;
-        for(DWORD SampleIndex = 0;            //
-            SampleIndex < Region2SampleCount; //
-            ++SampleIndex)
-        {
-            *DestSample++ = *SourceSample++;
-            *DestSample++ = *SourceSample++;
-            ++SoundOutput->RunningSampleIndex;
-        }
-        
-        GlobalSecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
-    }
-}
-
-#if DEBUG_AUDIO
-internal void //
-Win32DebugDrawVertical(int X, int Top, int Bottom, v3 Color)
-{
-    //
-    if(Top <= 0)
-    {
-        Top = 0;
-    }
-    
-    if(Bottom > GlobalBuffer.Height)
-    {
-        Bottom = GlobalBuffer.Height;
-    }
-    
-    if((X >= 0) && (X < GlobalBuffer.Width))
-    {
-        r32 MinX = (r32)X;
-        r32 MaxX = (r32)(X + 1);
-        r32 MinY = (r32)Top;
-        r32 MaxY = (r32)(Bottom);
-        r32 VRect[] = {
-            MinX, MinY, // 0
-            MaxX, MinY, // 1
-            MaxX, MaxY, // 2
-            MinX, MaxY  // 3
-        };
-        
-        r32 Alpha = 0.5f;
-        r32 VColor[] = {
-            Color.x, Color.y, Color.z, Alpha, // 0
-            Color.x, Color.y, Color.z, Alpha, // 1
-            Color.x, Color.y, Color.z, Alpha, // 2
-            Color.x, Color.y, Color.z, Alpha, // 3
-        };
-        
-        glViewport(0, 0, GlobalBuffer.Width, GlobalBuffer.Height);
-        
-        glDisable(GL_DEPTH_TEST);
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glOrtho(0, GlobalBuffer.Width, 0, GlobalBuffer.Height, 0, 1);
-        glMatrixMode(GL_MODELVIEW);
-        
-        glEnableClientState(GL_VERTEX_ARRAY);
-        glEnableClientState(GL_COLOR_ARRAY);
-        
-        glVertexPointer(2, GL_FLOAT, 0, VRect);
-        glColorPointer(4, GL_FLOAT, 0, VColor);
-        glDrawArrays(GL_QUADS, 0, 4);
-        
-        glDisableClientState(GL_VERTEX_ARRAY);
-        glDisableClientState(GL_COLOR_ARRAY);
-    }
-}
-
-inline void                                                         //
-Win32DrawSoundBufferMarker(win32_sound_output *SoundOutput,         //
-                           real32 C, int PadX, int Top, int Bottom, //
-                           DWORD Value, v3 Color)
-{
-    real32 XReal32 = (C * (real32)Value);
-    int X = PadX + (int)XReal32;
-    Win32DebugDrawVertical(X, Top, Bottom, Color);
-}
-
-internal void                                                            //
-Win32DebugSyncDisplay(int MarkerCount, win32_debug_time_marker *Markers, //
-                      int CurrentMarkerIndex,                            //
-                      win32_sound_output *SoundOutput)
-{
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_ONE, GL_ONE);
-    
-    s32 PadX = 16;
-    s32 PadY = 16;
-    
-    int LineHeight = 32;
-    
-    r32 C = (r32)(GlobalBuffer.Width - 2 * PadX) / (r32)SoundOutput->SecondaryBufferSize;
-    for(int MarkerIndex = 0;       //
-        MarkerIndex < MarkerCount; //
-        ++MarkerIndex)
-    {
-        win32_debug_time_marker *ThisMarker = &Markers[MarkerIndex];
-        Assert(ThisMarker->OutputPlayCursor < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->OutputWriteCursor < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->OutputLocation < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->OutputByteCount < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->FlipPlayCursor < SoundOutput->SecondaryBufferSize);
-        Assert(ThisMarker->FlipWriteCursor < SoundOutput->SecondaryBufferSize);
-        
-        v3 PlayColor = V3(1, 1, 1);         // white
-        v3 WriteColor = V3(1, 0, 0);        // red
-        v3 ExpectedFlipColor = V3(1, 1, 0); // yellow
-        v3 PlayWindowColor = V3(1, 0, 1);   // purple
-        
-        int Top = GlobalBuffer.Height - PadY;                 // - MarkerIndex * 5;
-        int Bottom = GlobalBuffer.Height - PadY - LineHeight; // - MarkerIndex * 5;
-        
-        if(MarkerIndex == CurrentMarkerIndex)
-        {
-            Top -= LineHeight + PadY;
-            Bottom -= LineHeight + PadY;
-            
-            int FirstTop = Top;
-            
-            // prepare audio for writing
-            Win32DrawSoundBufferMarker(SoundOutput, C, PadX, Top, Bottom, ThisMarker->OutputPlayCursor, PlayColor);
-            Win32DrawSoundBufferMarker(SoundOutput, C, PadX, Top, Bottom, ThisMarker->OutputWriteCursor, WriteColor);
-            
-            Top -= LineHeight + PadY;
-            Bottom -= LineHeight + PadY;
-            
-            // ByteToLock & BTL+BytesToWrite
-            Win32DrawSoundBufferMarker(SoundOutput, C, PadX, Top, Bottom, ThisMarker->OutputLocation, PlayColor);
-            Win32DrawSoundBufferMarker(SoundOutput, C, PadX, Top, Bottom,
-                                       ThisMarker->OutputLocation + ThisMarker->OutputByteCount, WriteColor);
-            
-            Top -= LineHeight + PadY;
-            Bottom -= LineHeight + PadY;
-            
-            // ExpectedFlipPlayCursor
-            Win32DrawSoundBufferMarker(SoundOutput, C, PadX, FirstTop, Bottom, ThisMarker->ExpectedFlipPlayCursor,
-                                       ExpectedFlipColor);
-        }
-        
-        // previous frames and current frame if(MarkerIndex == CurrentMarkerIndex)
-        Win32DrawSoundBufferMarker(SoundOutput, C, PadX, Top, Bottom, ThisMarker->FlipPlayCursor, PlayColor);
-        Win32DrawSoundBufferMarker(SoundOutput, C, PadX, Top, Bottom,
-                                   ThisMarker->FlipPlayCursor + 480 * SoundOutput->BytesPerSample, PlayWindowColor);
-        Win32DrawSoundBufferMarker(SoundOutput, C, PadX, Top, Bottom, ThisMarker->FlipWriteCursor, WriteColor);
-    }
-    glDisable(GL_BLEND);
-}
-#endif
-
-//
-// NOTE(me): Settings
-//
-
-PLATFORM_TOGGLE_VSYNC(PlatformToggleVSync)
-{
-    GlobalIsVSyncEnabled = NewIsVSyncEnabled;
-    GlobalGameUpdateHz = NewGameUpdateHz;
-    GlobalToggleVSync = GlobalIsVSyncEnabled;
-    glfwSwapInterval(GlobalIsVSyncEnabled);
-}
-
-PLATFORM_TOGGLE_FULLSCREEN(PlatformToggleFullscreen)
-{
-    GlobalIsWindowMode = !GlobalIsWindowMode;
-    if(GlobalIsWindowMode)
-    {
-        glfwSetWindowMonitor(GlobalWindow, NULL, 100, 100, 1280, 720, GLFW_DONT_CARE);
-    }
-    else
-    {
-        GLFWmonitor *Monitor = glfwGetPrimaryMonitor();
-        const GLFWvidmode *Mode = glfwGetVideoMode(Monitor);
-        glfwSetWindowMonitor(GlobalWindow, Monitor, 0, 0, Mode->width, Mode->height, Mode->refreshRate);
-    }
-}
-
-//
-// NOTE(me): Inputs
-//
-internal void GlfwProcessKey(int32 Key, int32 KeyCode, int32 Action, game_button_state *NewState)
-{
-    if((Key == KeyCode) && (Action == GLFW_PRESS))
-    {
-        NewState->EndedDown = true;
-        ++NewState->HalfTransitionCount;
-    }
-    else if((Key == KeyCode) && (Action == GLFW_RELEASE))
-    {
-        NewState->EndedDown = false;
-    }
-}
-
-internal void CursorPositionCallback(GLFWwindow *Window, double XPos, double YPos)
-{
-    if(MouseCursorInited)
-    {
-        MouseLastX = (r32)XPos;
-        MouseLastY = (r32)YPos;
-        MouseCursorInited = false;
-    }
-    
-    MouseOffsetX = (r32)XPos - MouseLastX;
-    MouseOffsetY = MouseLastY - (r32)YPos;
-    
-    MouseLastX = (r32)XPos;
-    MouseLastY = (r32)YPos;
-    
-    MousePosChanged = true;
-}
-
-internal void KeyCallback(GLFWwindow *Window, int Key, int Scancode, int Action, int Mods)
-{
-    // Game inputs
-    GlfwProcessKey(Key, GLFW_KEY_W, Action, &NewKeyboardController->MoveUp);
-    GlfwProcessKey(Key, GLFW_KEY_S, Action, &NewKeyboardController->MoveDown);
-    GlfwProcessKey(Key, GLFW_KEY_A, Action, &NewKeyboardController->MoveLeft);
-    GlfwProcessKey(Key, GLFW_KEY_D, Action, &NewKeyboardController->MoveRight);
-    GlfwProcessKey(Key, GLFW_KEY_SPACE, Action, &NewKeyboardController->Start);
-    GlfwProcessKey(Key, GLFW_KEY_UP, Action, &NewKeyboardController->ActionUp);
-    GlfwProcessKey(Key, GLFW_KEY_DOWN, Action, &NewKeyboardController->ActionDown);
-    GlfwProcessKey(Key, GLFW_KEY_LEFT, Action, &NewKeyboardController->ActionLeft);
-    GlfwProcessKey(Key, GLFW_KEY_RIGHT, Action, &NewKeyboardController->ActionRight);
-    
-    // Dev inputs
-#if ENGINE_INTERNAL
-    if(Key == GLFW_KEY_P && Action == GLFW_PRESS)
-    {
-        GlobalPause = !GlobalPause;
-    }
-    if(Key == GLFW_KEY_ESCAPE && Action == GLFW_PRESS)
-    {
-        glfwSetWindowShouldClose(Window, GLFW_TRUE);
-    }
-    if(Key == GLFW_KEY_F1 && Action == GLFW_PRESS)
-    {
-        PlatformToggleFullscreen();
-    }
-    if(Key == GLFW_KEY_LEFT_CONTROL && Action == GLFW_PRESS)
-    {
-        GlobalShowMouseCursor = !GlobalShowMouseCursor;
-        if(GlobalShowMouseCursor)
-        {
-            glfwSetInputMode(Window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        }
-        else
-        {
-            glfwSetInputMode(Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            
-            if(glfwRawMouseMotionSupported())
-            {
-                glfwSetInputMode(Window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
-            }
-        }
-    }
-#endif
-}
-
-//
-// NOTE(me): Threads
-//
-struct platform_work_queue_entry
-{
-    platform_work_queue_callback *Callback;
-    void *Data;
-};
-
-struct platform_work_queue
-{
-    uint32 volatile CompletionGoal;
-    uint32 volatile CompletionCount;
-    
-    uint32 volatile NextEntryToWrite;
-    uint32 volatile NextEntryToRead;
-    HANDLE SemaphoreHandle;
-    
-    platform_work_queue_entry Entries[256];
-};
-
-internal void //
-Win32AddEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data)
-{
-    // TODO(casey): Switch to InterlockedCompareExchange eventually
-    // so that any thread can add?
-    uint32 NewNextEntryToWrite = (Queue->NextEntryToWrite + 1) % ArrayCount(Queue->Entries);
-    Assert(NewNextEntryToWrite != Queue->NextEntryToRead);
-    platform_work_queue_entry *Entry = Queue->Entries + Queue->NextEntryToWrite;
-    Entry->Callback = Callback;
-    Entry->Data = Data;
-    ++Queue->CompletionGoal;
-    _WriteBarrier();
-    Queue->NextEntryToWrite = NewNextEntryToWrite;
-    ReleaseSemaphore(Queue->SemaphoreHandle, 1, 0);
-}
-
-internal bool32 //
-Win32DoNextWorkQueueEntry(platform_work_queue *Queue)
-{
-    bool32 WeShouldSleep = false;
-    
-    uint32 OriginalNextEntryToRead = Queue->NextEntryToRead;
-    uint32 NewNextEntryToRead = (OriginalNextEntryToRead + 1) % ArrayCount(Queue->Entries);
-    if(OriginalNextEntryToRead != Queue->NextEntryToWrite)
-    {
-        uint32 Index = InterlockedCompareExchange((LONG volatile *)&Queue->NextEntryToRead, NewNextEntryToRead,
-                                                  OriginalNextEntryToRead);
-        if(Index == OriginalNextEntryToRead)
-        {
-            platform_work_queue_entry Entry = Queue->Entries[Index];
-            Entry.Callback(Queue, Entry.Data);
-            InterlockedIncrement((LONG volatile *)&Queue->CompletionCount);
-        }
-    }
-    else
-    {
-        WeShouldSleep = true;
-    }
-    
-    return (WeShouldSleep);
-}
-
-internal void //
-Win32CompleteAllWork(platform_work_queue *Queue)
-{
-    while(Queue->CompletionGoal != Queue->CompletionCount)
-    {
-        Win32DoNextWorkQueueEntry(Queue);
-    }
-    
-    Queue->CompletionGoal = 0;
-    Queue->CompletionCount = 0;
-}
-
-DWORD WINAPI //
-ThreadProc(LPVOID lpParameter)
-{
-    platform_work_queue *Queue = (platform_work_queue *)lpParameter;
-    
-    for(;;)
-    {
-        if(Win32DoNextWorkQueueEntry(Queue))
-        {
-            WaitForSingleObjectEx(Queue->SemaphoreHandle, INFINITE, FALSE);
-        }
-    }
-    
-    //    return(0);
-}
-
-internal PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork)
-{
-    char Buffer[256];
-    wsprintf(Buffer, "Thread %u: %s\n", GetCurrentThreadId(), (char *)Data);
-    OutputDebugStringA(Buffer);
-}
-
-internal void //
-Win32MakeQueue(platform_work_queue *Queue, u32 ThreadCount)
-{
-    Queue->CompletionGoal = 0;
-    Queue->CompletionCount = 0;
-    
-    Queue->NextEntryToWrite = 0;
-    Queue->NextEntryToRead = 0;
-    
-    uint32 InitialCount = 0;
-    Queue->SemaphoreHandle = CreateSemaphoreEx(0, InitialCount, ThreadCount, 0, 0, SEMAPHORE_ALL_ACCESS);
-    for(uint32 ThreadIndex = 0;    //
-        ThreadIndex < ThreadCount; //
-        ++ThreadIndex)
-    {
-        DWORD ThreadID;
-        HANDLE ThreadHandle = CreateThread(0, 0, ThreadProc, Queue, 0, &ThreadID);
-        CloseHandle(ThreadHandle);
-    }
-}
-
-//
-// NOTE(me): Main
-//
-int main(int, char **)
-// int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode)
-{
-    win32_state Win32State = {};
-    
-    platform_work_queue HighPriorityQueue = {};
-    Win32MakeQueue(&HighPriorityQueue, 6);
-    
-    platform_work_queue LowPriorityQueue = {};
-    Win32MakeQueue(&LowPriorityQueue, 2);
-    
-#if 0
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A0");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A1");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A2");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A3");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A4");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A5");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A6");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A7");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A8");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work A9");
-    
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B0");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B1");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B2");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B3");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B4");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B5");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B6");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B7");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B8");
-    Win32AddEntry(&Queue, DoWorkerWork, "[thread] test work B9");
-    
-    Win32CompleteAllWork(&Queue);
-#endif
-    
-    // Setup window
-    glfwSetErrorCallback(GlfwErrorCallback);
-    if(!glfwInit())
+    // Инициализация COM библиотеки для вызывающего потока, задание модели параллелизма
+    if(FAILED(CoInitializeEx(0, COINIT_SPEED_OVER_MEMORY)))
     {
         InvalidCodePath;
     }
     
-    // Decide GL+GLSL versions
-#if defined(IMGUI_IMPL_OPENGL_ES2)
-    // GL ES 2.0 + GLSL 100
-    const char *glsl_version = "#version 100";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-#elif defined(__APPLE__)
-    // GL 3.2 + GLSL 150
-    const char *glsl_version = "#version 150";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // 3.2+ only
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);           // Required on Mac
+    // IMMDeviceEnumerator предоставляет методы для перечисления звуковых устройств
+    // Функция CoCreateInstance создает и инициализирует по умолчанию один объект класса,
+    // связанный с указанным идентификатором CLSID
+    IMMDeviceEnumerator *Enumerator;
+    if(FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, IID_PPV_ARGS(&Enumerator))))
+    {
+        InvalidCodePath;
+    }
+    
+    // IMMDevice представляет звуковое устройство
+    // Метод GetDefaultAudioEndpoint извлекает конечную точку звука по умолчанию
+    // для указанного направления и роли потока данных
+    IMMDevice *Device;
+    if(FAILED(Enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &Device)))
+    {
+        InvalidCodePath;
+    }
+    
+    // Интерфейс IAudioClient позволяет клиенту создавать и инициализировать аудиопоток между
+    // вуковым приложением и обработчиком звука (для потока в общем режиме) или аппаратным 
+    // буфером устройства конечной точки аудио (для потока в монопольном режиме).
+    // Метод Activate создает COM-объект с указанным интерфейсом
+    if(FAILED(Device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, NULL, (LPVOID *)&GlobalSoundClient)))
+    {
+        InvalidCodePath;
+    }
+    
+    // https://learn.microsoft.com/ru-ru/previous-versions/dd757713(v=vs.85)
+    WAVEFORMATEXTENSIBLE WaveFormat;
+    WaveFormat.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+    WaveFormat.Format.cbSize = sizeof(WaveFormat);
+    WaveFormat.Format.wBitsPerSample = 16;
+    WaveFormat.Format.nChannels = 2;
+    WaveFormat.Format.nSamplesPerSec = (DWORD)SamplesPerSecond;
+    WaveFormat.Format.nBlockAlign = (WORD)(WaveFormat.Format.nChannels * WaveFormat.Format.wBitsPerSample / 8);
+    WaveFormat.Format.nAvgBytesPerSec = WaveFormat.Format.nSamplesPerSec * WaveFormat.Format.nBlockAlign;
+    
+    WaveFormat.Samples.wValidBitsPerSample = 16;
+    WaveFormat.dwChannelMask = KSAUDIO_SPEAKER_STEREO;
+    WaveFormat.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+    
+    // Размер буфера в 100 nanoseconds 
+    // где 10000000ULL unsigned long long (u64) это 1000ms или 1 second
+#if 1
+    REFERENCE_TIME BufferDuration = 10000000ULL * BufferSizeInSamples / SamplesPerSecond;
 #else
-    // GL 3.0 + GLSL 130
-    const char *glsl_version = "#version 330";
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
-    //  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
+    // NOTE(ezexff): Low latency test
+    
+    // In 100 nanoseconds
+    REFERENCE_TIME phnsDefaultDevicePeriod;
+    REFERENCE_TIME phnsMinimumDevicePeriod;
+    if(FAILED(GlobalSoundClient->GetDevicePeriod(&phnsDefaultDevicePeriod, &phnsMinimumDevicePeriod)))
+    {
+        InvalidCodePath;
+    }
+    r64 HundredNSToMs = 1000000 / 100;
+    r64 DefaultDevicePeriod = (r64)phnsDefaultDevicePeriod / HundredNSToMs;
+    r64 MinimumDevicePeriod = (r64)phnsMinimumDevicePeriod / HundredNSToMs;
+    
+    //REFERENCE_TIME BufferDuration = 0;
+    REFERENCE_TIME BufferDuration = 2 * phnsMinimumDevicePeriod;
 #endif
     
-    // Create window with graphics context
-    GLFWwindow *Window = glfwCreateWindow(1280, 720, "Engine window title", NULL, NULL);
-    GlobalWindow = Window;
-    if(Window)
+    // Метод Initialize инициализирует аудиопоток
+    // 1. ShareMode: AUDCLNT_SHAREMODE_EXCLUSIVE или AUDCLNT_SHAREMODE_SHARED
+    // 2. StreamFlags: AUDCLNT_STREAMFLAGS_NOPERSIST (не сохранять параметры громкости и отключения звука
+    // при перезапуске приложения)
+    // 3. Ёмкость буфера
+    // 4. Период устройства
+    // 5. Указатель на дескриптор формата
+    if(FAILED(GlobalSoundClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_NOPERSIST,
+                                            BufferDuration, 0, &WaveFormat.Format, nullptr)))
     {
-        glfwSetCursorPosCallback(Window, CursorPositionCallback);
-        glfwSetKeyCallback(Window, KeyCallback);
-        glfwMakeContextCurrent(Window);
-        glfwSwapInterval(GlobalIsVSyncEnabled); // Enable vsync
-        
-        // Glad
-        if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+        InvalidCodePath;
+    }
+    
+    // IID_IAudioRenderClient
+    // Метод GetService обращается к дополнительным службам из объекта аудиоконферентного клиента
+    if(FAILED(GlobalSoundClient->GetService(IID_PPV_ARGS(&GlobalSoundRenderClient))))
+    {
+        InvalidCodePath;
+    }
+    
+    // Метод GetBufferSize извлекает размер (максимальную емкость) буфера конечной точки.
+    UINT32 SoundFrameCount;
+    if(FAILED(GlobalSoundClient->GetBufferSize(&SoundFrameCount)))
+    {
+        InvalidCodePath;
+    }
+    
+    Assert(BufferSizeInSamples <= (s32)SoundFrameCount);
+    
+    Enumerator->Release();
+    
+    
+    // NOTE(ezexff): Detect lowest possible latency
+    {
+#if 0
+        IAudioClient3* SoundClient3;
+        // IID_IAudioClient3
+        if(FAILED(Device->Activate(__uuidof(SoundClient3), CLSCTX_ALL, NULL, (LPVOID *)&SoundClient3)))
         {
-            // std::cout << "Failed to initialize OpenGL context" << std::endl;
             InvalidCodePath;
         }
-        // GLEW
-        /*glewExperimental = GL_TRUE;
-        GLenum glewError = glewInit();
-        if(glewError != GLEW_OK)
+        
+        WAVEFORMATEX *WaveFormat2;
+        if(FAILED(SoundClient3->GetMixFormat(&WaveFormat2)))
         {
-            glfwTerminate();
-            exit(EXIT_FAILURE);
-        }*/
+            InvalidCodePath;
+        }
         
-        // Setup Dear ImGui context
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO &io = ImGui::GetIO();
-        (void)io;
-        // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-        // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+        UINT32 DefaultBufferSize;
+        UINT32 FundamentalBufferSize;
+        UINT32 MinimumBufferSize;
+        UINT32 MaximumBufferSize;
+        if(FAILED(SoundClient3->GetSharedModeEnginePeriod(WaveFormat2, 
+                                                          &DefaultBufferSize,
+                                                          &FundamentalBufferSize,
+                                                          &MinimumBufferSize,
+                                                          &MaximumBufferSize)))
+        {
+            InvalidCodePath;
+        }
+        r64 SampleRate = WaveFormat2->nSamplesPerSec;
+        r64 BufferSizeMin = 1000.0f * MinimumBufferSize / SampleRate;
+        r64 BufferSizeMax = 1000.0f * MaximumBufferSize / SampleRate;
+        r64 BufferSizeDefault = 1000.0f * DefaultBufferSize;
+#endif
+    }
+}
+
+struct win32_sound_output
+{
+    s32 SamplesPerSecond;
+    u32 RunningSampleIndex;
+    s32 BytesPerSample;
+    u32 BufferSize;
+    s32 LatencySampleCount;
+};
+
+void
+Win32FillSoundBuffer(win32_sound_output *SoundOutput, int SamplesToWrite,
+                     game_sound_output_buffer *SourceBuffer)
+{
+    // NOTE(ezexff): Для успешного выполнения метода GetBuffer() нужно запрашивать
+    // число семплов не превышающее доступное пространство в буфере
+    // Метод GetBuffer извлекает указатель на следующее доступное пространство в буфере 
+    // конечной точки отрисовки, в которое вызывающий объект может записать пакет данных
+    BYTE *SoundBufferData;
+    if (SUCCEEDED(GlobalSoundRenderClient->GetBuffer((UINT32)SamplesToWrite, &SoundBufferData)))
+    {
+        s16* SourceSample = SourceBuffer->Samples;
+        s16* DestSample = (s16*)SoundBufferData;
+        for(int SampleIndex = 0;
+            SampleIndex < SamplesToWrite;
+            ++SampleIndex)
+        {
+            *DestSample++ = *SourceSample++; 
+            *DestSample++ = *SourceSample++; 
+            ++SoundOutput->RunningSampleIndex;
+        }
         
-        // Setup Dear ImGui style
-        ImGui::StyleColorsDark();
-        // ImGui::StyleColorsClassic();
-        
-        // Setup Platform/Renderer backends
-        ImGui_ImplGlfw_InitForOpenGL(Window, true);
-        ImGui_ImplOpenGL3_Init(glsl_version);
-        
-        // Load Fonts
-        // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use
-        // ImGui::PushFont()/PopFont() to select them.
-        // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among
-        // multiple.
-        // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application
-        // (e.g. use an assertion, or display an error and quit).
-        // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling
-        // ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-        // - Read 'docs/FONTS.md' for more instructions and details.
-        // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double
-        // backslash \\ !
-        // io.Fonts->AddFontDefault();
-        // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-        // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-        // io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-        // io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
-        // ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL,
-        // io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
-        
-        // NOTE(me): Init DirectSound
-        HWND HWNDWindow = glfwGetWin32Window(Window);
-        
-        LARGE_INTEGER PerfCountFrequencyResult;
-        QueryPerformanceFrequency(&PerfCountFrequencyResult);
-        GlobalPerfCountFrequency = PerfCountFrequencyResult.QuadPart;
-        
-        //GlobalGameUpdateHz = Win32GetMonitorRefreshHz(HWNDWindow);
-        GlobalGameUpdateHz = 60.0f;
-        r32 TargetSecondsPerFrame = 1.0f / GlobalGameUpdateHz;
-        
-        win32_sound_output SoundOutput = {};
-        // TODO(casey): Make this like sixty seconds?
-        SoundOutput.SamplesPerSecond = 48000;
-        SoundOutput.BytesPerSample = sizeof(int16) * 2;
-        SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
-        // TODO(casey): Actually compute this variance and see what the lowest reasonable value is.
-        r32 SafetyBytes = (r32)SoundOutput.SamplesPerSecond * (r32)SoundOutput.BytesPerSample;
-        
-        SafetyBytes /= GlobalGameUpdateHz * 0.5f;
-        //SafetyBytes /= 3.0f;
-        //SafetyBytes /= GlobalGameUpdateHz * 3.0f;
-        SoundOutput.SafetyBytes = (int)SafetyBytes;
-        Win32InitDSound(HWNDWindow, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
-        Win32ClearBuffer(&SoundOutput);
-        GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
-        
-        u32 MaxPossibleOverrun = 2*8*sizeof(u16);
-        int16 *Samples = (int16 *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize + MaxPossibleOverrun, //
-                                               MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-        
-        // NOTE(me): Init game memory
+        GlobalSoundRenderClient->ReleaseBuffer((UINT32)SamplesToWrite, 0);
+        //GlobalSoundRenderClient->ReleaseBuffer((UINT32)SamplesToWrite, AUDCLNT_BUFFERFLAGS_SILENT);
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+}
+
+//~ NOTE(ezexff): Timers
+u64
+Win32GetTimerFrequency(void)
+{
+    u64 Result;
+    QueryPerformanceFrequency((LARGE_INTEGER *)&Result);
+    return(Result);
+}
+
+u64
+Win32GetTimerValue(void)
+{    
+    u64 Result;
+    QueryPerformanceCounter((LARGE_INTEGER *)&Result);
+    return(Result);
+}
+
+r64
+Win32GetTime(void)
+{
+    r64 Result;
+    Result = (r64)(Win32GetTimerValue() - GlobalTimerOffset) / GlobalTimerFrequency;
+    return(Result);
+}
+
+//~ NOTE(ezexff): Entry point
 #if ENGINE_INTERNAL
-        LPVOID BaseAddress = (LPVOID)Terabytes(2);
+int main(int, char**)
 #else
-        LPVOID BaseAddress = 0;
+extern "C" void __stdcall WinMainCRTStartup(void)
 #endif
-        
-        game_memory GameMemory = {};
-        GameMemory.PermanentStorageSize = Megabytes(32);
-        GameMemory.TransientStorageSize = Megabytes(128);
-        GameMemory.HighPriorityQueue = &HighPriorityQueue;
-        GameMemory.LowPriorityQueue = &LowPriorityQueue;
-        
-        GameMemory.PlatformAPI.ToggleFullscreen = PlatformToggleFullscreen;
-        GameMemory.PlatformAPI.ToggleVSync = PlatformToggleVSync;
-        
-        GameMemory.PlatformAPI.AddEntry = Win32AddEntry;
-        GameMemory.PlatformAPI.CompleteAllWork = Win32CompleteAllWork;
-        
-        GameMemory.PlatformAPI.GetAllFilesOfTypeBegin = Win32GetAllFilesOfTypeBegin;
-        GameMemory.PlatformAPI.GetAllFilesOfTypeEnd = Win32GetAllFilesOfTypeEnd;
-        GameMemory.PlatformAPI.OpenNextFile = Win32OpenNextFile;
-        GameMemory.PlatformAPI.ReadDataFromFile = Win32ReadDataFromFile;
-        GameMemory.PlatformAPI.FileError = Win32FileError;
-        
-        // NOTE(ezexff): Init big memory chunk
-        Win32State.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
-        Win32State.GameMemoryBlock =
-            VirtualAlloc(BaseAddress, (size_t)Win32State.TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-        GameMemory.PermanentStorage = Win32State.GameMemoryBlock;
-        GameMemory.TransientStorage = ((uint8 *)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
-        
-        if(Samples && GameMemory.PermanentStorage && GameMemory.TransientStorage)
+{
+    HINSTANCE Instance = GetModuleHandle(0);
+    
+    // NOTE(ezexff): Import engine.dll functions
+    void *TestLibrary = LoadLibraryA("engine.dll");
+    update_and_render *UpdateAndRender = 0;
+    get_sound_samples *GetSoundSamples = 0;
+    if(TestLibrary)
+    {
+        UpdateAndRender = (update_and_render *)GetProcAddress((HMODULE)TestLibrary, "UpdateAndRender");
+        GetSoundSamples = (get_sound_samples *)GetProcAddress((HMODULE)TestLibrary, "GetSoundSamples");
+    }
+    else
+    {
+        Win32ErrorMessageBox("Can't open engine.dll");
+        ExitProcess(0);
+    }
+    
+    // NOTE(ezexff): Import win32_engine_opengl.dll functions
+    loaded_renderer_name LoadedRendererName = LoadedRenderer_empty;
+    TestLibrary = LoadLibraryA("win32_engine_opengl.dll");
+    win32_load_renderer *LoadRenderer = 0;
+    renderer_begin_frame *BeginFrame = 0;
+    renderer_end_frame *EndFrame = 0;
+    if(TestLibrary)
+    {
+        LoadRenderer = (win32_load_renderer *)GetProcAddress((HMODULE)TestLibrary, "Win32LoadRenderer");
+        BeginFrame = (renderer_begin_frame *)GetProcAddress((HMODULE)TestLibrary, "Win32BeginFrame");
+        EndFrame = (renderer_end_frame *)GetProcAddress((HMODULE)TestLibrary, "Win32EndFrame");
+        if(LoadRenderer && BeginFrame && EndFrame)
         {
-            game_input Input[2] = {}; // KW:INPUT_CONTROLLERS
-            game_input *NewInput = &Input[0];
-            game_input *OldInput = &Input[1];
+            LoadedRendererName = LoadedRenderer_opengl;
+        }
+        else
+        {
+            Win32ErrorMessageBox("Can't load some function(s) from win32_engine_opengl.dll");
+            ExitProcess(0);
+        }
+    }
+    else
+    {
+        Win32ErrorMessageBox("Can't open win32_engine_opengl.dll");
+        ExitProcess(0);
+    }
+    
+    
+    GlobalTimerFrequency = Win32GetTimerFrequency();
+    GlobalTimerOffset = Win32GetTimerValue();
+    
+    WNDCLASSA WindowClass = {};
+    WindowClass.style = CS_HREDRAW|CS_VREDRAW;
+    WindowClass.lpfnWndProc = Win32MainWindowCallback;
+    WindowClass.hInstance = Instance;
+    // WindowClass.hIcon = ;
+    WindowClass.hCursor = LoadCursor(0, IDC_ARROW);
+    WindowClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    // WindowsClass.lpszMenuName = ;
+    WindowClass.lpszClassName = "EngineWindowClass";
+    
+    if(RegisterClassA(&WindowClass))
+    {
+        HWND Window =
+            CreateWindowExA(
+                            0, // WS_EX_TOPMOST|WS_EX_LAYERED,
+                            WindowClass.lpszClassName,
+                            "C++ Game Engine",
+                            WS_OVERLAPPEDWINDOW|WS_VISIBLE,
+                            CW_USEDEFAULT,
+                            CW_USEDEFAULT,
+                            CW_USEDEFAULT,
+                            CW_USEDEFAULT,
+                            0,
+                            0,
+                            Instance,
+                            0);
+        if(Window)
+        {
+            if(GlobalIsFullscreen)
+            {
+                Win32ToggleFullscreen(Window);
+            }
             
-            // LARGE_INTEGER LastCounter = Win32GetWallClock();
-            // LARGE_INTEGER FlipWallClock = Win32GetWallClock();
-            r64 FlipWallClock = glfwGetTime();
+            // NOTE(ezexff): Init big memory chunk
+#if ENGINE_INTERNAL
+            LPVOID BaseAddress = (LPVOID)Terabytes(2);
+#else
+            LPVOID BaseAddress = 0;
+#endif
+            game_memory GameMemory = {};
+            GameMemory.PermanentStorageSize = Megabytes(32);
+            GameMemory.TransientStorageSize = Megabytes(128);
+            u64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
+            void *GameMemoryBlock = VirtualAlloc(BaseAddress, (size_t)TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+            GameMemory.PermanentStorage = GameMemoryBlock;
+            GameMemory.TransientStorage = ((u8 *)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
             
-#if DEBUG_AUDIO
-            int DebugTimeMarkerIndex = 0;
-            win32_debug_time_marker DebugTimeMarkers[30] = {0};
+            // NOTE(ezexff): Pointers to platform API functions
+            GameMemory.PlatformAPI.GetAllFilesOfTypeBegin = Win32GetAllFilesOfTypeBegin;
+            GameMemory.PlatformAPI.GetAllFilesOfTypeEnd = Win32GetAllFilesOfTypeEnd;
+            GameMemory.PlatformAPI.OpenNextFile = Win32OpenNextFile;
+            GameMemory.PlatformAPI.ReadDataFromFile = Win32ReadDataFromFile;
+            GameMemory.PlatformAPI.FileError = Win32FileError;
+            
+            
+            // NOTE(ezexff): Load and init renderer
+            renderer_frame *Frame = &GameMemory.Frame;
+            LoadRenderer(Frame, GetDC(Window));
+            
+            // NOTE(ezexff): Init imgui for opengl
+#if ENGINE_INTERNAL
+            IMGUI_CHECKVERSION();
+            ImGui::CreateContext();
+            
+            imgui *ImGuiHandle = &GameMemory.Frame.ImGuiHandle;
+            ImGuiHandle->Context = ImGui::GetCurrentContext();
+            ImGui::GetAllocatorFunctions(&ImGuiHandle->AllocFunc, &ImGuiHandle->FreeFunc, &ImGuiHandle->UserData);
+            
+            Frame->ImGuiHandle.IO = &ImGui::GetIO();
+            Frame->ImGuiHandle.IO->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+            ImGui_ImplWin32_InitForOpenGL(Window);
+            ImGui_ImplOpenGL3_Init();
+            
+            ImGuiHandle->ShowWin32Window = true;
+            ImGuiHandle->ShowDemoWindow = false;
+            ImGuiHandle->ShowGameWindow = true;
+            
+            Log = &ImGuiHandle->Log;
 #endif
             
-            bool32 SoundIsValid = false;
+            // NOTE(ezexff): Init Audio
+            win32_sound_output SoundOutput = {};
+            SoundOutput.SamplesPerSecond = 48000;
+            SoundOutput.BytesPerSample = sizeof(s16) * 2;
+            SoundOutput.BufferSize = SoundOutput.SamplesPerSecond;
+            SoundOutput.LatencySampleCount = FramesOfAudioLatency * (SoundOutput.SamplesPerSecond / GlobalGameUpdateHz);
+            SoundOutput.LatencySampleCount += 1; // TODO(ezexff): нужно округление после деления?
+            Win32InitWASAPI(SoundOutput.SamplesPerSecond, SoundOutput.BufferSize);
+            GlobalSoundClient->Start();
+            s16 *Samples = (s16 *)VirtualAlloc(0, SoundOutput.BufferSize,
+                                               MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             
-            // NOTE(me): Main loop
-            r64 DeltaFrameTime = 0.0f;
-            r64 EndFrameTime = 0.0f;
-            while(!glfwWindowShouldClose(Window))
+            // NOTE(ezexff): Main Game Cycle
+            GlobalRunning = true;
+            if(Samples && GameMemory.PermanentStorage && GameMemory.TransientStorage)
             {
-                r64 StartFrameTime = glfwGetTime(); // ms
-                DeltaFrameTime = StartFrameTime - EndFrameTime;
+                game_input Input[2] = {};
+                game_input *NewInput = &Input[0];
+                game_input *OldInput = &Input[1];
                 
-                TargetSecondsPerFrame = 1.0f / GlobalGameUpdateHz;
-                
-                if(DeltaFrameTime >= TargetSecondsPerFrame)
+                r64 TargetSecondsPerFrame = 1.0f / (r64)GlobalGameUpdateHz;
+                r64 DeltaFrameTime = 0.0f;
+                r64 EndFrameTime = 0.0f;
+                while(GlobalRunning)
                 {
-                    EndFrameTime = StartFrameTime;
-                    Input->dtForFrame = (r32)DeltaFrameTime;
-                    
-                    // NOTE(me): Inputs
-                    NewInput->MouseX = MouseLastX;
-                    NewInput->MouseY = MouseLastY;
-                    NewInput->MouseZ = 0.0f;
-                    if(MousePosChanged)
+                    r64 StartFrameTime = Win32GetTime(); // ms
+                    DeltaFrameTime = StartFrameTime - EndFrameTime;
+                    if(DeltaFrameTime >= TargetSecondsPerFrame)
                     {
-                        NewInput->MouseOffsetX = MouseOffsetX * Input->dtForFrame;
-                        NewInput->MouseOffsetY = MouseOffsetY * Input->dtForFrame;
-                        MousePosChanged = false;
-                    }
-                    else
-                    {
-                        NewInput->MouseOffsetX = 0.0f;
-                        NewInput->MouseOffsetY = 0.0f;
-                    }
-                    NewInput->ShowMouseCursorMode = GlobalShowMouseCursor;
-                    
-                    game_controller_input *OldKeyboardController = GetController(OldInput, 0);
-                    NewKeyboardController = GetController(NewInput, 0);
-                    *NewKeyboardController = {};
-                    NewKeyboardController->IsConnected = true;
-                    for(int ButtonIndex = 0;                                      //
-                        ButtonIndex < ArrayCount(NewKeyboardController->Buttons); //
-                        ++ButtonIndex)
-                    {
-                        NewKeyboardController->Buttons[ButtonIndex].EndedDown =
-                            OldKeyboardController->Buttons[ButtonIndex].EndedDown;
-                    }
-                    
-                    // Poll and handle events (inputs, window resize, etc.)
-                    // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to
-                    // use your inputs.
-                    // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or
-                    // clear/overwrite your copy of the mouse data.
-                    // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main
-                    // application, or clear/overwrite your copy of the keyboard data. Generally you may always pass all
-                    // inputs to dear imgui, and hide them from your application based on those two flags.
-                    glfwPollEvents();
-                    
-                    if(!GlobalPause)
-                    {
-                        glfwGetFramebufferSize(Window, &GlobalBuffer.Width, &GlobalBuffer.Height);
+                        EndFrameTime = StartFrameTime;
                         
-                        EngineUpdateAndRender(&GameMemory, NewInput, &GlobalBuffer);
-                        
-                        // LARGE_INTEGER AudioWallClock = Win32GetWallClock();
-                        // real32 FromBeginToAudioSeconds = Win32GetSecondsElapsed(FlipWallClock, AudioWallClock);
-                        r64 AudioWallClock = glfwGetTime();
-                        r32 FromBeginToAudioSeconds = (r32)(AudioWallClock - FlipWallClock);
-                        
-                        DWORD PlayCursor;
-                        DWORD WriteCursor;
-                        if(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor) == DS_OK)
+                        // NOTE(ezexff): Setting up display area
                         {
-                            /* NOTE(casey):
-
-                               Here is how sound output computation works.
-
-                               We define a safety value that is the number
-                               of samples we think our game update loop
-                               may vary by (let's say up to 2ms)
-
-                               When we wake up to write audio, we will look
-                               and see what the play cursor position is and we
-                               will forecast ahead where we think the play
-                               cursor will be on the next frame boundary.
-
-                               We will then look to see if the write cursor is
-                               before that by at least our safety value.  If
-                               it is, the target fill position is that frame
-                               boundary plus one frame.  This gives us perfect
-                               audio sync in the case of a card that has low
-                               enough latency.
-
-                               If the write cursor is _after_ that safety
-                               margin, then we assume we can never sync the
-                               audio perfectly, so we will write one frame's
-                               worth of audio plus the safety margin's worth
-                               of guard samples.
-                            */
-                            if(!SoundIsValid)
+                            RECT CRect;
+                            int CWidth = 960;
+                            int CHeight = 540;
+                            if(GetClientRect(Window, &CRect))
                             {
-                                SoundOutput.RunningSampleIndex = WriteCursor / SoundOutput.BytesPerSample;
-                                SoundIsValid = true;
+                                CWidth = CRect.right - CRect.left;
+                                CHeight = CRect.bottom - CRect.top;
+                            }
+                            Frame->Width = CWidth;
+                            Frame->Height = CHeight;
+                        }
+                        
+                        // NOTE(ezexff): ImGui new frame
+                        {
+#if ENGINE_INTERNAL
+                            ImGui_ImplOpenGL3_NewFrame();
+                            ImGui_ImplWin32_NewFrame();
+                            ImGui::NewFrame();
+#endif
+                        }
+                        // NOTE(ezexff): BEGIN FRAME
+                        {
+                            BeginFrame(Frame);
+                        }
+                        
+                        // NOTE(ezexff): Input processing
+                        {
+                            Input->dtForFrame = (r32)TargetSecondsPerFrame;
+                            
+                            // NOTE(ezexff): Load prev frame keyboard buttons state
+                            game_controller_input *OldKeyboardController = GetController(OldInput, 0);
+                            NewKeyboardController = GetController(NewInput, 0);
+                            *NewKeyboardController = {};
+                            NewKeyboardController->IsConnected = true;
+                            for(int ButtonIndex = 0;
+                                ButtonIndex < ArrayCount(NewKeyboardController->Buttons);
+                                ++ButtonIndex)
+                            {
+                                NewKeyboardController->Buttons[ButtonIndex].EndedDown =
+                                    OldKeyboardController->Buttons[ButtonIndex].EndedDown;
                             }
                             
-                            DWORD ByteToLock = ((SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) %
-                                                SoundOutput.SecondaryBufferSize);
-                            
-                            DWORD ExpectedSoundBytesPerFrame =
-                            (int)((real32)(SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample) /
-                                  GlobalGameUpdateHz);
-                            real32 SecondsLeftUntilFlip = (TargetSecondsPerFrame - FromBeginToAudioSeconds);
-                            DWORD ExpectedBytesUntilFlip = (DWORD)((SecondsLeftUntilFlip / TargetSecondsPerFrame) *
-                                                                   (real32)ExpectedSoundBytesPerFrame);
-                            
-                            DWORD ExpectedFrameBoundaryByte = PlayCursor + ExpectedBytesUntilFlip;
-                            
-                            DWORD SafeWriteCursor = WriteCursor;
-                            if(SafeWriteCursor < PlayCursor)
+#if ENGINE_INTERNAL
+                            // NOTE(ezexff): Win32 inputs with ImGui works only when ImGui windows is unselected
+                            NewInput->MouseDelta.z = 0;
+                            if(ImGuiHandle->IO->WantCaptureKeyboard)
                             {
-                                SafeWriteCursor += SoundOutput.SecondaryBufferSize;
-                            }
-                            Assert(SafeWriteCursor >= PlayCursor);
-                            SafeWriteCursor += SoundOutput.SafetyBytes;
-                            
-                            bool32 AudioCardIsLowLatency = (SafeWriteCursor < ExpectedFrameBoundaryByte);
-                            
-                            DWORD TargetCursor = 0;
-                            if(AudioCardIsLowLatency)
-                            {
-                                TargetCursor = (ExpectedFrameBoundaryByte + ExpectedSoundBytesPerFrame);
+                                ImGuiProcessPendingMessages(Window);
                             }
                             else
                             {
-                                TargetCursor = (WriteCursor + ExpectedSoundBytesPerFrame + SoundOutput.SafetyBytes);
+                                Win32ProcessPendingMessages(NewKeyboardController, NewInput);
                             }
-                            TargetCursor = (TargetCursor % SoundOutput.SecondaryBufferSize);
-                            
-                            DWORD BytesToWrite = 0;
-                            if(ByteToLock > TargetCursor)
+                            ImGuiHandle->ShowImGuiWindows = GlobalShowImGuiWindows;
+#else
+                            Win32ProcessPendingMessages(NewKeyboardController, NewInput);
+#endif
+                            if(GetActiveWindow() == Window)
                             {
-                                BytesToWrite = (SoundOutput.SecondaryBufferSize - ByteToLock);
-                                BytesToWrite += TargetCursor;
+                                // NOTE(ezexff): Mouse cursor
+                                POINT MouseP;
+                                GetCursorPos(&MouseP);
+                                ScreenToClient(Window, &MouseP);
+                                NewInput->MouseP.x = (s32)MouseP.x;
+                                NewInput->MouseP.y = (s32)((Frame->Height - 1) - MouseP.y);
+                                
+                                NewInput->MouseDelta.x = NewInput->MouseP.x - OldInput->MouseP.x;
+                                NewInput->MouseDelta.y = NewInput->MouseP.y - OldInput->MouseP.y;
+                                
+                                // NOTE(ezexff): Mouse buttons
+                                DWORD WinButtonID[PlatformMouseButton_Count] =
+                                {
+                                    VK_LBUTTON,
+                                    VK_MBUTTON,
+                                    VK_RBUTTON,
+                                    VK_XBUTTON1,
+                                    VK_XBUTTON2,
+                                };
+                                for(u32 ButtonIndex = 0;
+                                    ButtonIndex < PlatformMouseButton_Count;
+                                    ++ButtonIndex)
+                                {
+                                    NewInput->MouseButtons[ButtonIndex] = OldInput->MouseButtons[ButtonIndex];
+                                    NewInput->MouseButtons[ButtonIndex].HalfTransitionCount = 0;
+                                    // NOTE(ezexff): GetKeyState возвращает значение размером 16 bit
+                                    // если старший бит равен 1, то клавиша нажата
+                                    // если младший бит равен 1, то ключ клавиши переключен (Caps Lock, Num Lock)
+                                    // старший бит числа размером 16 бит = 1 это (1 << 15) или (1000 0000 0000 0000)
+                                    // младший бит числа размером 16 бит = 1 это 1
+                                    Win32ProcessKeyboardMessage(&NewInput->MouseButtons[ButtonIndex],
+                                                                GetKeyState(WinButtonID[ButtonIndex]) & (1 << 15));
+                                }
                             }
-                            else
-                            {
-                                BytesToWrite = TargetCursor - ByteToLock;
-                            }
+                        }
+                        
+                        // NOTE(ezexff): Game update
+                        {
+                            UpdateAndRender(&GameMemory, NewInput);
+                        }
+                        
+                        // NOTE(ezexff): Audio update
+                        int SamplesToWrite = 0;
+                        UINT32 SoundPaddingSize;
+                        {
+                            // NOTE(ezexff): Определяем сколько данных звука и куда можно записать
+                            /* 
+Звуковой буфер:
+- Сэмплы это кусочки звука размером 2 * 16 бит, где 2 это каналы
+ - Весь размер буфера звука 48000 семплов или же 1 секунда
+- Буфер цикличен
+
+Звуковой движок WASAPI:
+- Работает в двух режимах: общий и эксклюзивный
+- В общем режиме, вызов метода GetCurrentPadding() покажет число семплов,
+поставленных в очередь на воспроизведение
+- 
+*/
+                            // SamplesToWrite - сколько данных можно безопасно записать, не перезаписав
+                            // данные, которые будут воспроизводиться
                             
+                            // Метод GetCurrentPadding получает значение заполнения, указывающее
+                            // объем действительных непрочитанных данных, которые в данный момент
+                            // содержатся в буфере конечной точки
+                            
+                            // Если SamplesToWrite = BufferSize - SoundPaddingSize, это число семплов,
+                            // которое можем безопасно записать, не задев непрочитанные данные
+                            if(SUCCEEDED(GlobalSoundClient->GetCurrentPadding(&SoundPaddingSize)))
+                            {
+                                SamplesToWrite = (int)(SoundOutput.BufferSize - SoundPaddingSize);
+                                
+                                {
+                                    SoundOutput.LatencySampleCount = FramesOfAudioLatency * (SoundOutput.SamplesPerSecond / GlobalGameUpdateHz);
+                                    // TODO(ezexff): нужно округление после деления?
+                                    SoundOutput.LatencySampleCount += 1;
+                                }
+                                
+                                if(SamplesToWrite > SoundOutput.LatencySampleCount)
+                                {
+                                    SamplesToWrite = SoundOutput.LatencySampleCount;
+                                }
+                            }
                             game_sound_output_buffer SoundBuffer = {};
                             SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
-                            SoundBuffer.SampleCount = Align8(BytesToWrite / SoundOutput.BytesPerSample);
-                            BytesToWrite = SoundBuffer.SampleCount*SoundOutput.BytesPerSample;
+                            SoundBuffer.SampleCount = SamplesToWrite;
                             SoundBuffer.Samples = Samples;
-                            GameGetSoundSamples(&GameMemory, &SoundBuffer);
                             
-#if DEBUG_AUDIO
-                            win32_debug_time_marker *Marker = &DebugTimeMarkers[DebugTimeMarkerIndex];
-                            Marker->OutputPlayCursor = PlayCursor;
-                            Marker->OutputWriteCursor = WriteCursor;
-                            Marker->OutputLocation = ByteToLock;
-                            Marker->OutputByteCount = BytesToWrite;
-                            Marker->ExpectedFlipPlayCursor = ExpectedFrameBoundaryByte;
+                            GetSoundSamples(&GameMemory, &SoundBuffer);
                             
-                            DWORD UnwrappedWriteCursor = WriteCursor;
-                            if(UnwrappedWriteCursor < PlayCursor)
-                            {
-                                UnwrappedWriteCursor += SoundOutput.SecondaryBufferSize;
-                            }
-                            DWORD AudioLatencyBytes = 0;
-                            real32 AudioLatencySeconds = 0;
-                            AudioLatencyBytes = UnwrappedWriteCursor - PlayCursor;
-                            AudioLatencySeconds = (((real32)AudioLatencyBytes / (real32)SoundOutput.BytesPerSample) /
-                                                   (real32)SoundOutput.SamplesPerSecond);
-                            
-                            char TextBuffer[256];
-                            _snprintf_s(TextBuffer, sizeof(TextBuffer),
-                                        "BTL:%u TC:%u BTW:%u - PC:%u WC:%u DELTA:%u (%fs)\n", ByteToLock, TargetCursor,
-                                        BytesToWrite, PlayCursor, WriteCursor, AudioLatencyBytes, AudioLatencySeconds);
-                            OutputDebugStringA(TextBuffer);
-#endif
-                            
-                            Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
+                            Win32FillSoundBuffer(&SoundOutput, SamplesToWrite, &SoundBuffer);
                         }
-                        else
+                        
+                        // NOTE(ezexff): ImGui demo, win32 and renderer windows
                         {
-                            SoundIsValid = false;
-                        }
-                        
-#if DEBUG_AUDIO
-                        Win32DebugSyncDisplay(ArrayCount(DebugTimeMarkers), DebugTimeMarkers, //
-                                              DebugTimeMarkerIndex - 1,                       //
-                                              &SoundOutput);
-#endif
-                        
-                        // FlipWallClock = Win32GetWallClock();
-                        FlipWallClock = glfwGetTime();
-                        
-#if DEBUG_AUDIO
-                        // NOTE(casey): This is debug code
-                        {
-                            DWORD PlayCursor1;
-                            DWORD WriteCursor1;
-                            if(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor1, &WriteCursor1) == DS_OK)
+#if ENGINE_INTERNAL
+                            if(ImGuiHandle->ShowImGuiWindows)
                             {
-                                Assert(DebugTimeMarkerIndex < ArrayCount(DebugTimeMarkers));
-                                win32_debug_time_marker *Marker = &DebugTimeMarkers[DebugTimeMarkerIndex];
-                                Marker->FlipPlayCursor = PlayCursor1;
-                                Marker->FlipWriteCursor = WriteCursor1;
+                                if(ImGuiHandle->ShowWin32Window)
+                                {
+                                    ImGui::Begin("Win32");
+                                    
+                                    ImGui::Text("Debug window for win32 layer...");
+                                    ImGui::Text("Is window active: %s", (GetActiveWindow() == Window) ? "true" : "false");
+                                    
+                                    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGuiHandle->IO->Framerate, ImGuiHandle->IO->Framerate);
+                                    
+                                    ImGui::SeparatorText("Settings");
+                                    ImGui::Checkbox("Show demo window", &ImGuiHandle->ShowDemoWindow);
+                                    bool IsFullscreen = GlobalIsFullscreen;
+                                    if(ImGui::Checkbox("Is fullscreen?", &IsFullscreen))
+                                    {
+                                        GlobalIsFullscreen = IsFullscreen;
+                                        Win32ToggleFullscreen(Window);
+                                        Log->Add("[win32]: IsFullscreen = %d\n", IsFullscreen);
+                                    }
+                                    //if(ImGui::SliderInt("fps", &GlobalGameUpdateHz, 30, 4096))
+                                    if(ImGui::InputInt("fps lock", &GlobalGameUpdateHz))
+                                    {
+                                        if(GlobalGameUpdateHz < 30)
+                                        {
+                                            GlobalGameUpdateHz = 30;
+                                        } 
+                                        else if(GlobalGameUpdateHz > 4096)
+                                        {
+                                            GlobalGameUpdateHz = 4096;
+                                        }
+                                        TargetSecondsPerFrame = 1.0f / (r64)GlobalGameUpdateHz;
+                                    }
+                                    
+                                    ImGui::SeparatorText("Subsystems");
+                                    if(ImGui::CollapsingHeader("Renderer"))
+                                    {
+                                        ImGui::SeparatorText("Frame");
+                                        ImGui::Text("Dim = %dx%d", Frame->Width, Frame->Height);
+                                        
+                                        ImGui::Text("Loaded renderer:");
+                                        switch(LoadedRendererName)
+                                        {
+                                            case LoadedRenderer_opengl:
+                                            {
+                                                ImGui::SameLine();
+                                                ImGui::Text("OpenGL");
+                                            } break;
+                                            case LoadedRenderer_vulkan:
+                                            {
+                                                ImGui::SameLine();
+                                                ImGui::Text("Vulkan");
+                                            } break;
+                                            case LoadedRenderer_direct3d:
+                                            {
+                                                ImGui::SameLine();
+                                                ImGui::Text("Direct3D");
+                                            } break;
+                                            
+                                            InvalidDefaultCase;
+                                        }
+                                        
+                                        if(LoadedRendererName == LoadedRenderer_opengl)
+                                        {
+                                            ImGui::SeparatorText("OpenGL");
+                                            ImGui::Text("VENDOR = %s", Frame->GLVendorStr);
+                                            ImGui::Text("RENDERER = %s", Frame->GLRendererStr);
+                                            ImGui::Text("VERSION = %s", Frame->GLVersionStr);
+                                        }
+                                    }
+                                    
+                                    if(ImGui::CollapsingHeader("Audio"))
+                                    {
+                                        ImGui::SeparatorText("WASAPI");
+                                        ImGui::Text("BufferSize = %d", SoundOutput.BufferSize);
+                                        //ImGui::Text("LatencySampleCount = %d", SoundOutput.LatencySampleCount);
+                                        ImGui::Text("SamplesToWrite = %d", SamplesToWrite);
+                                        ImGui::Text("SoundPaddingSize = %d", SoundPaddingSize);
+                                        /*r64 AudioLatencyMS = 1000.0f *
+                                        (r64)SoundOutput.LatencySampleCount / (r64)SoundOutput.BufferSize;
+                                        ImGui::Text("AudioLatencyMS = %.10f (this value + 1 frame)", AudioLatencyMS);*/
+                                    }
+                                    
+                                    if(ImGui::CollapsingHeader("Input"))
+                                    {
+                                        ImGui::SeparatorText("Cheatsheet of implemented inputs");
+                                        
+                                        if(ImGui::BeginTable("KeysCheatsheetTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+                                        {
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("Input");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("Description");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("LButton");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("MButton");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("RButton");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("XButton1");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("XButton2");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("Up/Down mouse wheel");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("W");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("MoveUp");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("S");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("MoveDown");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("A");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("MoveLeft");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("D");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("MoveRight");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("Up arrow");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("Down arrow");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("Left arrow");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("Right arrow");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("Escape");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("Close game");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("Alt+F4");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("Close game");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("Alt+Enter");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("Change window mode");
+                                            
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("F1");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("ImGui windows visibility");
+                                            
+                                            ImGui::EndTable();
+                                        }
+                                        ImGui::Text("NOTE: Win32 inputs with ImGui works\n");
+                                        ImGui::Text("only when ImGui windows is unselected");
+                                    }
+                                    
+                                    ImGui::End();
+                                }
+                                
+                                if(ImGuiHandle->ShowDemoWindow)
+                                {
+                                    ImGui::ShowDemoWindow(&ImGuiHandle->ShowDemoWindow);
+                                }
+                                
+                                // NOTE(ezexff): Draw Log
+                                Log->Draw("Log");
                             }
+#endif
+                        }
+                        
+                        // NOTE(ezexff): END FRAME
+                        {
+                            EndFrame(Frame);
+                        }
+#if ENGINE_INTERNAL
+                        // NOTE(ezexff): ImGui end frame
+                        {
+                            ImGui::Render();
+                            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+                            SwapBuffers(Frame->ImGuiHandle.WGL);
                         }
 #endif
-                        // NOTE(ezexff): Save inputs state to next frame after flip
+                        
+                        // NOTE(ezexff): Save input state for next after flip frame
                         {
                             game_input *Temp = NewInput;
                             NewInput = OldInput;
                             OldInput = Temp;
                         }
-                        
-                        /*if(GlobalToggleVSync)
-                        {
-                            GlobalGameUpdateHz = Win32GetMonitorRefreshHz(HWNDWindow);
-                            TargetSecondsPerFrame = 1.0f / GlobalGameUpdateHz;
-                            SoundOutput.SafetyBytes = (int)(((real32)SoundOutput.SamplesPerSecond * //
-                                                             (real32)SoundOutput.BytesPerSample / GlobalGameUpdateHz) /
-                                                            3.0f);
-                            GlobalToggleVSync = false;
-                        }*/
-                        
-#if DEBUG_AUDIO
-                        ++DebugTimeMarkerIndex;
-                        if(DebugTimeMarkerIndex == ArrayCount(DebugTimeMarkers))
-                        {
-                            DebugTimeMarkerIndex = 0;
-                        }
-#endif
-                        
-                        glfwSwapBuffers(Window);
                     }
                 }
             }
+            else
+            {
+                Win32ErrorMessageBox("Can't alloc memory for samples");
+            }
+        }
+        else
+        {
+            Win32ErrorMessageBox("Can't create window");
         }
     }
     else
     {
-        InvalidCodePath;
+        Win32ErrorMessageBox("Can't register window class");
     }
     
-    // Cleanup
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
+    // NOTE(ezexff): ImGui destroy
+    {
+#if ENGINE_INTERNAL
+        ImGui_ImplOpenGL3_Shutdown();
+        ImGui_ImplWin32_Shutdown();
+        ImGui::DestroyContext();
+#endif
+    }
     
-    glfwDestroyWindow(Window);
-    glfwTerminate();
+    GlobalSoundClient->Stop();
+    GlobalSoundClient->Reset();
+    GlobalSoundClient->Release();
+    CoUninitialize();
     
-    return (0);
+    ExitProcess(0);
 }
