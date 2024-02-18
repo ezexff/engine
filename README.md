@@ -79,8 +79,9 @@ Game engine that i wrote when learned low-level programming
   * `SafeTruncateUInt64()`
   * `GetController()`
 * ### Export/import function declarations
-  * `UpdateAndRender()`
-  * `GetSoundSamples()`
+  * Game
+    * `UpdateAndRender()`
+    * `GetSoundSamples()`
   * Renderer
     * `BeginFrame()`
     * `EndFrame()`
