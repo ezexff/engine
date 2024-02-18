@@ -3,6 +3,9 @@ Game engine that i wrote when learned low-level programming
 <details>
 <summary>Screenshots</summary>
 
+### 18.02.2024
+<img src="https://i.imgur.com/CTprHxF.png" alt="2 - 18.02.2024">
+
 ### 16.02.2024
 <img src="https://i.imgur.com/P8EAYty.png" alt="1 - 16.02.2024">
 
@@ -50,6 +53,8 @@ Game engine that i wrote when learned low-level programming
     * `game_memory`
   * Renderer
     * `renderer_frame`
+    * `camera`
+    * `opengl`
   * Audio
     * `game_sound_output_buffer`
     * `loaded_sound`
@@ -89,10 +94,11 @@ Game engine that i wrote when learned low-level programming
 
 * ### Memory
   * Alloc big memory block with VirtualAlloc()
-  * Pointers to platform API functions
+  * Init pointers to platform API functions
 * ### Renderer (OpenGL)
   * Load renderer from .dll
-  * Init Frame object
+  * Init frame object
+  * Init pointers to shader functions
   * Update Frame object at every frame with `BeginFrame()` and `EndFrame()`
 * ### Audio
   * WASAPI
@@ -134,11 +140,12 @@ Game engine that i wrote when learned low-level programming
   * ConstArena static storage
   * TranArena updates every frame
 * ### Renderer (OpenGL)
-  * Render through camera with perspective projection
+  * Render frame through camera with perspective projection
   * Push buffer
     * Clear
     * RectOnGround
     * RectOutlineOnGround
+  * Render frame through shader
 * ### Audio (sound mixer)
   * Play sound
   * Play sine wave
@@ -148,6 +155,10 @@ Game engine that i wrote when learned low-level programming
   * Test
     * Render
       * Clear screen
+      * Rectangle on ground
+      * Load shader from file
+      * Compile shader
+      * Link shader program
   * World
     * Input
       * Camera X and Y from keyboard
@@ -188,6 +199,7 @@ Game engine that i wrote when learned low-level programming
     * Mode
       * Change game mode
       * Background fill color
+      * Live shader editing
 
 </details>
 
@@ -304,3 +316,5 @@ Game engine that i wrote when learned low-level programming
     * 3d-model: Materials + Lighting + Shadows (Depth Shader, Shadow Shader, Shadow acne, Peter panning, PCF)
 
 </details>
+
+[Old engine](https://github.com/ezexff/learning_opengl)

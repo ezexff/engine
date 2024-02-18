@@ -43,6 +43,27 @@ Win32InitOpengl(renderer_frame *Frame, HDC WindowDC)
         Frame->GLRendererStr = (char *)glGetString(GL_RENDERER);
         Frame->GLVersionStr = (char *)glGetString(GL_VERSION);
 #endif
+        
+#define Win32GetOpenGLFunction(Name) Frame->Opengl.Name = (type_##Name *)wglGetProcAddress(#Name)
+        
+        // Load shader
+        Win32GetOpenGLFunction(glCreateShader);
+        Win32GetOpenGLFunction(glShaderSource);
+        Win32GetOpenGLFunction(glCompileShader);
+        Win32GetOpenGLFunction(glGetShaderiv);
+        Win32GetOpenGLFunction(glGetShaderInfoLog);
+        
+        // Link shader program
+        Win32GetOpenGLFunction(glCreateProgram);
+        Win32GetOpenGLFunction(glAttachShader);
+        Win32GetOpenGLFunction(glLinkProgram);
+        Win32GetOpenGLFunction(glGetProgramiv);
+        Win32GetOpenGLFunction(glGetProgramInfoLog);
+        
+        Win32GetOpenGLFunction(glUseProgram);
+        
+        Win32GetOpenGLFunction(glDeleteShader);
+        Win32GetOpenGLFunction(glDeleteProgram);
     }
     else
     {

@@ -23,6 +23,9 @@ struct world
     b32 IsInitialized;
     
     v4 ClearColor;
+    
+    b32 UseShaderProgram;
+    u32 ShaderProgram;
 };
 
 struct test
@@ -30,13 +33,17 @@ struct test
     b32 IsInitialized;
     
     v4 ClearColor;
+    
+    b32 UseShaderProgram;
+    u8 ShaderText[10000];
+    u32 Shader;
+    u32 ShaderProgram;
 };
 
 struct game_state
 {
     b32 IsInitialized;
     memory_arena ConstArena;
-    
     
     s32 ToneHz;
     s16 ToneVolume;

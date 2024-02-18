@@ -21,10 +21,10 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             ImGui::SetCurrentContext(ImGuiHandle->Context);
             ImGui::SetAllocatorFunctions(ImGuiHandle->AllocFunc, ImGuiHandle->FreeFunc, ImGuiHandle->UserData);
             Log = &Memory->Frame.ImGuiHandle.Log;
-            Log->Add("[test]: Hello %d world\n", 123);
-            Log->Add("[test]: 567657657\n");
-            Log->Add("[test]: 1\n");
-            Log->Add("[test]: 2\n");
+            Log->Add("[log init]: Hello %d world\n", 123);
+            Log->Add("[log init]: 567657657\n");
+            Log->Add("[log init]: 1\n");
+            Log->Add("[log init]: 2\n");
             
             ImGuiHandle->LogMouseInput = false;
             ImGuiHandle->LogKeyboardInput = false;
@@ -32,12 +32,12 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         }
         
         // NOTE(ezexff): Init game mode
-        GameState->GameMode = GameMode_World;
+        GameState->GameMode = GameMode_Test;
         
         // NOTE(ezexff): Init sound mixer
         {
             GameState->ToneHz = 512;
-            GameState->ToneVolume = 100;
+            GameState->ToneVolume = 0;
             GameState->tSine = 0;
             GameState->SampleIndex = 0;
             

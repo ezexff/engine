@@ -82,6 +82,11 @@ OpenglBeginFrame(renderer_frame *Frame)
 void
 OpenglEndFrame(renderer_frame *Frame)
 {
+    if(Frame->Opengl.UseShaderProgram)
+    {
+        Frame->Opengl.glUseProgram(Frame->Opengl.ShaderProgram);
+    }
+    
     r32 AspectRatio = (r32)Frame->Width / (r32)Frame->Height;
     r32 FOV = 0.1f;
     glEnable(GL_DEPTH_TEST);
@@ -103,16 +108,16 @@ OpenglEndFrame(renderer_frame *Frame)
         BaseAddress < Frame->PushBufferSize;
         )
     {
-        render_group_entry_header *Header = (render_group_entry_header *)
+        renderer_entry_header *Header = (renderer_entry_header *)
         (Frame->PushBufferBase + BaseAddress);
         BaseAddress += sizeof(*Header);
         
         void *Data = (u8 *)Header + sizeof(*Header);
         switch(Header->Type)
         {
-            case RenderGroupEntryType_render_entry_clear:
+            case RendererEntryType_renderer_entry_clear:
             {
-                render_entry_clear *Entry = (render_entry_clear *)Data;
+                renderer_entry_clear *Entry = (renderer_entry_clear *)Data;
                 
                 glClearColor(Entry->Color.r, Entry->Color.g, Entry->Color.b, Entry->Color.a);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -120,17 +125,17 @@ OpenglEndFrame(renderer_frame *Frame)
                 BaseAddress += sizeof(*Entry);
             } break;
             
-            case RenderGroupEntryType_render_entry_rect_on_ground:
+            case RendererEntryType_renderer_entry_rect_on_ground:
             {
-                render_entry_rect_on_ground *Entry = (render_entry_rect_on_ground *)Data;
+                renderer_entry_rect_on_ground *Entry = (renderer_entry_rect_on_ground *)Data;
                 OpenglDrawRectOnGround({Entry->P, Entry->P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
                 
                 BaseAddress += sizeof(*Entry);
             } break;
             
-            case RenderGroupEntryType_render_entry_rect_outline_on_ground:
+            case RendererEntryType_renderer_entry_rect_outline_on_ground:
             {
-                render_entry_rect_outline_on_ground *Entry = (render_entry_rect_outline_on_ground *)Data;
+                renderer_entry_rect_outline_on_ground *Entry = (renderer_entry_rect_outline_on_ground *)Data;
                 OpenglDrawRectOutlineOnGround({Entry->P, Entry->P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z), Entry->LineWidth);
                 
                 BaseAddress += sizeof(*Entry);
@@ -138,6 +143,11 @@ OpenglEndFrame(renderer_frame *Frame)
             
             InvalidDefaultCase;
         }
+    }
+    
+    if(Frame->Opengl.UseShaderProgram)
+    {
+        Frame->Opengl.glUseProgram(0);
     }
     
     // NOTE(ezexff): Red rectangle

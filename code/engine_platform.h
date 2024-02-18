@@ -229,6 +229,62 @@ struct camera
     v3 Angle; // NOTE(ezexff): Pitch, Yaw, Roll
 };
 
+// NOTE(ezexff): Opengl function declarations
+typedef char GLchar;
+
+// NOTE(ezexff): WINAPI синоним __stdcall
+// Load shader
+typedef GLuint WINAPI type_glCreateShader(GLenum type);
+typedef void WINAPI type_glShaderSource(GLuint shader, GLsizei count, GLchar **string, GLint *length);
+typedef void WINAPI type_glCompileShader(GLuint shader);
+typedef void WINAPI type_glGetShaderiv(GLuint shader, GLenum pname, GLint *params);
+typedef void WINAPI type_glGetShaderInfoLog(GLuint shader, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
+
+// Link shader program
+typedef GLuint WINAPI type_glCreateProgram(void);
+typedef void WINAPI type_glAttachShader(GLuint program, GLuint shader);
+typedef void WINAPI type_glLinkProgram(GLuint program);
+typedef void WINAPI type_glGetProgramiv(GLuint program, GLenum pname, GLint *params);
+typedef void WINAPI type_glGetProgramInfoLog(GLuint program, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
+
+typedef void WINAPI type_glUseProgram(GLuint program);
+
+typedef void WINAPI type_glDeleteShader (GLuint shader);
+typedef void WINAPI type_glDeleteProgram (GLuint program);
+
+#define OpenGLFunction(Name) type_##Name *Name
+struct opengl
+{
+#define GL_VERTEX_SHADER 0x8B31
+#define GL_FRAGMENT_SHADER 0x8B30
+#define GL_COMPILE_STATUS 0x8B81
+#define GL_LINK_STATUS 0x8B82
+    
+    
+    b32 UseShaderProgram;
+    u32 ShaderProgram;
+    
+    // Load shader
+    OpenGLFunction(glCreateShader);
+    OpenGLFunction(glShaderSource);
+    OpenGLFunction(glCompileShader);
+    OpenGLFunction(glGetShaderiv);
+    OpenGLFunction(glGetShaderInfoLog);
+    
+    // Link shader program
+    OpenGLFunction(glCreateProgram);
+    OpenGLFunction(glAttachShader);
+    OpenGLFunction(glLinkProgram);
+    OpenGLFunction(glGetProgramiv);
+    OpenGLFunction(glGetProgramInfoLog);
+    
+    OpenGLFunction(glUseProgram);
+    
+    OpenGLFunction(glDeleteShader);
+    OpenGLFunction(glDeleteProgram);
+    
+};
+
 struct renderer_frame
 {
     // NOTE(ezexff): Client render area
@@ -239,10 +295,9 @@ struct renderer_frame
     u32 MaxPushBufferSize;
     u8 *PushBufferBase;
     u32 PushBufferSize;
+    u32 MissingResourceCount;
     
     camera Camera;
-    
-    u32 MissingResourceCount;
     
 #if ENGINE_INTERNAL
     // NOTE(ezexff): OpenGL info
@@ -252,6 +307,8 @@ struct renderer_frame
     
     imgui ImGuiHandle;
 #endif
+    
+    opengl Opengl;
 };
 
 //~ NOTE(ezexff): Memory

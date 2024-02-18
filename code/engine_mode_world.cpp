@@ -5,9 +5,14 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     tran_state *TranState = (tran_state *)Memory->TransientStorage;
     world *World = &GameState->World;
     
+    renderer_frame *Frame = &Memory->Frame;
+    
     if(!World->IsInitialized)
     {
         World->ClearColor = {0, 0, 1, 1};
+        
+        World->UseShaderProgram = false;
+        World->ShaderProgram = 0;
         
         World->IsInitialized = true;
     }
@@ -83,6 +88,9 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     {
         //Log->Add("[input]: VK_XBUTTON2 was pressed\n");
     }
+    
+    Frame->Opengl.UseShaderProgram = World->UseShaderProgram;
+    Frame->Opengl.ShaderProgram = World->ShaderProgram;
     
     PushClear(&Memory->Frame, World->ClearColor);
     PushRectOnGround(&Memory->Frame, V3(0, 0, 0), V2(5, 5), V4(0, 1, 0, 1));
