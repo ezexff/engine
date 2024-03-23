@@ -54,9 +54,30 @@ PushSize_(memory_arena *Arena, memory_index SizeInit, memory_index Alignment = 4
     return (Result);
 }
 
+inline void
+SubArena(memory_arena *Result, memory_arena *Arena, memory_index Size, memory_index Alignment = 16)
+{
+    Result->Size = Size;
+    Result->Base = (u8 *)PushSize_(Arena, Size, Alignment);
+    Result->Used = 0;
+    Result->TempCount = 0;
+}
+
+#define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
+inline void
+ZeroSize(memory_index Size, void *Ptr)
+{
+    // TODO(casey): Check this guy for performance
+    u8 *Byte = (u8 *)Ptr;
+    while(Size--)
+    {
+        *Byte++ = 0;
+    }
+}
+
 //~
 // NOTE(ezexff): Temporary arena
-/*struct temporary_memory
+struct temporary_memory
 {
     memory_arena *Arena;
     memory_index Used;
@@ -89,4 +110,4 @@ inline void
 CheckArena(memory_arena *Arena)
 {
     Assert(Arena->TempCount == 0);
-}*/
+}

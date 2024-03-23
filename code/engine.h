@@ -3,14 +3,23 @@
 
 #include "engine_platform.h"
 
-#include "immintrin.h"
-#include "engine_intrinsics.h"
 #include "engine_math.h"
 
 #include "engine_memory.h"
+
+
+#include "engine_asset_type_id.h"
+#include "engine_asset_file_formats.h"
 #include "engine_asset.h"
 
+#include "engine_audio.h"
 #include "engine_renderer.h"
+
+#include "engine_world.h"
+#include "engine_sim_region.h"
+#include "engine_entity.h"
+
+#include "engine_mode_world.h"
 
 enum game_mode
 {
@@ -18,26 +27,27 @@ enum game_mode
     GameMode_World,
 };
 
-struct world
+struct mode_world
 {
     b32 IsInitialized;
     
+    //camera Camera;
+    
     v4 ClearColor;
     
-    b32 UseShaderProgram;
-    u32 ShaderProgram;
 };
 
-struct test
+struct mode_test
 {
     b32 IsInitialized;
     
+    camera Camera;
+    
     v4 ClearColor;
     
-    b32 UseShaderProgram;
-    u8 ShaderText[10000];
-    u32 Shader;
-    u32 ShaderProgram;
+    opengl_program FrameProgram;
+    opengl_shader FrameVert;
+    opengl_shader FrameFrag;
 };
 
 struct game_state
@@ -45,24 +55,104 @@ struct game_state
     b32 IsInitialized;
     memory_arena ConstArena;
     
+    u32 GameMode;
+    mode_world ModeWorld;
+    mode_test ModeTest;
+    
+    audio_state AudioState;
+    playing_sound *PlayingSound;
+#if ENGINE_INTERNAL
+    bool IsTestSineWave;
     s32 ToneHz;
     s16 ToneVolume;
     r32 tSine;
     u32 SampleIndex;
+#endif
     
-    loaded_sound LoadedSound;
+    //~ NOTE(ezexff): Sim region
+    world *World;
     
-    u32 GameMode;
-    world World;
-    test Test;
+    r32 TypicalFloorHeight;
+    
+    u32 CameraFollowingEntityIndex;
+    world_position CameraP;
+    r32 CameraPitch;
+    r32 CameraYaw;
+    
+    controlled_hero ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
+    
+    u32 LowEntityCount;
+    low_entity LowEntities[100000];
+    
+    // TODO(casey): Must be power of two
+    pairwise_collision_rule *CollisionRuleHash[256];
+    pairwise_collision_rule *FirstFreeCollisionRule;
+    
+    sim_entity_collision_volume_group *NullCollision;
+    sim_entity_collision_volume_group *SwordCollision;
+    sim_entity_collision_volume_group *StairCollision;
+    sim_entity_collision_volume_group *PlayerCollision;
+    sim_entity_collision_volume_group *MonstarCollision;
+    sim_entity_collision_volume_group *FamiliarCollision;
+    sim_entity_collision_volume_group *WallCollision;
+    sim_entity_collision_volume_group *StandardRoomCollision;
+};
+
+struct task_with_memory
+{
+    b32 BeingUsed;
+    memory_arena Arena;
+    
+    temporary_memory MemoryFlush;
 };
 
 struct tran_state
 {
     b32 IsInitialized;
     memory_arena TranArena;
+    
+    platform_work_queue *HighPriorityQueue;
+    platform_work_queue *LowPriorityQueue;
+    task_with_memory Tasks[4];
+    
+    game_assets *Assets;
+    
+    u32 GroundBufferCount;
+    ground_buffer *GroundBuffers;
 };
 
+global_variable platform_api Platform;
 #if ENGINE_INTERNAL
 app_log *Log;
 #endif
+
+internal task_with_memory *
+BeginTaskWithMemory(tran_state *TranState)
+{
+    task_with_memory *FoundTask = 0;
+    
+    for(u32 TaskIndex = 0;
+        TaskIndex < ArrayCount(TranState->Tasks);
+        ++TaskIndex)
+    {
+        task_with_memory *Task = TranState->Tasks + TaskIndex;
+        if(!Task->BeingUsed)
+        {
+            FoundTask = Task;
+            Task->BeingUsed = true;
+            Task->MemoryFlush = BeginTemporaryMemory(&Task->Arena);
+            break;
+        }
+    }
+    
+    return(FoundTask);
+}
+
+internal void
+EndTaskWithMemory(task_with_memory *Task)
+{
+    EndTemporaryMemory(Task->MemoryFlush);
+    
+    CompletePreviousWritesBeforeFutureWrites;
+    Task->BeingUsed = false;
+}

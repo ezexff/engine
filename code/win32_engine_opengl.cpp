@@ -5,7 +5,6 @@
 
 #include "win32_engine_renderer.h"
 
-#include "engine_intrinsics.h"
 #include "engine_math.h"
 #include "engine_renderer.h"
 #include "engine_renderer_opengl.h"
@@ -37,33 +36,57 @@ Win32InitOpengl(renderer_frame *Frame, HDC WindowDC)
     if(wglMakeCurrent(WindowDC, OpenGLRC))        
     {
 #if ENGINE_INTERNAL
-        OutputDebugStringA("OpenGL context created\n");
+        //OutputDebugStringA("OpenGL context created\n");
         
-        Frame->GLVendorStr = (char *)glGetString(GL_VENDOR);
-        Frame->GLRendererStr = (char *)glGetString(GL_RENDERER);
-        Frame->GLVersionStr = (char *)glGetString(GL_VERSION);
+        Frame->Opengl.GLVendorStr = (char *)glGetString(GL_VENDOR);
+        Frame->Opengl.GLRendererStr = (char *)glGetString(GL_RENDERER);
+        Frame->Opengl.GLVersionStr = (char *)glGetString(GL_VERSION);
 #endif
         
-#define Win32GetOpenGLFunction(Name) Frame->Opengl.Name = (type_##Name *)wglGetProcAddress(#Name)
+#define Win32GetOpenglFunction(Name) Frame->Opengl.Name = (type_##Name *)wglGetProcAddress(#Name)
         
         // Load shader
-        Win32GetOpenGLFunction(glCreateShader);
-        Win32GetOpenGLFunction(glShaderSource);
-        Win32GetOpenGLFunction(glCompileShader);
-        Win32GetOpenGLFunction(glGetShaderiv);
-        Win32GetOpenGLFunction(glGetShaderInfoLog);
+        Win32GetOpenglFunction(glCreateShader);
+        Win32GetOpenglFunction(glShaderSource);
+        Win32GetOpenglFunction(glCompileShader);
+        Win32GetOpenglFunction(glGetShaderiv);
+        Win32GetOpenglFunction(glGetShaderInfoLog);
         
         // Link shader program
-        Win32GetOpenGLFunction(glCreateProgram);
-        Win32GetOpenGLFunction(glAttachShader);
-        Win32GetOpenGLFunction(glLinkProgram);
-        Win32GetOpenGLFunction(glGetProgramiv);
-        Win32GetOpenGLFunction(glGetProgramInfoLog);
+        Win32GetOpenglFunction(glCreateProgram);
+        Win32GetOpenglFunction(glAttachShader);
+        Win32GetOpenglFunction(glLinkProgram);
+        Win32GetOpenglFunction(glGetProgramiv);
+        Win32GetOpenglFunction(glGetProgramInfoLog);
         
-        Win32GetOpenGLFunction(glUseProgram);
+        Win32GetOpenglFunction(glUseProgram);
         
-        Win32GetOpenGLFunction(glDeleteShader);
-        Win32GetOpenGLFunction(glDeleteProgram);
+        Win32GetOpenglFunction(glDeleteShader);
+        Win32GetOpenglFunction(glDeleteProgram);
+        
+        // FBO
+        Win32GetOpenglFunction(glGenFramebuffers);
+        Win32GetOpenglFunction(glBindFramebuffer);
+        Win32GetOpenglFunction(glFramebufferTexture2D);
+        Win32GetOpenglFunction(glActiveTexture);
+        
+        // VAO, VBO, EBO
+        Win32GetOpenglFunction(glGenVertexArrays);
+        Win32GetOpenglFunction(glBindVertexArray);
+        Win32GetOpenglFunction(glGenBuffers);
+        Win32GetOpenglFunction(glBindBuffer);
+        Win32GetOpenglFunction(glBufferData);
+        Win32GetOpenglFunction(glEnableVertexAttribArray);
+        Win32GetOpenglFunction(glVertexAttribPointer);
+        
+        //
+        Win32GetOpenglFunction(glUniform1i);
+        Win32GetOpenglFunction(glGetUniformLocation);
+        Win32GetOpenglFunction(glCheckFramebufferStatus);
+        
+        Win32GetOpenglFunction(glGenerateMipmap);
+        
+        Win32GetOpenglFunction(glUniformMatrix4fv);
     }
     else
     {

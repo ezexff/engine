@@ -87,7 +87,7 @@ inline v2 V2(r32 X, r32 Y)
     return (Result);
 }
 
-//~ NOTE(ezexff): v2 operations
+// NOTE(ezexff): v2 operations
 inline v2 Perp(v2 A)
 {
     v2 Result = {-A.y, A.x};
@@ -228,7 +228,7 @@ ToV3(v2 XY, r32 Z)
     return (Result);
 }
 
-//~ NOTE(ezexff): v3 operations
+// NOTE(ezexff): v3 operations
 inline v3 operator*(r32 A, v3 B)
 {
     v3 Result;
@@ -585,4 +585,322 @@ inline v4 AiLerp(v4 A, r32 t, v4 B)
     pOut.y = sclp * pStart.y + sclq * end.y;
     pOut.z = sclp * pStart.z + sclq * end.z;
     pOut.w = sclp * pStart.w + sclq * end.w;*/
+}
+
+//~ NOTE(ezexff): m4x4 init
+inline m4x4 Identity(void)
+{
+    m4x4 R = 
+    {
+        {
+            {1, 0, 0, 0},
+            {0, 1, 0, 0},
+            {0, 0, 1, 0},
+            {0, 0, 0, 1}
+        },
+    };
+    
+    return (R);
+}
+
+// NOTE(ezexff): m4x4 operations
+inline m4x4 Scale(r32 P)
+{
+    m4x4 R = 
+    {
+        {
+            {1 * P, 0, 0, 0},
+            {0, 1 * P, 0, 0},
+            {0, 0, 1 * P, 0},
+            {0, 0, 0, 1}
+        },
+    };
+    
+    return (R);
+}
+
+m4x4 Transpose(m4x4 A)
+{
+    m4x4 R;
+    
+    for(u32 i = 0; i < 4; i++)
+    {
+        for(u32 j = 0; j < 4; j++)
+        {
+            R.E[i][j] = A.E[j][i];
+        }
+    }
+    
+    return (R);
+}
+
+inline m4x4 XRotation(r32 Angle)
+{
+    Angle = Angle * Pi32 / 180;
+    r32 c = Cos(Angle);
+    r32 s = Sin(Angle);
+    
+    m4x4 R = 
+    {
+        {
+            {1, 0, 0, 0},
+            {0, c, -s, 0},
+            {0, s, c, 0},
+            {0, 0, 0, 1}
+        }
+    };
+    
+    return (R);
+}
+
+inline m4x4 Translate(v3 T)
+{
+    m4x4 R = 
+    {
+        {
+            {1, 0, 0, T.x},
+            {0, 1, 0, T.y},
+            {0, 0, 1, T.z},
+            {0, 0, 0, 1}
+        },
+    };
+    
+    return (R);
+}
+
+internal m4x4 operator*(m4x4 A, m4x4 B)
+{
+    // NOTE(casey): This is written to be instructive, not optimal!
+    
+    m4x4 R = {};
+    
+    for(int r = 0; r <= 3; ++r) // NOTE(casey): Rows (of A)
+    {
+        for(int c = 0; c <= 3; ++c) // NOTE(casey): Column (of B)
+        {
+            for(int i = 0; i <= 3; ++i) // NOTE(casey): Columns of A, rows of B!
+            {
+                R.E[r][c] += A.E[r][i] * B.E[i][c];
+            }
+        }
+    }
+    
+    return (R);
+}
+
+//~ NOTE(ezexff): Rectangle init
+
+
+// NOTE(ezexff): Rectangle operations
+inline v2 GetMinCorner(rectangle2 Rect)
+{
+    v2 Result = Rect.Min;
+    return (Result);
+}
+
+inline v2 GetMaxCorner(rectangle2 Rect)
+{
+    v2 Result = Rect.Max;
+    return (Result);
+}
+
+inline v2 GetCenter(rectangle2 Rect)
+{
+    v2 Result = 0.5f * (Rect.Min + Rect.Max);
+    return (Result);
+}
+
+inline v2 GetDim(rectangle2 Rect)
+{
+    v2 Result = Rect.Max - Rect.Min;
+    return (Result);
+}
+
+inline rectangle2 RectMinMax(v2 Min, v2 Max)
+{
+    rectangle2 Result;
+    
+    Result.Min = Min;
+    Result.Max = Max;
+    
+    return (Result);
+}
+
+inline rectangle2 RectMinDim(v2 Min, v2 Dim)
+{
+    rectangle2 Result;
+    
+    Result.Min = Min;
+    Result.Max = Min + Dim;
+    
+    return (Result);
+}
+
+inline rectangle2 RectCenterHalfDim(v2 Center, v2 HalfDim)
+{
+    rectangle2 Result;
+    
+    Result.Min = Center - HalfDim;
+    Result.Max = Center + HalfDim;
+    
+    return (Result);
+}
+
+inline rectangle2 AddRadiusTo(rectangle2 A, v2 Radius)
+{
+    rectangle2 Result;
+    
+    Result.Min = A.Min - Radius;
+    Result.Max = A.Max + Radius;
+    
+    return (Result);
+}
+
+inline rectangle2 RectCenterDim(v2 Center, v2 Dim)
+{
+    rectangle2 Result = RectCenterHalfDim(Center, 0.5f * Dim);
+    
+    return (Result);
+}
+
+inline b32 IsInRectangle(rectangle2 Rectangle, v2 Test)
+{
+    b32 Result = ((Test.x >= Rectangle.Min.x) &&
+                  (Test.y >= Rectangle.Min.y) &&
+                  (Test.x < Rectangle.Max.x) &&
+                  (Test.y < Rectangle.Max.y));
+    
+    return (Result);
+}
+
+inline v2 GetBarycentric(rectangle2 A, v2 P)
+{
+    v2 Result;
+    
+    Result.x = SafeRatio0(P.x - A.Min.x, A.Max.x - A.Min.x);
+    Result.y = SafeRatio0(P.y - A.Min.y, A.Max.y - A.Min.y);
+    
+    return (Result);
+}
+
+// NOTE(me): rectangle3 operations
+inline v3 GetMinCorner(rectangle3 Rect)
+{
+    v3 Result = Rect.Min;
+    return (Result);
+}
+
+inline v3 GetMaxCorner(rectangle3 Rect)
+{
+    v3 Result = Rect.Max;
+    return (Result);
+}
+
+inline v3 GetCenter(rectangle3 Rect)
+{
+    v3 Result = 0.5f * (Rect.Min + Rect.Max);
+    return (Result);
+}
+
+inline v3 GetDim(rectangle3 Rect)
+{
+    v3 Result = Rect.Max - Rect.Min;
+    return (Result);
+}
+
+inline rectangle3 RectMinMax(v3 Min, v3 Max)
+{
+    rectangle3 Result;
+    
+    Result.Min = Min;
+    Result.Max = Max;
+    
+    return (Result);
+}
+
+inline rectangle3 RectMinDim(v3 Min, v3 Dim)
+{
+    rectangle3 Result;
+    
+    Result.Min = Min;
+    Result.Max = Min + Dim;
+    
+    return (Result);
+}
+
+inline rectangle3 RectCenterHalfDim(v3 Center, v3 HalfDim)
+{
+    rectangle3 Result;
+    
+    Result.Min = Center - HalfDim;
+    Result.Max = Center + HalfDim;
+    
+    return (Result);
+}
+
+inline rectangle3 AddRadiusTo(rectangle3 A, v3 Radius)
+{
+    rectangle3 Result;
+    
+    Result.Min = A.Min - Radius;
+    Result.Max = A.Max + Radius;
+    
+    return (Result);
+}
+
+inline rectangle3 Offset(rectangle3 A, v3 Offset)
+{
+    rectangle3 Result;
+    
+    Result.Min = A.Min + Offset;
+    Result.Max = A.Max + Offset;
+    
+    return (Result);
+}
+
+inline rectangle3 RectCenterDim(v3 Center, v3 Dim)
+{
+    rectangle3 Result = RectCenterHalfDim(Center, 0.5f * Dim);
+    
+    return (Result);
+}
+
+inline b32 IsInRectangle(rectangle3 Rectangle, v3 Test)
+{
+    b32 Result = ((Test.x >= Rectangle.Min.x) && //
+                  (Test.y >= Rectangle.Min.y) && //
+                  (Test.z >= Rectangle.Min.z) && //
+                  (Test.x < Rectangle.Max.x) &&  //
+                  (Test.y < Rectangle.Max.y) &&  //
+                  (Test.z < Rectangle.Max.z));
+    
+    return (Result);
+}
+
+inline b32 RectanglesIntersect(rectangle3 A, rectangle3 B)
+{
+    b32 Result = !((B.Max.x <= A.Min.x) || (B.Min.x >= A.Max.x) || (B.Max.y <= A.Min.y) || (B.Min.y >= A.Max.y) ||
+                   (B.Max.z <= A.Min.z) || (B.Min.z >= A.Max.z));
+    return (Result);
+}
+
+inline v3 GetBarycentric(rectangle3 A, v3 P)
+{
+    v3 Result;
+    
+    Result.x = SafeRatio0(P.x - A.Min.x, A.Max.x - A.Min.x);
+    Result.y = SafeRatio0(P.y - A.Min.y, A.Max.y - A.Min.y);
+    Result.z = SafeRatio0(P.z - A.Min.z, A.Max.z - A.Min.z);
+    
+    return (Result);
+}
+
+inline rectangle2 ToRectangleXY(rectangle3 A)
+{
+    rectangle2 Result;
+    
+    Result.Min = A.Min.xy;
+    Result.Max = A.Max.xy;
+    
+    return (Result);
 }

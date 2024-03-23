@@ -4,6 +4,7 @@ enum renderer_entry_type
     RendererEntryType_renderer_entry_clear,
     RendererEntryType_renderer_entry_rect_on_ground,
     RendererEntryType_renderer_entry_rect_outline_on_ground,
+    RendererEntryType_renderer_entry_bitmap_on_ground,
     //RenderGroupEntryType_render_entry_bitmap,
 };
 
@@ -32,11 +33,11 @@ struct renderer_entry_rect_outline_on_ground
     r32 LineWidth;
 };
 
-/*struct render_entry_texture
+struct renderer_entry_bitmap_on_ground
 {
-    u32 Texture; // OpenGl id
+    loaded_bitmap *Bitmap;
     v2 P;
     v2 Dim;
-    b32 FlipVertically;
     r32 Repeat;
-};*/
+    //b32 FlipVertically;
+};

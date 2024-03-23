@@ -1,15 +1,5 @@
 # C++ Game Engine
 Game engine that i wrote when learned low-level programming
-<details>
-<summary>Screenshots</summary>
-
-### 18.02.2024
-<img src="https://i.imgur.com/CTprHxF.png" alt="2 - 18.02.2024">
-
-### 16.02.2024
-<img src="https://i.imgur.com/P8EAYty.png" alt="1 - 16.02.2024">
-
-</details>
 
 ## Setup
 * **Engine:** Custom. Low-level programming. From scratch and without libs. Minimum number of dependencies. Only platform api and graphics api
@@ -141,17 +131,20 @@ Game engine that i wrote when learned low-level programming
   * ConstArena static storage
   * TranArena updates every frame
 * ### Renderer (OpenGL)
-  * Render frame through camera with perspective projection
+  * Frame through camera with perspective projection
   * Push buffer
     * Clear
     * RectOnGround
     * RectOutlineOnGround
-  * Render frame through shader
+    * BitmapOnGround
+  * Frame through shader with effects (blur, emboss, grayscale, inverse, sepia)
+  * Skybox
+  * Ground chunks
 * ### Audio (sound mixer)
   * Play sound
-  * Play sine wave
-  * Sine wave tone volume
-  * Sine wave tone hz
+  * Test sine wave
+    * Change tone volume
+    * Change tone hz
 * ### Mode
   * Test
     * Render
@@ -162,45 +155,70 @@ Game engine that i wrote when learned low-level programming
       * Link shader program
   * World
     * Input
-      * Camera X and Y from keyboard
-      * Camera Z from mouse wheel
+      * Movement
+      * Camera
+      * Attack
+    * Hash-based world storage
+    * Entities (hero, wall, monstar, sword)
+    * Sim region  
+      * Update entities in area around camera (movement, collisions and etc.)
     * Render
-      * Clear screen
-      * Rectangle outline on ground
-      * Rectangle on ground
+      * Updatable entities
+      * Bitmap at ground chunks
 * ### Other
   * Math
     * Intrinsics
       * Scalar operations through processor instructions
       * SIMD intrinsics for trigonometric math functions (SVML)
     * Scalar operations
-    * Vectors operators and operations
-    * Rectangles operators and operations
-    * Matrices operators and operations
+    * Vector operators and operations
+    * Rectangle operators and operations
+    * Matrix operators and operations
+  * Multithreaded task workers
   * Asset
-    * Reading file groups
-    * Import WAV file
+    * Reading EAB files
+    * Load bitmaps and sounds through task workers
 * ### Debug
   * ImGui log app
   * ImGui game window
+    * Sim region window visibility
     * Memory
       * ConstArena info
       * TranArena info
     * Audio
-      * Tone hz
-      * Tone volume
-      * Play loaded sound
+      * Playing sound info
+      * Test sine wave
+        * Tone hz
+        * Tone volume
+      * Play 1st loaded sound
     * Frame
       * Push buffer info
-      * Camera position and angle
+      * Camera position and angle info
+      * Preview for color and depth textures
+      * Effects (blur, emboss, grayscale, inverse, sepia)
+      * Live shaders editor window visibility
+      * Variables info (IDs - textures, shaders, programs)
     * Input
       * Mouse pos and delta
       * Log mouse input
       * Log keyboard input
+    * Threads
+      * Current state info for 4 workers
+    * Assets
+      * Created memory blocks info
+      * Count for every type of asset
+      * EAB file tree
+        * Show selected bitmap in preview window
+        * Play selected sound
     * Mode
       * Change game mode
+      * Change camera position
       * Background fill color
-      * Live shader editing
+  * Bitmap preview window
+  * Shaders editor window
+  * Sim region window
+    * Origin, bounds and etc. info
+    * List of updatable entities
 
 </details>
 
@@ -214,7 +232,60 @@ Game engine that i wrote when learned low-level programming
 
 ## Legacy
 <details>
+<summary>Changes</summary>
+
+```
+2024.03.20
+ + added sim region, world, entities from old engine
+ + added functions for rectangle types
+ + added ground chunk buffers and fill ground chunks filling
+ + fixed collision when hit monstar
+
+2024.02.24
+ + added IsDown() and WasPressed() input functions
+ + fixed Frame s32 Width, Height replaced to v2s Dim
+ + MoveCamera() method - camera in frame from mode camera
+ + changing camera pos and angle from game modes
+ + added string type
+ + added name and size in filehandle
+ + improved OpenglCompileShader() and OpenglLinkProgram()
+ + added rendering through texture (ColorTexture, DepthTexture, VAO, VBO, FBO)
+ + added vert and frag shader screen effects to frame (blur, emboss, grayscale, inverse, sepia)
+ + improved structure of ImGui debug windows
+ + added mouse delta for 3d camera
+ + improved 3d camera and movement in World mode
+ + some ImGui Text replaced by BulletText
+ + added task work queues
+ + added assets loading from .eab files through thread task workers
+ + added EAB tree with bitmaps and sounds
+ + added preview window for bitmaps
+ + added skybox
+ + skybox optimized
+ + fixed camera angle
+ + fixed dtForFrame in movement code
+ + improved shaders loading code
+ + fixed bug in platform file i/o code
+ + reworked code for load shader texts
+ + added bitmap on ground to push buffer renderer
+```
+
+</details>
+
+<details>
 <summary>Screenshots</summary>
+
+### 23.03.2024
+<img src="https://i.imgur.com/cGDpNIo.png" alt="5 - 23.03.2024">
+<img src="https://i.imgur.com/wWGq702.png" alt="4 - 23.03.2024">
+<img src="https://i.imgur.com/aPd24OJ.png" alt="3 - 23.03.2024">
+<img src="https://i.imgur.com/Xwltila.png" alt="2 - 23.03.2024">
+<img src="https://i.imgur.com/dF5uV3q.png" alt="1 - 23.03.2024">
+
+### 18.02.2024
+<img src="https://i.imgur.com/CTprHxF.png" alt="2 - 18.02.2024">
+
+### 16.02.2024
+<img src="https://i.imgur.com/P8EAYty.png" alt="1 - 16.02.2024">
 
 ### 26.12.2023
 <img src="https://i.imgur.com/ScSqF2k.png" alt="19 - 26.12.2023">
@@ -249,8 +320,12 @@ Game engine that i wrote when learned low-level programming
 
 </details>
 
+> **NOTE:** Current game engine version is 3
+
+[1st version](https://github.com/ezexff/learning_opengl)
+
 <details>
-<summary>Description</summary>
+<summary>2nd version description</summary>
 
 * ### Platform Layer (GLFW)
   * Memory: big memory block from VirtualAlloc()
@@ -317,5 +392,3 @@ Game engine that i wrote when learned low-level programming
     * 3d-model: Materials + Lighting + Shadows (Depth Shader, Shadow Shader, Shadow acne, Peter panning, PCF)
 
 </details>
-
-[Old engine](https://github.com/ezexff/learning_opengl)

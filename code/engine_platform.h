@@ -1,4 +1,7 @@
 #include "engine_types.h"
+#include <intrin.h>
+#include "immintrin.h"
+#include "engine_intrinsics.h"
 
 //~ NOTE(ezexff): Functions
 inline u32
@@ -155,18 +158,26 @@ struct imgui
     
     HDC WGL; // NOTE(ezexff): Need for render imgui
     
-    // NOTE(ezexff): ImGui windows visibility
-    bool ShowWin32Window;
-    bool ShowGameWindow;
-    bool ShowDemoWindow;
-    
     // NOTE(ezexff): ImGui all windows visibility
     bool ShowImGuiWindows;
+    
+    // NOTE(ezexff): ImGui single window visibility
+    bool ShowWin32Window;
+    bool ShowDemoWindow;
+    bool ShowGameWindow;
+    bool ShowLogWindow;
+    bool ShowFrameShadersEditorWindow;
+    bool ShowBitmapPreviewWindow;
+    bool ShowSimRegionWindow;
+    
+    // NOTE(ezexff): Log audio
+    bool LogAudio;
     
     // NOTE(ezexff): Log inputs
     bool LogMouseInput;
     bool LogKeyboardInput;
     
+    // NOTE(ezexff): Log app
     app_log Log;
 };
 #endif
@@ -192,16 +203,32 @@ struct loaded_sound
 struct platform_file_handle
 {
     b32 NoErrors;
+    void *Platform;
+    
+    // TODO(ezexff): Mb rework?
+    u64 Size;
+    string Name;
 };
 
 struct platform_file_group
 {
     u32 FileCount;
+    void *Platform;
 };
 
-#define PLATFORM_GET_ALL_FILE_OF_TYPE_BEGIN(name) platform_file_group *name(char *Type)
+enum platform_file_type
+{
+    PlatformFileType_AssetFile,
+    PlatformFileType_SavedGameFile,
+    PlatformFileType_VertFile,
+    PlatformFileType_FragFile,
+    
+    PlatformFileType_Count,
+};
+
+#define PLATFORM_GET_ALL_FILE_OF_TYPE_BEGIN(name) platform_file_group name(platform_file_type Type)
 #define PLATFORM_GET_ALL_FILE_OF_TYPE_END(name) void name(platform_file_group *FileGroup)
-#define PLATFORM_OPEN_FILE(name) platform_file_handle *name(platform_file_group *FileGroup)
+#define PLATFORM_OPEN_FILE(name) platform_file_handle name(platform_file_group *FileGroup)
 #define PLATFORM_READ_DATA_FROM_FILE(name) void name(platform_file_handle *Source, u64 Offset, u64 Size, void *Dest)
 #define PLATFORM_FILE_ERROR(name) void name(platform_file_handle *Handle, char *Message)
 #define PlatformNoFileErrors(Handle) ((Handle)->NoErrors)
@@ -212,6 +239,19 @@ typedef PLATFORM_OPEN_FILE(platform_open_next_file);
 typedef PLATFORM_READ_DATA_FROM_FILE(platform_read_data_from_file);
 typedef PLATFORM_FILE_ERROR(platform_file_error);
 
+struct platform_work_queue;
+#define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(platform_work_queue *Queue, void *Data)
+typedef PLATFORM_WORK_QUEUE_CALLBACK(platform_work_queue_callback);
+
+typedef void platform_add_entry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data);
+typedef void platform_complete_all_work(platform_work_queue *Queue);
+
+#define PLATFORM_ALLOCATE_MEMORY(name) void *name(memory_index Size)
+#define PLATFORM_DEALLOCATE_MEMORY(name) void name(void *Memory)
+
+typedef PLATFORM_ALLOCATE_MEMORY(platform_allocate_memory);
+typedef PLATFORM_DEALLOCATE_MEMORY(platform_deallocate_memory);
+
 //~ NOTE(ezexff): Platform API
 struct platform_api
 {
@@ -220,6 +260,12 @@ struct platform_api
     platform_open_next_file *OpenNextFile;
     platform_read_data_from_file *ReadDataFromFile;
     platform_file_error *FileError;
+    
+    platform_add_entry *AddEntry;
+    platform_complete_all_work *CompleteAllWork;
+    
+    platform_allocate_memory *AllocateMemory;
+    platform_deallocate_memory *DeallocateMemory;
 };
 
 //~ NOTE(ezexff): Renderer frame with push buffer
@@ -252,7 +298,32 @@ typedef void WINAPI type_glUseProgram(GLuint program);
 typedef void WINAPI type_glDeleteShader (GLuint shader);
 typedef void WINAPI type_glDeleteProgram (GLuint program);
 
-#define OpenGLFunction(Name) type_##Name *Name
+// FBO
+typedef void WINAPI type_glGenFramebuffers(GLsizei n, GLuint *framebuffers);
+typedef void WINAPI type_glBindFramebuffer(GLenum target, GLuint framebuffer);
+typedef void WINAPI type_glFramebufferTexture2D(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
+typedef void WINAPI type_glActiveTexture (GLenum texture);
+
+// VAO, VBO, EBO
+typedef ptrdiff_t GLsizeiptr;
+typedef void WINAPI type_glGenVertexArrays(GLsizei n, GLuint *arrays);
+typedef void WINAPI type_glBindVertexArray(GLuint array);
+typedef void WINAPI type_glGenBuffers(GLsizei n, GLuint *buffers);
+typedef void WINAPI type_glBindBuffer(GLenum target, GLuint buffer);
+typedef void WINAPI type_glBufferData(GLenum target, GLsizeiptr size, const void *data, GLenum usage);
+typedef void WINAPI type_glEnableVertexAttribArray(GLuint index);
+typedef void WINAPI type_glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
+
+//
+typedef void WINAPI type_glUniform1i(GLint location, GLint v0);
+typedef GLint WINAPI type_glGetUniformLocation(GLuint program, const GLchar *name);
+typedef GLenum WINAPI type_glCheckFramebufferStatus(GLenum target);
+
+typedef void WINAPI type_glGenerateMipmap(GLenum target);
+
+typedef void WINAPI type_glUniformMatrix4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
+
+#define OpenglFunction(Name) type_##Name *Name
 struct opengl
 {
 #define GL_VERTEX_SHADER 0x8B31
@@ -260,36 +331,102 @@ struct opengl
 #define GL_COMPILE_STATUS 0x8B81
 #define GL_LINK_STATUS 0x8B82
     
+#define GL_FRAMEBUFFER 0x8D40
+#define GL_COLOR_ATTACHMENT0 0x8CE0
+#define GL_DEPTH_COMPONENT32 0x81A7
+#define GL_DEPTH_ATTACHMENT 0x8D00
+#define GL_TEXTURE0 0x84C0
+#define GL_TEXTURE1 0x84C1
+#define GL_CLAMP_TO_EDGE 0x812F
     
-    b32 UseShaderProgram;
-    u32 ShaderProgram;
+#define GL_ARRAY_BUFFER 0x8892
+#define GL_STATIC_DRAW 0x88E4
+#define GL_ELEMENT_ARRAY_BUFFER 0x8893 
+#define GL_FRAMEBUFFER_COMPLETE 0x8CD5
+    
+#define GL_TEXTURE_CUBE_MAP 0x8513
+#define GL_TEXTURE_CUBE_MAP_POSITIVE_X 0x8515
+#define GL_TEXTURE_WRAP_R 0x8072
     
     // Load shader
-    OpenGLFunction(glCreateShader);
-    OpenGLFunction(glShaderSource);
-    OpenGLFunction(glCompileShader);
-    OpenGLFunction(glGetShaderiv);
-    OpenGLFunction(glGetShaderInfoLog);
+    OpenglFunction(glCreateShader);
+    OpenglFunction(glShaderSource);
+    OpenglFunction(glCompileShader);
+    OpenglFunction(glGetShaderiv);
+    OpenglFunction(glGetShaderInfoLog);
     
     // Link shader program
-    OpenGLFunction(glCreateProgram);
-    OpenGLFunction(glAttachShader);
-    OpenGLFunction(glLinkProgram);
-    OpenGLFunction(glGetProgramiv);
-    OpenGLFunction(glGetProgramInfoLog);
+    OpenglFunction(glCreateProgram);
+    OpenglFunction(glAttachShader);
+    OpenglFunction(glLinkProgram);
+    OpenglFunction(glGetProgramiv);
+    OpenglFunction(glGetProgramInfoLog);
     
-    OpenGLFunction(glUseProgram);
+    OpenglFunction(glUseProgram);
     
-    OpenGLFunction(glDeleteShader);
-    OpenGLFunction(glDeleteProgram);
+    OpenglFunction(glDeleteShader);
+    OpenglFunction(glDeleteProgram);
     
+    // FBO
+    OpenglFunction(glGenFramebuffers);
+    OpenglFunction(glBindFramebuffer);
+    OpenglFunction(glFramebufferTexture2D);
+    OpenglFunction(glActiveTexture);
+    
+    // VAO, VBO, EBO
+    OpenglFunction(glGenVertexArrays);
+    OpenglFunction(glBindVertexArray);
+    OpenglFunction(glGenBuffers);
+    OpenglFunction(glBindBuffer);
+    OpenglFunction(glBufferData);
+    OpenglFunction(glEnableVertexAttribArray);
+    OpenglFunction(glVertexAttribPointer);
+    
+    //
+    OpenglFunction(glUniform1i);
+    OpenglFunction(glGetUniformLocation);
+    OpenglFunction(glCheckFramebufferStatus);
+    
+    OpenglFunction(glGenerateMipmap);
+    
+    OpenglFunction(glUniformMatrix4fv);
+    
+#if ENGINE_INTERNAL
+    // NOTE(ezexff): OpenGL info
+    char *GLVendorStr;
+    char *GLRendererStr;
+    char *GLVersionStr;
+#endif
+    
+#define VERT_POSITION 0
+#define VERT_TEXCOORD 1
+    //#define VERT_NORMAL    2
+    
+#define EFFECT_ABBERATION 0
+#define EFFECT_BLUR 1
+#define EFFECT_EMBOSS 2
+#define EFFECT_GRAYSCALE 3
+#define EFFECT_INVERSE 4
+#define EFFECT_SEPIA 5
+#define EFFECT_NORMAL 6
+};
+
+struct opengl_shader
+{
+    u32 ID;
+    u8 Text[10000];
+};
+
+struct opengl_program
+{
+    u32 ID;
 };
 
 struct renderer_frame
 {
-    // NOTE(ezexff): Client render area
-    s32 Width;
-    s32 Height;
+    v2s Dim; // NOTE(ezexff): Client render area
+    
+    v3 OffsetP; // NOTE(ezexff): World offsetP
     
     u8 PushBufferMemory[65536];
     u32 MaxPushBufferSize;
@@ -298,13 +435,35 @@ struct renderer_frame
     u32 MissingResourceCount;
     
     camera Camera;
+    r32 CameraZ;
+    
+    u32 SkyboxVAO;
+    u32 SkyboxVBO;
+    loaded_bitmap Skybox[6];
+    b32 InitializeSkyboxTexture;
+    u32 SkyboxTexture;
+    opengl_shader SkyboxVert;
+    opengl_shader SkyboxFrag;
+    opengl_program SkyboxProgram;
+    
+    u32 ColorTexture;
+    u32 DepthTexture;
+    u32 VAO;
+    u32 VBO;
+    //u32 EBO;
+    u32 FBO;
+    
+    opengl_shader Vert;
+    opengl_shader Frag;
+    opengl_program Program;
+    s32 FragEffect;
     
 #if ENGINE_INTERNAL
-    // NOTE(ezexff): OpenGL info
-    char *GLVendorStr;
-    char *GLRendererStr;
-    char *GLVersionStr;
-    
+    loaded_bitmap Preview;
+    u32 PreviewTexture;
+    /*u32 BitmapPreviewBPP;
+    u32 BitmapPreviewDim[2];
+    void *BitmapPreviewMemory;*/
     imgui ImGuiHandle;
 #endif
     
@@ -321,6 +480,9 @@ struct game_memory
     void *TransientStorage; // NOTE(ezexff): Clear to zero at startup
     
     renderer_frame Frame;
+    
+    platform_work_queue *HighPriorityQueue;
+    platform_work_queue *LowPriorityQueue;
     
     platform_api PlatformAPI;
 };
@@ -389,18 +551,26 @@ struct game_input
     
     game_controller_input Controllers[5];
     
-    // TODO(me): переделать?
     game_button_state MouseButtons[PlatformMouseButton_Count];
-    //r32 MouseX, MouseY, MouseZ;
-    // b32 ShiftDown, AltDown, ControlDown;
     v2s MouseP;
     v3s MouseDelta; // x and y - pos delta, z - scroll delta
-    
-    //r32 MouseOffsetX, MouseOffsetY;
-    // r32 MouseCenterDiffX, MouseCenterDiffY;
-    // r32 MouseCenterX, MouseCenterY;
-    // b32 ShowMouseCursorMode;
+    b32 CenteringMouseCursor;
 };
+
+b32 WasPressed(game_button_state State)
+{
+    b32 Result = ((State.HalfTransitionCount > 1) ||
+                  ((State.HalfTransitionCount == 1) && (State.EndedDown)));
+    
+    return(Result);
+}
+
+b32 IsDown(game_button_state State)
+{
+    b32 Result = (State.EndedDown);
+    
+    return(Result);
+}
 
 inline game_controller_input *
 GetController(game_input *Input, u32 ControllerIndex)

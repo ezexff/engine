@@ -22,6 +22,12 @@ typedef uintptr_t umm;
 
 typedef size_t memory_index;
 
+#if !defined(internal)
+#define internal static
+#endif
+#define local_persist static
+#define global_variable static
+
 // NOTE(ezexff): Floating point fix for no CRT release compile (MSVC)
 #if !(ENGINE_INTERNAL)
 extern "C"
@@ -105,8 +111,22 @@ break
 #define Align8(Value) ((Value + 7) & ~7)
 #define Align16(Value) ((Value + 15) & ~15)
 
-// NOTE(ezexff): Vectors
-union v2 {
+struct loaded_bitmap
+{
+    //v2 AlignPercentage;
+    //r32 WidthOverHeight;
+    
+    s32 Width;
+    s32 Height;
+    s32 BytesPerPixel;
+    void *Memory;
+    u32 OpenglID;
+};
+
+
+//~ NOTE(ezexff): Vectors
+union v2
+{
     struct
     {
         r32 x, y;
@@ -123,7 +143,8 @@ union v2s
     s32 E[2];
 };
 
-union v3 {
+union v3
+{
     struct
     {
         r32 x, y, z;
@@ -156,7 +177,8 @@ union v3s
     s32 E[3];
 };
 
-union v4 {
+union v4
+{
     struct
     {
         union {
@@ -227,3 +249,107 @@ struct m4x4_inv
     m4x4 Forward;
     m4x4 Inverse;
 };
+
+//~ NOTE(ezexff): String
+struct buffer
+{
+    umm Count;
+    u8 *Data; // NOTE(ezexff): wchar_t or 2 bytes per sybol
+};
+typedef buffer string;
+
+inline u64
+StringLength(char *String)
+{
+    u64 Count = 0;
+    if(String)
+    {
+        while(*String++)
+        {
+            ++Count;
+        }
+    }
+    
+    return (Count);
+}
+
+inline u64
+StringLength(wchar_t *String)
+{
+    u64 Count = 0;
+    if(String)
+    {
+        while(*String++)
+        {
+            ++Count;
+        }
+    }
+    
+    return (Count);
+}
+
+inline b32
+operator==(string A, string B)
+{
+    b32 Result = false;
+    
+    if(A.Count == B.Count)
+    {
+        for(u64 i = 0; i < A.Count; i++)
+        {
+            if(A.Data[i] != B.Data[i])
+            {
+                return (Result);
+            }
+        }
+        Result = true;
+    }
+    
+    return (Result);
+}
+
+inline b32
+operator==(string A, char *B)
+{
+    b32 Result = false;
+    
+    u64 ACount = A.Count - 1; // без символа конца строки
+    u64 BCount = StringLength(B);
+    if(ACount == BCount)
+    {
+        for(u64 i = 0; i < ACount; i++)
+        {
+            if(A.Data[i] != B[i])
+            {
+                return (Result);
+            }
+        }
+        Result = true;
+    }
+    
+    return (Result);
+}
+
+inline b32
+operator==(string A, wchar_t *B)
+{
+    b32 Result = false;
+    
+    u64 ACount = A.Count - 1; // без символа конца строки
+    u64 BCount = StringLength(B);
+    if(ACount == BCount)
+    {
+        u8 *BU8 = (u8 *)B;
+        u64 SizeInBytes = sizeof(wchar_t) * ACount;
+        for(u64 i = 0; i < SizeInBytes; i++)
+        {
+            if(A.Data[i] != BU8[i])
+            {
+                return (Result);
+            }
+        }
+        Result = true;
+    }
+    
+    return (Result);
+}

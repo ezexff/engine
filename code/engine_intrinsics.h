@@ -1,3 +1,6 @@
+#define Minimum(A, B) ((A < B) ? (A) : (B))
+#define Maximum(A, B) ((A > B) ? (A) : (B))
+
 //#include "math.h"
 
 /*inline r32
@@ -34,8 +37,19 @@ Sin(r32 Angle)
     return(Result);
 }*/
 
+#define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
+#define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
+inline u32 AtomicCompareExchangeUInt32(u32 volatile *Value, u32 New, u32 Expected)
+{
+    u32 Result = _InterlockedCompareExchange((long *)Value, New, Expected);
+    
+    return(Result);
+}
+
 #include "immintrin.h"
+#if ENGINE_INTERNAL
 #include "math.h"
+#endif
 
 inline s32 RoundReal32ToInt32(r32 Real32)
 {
@@ -63,13 +77,15 @@ inline r32 SquareRoot(r32 Real32)
 
 inline r32 Cos(r32 Angle)
 {
-    r32 Result = cosf(Angle);
+    // NOTE(ezexff): SVML version
+    r32 Result = _mm_cvtss_f32(_mm_cos_ps(_mm_set_ss(Angle)));
+    //r32 Result = cosf(Angle);
     return (Result);
 }
 
 inline r32 Sin(r32 Angle)
 {
-    // NOTE(ezexff): SVML Sine version
+    // NOTE(ezexff): SVML version
     r32 Result = _mm_cvtss_f32(_mm_sin_ps(_mm_set_ss(Angle)));
     //r32 Result = sinf(Angle);
     return (Result);
