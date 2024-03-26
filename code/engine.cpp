@@ -389,7 +389,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                 ImVec2 WinDim = ImGui::GetWindowSize();
                 s32 ScrollBarSize = 100;
                 r32 AspectRatio = Frame->Dim.x / (WinDim.x - ScrollBarSize);
-                if (ImGui::TreeNode("Color"))
+                if(ImGui::TreeNode("Color"))
                 {
                     ImGui::Image((void *)(intptr_t)Frame->ColorTexture,
                                  ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
@@ -397,7 +397,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                     ImGui::TreePop();
                     ImGui::Spacing();
                 }
-                if (ImGui::TreeNode("Depth"))
+                if(ImGui::TreeNode("Depth"))
                 {
                     ImGui::Image((void *)(intptr_t)Frame->DepthTexture,
                                  ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
@@ -533,16 +533,26 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             {
                 game_assets *Assets = TranState->Assets;
                 
-                ImGui::SeparatorText("Memory blocks");
-                asset_memory_block *MemoryBlock = &Assets->MemorySentinel;
+                ImGui::BulletText("FileCount = %d", Assets->FileCount);
+                ImGui::BulletText("TagCount = %d", Assets->TagCount);
+                ImGui::BulletText("AssetCount = %d", Assets->AssetCount);
+                
+                //ImGui::SeparatorText("Memory blocks");
                 u32 BlockCount = 0;
-                while(MemoryBlock->Next != &Assets->MemorySentinel)
+                if(ImGui::TreeNode("Memory blocks"))
                 {
-                    MemoryBlock = MemoryBlock->Next;
-                    ImGui::BulletText("Block #%d Size = %d", BlockCount, MemoryBlock->Size);
-                    BlockCount++;
+                    asset_memory_block *MemoryBlock = &Assets->MemorySentinel;
+                    while(MemoryBlock->Next != &Assets->MemorySentinel)
+                    {
+                        MemoryBlock = MemoryBlock->Next;
+                        ImGui::BulletText("Block #%d Size = %d", BlockCount, MemoryBlock->Size);
+                        BlockCount++;
+                    }
+                    ImGui::BulletText("BlockCount = %d", BlockCount);
+                    
+                    ImGui::TreePop();
+                    ImGui::Spacing();
                 }
-                ImGui::BulletText("BlockCount = %d", BlockCount);
                 /*
 ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                                   Assets->Arena.Size / Megabytes(1),
@@ -564,9 +574,6 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                             Assets->TotalMemoryUsed / Kilobytes(1),
                             Assets->TotalMemoryUsed);
 */
-                ImGui::Text("FileCount = %d", Assets->FileCount);
-                ImGui::Text("TagCount = %d", Assets->TagCount);
-                ImGui::Text("AssetCount = %d", Assets->AssetCount);
                 
                 ImGui::SeparatorText("Types");
                 
@@ -581,7 +588,8 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                     "Ground",
                     "Skybox",
                     "Bloop",
-                    "Music"
+                    "Music",
+                    "Font"
                 };
                 
                 for(u32 TypeID = 1;
@@ -621,9 +629,9 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                                 {
                                     asset *Asset = Assets->Assets + AssetIndex;
                                     eab_bitmap EABBitmap = Asset->EAB.Bitmap;
-                                    ImGui::Text("#%d Dim = %dx%d BPS = %d State = %d", AssetIndex,
-                                                EABBitmap.Dim[0], EABBitmap.Dim[1], EABBitmap.BytesPerPixel,
-                                                GetState(Asset));
+                                    ImGui::BulletText("#%d UnicodeCodepoint = Dim = %dx%d BPS = %d State = %d", AssetIndex,
+                                                      EABBitmap.Dim[0], EABBitmap.Dim[1], EABBitmap.BytesPerPixel,
+                                                      GetState(Asset));
                                     ImGui::SameLine();
                                     
                                     bitmap_id ID = {};
@@ -657,6 +665,76 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                     ImGui::TreePop();
                     ImGui::Spacing();
                 }
+                if(ImGui::TreeNode("Fonts"))
+                {
+                    for(u32 TypeID = Asset_Font;
+                        TypeID <= Asset_Font;
+                        TypeID++)
+                    {
+                        asset_type *Type = Assets->AssetTypes + TypeID;
+                        u32 AssetCount = Type->OnePastLastAssetIndex - Type->FirstAssetIndex;
+                        
+                        if(AssetCount > 0)
+                        {
+                            if(ImGui::TreeNode((void *)(intptr_t)TypeID, "%s", TypeNames[TypeID]))
+                            {
+                                for(u32 AssetIndex = Type->FirstAssetIndex;
+                                    AssetIndex < Type->OnePastLastAssetIndex;
+                                    AssetIndex++)
+                                {
+                                    asset *Asset = Assets->Assets + AssetIndex;
+                                    eab_bitmap EABBitmap = Asset->EAB.Bitmap;
+                                    ImGui::BulletText("#%d Dim = %dx%d BPS = %d State = %d", AssetIndex,
+                                                      EABBitmap.Dim[0], EABBitmap.Dim[1], EABBitmap.BytesPerPixel,
+                                                      GetState(Asset));
+                                    ImGui::SameLine();
+                                    
+                                    bitmap_id ID = {};
+                                    ID.Value = AssetIndex;
+                                    if(GetState(Asset) == AssetState_Loaded)
+                                    {
+                                        loaded_bitmap *Bitmap = GetBitmap(Assets, ID, true);
+                                        ImGui::PushID(AssetIndex);
+                                        if(ImGui::Button("preview"))
+                                        {
+                                            Frame->Preview = *Bitmap;
+                                            ImGuiHandle->ShowBitmapPreviewWindow = true;
+                                            ImGui::SetWindowFocus("Bitmap preview");
+                                        }
+                                        ImGui::PopID();
+                                    }
+                                    else if(GetState(Asset) == AssetState_Unloaded)
+                                    {
+                                        ImGui::Text("LOADING...");
+                                        LoadBitmap(Assets, ID, true);
+                                        Frame->MissingResourceCount++;
+                                    }
+                                    
+                                    char *TagNames[] = 
+                                    {
+                                        "Opacity",
+                                        "Face",
+                                        "UnicodeCodepoint",
+                                    };
+                                    for(u32 TagIndex = Asset->EAB.FirstTagIndex;
+                                        TagIndex < Asset->EAB.OnePastLastTagIndex;
+                                        TagIndex++)
+                                    {
+                                        eab_tag Tag = Assets->Tags[TagIndex];
+                                        ImGui::Text("  Tag#%d ID = %s Value = %.3f", 
+                                                    TagIndex, TagNames[Tag.ID], Tag.Value);
+                                    }
+                                }
+                                
+                                ImGui::TreePop();
+                                ImGui::Spacing();
+                            }
+                        }
+                    }
+                    
+                    ImGui::TreePop();
+                    ImGui::Spacing();
+                }
                 if(ImGui::TreeNode("Sounds"))
                 {
                     for(u32 TypeID = Asset_Bloop;
@@ -675,8 +753,8 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                                 {
                                     asset *Asset = Assets->Assets + AssetIndex;
                                     eab_sound Sound = Asset->EAB.Sound;
-                                    ImGui::Text("#%d SampleCount = %d ChannelCount = %d", AssetIndex,
-                                                Sound.SampleCount, Sound.ChannelCount);
+                                    ImGui::BulletText("#%d SampleCount = %d ChannelCount = %d", AssetIndex,
+                                                      Sound.SampleCount, Sound.ChannelCount);
                                     ImGui::SameLine();
                                     
                                     sound_id ID = {};

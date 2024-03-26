@@ -235,6 +235,11 @@ Game engine that i wrote when learned low-level programming
 <summary>Changes</summary>
 
 ```
+2024.03.26
+ + added font to asset builder and engine
+ + added font preview in ImGui EAB tree
+ + in ImGui asset list Text replaced by BulletText
+
 2024.03.20
  + added sim region, world, entities from old engine
  + added functions for rectangle types
@@ -244,7 +249,7 @@ Game engine that i wrote when learned low-level programming
 2024.02.24
  + added IsDown() and WasPressed() input functions
  + fixed Frame s32 Width, Height replaced to v2s Dim
- + MoveCamera() method - camera in frame from mode camera
+ + added MoveCamera() method - camera in frame from mode camera
  + changing camera pos and angle from game modes
  + added string type
  + added name and size in filehandle
