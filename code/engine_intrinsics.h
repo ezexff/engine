@@ -51,28 +51,28 @@ inline u32 AtomicCompareExchangeUInt32(u32 volatile *Value, u32 New, u32 Expecte
 #include "math.h"
 #endif
 
-inline s32 RoundReal32ToInt32(r32 Real32)
+inline s32 RoundR32ToS32(r32 R32)
 {
-    s32 Result = (s32)roundf(Real32);
-    return (Result);
+    s32 Result = (s32)roundf(R32);
+    return(Result);
 }
 
-inline u32 RoundReal32ToUInt32(r32 Real32)
+inline u32 RoundR32ToU32(r32 R32)
 {
-    u32 Result = (u32)roundf(Real32);
-    return (Result);
+    u32 Result = (u32)roundf(R32);
+    return(Result);
 }
 
-inline r32 AbsoluteValue(r32 Real32)
+inline r32 AbsoluteValue(r32 R32)
 {
-    r32 Result = (r32)fabs(Real32);
-    return (Result);
+    r32 Result = (r32)fabs(R32);
+    return(Result);
 }
 
-inline r32 SquareRoot(r32 Real32)
+inline r32 SquareRoot(r32 R32)
 {
-    r32 Result = sqrtf(Real32);
-    return (Result);
+    r32 Result = sqrtf(R32);
+    return(Result);
 }
 
 inline r32 Cos(r32 Angle)

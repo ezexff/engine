@@ -123,6 +123,14 @@ struct loaded_bitmap
     u32 OpenglID;
 };
 
+struct loaded_sound
+{
+    u32 SampleCount;
+    u32 ChannelCount;
+    s16 *Samples[2];
+    
+    void *Free;
+};
 
 //~ NOTE(ezexff): Vectors
 union v2

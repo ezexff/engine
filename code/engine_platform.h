@@ -190,15 +190,6 @@ struct game_sound_output_buffer
     s16 *Samples;
 };
 
-struct loaded_sound
-{
-    u32 SampleCount;
-    u32 ChannelCount;
-    s16 *Samples[2];
-    
-    void *Free;
-};
-
 //~ NOTE(ezexff): Read files
 struct platform_file_handle
 {

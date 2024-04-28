@@ -14,9 +14,28 @@ eab_tag		 Assets->Tags		   8			 prev + sizeof(Header)
 eab_asset_type  Assets->AssetTypes	 12			prev + sizeof(tag) * Header.TagCount
 eab_asset   	Assets->Assets	     44			prev + sizeof(eab_asset_type) * Header.AssetTypeCount
 asset_source	Assets->AssetSources   24			prev + sizeof(eab_asset) * Header.AssetCount
-
-
 */
+
+struct bitmap_id
+{
+    u32 Value;
+};
+
+struct sound_id
+{
+    u32 Value;
+};
+
+struct font_id
+{
+    u32 Value;
+};
+
+enum asset_font_type
+{
+    FontType_Default = 0,
+    FontType_Debug = 10,
+};
 
 enum asset_tag_id
 {
@@ -26,6 +45,7 @@ enum asset_tag_id
     Tag_Opacity,
     Tag_Face, // NOTE(ezexff): 0 - right, 1 - left, 2 - top, 3 - bottom, 4 - front, 5 - back
     Tag_UnicodeCodepoint,
+    Tag_FontType, // NOTE(casey): 0 - Default Game Font, 10 - Debug Font?
     
     Tag_Count,
 };
@@ -65,7 +85,13 @@ enum asset_type_id
     //Asset_Glide,
     Asset_Music,
     //Asset_Puhp,
+    
+    //
+    // NOTE(ezexff): Fonts!
+    //
+    
     Asset_Font,
+    Asset_FontGlyph,
     
     //
     //
@@ -125,6 +151,28 @@ struct eab_sound
     u32 ChannelCount;
     u32 Chain; // NOTE(casey): hha_sound_chain
 };
+struct eab_font_glyph
+{
+    u32 UnicodeCodePoint;
+    bitmap_id BitmapID;
+};
+struct eab_font
+{
+    u32 OnePastHighestCodepoint;
+    u32 GlyphCount;
+    /*r32 AscenderHeight;
+    r32 DescenderHeight;    
+    r32 ExternalLeading;*/
+    r32 Scale;
+    s32 Ascent, Descent, LineGap;
+    s32 KerningTableLength;
+    
+    /* NOTE(casey): Data is:
+
+       hha_font_glyph CodePoints[GlyphCount];
+       r32 HorizontalAdvance[GlyphCount][GlyphCount];
+    */
+};
 struct eab_asset
 {
     u64 DataOffset;
@@ -134,6 +182,7 @@ struct eab_asset
     {
         eab_bitmap Bitmap;
         eab_sound Sound;
+        eab_font Font;
     };
 };
 

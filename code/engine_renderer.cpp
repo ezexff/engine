@@ -87,8 +87,51 @@ PushBitmapOnGround(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v3 
 }
 
 void
+PushBitmapOnScreen(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v3 Offset, v2 Dim, r32 Repeat)
+{
+    loaded_bitmap *Bitmap = GetBitmap(Assets, ID, true);
+    if(Bitmap)
+    {
+        //v3 P = (Offset - V3(0.5f * Dim, 0));
+        v3 P = Offset;
+        
+        renderer_entry_bitmap_on_screen *Entry = PushRenderElement(Frame, renderer_entry_bitmap_on_screen);
+        if(Entry)
+        {
+            Entry->Bitmap = Bitmap;
+            Entry->P = P.xy;
+            Entry->Dim = Dim;
+            Entry->Repeat = Repeat;
+        }
+    }
+    else
+    {
+        LoadBitmap(Assets, ID, true);
+        ++Frame->MissingResourceCount;
+    }
+}
+
+void
 MoveCamera(renderer_frame *Frame, camera Camera)
 {
     Frame->Camera.P = Camera.P;
     Frame->Camera.Angle = Camera.Angle;
+}
+
+inline loaded_font *
+PushFont(renderer_frame *Frame, game_assets *Assets, font_id ID)
+{
+    loaded_font *Font = GetFont(Assets, ID, true);    
+    if(Font)
+    {
+        // NOTE(casey): Nothing to do
+    }
+    else
+    {
+        //Assert(!Group->RendersInBackground);
+        LoadFont(Assets, ID, true);
+        //++Group->MissingResourceCount;
+    }
+    
+    return(Font);
 }

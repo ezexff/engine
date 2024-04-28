@@ -130,6 +130,96 @@ OpenglDrawBitmapOnGround(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, r3
     glDisable(GL_TEXTURE_2D);
 }
 
+void
+OpenglDrawBitmapOnScreen(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, v3 Color, r32 Repeat = 1.0f)
+{
+    if(Bitmap->OpenglID == 0)
+    {
+        glGenTextures(1, &Bitmap->OpenglID);
+        glBindTexture(GL_TEXTURE_2D, Bitmap->OpenglID);
+        
+#if 0
+        // NOTE(ezexff): Ver 1
+        
+        // wrapping
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        
+        // filtering
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        
+        //texture to GPU
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Bitmap->Width, Bitmap->Height, 0,
+                     Bitmap->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Bitmap->Memory);
+        Opengl->glGenerateMipmap(GL_TEXTURE_2D);
+#else
+        // NOTE(ezexff): Ver2
+        /*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);*/
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Bitmap->Width, Bitmap->Height, 0,
+                     Bitmap->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Bitmap->Memory);
+#endif
+    }
+    
+    r32 MinX = P.x;
+    r32 MaxX = P.x + Dim.x;
+    r32 MinY = P.y;
+    r32 MaxY = P.y + Dim.y;
+    r32 VRectangle[] =
+    {
+        // bot
+        MinX, MinY, // 0
+        MaxX, MinY, // 1
+        MaxX, MaxY, // 2
+        MinX, MaxY  // 3
+    };
+    
+    r32 TexRectangle[] =
+    {
+        0, 0,           // 0
+        Repeat, 0,      // 1
+        Repeat, Repeat, // 2
+        0, Repeat       // 3
+    };
+    
+    r32 Colors[] =
+    {
+        Color.x, Color.y, Color.z, 
+        Color.x, Color.y, Color.z, 
+        Color.x, Color.y, Color.z, 
+        Color.x, Color.y, Color.z
+    };
+    
+    glEnable(GL_TEXTURE_2D);
+    
+    Opengl->glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, Bitmap->OpenglID);
+    
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    
+    glVertexPointer(2, GL_FLOAT, 0, VRectangle);
+    glTexCoordPointer(2, GL_FLOAT, 0, TexRectangle);
+    glColorPointer(3, GL_FLOAT, 0, Colors);
+    glDrawArrays(GL_QUADS, 0, 4);
+    
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+    
+    glDisable(GL_TEXTURE_2D);
+}
+
 struct frame_vertex
 {
     v3 Pos;
@@ -465,7 +555,7 @@ OpenglEndFrame(renderer_frame *Frame)
     v2 WorldOrigin = {};
     glTranslatef(-WorldOrigin.x, -WorldOrigin.y, -Frame->CameraZ);
     
-    // NOTE(ezexff): Draw push buffer
+    // NOTE(ezexff): Draw world push buffer
     for(u32 BaseAddress = 0;
         BaseAddress < Frame->PushBufferSize;
         )
@@ -507,6 +597,14 @@ OpenglEndFrame(renderer_frame *Frame)
             {
                 renderer_entry_bitmap_on_ground *Entry = (renderer_entry_bitmap_on_ground *)Data;
                 OpenglDrawBitmapOnGround(&Frame->Opengl, Entry->Bitmap, Entry->P, Entry->Dim, Entry->Repeat);
+                
+                BaseAddress += sizeof(*Entry);
+            } break;
+            
+            case RendererEntryType_renderer_entry_bitmap_on_screen:
+            {
+                renderer_entry_bitmap_on_screen *Entry = (renderer_entry_bitmap_on_screen *)Data;
+                //OpenglDrawBitmapOnGround(&Frame->Opengl, Entry->Bitmap, Entry->P, Entry->Dim, Entry->Repeat);
                 
                 BaseAddress += sizeof(*Entry);
             } break;
@@ -626,6 +724,104 @@ OpenglEndFrame(renderer_frame *Frame)
     
     glDisable(GL_TEXTURE_2D);
 #endif
+    
+    //glClearColor(0.5, 0.5, 0.5, 1);
+    //glClear(GL_COLOR_BUFFER_BIT);
+    
+    // NOTE(ezexff): UI
+    {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        // NOTE(ezexff): Draw screen push buffer
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, (r32)Frame->Dim.x, (r32)Frame->Dim.y, 0, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        //glDisable(GL_DEPTH_TEST);
+        
+        //glScalef(52, 2, 1);
+        s32 ScreenCenterY = (Frame->Dim.y + 1) / 2;
+        glTranslatef(0, (r32)ScreenCenterY, 0);
+        //glScalef(15, 15, 1);
+        glScalef(0.5f, 0.5f, 1);
+        
+        for(u32 BaseAddress = 0;
+            BaseAddress < Frame->PushBufferSize;
+            )
+        {
+            renderer_entry_header *Header = (renderer_entry_header *)
+            (Frame->PushBufferBase + BaseAddress);
+            BaseAddress += sizeof(*Header);
+            
+            void *Data = (u8 *)Header + sizeof(*Header);
+            switch(Header->Type)
+            {
+                case RendererEntryType_renderer_entry_clear:
+                {
+                    renderer_entry_clear *Entry = (renderer_entry_clear *)Data;
+                    
+                    //glClearColor(Entry->Color.r, Entry->Color.g, Entry->Color.b, Entry->Color.a);
+                    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
+                
+                case RendererEntryType_renderer_entry_rect_on_ground:
+                {
+                    renderer_entry_rect_on_ground *Entry = (renderer_entry_rect_on_ground *)Data;
+                    //OpenglDrawRectOnGround({Entry->P, Entry->P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
+                
+                case RendererEntryType_renderer_entry_rect_outline_on_ground:
+                {
+                    renderer_entry_rect_outline_on_ground *Entry = (renderer_entry_rect_outline_on_ground *)Data;
+                    //OpenglDrawRectOutlineOnGround({Entry->P, Entry->P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z), Entry->LineWidth);
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
+                
+                case RendererEntryType_renderer_entry_bitmap_on_ground:
+                {
+                    renderer_entry_bitmap_on_ground *Entry = (renderer_entry_bitmap_on_ground *)Data;
+                    //OpenglDrawBitmapOnGround(&Frame->Opengl, Entry->Bitmap, Entry->P, Entry->Dim, Entry->Repeat);
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
+                
+                case RendererEntryType_renderer_entry_bitmap_on_screen:
+                {
+                    renderer_entry_bitmap_on_screen *Entry = (renderer_entry_bitmap_on_screen *)Data;
+                    OpenglDrawBitmapOnScreen(&Frame->Opengl, Entry->Bitmap, Entry->P, Entry->Dim, V3(0, 1, 0));
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
+                
+                InvalidDefaultCase;
+            }
+        }
+        
+        glDisable(GL_BLEND);
+    }
+    
+    /*
+// NOTE(ezexff): Draw Player Crosshair
+    r32 Crosshair[] = {0, -1, 0, 1, -1, 0, 1, 0};
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(2, GL_FLOAT, 0, Crosshair);
+    glPushMatrix();
+    glColor3f(1, 1, 1);
+    glTranslatef((Frame->Dim.x - 1) / 2.0f, (Frame->Dim.y - 1) / 2.0f, 0);
+    glScalef(15, 15, 1);
+    glLineWidth(3);
+    glDisable(GL_TEXTURE_2D);
+    glDrawArrays(GL_LINES, 0, 4);
+    glPopMatrix();
+    glDisableClientState(GL_VERTEX_ARRAY);*/
+    
     
     // NOTE(ezexff): Red rectangle
     /*{

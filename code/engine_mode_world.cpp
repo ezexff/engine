@@ -1018,6 +1018,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     }
     
     // NOTE(ezexff): Fill ground buffer
+#if 0
     world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMinCorner(CameraBoundsInMeters));
     world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMaxCorner(CameraBoundsInMeters));
     
@@ -1074,15 +1075,14 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 {
                     //Log->Add("[fillgroundchunk] TmpGroundBufferIndex=%d (%d,%d)\n",
                     //TmpGroundBufferIndex, ChunkCenterP.ChunkX, ChunkCenterP.ChunkY);
-#if 1
                     FillGroundChunk(TranState, GameState,
                                     FurthestBuffer,
                                     &ChunkCenterP);
-#endif
                 }
             }
         }
     }
+#endif
     
     
     for(u32 GroundBufferIndex = 0;
@@ -1235,6 +1235,10 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     }
 #endif
     
+    // TODO(ezexff): Debug
+    char *TestString = "The quick brown fox jumps over a lazy dog.";
+    //char *TestString = "The ";
+    DEBUGTextLine(Frame, TranState->Assets, TestString);
     /*PushRectOnGround(Frame, V3(0, 0, 0), V2(5, 5), V4(0, 1, 0, 1));
     PushRectOutlineOnGround(Frame, V3(0, 7, 0), V2(5, 5), V4(0, 0, 1, 1), 0.5f);
     PushBitmapOnGround(Frame, Assets, GetFirstBitmapFrom(Assets, Asset_Ground), V3(0, -7, 0), V2(5, 5), 4.0f);*/

@@ -122,7 +122,7 @@ RecanonicalizeCoord(r32 ChunkDim, s32 *Tile, r32 *TileRel)
     // within the safe margin!
     // TODO(casey): Assert that we are nowhere near the edges of the world.
     
-    s32 Offset = RoundReal32ToInt32(*TileRel / ChunkDim);
+    s32 Offset = RoundR32ToS32(*TileRel / ChunkDim);
     *Tile += Offset;
     *TileRel -= Offset * ChunkDim;
     

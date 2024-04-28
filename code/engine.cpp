@@ -9,8 +9,77 @@
 #include "engine_world.cpp"
 #include "engine_sim_region.cpp"
 
+internal void
+DEBUGTextLine(renderer_frame *Frame, game_assets *Assets, char *String)
+{
+    font_id FontID = GetFirstFontFrom(Assets, Asset_Font);
+    loaded_font *Font = PushFont(Frame, Assets, FontID);
+    if(Font)
+    {
+        eab_font *FontInfo = GetFontInfo(Assets, FontID);
+        
+        r32 FontScale = FontInfo->Scale;
+        r32 LeftEdge = 0.0f;
+        
+        u32 PrevCodePoint = 0;
+        r32 CharScale = FontScale;
+        //CharScale = 1.0f;
+        v4 Color = V4(1, 1, 1, 1);
+        
+        //r32 AtX = LeftEdge;
+        //r32 AtY = 0.0f;
+        s32 AtX = 0;
+        s32 AtY = 0;
+        
+        for(char *At = String;
+            *At;
+            )
+        {
+            u32 CodePoint = *At;
+            
+            //r32 AdvanceX = CharScale * GetHorizontalAdvanceForPair(FontInfo, Font, PrevCodePoint, CodePoint);
+            
+            //r32 AdvanceX = ((r32)Font->Advances[PrevCodePoint] / (r32)Font->Advances[0]) * 150.0f;
+            //AdvanceX = 70.0f;
+            
+            s32 Ascent = RoundR32ToS32(FontInfo->Ascent * FontScale);
+            //AtY = Ascent;
+            
+            s32 LSB = Font->LSBs[CodePoint];
+            s32 XOffset = s32(Font->GlyphOffsets[CodePoint].x);
+            s32 YOffset = s32(Font->GlyphOffsets[CodePoint].y);
+            
+            if(CodePoint != ' ')
+            {
+                
+                bitmap_id BitmapID = GetBitmapForGlyph(Assets, FontInfo, Font, CodePoint);
+                eab_bitmap *GlyphInfo = GetBitmapInfo(Assets, BitmapID);
+                
+                //PushBitmap(RenderGroup, BitmapID, CharScale*(r32)Info->Dim[1], V3(AtX, AtY, 0), Color);
+                v2 GlyphDim;
+                GlyphDim.x = (r32)GlyphInfo->Dim[0];
+                GlyphDim.y = (r32)GlyphInfo->Dim[1];
+                v3 Pos = V3(0, 0, 0);
+                Pos.x = (r32)(AtX + XOffset);
+                Pos.y = (r32)AtY + YOffset;
+                PushBitmapOnScreen(Frame, Assets, BitmapID, Pos, GlyphDim, 1.0f);
+            }
+            
+            s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * CharScale);
+            //s32 AdvanceX = RoundR32ToS32(70 * CharScale);
+            //s32 AdvanceX = RoundR32ToS32(70);
+            AtX += AdvanceX;
+            
+            //PrevCodePoint = CodePoint;
+            
+            ++At;
+        }
+    }
+}
+
 #include "engine_mode_test.cpp"
 #include "engine_mode_world.cpp"
+
 
 struct test_work
 {
@@ -264,12 +333,12 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             
             bitmap_id ID = {};
             ID.Value = AssetIndex;
-            if(GetState(Asset) == AssetState_Loaded)
+            if(Asset->State == AssetState_Loaded)
             {
                 loaded_bitmap *Bitmap = GetBitmap(TranState->Assets, ID, true);
                 Frame->Skybox[Index] = *Bitmap;
             }
-            else if(GetState(Asset) == AssetState_Unloaded)
+            else if(Asset->State == AssetState_Unloaded)
             {
                 LoadBitmap(TranState->Assets, ID, true);
                 Frame->MissingResourceCount++;
@@ -589,7 +658,8 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                     "Skybox",
                     "Bloop",
                     "Music",
-                    "Font"
+                    "Font",
+                    "FontGlyph"
                 };
                 
                 for(u32 TypeID = 1;
@@ -631,12 +701,12 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                                     eab_bitmap EABBitmap = Asset->EAB.Bitmap;
                                     ImGui::BulletText("#%d UnicodeCodepoint = Dim = %dx%d BPS = %d State = %d", AssetIndex,
                                                       EABBitmap.Dim[0], EABBitmap.Dim[1], EABBitmap.BytesPerPixel,
-                                                      GetState(Asset));
+                                                      Asset->State);
                                     ImGui::SameLine();
                                     
                                     bitmap_id ID = {};
                                     ID.Value = AssetIndex;
-                                    if(GetState(Asset) == AssetState_Loaded)
+                                    if(Asset->State == AssetState_Loaded)
                                     {
                                         loaded_bitmap *Bitmap = GetBitmap(Assets, ID, true);
                                         ImGui::PushID(AssetIndex);
@@ -648,7 +718,7 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                                         }
                                         ImGui::PopID();
                                     }
-                                    else if(GetState(Asset) == AssetState_Unloaded)
+                                    else if(Asset->State == AssetState_Unloaded)
                                     {
                                         ImGui::Text("LOADING...");
                                         LoadBitmap(Assets, ID, true);
@@ -667,13 +737,47 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                 }
                 if(ImGui::TreeNode("Fonts"))
                 {
-                    for(u32 TypeID = Asset_Font;
-                        TypeID <= Asset_Font;
-                        TypeID++)
                     {
+                        //LoadFont(TranState->Assets, FirstFont);
+                        font_id FirstFont = GetFirstFontFrom(TranState->Assets, Asset_Font);
+                        
+                        u32 FirstFontAsset = GetFirstAssetFrom(TranState->Assets, Asset_Font);
+                        asset *Asset = Assets->Assets + FirstFontAsset;
+                        
+                        if(Asset->State == AssetState_Loaded)
+                        {
+                            loaded_font *Font = GetFont(Assets, FirstFont, true);
+                            int dsg32432 = 54645;
+                        }
+                        else if(Asset->State == AssetState_Unloaded)
+                        {
+                            LoadFont(TranState->Assets, FirstFont, true);
+                        }
+                    }
+                    {
+                        u32 TypeID = Asset_Font;
                         asset_type *Type = Assets->AssetTypes + TypeID;
                         u32 AssetCount = Type->OnePastLastAssetIndex - Type->FirstAssetIndex;
-                        
+                        if(AssetCount > 0)
+                        {
+                            for(u32 AssetIndex = Type->FirstAssetIndex;
+                                AssetIndex < Type->OnePastLastAssetIndex;
+                                AssetIndex++)
+                            {
+                                asset *Asset = Assets->Assets + AssetIndex;
+                                eab_font EABFont = Asset->EAB.Font;
+                                
+                                ImGui::Text("Font#%d", AssetIndex);
+                                
+                                int fds32432 = 0;
+                            }
+                        }
+                    }
+                    
+                    {
+                        u32 TypeID = Asset_FontGlyph;
+                        asset_type *Type = Assets->AssetTypes + TypeID;
+                        u32 AssetCount = Type->OnePastLastAssetIndex - Type->FirstAssetIndex;
                         if(AssetCount > 0)
                         {
                             if(ImGui::TreeNode((void *)(intptr_t)TypeID, "%s", TypeNames[TypeID]))
@@ -686,12 +790,12 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                                     eab_bitmap EABBitmap = Asset->EAB.Bitmap;
                                     ImGui::BulletText("#%d Dim = %dx%d BPS = %d State = %d", AssetIndex,
                                                       EABBitmap.Dim[0], EABBitmap.Dim[1], EABBitmap.BytesPerPixel,
-                                                      GetState(Asset));
+                                                      Asset->State);
                                     ImGui::SameLine();
                                     
                                     bitmap_id ID = {};
                                     ID.Value = AssetIndex;
-                                    if(GetState(Asset) == AssetState_Loaded)
+                                    if(Asset->State == AssetState_Loaded)
                                     {
                                         loaded_bitmap *Bitmap = GetBitmap(Assets, ID, true);
                                         ImGui::PushID(AssetIndex);
@@ -703,7 +807,7 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                                         }
                                         ImGui::PopID();
                                     }
-                                    else if(GetState(Asset) == AssetState_Unloaded)
+                                    else if(Asset->State == AssetState_Unloaded)
                                     {
                                         ImGui::Text("LOADING...");
                                         LoadBitmap(Assets, ID, true);
