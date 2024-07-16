@@ -790,7 +790,9 @@ LoadFrameAndSkyboxShaders(memory_arena *ConstArena, renderer_frame *Frame)
                 if(Text)
                 {
                     Platform.ReadDataFromFile(FileHandle, 0, FileHandle->Size, Text);
+#if ENGINE_INTERNAL
                     Log->Add("[vert shader text]: Loaded text from %ls\n", FileHandle->Name.Data);
+#endif
                 }
                 else
                 {
@@ -839,7 +841,9 @@ LoadFrameAndSkyboxShaders(memory_arena *ConstArena, renderer_frame *Frame)
                 if(Text)
                 {
                     Platform.ReadDataFromFile(FileHandle, 0, FileHandle->Size, Text);
+#if ENGINE_INTERNAL
                     Log->Add("[frag shader text]: Loaded text from %ls\n", FileHandle->Name.Data);
+#endif
                 }
                 else
                 {

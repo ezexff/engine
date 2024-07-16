@@ -32,16 +32,32 @@ Clear(renderer_frame *Frame, v4 Color)
 }
 
 void
-PushRectOnGround(renderer_frame *Frame, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1))
+PushRectOnGround(renderer_frame *Frame, v2 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1))
 {
-    v3 P = (Offset - V3(0.5f * Dim, 0));
+    //v3 P = (Offset - V3(0.5f * Dim, 0));
+    v2 P = Offset - 0.5f * Dim;
     //P += Group->Transform.OffsetP;
     
     renderer_entry_rect_on_ground *Entry = PushRenderElement(Frame, renderer_entry_rect_on_ground);
     if(Entry)
     {
         Entry->Color = Color;
-        Entry->P = P.xy;
+        Entry->P = P;
+        Entry->Dim = Dim;
+    }
+}
+
+void
+PushRectOnScreen(renderer_frame *Frame, v2 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1))
+{
+    v2 P = Offset;
+    //P += Group->Transform.OffsetP;
+    
+    renderer_entry_rect_on_screen *Entry = PushRenderElement(Frame, renderer_entry_rect_on_screen);
+    if(Entry)
+    {
+        Entry->Color = Color;
+        Entry->P = P;
         Entry->Dim = Dim;
     }
 }
@@ -63,18 +79,18 @@ PushRectOutlineOnGround(renderer_frame *Frame, v3 Offset, v2 Dim, v4 Color = V4(
 }
 
 void
-PushBitmapOnGround(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v3 Offset, v2 Dim, r32 Repeat)
+PushBitmapOnGround(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 Offset, v2 Dim, r32 Repeat)
 {
     loaded_bitmap *Bitmap = GetBitmap(Assets, ID, true);
     if(Bitmap)
     {
-        v3 P = (Offset - V3(0.5f * Dim, 0));
+        v2 P = (Offset - 0.5f * Dim);
         
         renderer_entry_bitmap_on_ground *Entry = PushRenderElement(Frame, renderer_entry_bitmap_on_ground);
         if(Entry)
         {
             Entry->Bitmap = Bitmap;
-            Entry->P = P.xy;
+            Entry->P = P;
             Entry->Dim = Dim;
             Entry->Repeat = Repeat;
         }
@@ -87,19 +103,18 @@ PushBitmapOnGround(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v3 
 }
 
 void
-PushBitmapOnScreen(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v3 Offset, v2 Dim, r32 Repeat)
+PushBitmapOnScreen(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 Offset, v2 Dim, r32 Repeat)
 {
     loaded_bitmap *Bitmap = GetBitmap(Assets, ID, true);
     if(Bitmap)
     {
-        //v3 P = (Offset - V3(0.5f * Dim, 0));
-        v3 P = Offset;
+        v2 P = Offset;
         
         renderer_entry_bitmap_on_screen *Entry = PushRenderElement(Frame, renderer_entry_bitmap_on_screen);
         if(Entry)
         {
             Entry->Bitmap = Bitmap;
-            Entry->P = P.xy;
+            Entry->P = P;
             Entry->Dim = Dim;
             Entry->Repeat = Repeat;
         }
@@ -109,13 +124,6 @@ PushBitmapOnScreen(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v3 
         LoadBitmap(Assets, ID, true);
         ++Frame->MissingResourceCount;
     }
-}
-
-void
-MoveCamera(renderer_frame *Frame, camera Camera)
-{
-    Frame->Camera.P = Camera.P;
-    Frame->Camera.Angle = Camera.Angle;
 }
 
 inline loaded_font *

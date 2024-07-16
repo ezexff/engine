@@ -1,3 +1,4 @@
+#if ENGINE_INTERNAL
 internal void
 OutputTestSineWave(game_state *GameState, game_sound_output_buffer *SoundBuffer)
 {
@@ -20,6 +21,7 @@ OutputTestSineWave(game_state *GameState, game_sound_output_buffer *SoundBuffer)
         }
     }
 }
+#endif
 
 internal void
 OutputPlayingSounds(audio_state *AudioState,

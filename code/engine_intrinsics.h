@@ -53,25 +53,30 @@ inline u32 AtomicCompareExchangeUInt32(u32 volatile *Value, u32 New, u32 Expecte
 
 inline s32 RoundR32ToS32(r32 R32)
 {
-    s32 Result = (s32)roundf(R32);
+    s32 Result = _mm_cvtss_si32(_mm_set_ss(R32));
+    //s32 Result = (s32)roundf(R32);
     return(Result);
 }
 
 inline u32 RoundR32ToU32(r32 R32)
 {
-    u32 Result = (u32)roundf(R32);
+    u32 Result = (u32)_mm_cvtss_si32(_mm_set_ss(R32));
+    //u32 Result = (u32)roundf(R32);
     return(Result);
 }
 
 inline r32 AbsoluteValue(r32 R32)
 {
-    r32 Result = (r32)fabs(R32);
+    //r32 Result = (r32)fabsf(R32);
+    r32 Result = R32 < 0 ? R32 * (-1) : R32;
+    //r32 Result = (r32)fabs(R32);
     return(Result);
 }
 
 inline r32 SquareRoot(r32 R32)
 {
-    r32 Result = sqrtf(R32);
+    r32 Result = _mm_cvtss_f32(_mm_sqrt_ps(_mm_set_ss(R32)));
+    //r32 Result = sqrtf(R32);
     return(Result);
 }
 
@@ -91,8 +96,9 @@ inline r32 Sin(r32 Angle)
     return (Result);
 }
 
-inline s32 FloorReal32ToInt32(r32 Real32)
+/*inline s32 FloorReal32ToInt32(r32 R32)
 {
-    s32 Result = (s32)floorf(Real32);
+    //r32 Result = _mm_cvtss_f32(_mm_svml_floor_ps(_mm_set_ss(R32)));
+    s32 Result = (s32)floorf(R32);
     return (Result);
-}
+}*/

@@ -1,3 +1,10 @@
+inline r32 DegToRad(r32 Value)
+{
+    r32 Result = Value * Pi32 / 180;
+    
+    return(Result);
+}
+
 //~ NOTE(ezexff): Scalar operations
 inline r32 Square(r32 A)
 {
@@ -510,6 +517,7 @@ inline v4 AiNormalize(v4 A)
 
 inline v4 AiLerp(v4 A, r32 t, v4 B)
 {
+#if 0
     r32 Cosom = A.x * B.x + A.y * B.y + A.z * B.z + A.w * B.w;
     
     // adjust signs (if necessary)
@@ -585,6 +593,7 @@ inline v4 AiLerp(v4 A, r32 t, v4 B)
     pOut.y = sclp * pStart.y + sclq * end.y;
     pOut.z = sclp * pStart.z + sclq * end.z;
     pOut.w = sclp * pStart.w + sclq * end.w;*/
+#endif
 }
 
 //~ NOTE(ezexff): m4x4 init

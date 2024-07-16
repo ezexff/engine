@@ -1,4 +1,119 @@
 void
+OpenglCompileShader(opengl *Opengl, GLuint Type, opengl_shader *Shader)
+{
+    if(Shader->ID != 0)
+    {
+        Opengl->glDeleteShader(Shader->ID);
+    }
+    
+    Shader->ID = Opengl->glCreateShader(Type);
+    u8 *ShaderText = Shader->Text;
+    Opengl->glShaderSource(Shader->ID, 1, &(GLchar *)ShaderText, NULL);
+    Opengl->glCompileShader(Shader->ID);
+    
+    char *TypeStr = (Type == GL_VERTEX_SHADER) ? "vert" : "frag";
+    
+    GLint NoErrors;
+    GLchar LogInfo[2000];
+    Opengl->glGetShaderiv(Shader->ID, GL_COMPILE_STATUS, &NoErrors);
+    if(!NoErrors)
+    {
+        Opengl->glGetShaderInfoLog(Shader->ID, 2000, NULL, LogInfo);
+        Opengl->glDeleteShader(Shader->ID);
+        Shader->ID = 0;
+#if ENGINE_INTERNAL
+        //Log->Add("[opengl]: %s shader compilaton error (info below):\n%s", TypeStr, LogInfo);
+#endif
+    }
+    else
+    {
+        //Log->Add("[opengl]: %s shader successfully compiled\n", TypeStr);
+    }
+}
+
+void
+OpenglLinkProgram(opengl *Opengl, opengl_program *Program,
+                  opengl_shader *VertShader, opengl_shader *FragShader)
+{
+    if(Program->ID != 0)
+    {
+        Opengl->glDeleteProgram(Program->ID);
+    }
+    
+    Program->ID = Opengl->glCreateProgram();
+    
+    if(VertShader->ID != 0)
+    {
+        Opengl->glAttachShader(Program->ID, VertShader->ID);
+    }
+    else
+    {
+#if ENGINE_INTERNAL
+        //Log->Add("[program error]: vert shader null\n");
+#endif
+    }
+    
+    if(FragShader->ID != 0)
+    {
+        Opengl->glAttachShader(Program->ID, FragShader->ID);
+    }
+    else
+    {
+#if ENGINE_INTERNAL
+        //Log->Add("[program error]: frag shader null\n");
+#endif
+    }
+    
+    Opengl->glLinkProgram(Program->ID);
+    
+    GLint NoErrors;
+    GLchar LogInfo[2000];
+    Opengl->glGetProgramiv(Program->ID, GL_LINK_STATUS, &NoErrors);
+    if(!NoErrors)
+    {
+        Opengl->glGetProgramInfoLog(Program->ID, 2000, NULL, LogInfo);
+#if ENGINE_INTERNAL
+        //Log->Add("[program error]: program linking error (info below):\n%s", LogInfo);
+#endif
+    }
+    else
+    {
+#if ENGINE_INTERNAL
+        //Log->Add("[program]: program successfully linked\n");
+#endif
+    }
+}
+
+void
+OpenglDrawRectOnScreen(rectangle2 R, v3 Color)
+{
+    r32 VRectangle[] = {
+        // ground
+        R.Min.x, R.Min.y, // 0
+        R.Max.x, R.Min.y, // 1
+        R.Max.x, R.Max.y, // 2
+        R.Min.x, R.Max.y, // 3
+    };
+    
+    r32 VertColors[] = {
+        Color.x, Color.y, Color.z, // 0
+        Color.x, Color.y, Color.z, // 1
+        Color.x, Color.y, Color.z, // 2
+        Color.x, Color.y, Color.z, // 3
+    };
+    
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    
+    glVertexPointer(2, GL_FLOAT, 0, VRectangle);
+    glColorPointer(3, GL_FLOAT, 0, VertColors);
+    glDrawArrays(GL_QUADS, 0, 4);
+    
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+}
+
+void
 OpenglDrawRectOnGround(rectangle2 R, r32 Z, v3 Color)
 {
     r32 VRectangle[] = {
@@ -85,10 +200,6 @@ OpenglDrawBitmapOnGround(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, r3
         Opengl->glGenerateMipmap(GL_TEXTURE_2D);
     }
     
-    /*r32 MinX = P.x - 0.5f * Dim.x;
-    r32 MinY = P.y - 0.5f * Dim.y;
-    r32 MaxX = P.x + 0.5f * Dim.x;
-    r32 MaxY = P.y + 0.5f * Dim.y;*/
     r32 MinX = P.x;
     r32 MaxX = P.x + Dim.x;
     r32 MinY = P.y;
@@ -519,6 +630,20 @@ OpenglBeginFrame(renderer_frame *Frame)
             Frame->InitializeSkyboxTexture = false;
         }
     }
+    
+    // NOTE(ezexff): Compile shaders
+    if(Frame->CompileShaders)
+    {
+        OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
+        OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->Frag);
+        OpenglLinkProgram(Opengl, &Frame->Program, &Frame->Vert, &Frame->Frag);
+        
+        OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->SkyboxVert);
+        OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->SkyboxFrag);
+        OpenglLinkProgram(Opengl, &Frame->SkyboxProgram, &Frame->SkyboxVert, &Frame->SkyboxFrag);
+        
+        Frame->CompileShaders = false;
+    }
 }
 
 void
@@ -550,10 +675,11 @@ OpenglEndFrame(renderer_frame *Frame)
     glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
     glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
     glRotatef(-Camera->Angle.z, 0.0f, 1.0f, 0.0f);
-    //glTranslatef(-Camera->P.x, -Camera->P.y, -Camera->P.z);
     // TODO(me): think about real z for camera 
     v2 WorldOrigin = {};
     glTranslatef(-WorldOrigin.x, -WorldOrigin.y, -Frame->CameraZ);
+    //v3 IsometricCameraPos = V3(-5.0f, -5.0f, 0.0f);
+    //glTranslatef(-IsometricCameraPos.x, -IsometricCameraPos.y, -IsometricCameraPos.z);
     
     // NOTE(ezexff): Draw world push buffer
     for(u32 BaseAddress = 0;
@@ -571,8 +697,8 @@ OpenglEndFrame(renderer_frame *Frame)
             {
                 renderer_entry_clear *Entry = (renderer_entry_clear *)Data;
                 
-                //glClearColor(Entry->Color.r, Entry->Color.g, Entry->Color.b, Entry->Color.a);
-                //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                glClearColor(Entry->Color.r, Entry->Color.g, Entry->Color.b, Entry->Color.a);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 
                 BaseAddress += sizeof(*Entry);
             } break;
@@ -601,6 +727,14 @@ OpenglEndFrame(renderer_frame *Frame)
                 BaseAddress += sizeof(*Entry);
             } break;
             
+            case RendererEntryType_renderer_entry_rect_on_screen:
+            {
+                renderer_entry_rect_on_screen *Entry = (renderer_entry_rect_on_screen *)Data;
+                //OpenglDrawBitmapOnGround(&Frame->Opengl, Entry->Bitmap, Entry->P, Entry->Dim, Entry->Repeat);
+                
+                BaseAddress += sizeof(*Entry);
+            } break;
+            
             case RendererEntryType_renderer_entry_bitmap_on_screen:
             {
                 renderer_entry_bitmap_on_screen *Entry = (renderer_entry_bitmap_on_screen *)Data;
@@ -613,8 +747,8 @@ OpenglEndFrame(renderer_frame *Frame)
         }
     }
     
-#if 1
     // NOTE(ezexff): Skybox
+    if(Frame->DrawSkybox)
     {
         glDepthFunc(GL_LEQUAL);
         Opengl->glUseProgram(Frame->SkyboxProgram.ID);
@@ -656,7 +790,6 @@ OpenglEndFrame(renderer_frame *Frame)
         Opengl->glUseProgram(0);
         glDepthFunc(GL_LESS);
     }
-#endif
     
     Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
@@ -788,6 +921,16 @@ OpenglEndFrame(renderer_frame *Frame)
                 {
                     renderer_entry_bitmap_on_ground *Entry = (renderer_entry_bitmap_on_ground *)Data;
                     //OpenglDrawBitmapOnGround(&Frame->Opengl, Entry->Bitmap, Entry->P, Entry->Dim, Entry->Repeat);
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
+                
+                case RendererEntryType_renderer_entry_rect_on_screen:
+                {
+                    renderer_entry_rect_on_screen *Entry = (renderer_entry_rect_on_screen *)Data;
+                    OpenglDrawRectOnScreen({Entry->P, Entry->P + Entry->Dim}, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+                    //OpenglDrawRectOnGround({Entry->P, Entry->P + Entry->Dim}, 
+                    //0.0f, );
                     
                     BaseAddress += sizeof(*Entry);
                 } break;

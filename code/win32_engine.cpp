@@ -823,6 +823,9 @@ extern "C" void __stdcall WinMainCRTStartup(void)
         ExitProcess(0);
     }
     
+#if !ENGINE_INTERNAL
+    ShowCursor(0);
+#endif
     
     GlobalTimerFrequency = Win32GetTimerFrequency();
     GlobalTimerOffset = Win32GetTimerValue();
@@ -1047,24 +1050,29 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                 NewInput->MouseDelta.x = NewInput->MouseP.x - OldInput->MouseP.x;
                                 NewInput->MouseDelta.y = NewInput->MouseP.y - OldInput->MouseP.y;
                                 
-                                if(!ImGuiHandle->ShowImGuiWindows && Input->CenteringMouseCursor)
+#if ENGINE_INTERNAL
+                                if(!ImGuiHandle->ShowImGuiWindows)
+#endif
                                 {
-                                    // Set cursor pos to window center
-                                    RECT WRect;
-                                    int CenterX = 0;
-                                    int CenterY = 0;
-                                    if(GetWindowRect(Window, &WRect))
+                                    if(Input->CenteringMouseCursor)
                                     {
-                                        CenterX = WRect.left + Frame->Dim.x / 2;
-                                        CenterY = WRect.top + Frame->Dim.y / 2;
+                                        // Set cursor pos to window center
+                                        RECT WRect;
+                                        int CenterX = 0;
+                                        int CenterY = 0;
+                                        if(GetWindowRect(Window, &WRect))
+                                        {
+                                            CenterX = WRect.left + Frame->Dim.x / 2;
+                                            CenterY = WRect.top + Frame->Dim.y / 2;
+                                        }
+                                        SetCursorPos(CenterX, CenterY);
+                                        
+                                        MouseP;
+                                        GetCursorPos(&MouseP);
+                                        ScreenToClient(Window, &MouseP);
+                                        NewInput->MouseP.x = (s32)MouseP.x;
+                                        NewInput->MouseP.y = (s32)((Frame->Dim.y - 1) - MouseP.y);
                                     }
-                                    SetCursorPos(CenterX, CenterY);
-                                    
-                                    MouseP;
-                                    GetCursorPos(&MouseP);
-                                    ScreenToClient(Window, &MouseP);
-                                    NewInput->MouseP.x = (s32)MouseP.x;
-                                    NewInput->MouseP.y = (s32)((Frame->Dim.y - 1) - MouseP.y);
                                 }
                                 
 #if 0
@@ -1136,11 +1144,13 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                     SoundOutput.LatencySampleCount = FramesOfAudioLatency * (SoundOutput.SamplesPerSecond / GlobalGameUpdateHz);
                                     // TODO(ezexff): нужно округление после деления?
                                     //SoundOutput.LatencySampleCount -= 5;
+#if ENGINE_INTERNAL
                                     if(ImGuiHandle->LogAudio)
                                     {
                                         Log->Add("[audio]: SamplesToWrite = %d LatencySampleCount = %d Aligned8LatencySampleCount = %d\n", 
                                                  SamplesToWrite, SoundOutput.LatencySampleCount, Align8(SoundOutput.LatencySampleCount));
                                     }
+#endif
                                     SoundOutput.LatencySampleCount = Align8(SoundOutput.LatencySampleCount);
                                 }
                                 

@@ -1,3 +1,9 @@
+
+struct mode_world
+{
+    b32 IsInitialized;
+};
+
 struct controlled_hero
 {
     u32 EntityIndex;

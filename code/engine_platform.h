@@ -182,7 +182,7 @@ struct imgui
 };
 #endif
 
-//~ NOTE(ezexff): Sound
+//~ NOTE(ezexff): Audio
 struct game_sound_output_buffer
 {
     int SamplesPerSecond;
@@ -305,7 +305,7 @@ typedef void WINAPI type_glBufferData(GLenum target, GLsizeiptr size, const void
 typedef void WINAPI type_glEnableVertexAttribArray(GLuint index);
 typedef void WINAPI type_glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
 
-//
+// Other
 typedef void WINAPI type_glUniform1i(GLint location, GLint v0);
 typedef GLint WINAPI type_glGetUniformLocation(GLuint program, const GLchar *name);
 typedef GLenum WINAPI type_glCheckFramebufferStatus(GLenum target);
@@ -416,9 +416,7 @@ struct opengl_program
 struct renderer_frame
 {
     v2s Dim; // NOTE(ezexff): Client render area
-    
-    v3 OffsetP; // NOTE(ezexff): World offsetP
-    
+    v3 OffsetP; // TODO(ezexff): World offsetP
     u8 PushBufferMemory[65536];
     u32 MaxPushBufferSize;
     u8 *PushBufferBase;
@@ -428,15 +426,6 @@ struct renderer_frame
     camera Camera;
     r32 CameraZ;
     
-    u32 SkyboxVAO;
-    u32 SkyboxVBO;
-    loaded_bitmap Skybox[6];
-    b32 InitializeSkyboxTexture;
-    u32 SkyboxTexture;
-    opengl_shader SkyboxVert;
-    opengl_shader SkyboxFrag;
-    opengl_program SkyboxProgram;
-    
     u32 ColorTexture;
     u32 DepthTexture;
     u32 VAO;
@@ -444,10 +433,23 @@ struct renderer_frame
     //u32 EBO;
     u32 FBO;
     
+    // NOTE(ezexff): Shaders
+    b32 CompileShaders;
+    
+    b32 DrawSkybox;
+    b32 InitializeSkyboxTexture;
+    u32 SkyboxVAO;
+    u32 SkyboxVBO;
+    loaded_bitmap Skybox[6];
+    u32 SkyboxTexture;
+    opengl_shader SkyboxVert;
+    opengl_shader SkyboxFrag;
+    opengl_program SkyboxProgram;
+    
     opengl_shader Vert;
     opengl_shader Frag;
     opengl_program Program;
-    s32 FragEffect;
+    s32 FragEffect; // NOTE(ezexff): abberation, blur, emboss, grayscale, inverse, sepia, normal
     
 #if ENGINE_INTERNAL
     loaded_bitmap Preview;

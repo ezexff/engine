@@ -160,7 +160,8 @@ BeginSim(memory_arena *SimArena, game_state *GameState, world *World,
     // entities larger than the max entity radius by adding them multiple times
     // to the spatial partition?
     SimRegion->MaxEntityRadius = 5.0f;
-    SimRegion->MaxEntityVelocity = 30.0f;
+    //SimRegion->MaxEntityVelocity = 30.0f;
+    SimRegion->MaxEntityVelocity = 3000.0f;
     r32 UpdateSafetyMargin = SimRegion->MaxEntityRadius + dt * SimRegion->MaxEntityVelocity;
     r32 UpdateSafetyMarginZ = 1.0f;
     
@@ -445,12 +446,14 @@ struct test_wall
 };
 
 internal void
-MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, r32 dt, move_spec *MoveSpec, v3 ddP)
+MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, r32 dt, move_spec *MoveSpec, v3 ddP,
+           v3 WishDir, r32 WishSpeed, r32 Accel)
 {
     Assert(!IsSet(Entity, EntityFlag_Nonspatial));
     
     world *World = SimRegion->World;
     
+#if 0
     if(MoveSpec->UnitMaxAccelVector)
     {
         r32 ddPLength = LengthSq(ddP);
@@ -473,6 +476,51 @@ MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, r32
     
     v3 PlayerDelta = (0.5f * ddP * Square(dt) + Entity->dP * dt);
     Entity->dP = ddP * dt + Entity->dP;
+#else
+    
+    if(Entity->Type == EntityType_Hero)
+    {
+        int f324324 = 0;
+    }
+    
+    // NOTE(ezexff): Accelerate
+    Entity->dP.z = 0.0f;
+    
+    r32 CurrentSpeed = Inner(Entity->dP, WishDir);
+    r32 AddSpeed = WishSpeed - CurrentSpeed;
+    
+    v3 PlayerDelta = {};
+    //if(AddSpeed != 0)
+    
+    r32 SurfaceFriction = 1.0f;
+    r32 AccelSpeed = Accel * dt * WishSpeed * SurfaceFriction;
+    
+    if (AccelSpeed > AddSpeed)
+    {
+        AccelSpeed = AddSpeed;
+    }
+    
+    Entity->dP += AccelSpeed * WishDir;
+    
+    Entity->dP.z = 0.0f;
+    
+    r32 Spd = Length(Entity->dP);
+    
+    if(Spd < 1.0f)
+    {
+        //InvalidCodePath;
+    }
+    
+    PlayerDelta = Entity->dP * dt;
+    
+    
+    if(Entity->Type == EntityType_Hero)
+    {
+        //Log->Add("v = %f %f %f\n", Entity->dP.x, Entity->dP.y, Entity->dP.z);
+    }
+    
+#endif
+    
     // TODO(casey): Upgrade physical motion routines to handle capping the
     // maximum velocity?
     Assert(LengthSq(Entity->dP) <= Square(SimRegion->MaxEntityVelocity));

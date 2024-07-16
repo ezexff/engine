@@ -59,7 +59,7 @@ DEBUGTextLine(renderer_frame *Frame, game_assets *Assets, char *String)
                 v2 GlyphDim;
                 GlyphDim.x = (r32)GlyphInfo->Dim[0];
                 GlyphDim.y = (r32)GlyphInfo->Dim[1];
-                v3 Pos = V3(0, 0, 0);
+                v2 Pos = V2(0, 0);
                 Pos.x = (r32)(AtX + XOffset);
                 Pos.y = (r32)AtY + YOffset;
                 PushBitmapOnScreen(Frame, Assets, BitmapID, Pos, GlyphDim, 1.0f);
@@ -80,7 +80,6 @@ DEBUGTextLine(renderer_frame *Frame, game_assets *Assets, char *String)
 #include "engine_mode_test.cpp"
 #include "engine_mode_world.cpp"
 
-
 struct test_work
 {
     task_with_memory *Task;
@@ -89,85 +88,11 @@ internal PLATFORM_WORK_QUEUE_CALLBACK(TestWork)
 {
     test_work *Work = (test_work *)Data;
     
+#if ENGINE_INTERNAL
     Log->Add("[test_work] TestWorkWithMemory\n");
+#endif
     
     EndTaskWithMemory(Work->Task);
-}
-
-void
-OpenglCompileShader(opengl *Opengl, GLuint Type, opengl_shader *Shader)
-{
-    if(Shader->ID != 0)
-    {
-        Opengl->glDeleteShader(Shader->ID);
-    }
-    
-    Shader->ID = Opengl->glCreateShader(Type);
-    u8 *ShaderText = Shader->Text;
-    Opengl->glShaderSource(Shader->ID, 1, &(GLchar *)ShaderText, NULL);
-    Opengl->glCompileShader(Shader->ID);
-    
-    char *TypeStr = (Type == GL_VERTEX_SHADER) ? "vert" : "frag";
-    
-    GLint NoErrors;
-    GLchar LogInfo[2000];
-    Opengl->glGetShaderiv(Shader->ID, GL_COMPILE_STATUS, &NoErrors);
-    if(!NoErrors)
-    {
-        Opengl->glGetShaderInfoLog(Shader->ID, 2000, NULL, LogInfo);
-        Opengl->glDeleteShader(Shader->ID);
-        Shader->ID = 0;
-        Log->Add("[opengl]: %s shader compilaton error (info below):\n%s", TypeStr, LogInfo);
-    }
-    else
-    {
-        //Log->Add("[opengl]: %s shader successfully compiled\n", TypeStr);
-    }
-}
-
-void
-OpenglLinkProgram(opengl *Opengl, opengl_program *Program,
-                  opengl_shader *VertShader, opengl_shader *FragShader)
-{
-    if(Program->ID != 0)
-    {
-        Opengl->glDeleteProgram(Program->ID);
-    }
-    
-    Program->ID = Opengl->glCreateProgram();
-    
-    if(VertShader->ID != 0)
-    {
-        Opengl->glAttachShader(Program->ID, VertShader->ID);
-    }
-    else
-    {
-        Log->Add("[program error]: vert shader null\n");
-    }
-    
-    if(FragShader->ID != 0)
-    {
-        Opengl->glAttachShader(Program->ID, FragShader->ID);
-    }
-    else
-    {
-        Log->Add("[program error]: frag shader null\n");
-    }
-    
-    Opengl->glLinkProgram(Program->ID);
-    
-    GLint NoErrors;
-    GLchar LogInfo[2000];
-    Opengl->glGetProgramiv(Program->ID, GL_LINK_STATUS, &NoErrors);
-    if(!NoErrors)
-    {
-        Opengl->glGetProgramInfoLog(Program->ID, 2000, NULL, LogInfo);
-        Log->Add("[program error]: program linking error (info below):\n%s", LogInfo);
-    }
-    else
-    {
-        Log->Add("[program]: program successfully linked\n");
-    }
 }
 
 extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
@@ -202,14 +127,14 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
 #endif
         }
         
-        // NOTE(ezexff): Init game mode
+        // NOTE(ezexff): Set current game mode
         {
             GameState->GameMode = GameMode_World;
         }
         
-#if ENGINE_INTERNAL
         // NOTE(ezexff): Init sound mixer
         {
+#if ENGINE_INTERNAL
             GameState->IsTestSineWave = false;
             GameState->ToneHz = 512;
             GameState->ToneVolume = 500;
@@ -231,22 +156,13 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         // NOTE(ezexff): Screen shader program
         {
             LoadFrameAndSkyboxShaders(ConstArena, Frame);
-            
-            Log->Add("[program]: frame\n");
-            OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
-            OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->Frag);
-            OpenglLinkProgram(Opengl, &Frame->Program, &Frame->Vert, &Frame->Frag);
-            Log->Add("\n");
-            
-            Log->Add("[program]: skybox\n");
-            OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->SkyboxVert);
-            OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->SkyboxFrag);
-            OpenglLinkProgram(Opengl, &Frame->SkyboxProgram, &Frame->SkyboxVert, &Frame->SkyboxFrag);
-            Log->Add("\n");
+            Frame->CompileShaders = true;
         }
         
         // NOTE(ezexff): Set default frame frag effect
-        Frame->FragEffect = EFFECT_NORMAL;
+        {
+            Frame->FragEffect = EFFECT_NORMAL;
+        }
         
         GameState->IsInitialized = true;
     }
@@ -258,23 +174,28 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         InitializeArena(&TranState->TranArena, Memory->TransientStorageSize - sizeof(tran_state), (u8 *)Memory->TransientStorage + sizeof(tran_state));
         memory_arena *TranArena = &TranState->TranArena;
         
-        
-        TranState->HighPriorityQueue = Memory->HighPriorityQueue;
-        TranState->LowPriorityQueue = Memory->LowPriorityQueue;
-        for(u32 TaskIndex = 0;
-            TaskIndex < ArrayCount(TranState->Tasks);
-            ++TaskIndex)
+        // NOTE(ezexff): Init thread queues
         {
-            task_with_memory *Task = TranState->Tasks + TaskIndex;
-            
-            Task->BeingUsed = false;
-            SubArena(&Task->Arena, &TranState->TranArena, Megabytes(1));
+            TranState->HighPriorityQueue = Memory->HighPriorityQueue;
+            TranState->LowPriorityQueue = Memory->LowPriorityQueue;
+            for(u32 TaskIndex = 0;
+                TaskIndex < ArrayCount(TranState->Tasks);
+                ++TaskIndex)
+            {
+                task_with_memory *Task = TranState->Tasks + TaskIndex;
+                
+                Task->BeingUsed = false;
+                SubArena(&Task->Arena, &TranState->TranArena, Megabytes(1));
+            }
         }
         
-        TranState->Assets = AllocateGameAssets(TranArena, Megabytes(128), TranState);
-        Frame->InitializeSkyboxTexture = true;
+        // NOTE(ezexff): Init assets
+        {
+            TranState->Assets = AllocateGameAssets(TranArena, Megabytes(128), TranState);
+            Frame->InitializeSkyboxTexture = true;
+        }
         
-        // TODO(ezexff): Only for test
+        // TODO(ezexff): Do test work
         task_with_memory *Task = BeginTaskWithMemory(TranState);
         if(Task)
         {
@@ -285,24 +206,26 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         }
         
         // NOTE(ezexff): Init ground buffers
-        TranState->GroundBufferCount = 64;
-        TranState->GroundBuffers = PushArray(TranArena, TranState->GroundBufferCount, ground_buffer);
-        for(u32 GroundBufferIndex = 0;
-            GroundBufferIndex < TranState->GroundBufferCount;
-            ++GroundBufferIndex)
         {
-            ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
-            GroundBuffer->P = NullPosition();
-            // GroundBuffer->Bitmap = MakeEmptyBitmap(TranArena, GroundBufferWidth, GroundBufferHeight, false);
-            // GroundBuffer->Texture = U32Max;
-            //s32 GroundTextureSizeMultiplyer = 32;
-            //GroundBuffer->DrawBuffer.Width = (s32)GroundBufferWidth * GroundTextureSizeMultiplyer;
-            //GroundBuffer->DrawBuffer.Height = (s32)GroundBufferHeight * GroundTextureSizeMultiplyer;
-            //glGenTextures(1, &GroundBuffer->DrawBuffer.ID);
-            //glGenTextures(1, &GroundBuffer->DrawBuffer.DepthTexture);
-            //GroundBuffer->DrawBuffer.FBO = Buffer->GroundFBO;
-            
-            //GroundBuffer->TerrainModel = CreateTerrainChunkModel(TranArena, GroundBufferWidth, GroundBufferHeight);
+            TranState->GroundBufferCount = 64;
+            TranState->GroundBuffers = PushArray(TranArena, TranState->GroundBufferCount, ground_buffer);
+            for(u32 GroundBufferIndex = 0;
+                GroundBufferIndex < TranState->GroundBufferCount;
+                ++GroundBufferIndex)
+            {
+                ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+                GroundBuffer->P = NullPosition();
+                // GroundBuffer->Bitmap = MakeEmptyBitmap(TranArena, GroundBufferWidth, GroundBufferHeight, false);
+                // GroundBuffer->Texture = U32Max;
+                //s32 GroundTextureSizeMultiplyer = 32;
+                //GroundBuffer->DrawBuffer.Width = (s32)GroundBufferWidth * GroundTextureSizeMultiplyer;
+                //GroundBuffer->DrawBuffer.Height = (s32)GroundBufferHeight * GroundTextureSizeMultiplyer;
+                //glGenTextures(1, &GroundBuffer->DrawBuffer.ID);
+                //glGenTextures(1, &GroundBuffer->DrawBuffer.DepthTexture);
+                //GroundBuffer->DrawBuffer.FBO = Buffer->GroundFBO;
+                
+                //GroundBuffer->TerrainModel = CreateTerrainChunkModel(TranArena, GroundBufferWidth, GroundBufferHeight);
+            }
         }
         
         TranState->IsInitialized = true;
@@ -318,34 +241,6 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         Input->dtForFrame = 0.001f;
         // TODO(casey): Warn on out-of-range refresh
     }*/
-    
-    asset_type *Type = TranState->Assets->AssetTypes + Asset_Skybox;
-    u32 SkyboxBitmapCount = Type->OnePastLastAssetIndex - Type->FirstAssetIndex;
-    if(SkyboxBitmapCount >= 6)
-    {
-        u32 Index = 0;
-        for(u32 AssetIndex = Type->FirstAssetIndex;
-            AssetIndex < Type->FirstAssetIndex + 6;
-            AssetIndex++)
-        {
-            asset *Asset = TranState->Assets->Assets + AssetIndex;
-            eab_bitmap EABBitmap = Asset->EAB.Bitmap;
-            
-            bitmap_id ID = {};
-            ID.Value = AssetIndex;
-            if(Asset->State == AssetState_Loaded)
-            {
-                loaded_bitmap *Bitmap = GetBitmap(TranState->Assets, ID, true);
-                Frame->Skybox[Index] = *Bitmap;
-            }
-            else if(Asset->State == AssetState_Unloaded)
-            {
-                LoadBitmap(TranState->Assets, ID, true);
-                Frame->MissingResourceCount++;
-            }
-            Index++;
-        }
-    }
     
     switch(GameState->GameMode)
     {
@@ -364,7 +259,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         InvalidDefaultCase;
     }
     
-    // NOTE(ezexff): ImGui windows
+    //~ NOTE(ezexff): ImGui windows
 #if ENGINE_INTERNAL
     imgui *ImGuiHandle = &Frame->ImGuiHandle;
     
@@ -923,7 +818,7 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                 {
                     case GameMode_Test:
                     {
-                        Camera = &GameState->ModeTest.Camera;
+                        //Camera = &GameState->ModeTest.Camera;
                     } break;
                     
                     case GameMode_World:
@@ -955,7 +850,7 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                     
                     case GameMode_World:
                     {
-                        ClearColor = (float*)&GameState->ModeWorld.ClearColor;
+                        //ClearColor = (float*)&GameState->ModeWorld.ClearColor;
                     } break;
                     
                     InvalidDefaultCase;
@@ -998,9 +893,12 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
             
             if(ImGui::Button("Recompile shaders and link program"))
             {
-                OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
+                Frame->CompileShaders = true;
+                /*
+OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
                 OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->Frag);
                 OpenglLinkProgram(Opengl, &Frame->Program, &Frame->Vert, &Frame->Frag);
+*/
             }
             ImGui::End();
         }

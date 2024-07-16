@@ -475,14 +475,6 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     
     if(!ModeWorld->IsInitialized)
     {
-        /*Camera->Angle.x = 45.0f;
-        Camera->Angle.y = 0.0f;
-        Camera->P.z = 2.7f;*/
-        
-        ModeWorld->ClearColor = {0, 0, 1, 1};
-        
-        
-        
         //~ NOTE(ezexff): World init
         // NOTE(casey): Reserve entity slot 0 for the null entity
         AddLowEntity(GameState, EntityType_Null, NullPosition());
@@ -515,9 +507,14 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                                                                TileSideInMeters,
                                                                TileSideInMeters,
                                                                TileDepthInMeters);
-        GameState->StandardRoomCollision = MakeSimpleGroundedCollision(GameState,
+        /*GameState->StandardRoomCollision = MakeSimpleGroundedCollision(GameState,
                                                                        TilesPerWidth * TileSideInMeters,
                                                                        TilesPerHeight * TileSideInMeters,
+                                                                       0.9f * TileDepthInMeters);*/
+        
+        GameState->StandardRoomCollision = MakeSimpleGroundedCollision(GameState,
+                                                                       2 * TilesPerWidth * TileSideInMeters,
+                                                                       2 * TilesPerHeight * TileSideInMeters,
                                                                        0.9f * TileDepthInMeters);
         
         u32 ScreenBaseX = 0;
@@ -549,25 +546,25 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             AddWall(GameState, Index, 0, AbsTileZ);
         }
         
-        ScreenX++;
+        for(u32 RoomIndex = 0;
+            RoomIndex < 100;
+            RoomIndex++)
+        {
+            ScreenX++;
+            
+            AddStandardRoom(GameState,
+                            ScreenX * TilesPerWidth + TilesPerWidth / 2,
+                            ScreenY * TilesPerHeight + TilesPerHeight / 2,
+                            AbsTileZ);
+        }
+        
+        /*ScreenY = 1;
+        ScreenX = 1;
         
         AddStandardRoom(GameState,
                         ScreenX * TilesPerWidth + TilesPerWidth / 2,
                         ScreenY * TilesPerHeight + TilesPerHeight / 2,
-                        AbsTileZ);
-        ScreenY++;
-        
-        AddStandardRoom(GameState,
-                        ScreenX * TilesPerWidth + TilesPerWidth / 2,
-                        ScreenY * TilesPerHeight + TilesPerHeight / 2,
-                        AbsTileZ);
-        ScreenY--;
-        ScreenX++;
-        
-        AddStandardRoom(GameState,
-                        ScreenX * TilesPerWidth + TilesPerWidth / 2,
-                        ScreenY * TilesPerHeight + TilesPerHeight / 2,
-                        AbsTileZ);
+                        AbsTileZ);*/
         
         world_position NewCameraP = {};
         u32 CameraTileX = ScreenBaseX * TilesPerWidth + 17 / 2;
@@ -577,8 +574,14 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         GameState->CameraP = NewCameraP;
         GameState->CameraPitch = 0.0f;
         GameState->CameraYaw = 0.0f;
+        GameState->CameraRoll = 0.0f;
+        
+        GameState->CameraPitch = 45.0f;
+        GameState->CameraYaw = 315.0f;
+        //Frame->CameraZ = 3.75f;
+        Frame->CameraZ = 1.75f;
         //Frame->CameraZ = 100.0f;
-        Frame->CameraZ = 14.75f;
+        //Frame->CameraZ = 14.75f;
         
         AddMonstar(GameState, CameraTileX - 3, CameraTileY + 2, CameraTileZ);
         AddMonstar(GameState, CameraTileX, CameraTileY + 2, CameraTileZ);
@@ -599,7 +602,9 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             //if(Controller->Start.EndedDown)
             if(WasPressed(Controller->Start))
             {
+#if ENGINE_INTERNAL
                 Log->Add("[world input]: 1st time start was pressed\n");
+#endif
                 *ConHero = {};
                 ConHero->EntityIndex = AddPlayer(GameState).LowIndex;
             }
@@ -612,24 +617,26 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             
             if(IsDown(Controller->MoveUp))
             {
-                ConHero->ddP.y = 1.0f;
+                ConHero->ddP.y += 1.0f;
             }
             if(IsDown(Controller->MoveDown))
             {
-                ConHero->ddP.y = -1.0f;
+                ConHero->ddP.y += -1.0f;
             }
             if(IsDown(Controller->MoveLeft))
             {
-                ConHero->ddP.x = -1.0f;
+                ConHero->ddP.x += -1.0f;
             }
             if(IsDown(Controller->MoveRight))
             {
-                ConHero->ddP.x = 1.0f;
+                ConHero->ddP.x += 1.0f;
             }
             
             if(WasPressed(Controller->Start))
             {
+#if ENGINE_INTERNAL
                 Log->Add("[world input]: Start was pressed\n");
+#endif
                 ConHero->dZ = 3.0f;
             }
             
@@ -654,39 +661,6 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 ConHero->dSword = V2(1.0f, 0.0f);
             }
         }
-        
-        r32 Speed = 3.0;
-        
-        /*v3 ddP = {};
-        if(IsDown(Controller->MoveUp))
-        {
-            //Camera->P.y += 0.1f;
-            ddP.y = 1.0f;
-        }
-        if(IsDown(Controller->MoveDown))
-        {
-            //Camera->P.y -= 0.1f;
-            ddP.y = -1.0f;
-        }
-        if(IsDown(Controller->MoveLeft))
-        {
-            //Camera->P.x -= 0.1f;
-            ddP.x = -1.0f;
-        }
-        if(IsDown(Controller->MoveRight))
-        {
-            ddP.x = 1.0f;
-            //Camera->P.x += 0.1f;
-        }
-        
-        r32 Angle = Camera->Angle.y * Pi32 / 180;
-        v3 NewddP = {};
-        NewddP.x = ddP.x * Cos(Angle) - ddP.y * Sin(Angle);
-        NewddP.y = ddP.x * Sin(Angle) + ddP.y * Cos(Angle);
-        NewddP.z = 0;
-        
-        NewddP *= Speed * Input->dtForFrame;
-        Camera->P += NewddP;*/
     }
     
     // NOTE(ezexff): Mouse
@@ -724,39 +698,15 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     if(!ImGuiHandle->ShowImGuiWindows)
 #endif
     {
-        /*r32 Sensitivity = 0.05;
-        
-        // Horizontal (camera yaw)
-        Camera->Angle.y -= (r32)Input->MouseDelta.x * Sensitivity;
-        if(Camera->Angle.y < 0)
-        {
-            Camera->Angle.y += 360;
-        }
-        if(Camera->Angle.y > 360)
-        {
-            Camera->Angle.y -= 360;
-        }
-        
-        // Vertical (camera pitch)
-        Camera->Angle.x += (r32)Input->MouseDelta.y * Sensitivity;
-        if(Camera->Angle.x < 0)
-        {
-            Camera->Angle.x = 0;
-        }
-        if(Camera->Angle.x > 180)
-        {
-            Camera->Angle.x = 180;
-        }*/
-        
         r32 Sensitivity = 0.05;
         
         // Horizontal (camera yaw)
         GameState->CameraYaw -= (r32)Input->MouseDelta.x * Sensitivity;
-        if(GameState->CameraYaw < 0)
+        if(GameState->CameraYaw < -180)
         {
             GameState->CameraYaw += 360;
         }
-        if(GameState->CameraYaw > 360)
+        if(GameState->CameraYaw > 180)
         {
             GameState->CameraYaw -= 360;
         }
@@ -772,7 +722,6 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             GameState->CameraPitch = 180;
         }
     }
-    //MoveCamera(Frame, *Camera);
     
     //~ NOTE(ezexff): Sim region
     u32 SimChunksInCamera = 5;
@@ -791,15 +740,47 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     Frame->Camera.P = V3(0, 0, 0);
     Frame->Camera.Angle.x = GameState->CameraPitch;
     Frame->Camera.Angle.y = GameState->CameraYaw;
-    Frame->Camera.Angle.z = 0.0f;
+    Frame->Camera.Angle.z = GameState->CameraRoll;
     
-    Clear(Frame, ModeWorld->ClearColor);
+    //Clear(Frame, ModeWorld->ClearColor);
+    Frame->DrawSkybox = true;
     
+    // NOTE(ezexff): Skybox
+    asset_type *Type = TranState->Assets->AssetTypes + Asset_Skybox;
+    u32 SkyboxBitmapCount = Type->OnePastLastAssetIndex - Type->FirstAssetIndex;
+    if(SkyboxBitmapCount >= 6)
+    {
+        u32 Index = 0;
+        for(u32 AssetIndex = Type->FirstAssetIndex;
+            AssetIndex < Type->FirstAssetIndex + 6;
+            AssetIndex++)
+        {
+            asset *Asset = TranState->Assets->Assets + AssetIndex;
+            eab_bitmap EABBitmap = Asset->EAB.Bitmap;
+            
+            bitmap_id ID = {};
+            ID.Value = AssetIndex;
+            if(Asset->State == AssetState_Loaded)
+            {
+                loaded_bitmap *Bitmap = GetBitmap(TranState->Assets, ID, true);
+                Frame->Skybox[Index] = *Bitmap;
+            }
+            else if(Asset->State == AssetState_Unloaded)
+            {
+                LoadBitmap(TranState->Assets, ID, true);
+                Frame->MissingResourceCount++;
+            }
+            Index++;
+        }
+    }
+    
+#if 0
     // NOTE(ezexff): Sim region outlines
     PushRectOutlineOnGround(Frame, V3(0, 0, 0), V2(CameraWidthInMeters, CameraHeightInMeters), V4(1.0f, 1.0f, 0.0f, 1));
     PushRectOutlineOnGround(Frame, V3(0, 0, 0), GetDim(SimBounds).xy, V4(0.0f, 1.0f, 1.0f, 1));
     PushRectOutlineOnGround(Frame, V3(0, 0, 0), GetDim(SimRegion->Bounds).xy, V4(1, 0.5, 0, 1));
     PushRectOutlineOnGround(Frame, V3(0, 0, 0), GetDim(SimRegion->UpdatableBounds).xy, V4(1.0f, 0.0f, 1.0f, 1));
+#endif
     
     // NOTE(ezexff): Entities
     for(u32 EntityIndex = 0;
@@ -814,6 +795,12 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             // TODO(casey): This is incorrect, should be computed after update!!!!
             move_spec MoveSpec = DefaultMoveSpec();
             v3 ddP = {};
+            
+            v3 WishDir = {};
+            r32 WishSpeed = {};
+            r32 sv_accelerate = 7.0f;
+            r32 ForceForMove = 400.0f;
+            ForceForMove *= 0.0254f;
             
             //
             // NOTE(me): Pre-physics entity work
@@ -839,16 +826,71 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                             
                             MoveSpec.UnitMaxAccelVector = true;
                             MoveSpec.Speed = 50.0f;
-                            MoveSpec.Drag = 8.0f;
+                            //MoveSpec.Drag = 8.0f;
+                            MoveSpec.Drag = 1.0f;
                             // MoveSpec.Speed = 25.0f;
                             // MoveSpec.Drag = 1.0f;
-#if 1
-                            r32 Angle = GameState->CameraYaw * Pi32 / 180;
-                            ddP.x = ConHero->ddP.x * Cos(Angle) - ConHero->ddP.y * Sin(Angle);
-                            ddP.y = ConHero->ddP.x * Sin(Angle) + ConHero->ddP.y * Cos(Angle);
+#if 0
+                            //r32 YawInRad = GameState->CameraYaw * Pi32 / 180;
+                            r32 YawInRad = DegToRad(GameState->CameraYaw);
+                            ddP.x = ConHero->ddP.x * Cos(YawInRad) - ConHero->ddP.y * Sin(YawInRad);
+                            ddP.y = ConHero->ddP.x * Sin(YawInRad) + ConHero->ddP.y * Cos(YawInRad);
                             ddP.z = 0;
+                            //ddP = V3(ConHero->ddP, 0);
 #else
-                            ddP = V3(ConHero->ddP, 0);
+                            r32 Yaw = DegToRad(GameState->CameraYaw);
+                            r32 Tmp1 = 90 - GameState->CameraPitch;
+                            r32 Pitch = DegToRad(Tmp1);
+                            //r32 Pitch = DegToRad(GameState->CameraPitch);
+                            //Log->Add("test %f\n", Pitch);
+                            r32 Roll = DegToRad(GameState->CameraRoll);
+                            
+                            r32 SinYaw = Sin(Yaw);
+                            r32 CosYaw = Cos(Yaw);
+                            
+                            r32 SinPitch = Sin(Pitch);
+                            r32 CosPitch = Cos(Pitch);
+                            
+                            r32 SinRoll = Sin(Roll);
+                            r32 CosRoll = Cos(Roll);
+                            
+                            v3 Forward;
+                            v3 Right;
+                            
+                            Forward.x = CosPitch * CosYaw;
+                            Forward.y = CosPitch * SinYaw;
+                            Forward.z = -SinPitch;
+                            
+                            Right.x = (-1 * SinRoll * SinPitch * CosYaw + -1 * CosRoll * -SinYaw);
+                            Right.y = (-1 * SinRoll * SinPitch * SinYaw + -1 * CosRoll * CosYaw);
+                            Right.z = (-1 * SinRoll * CosPitch);
+                            
+                            //Log->Add("f = %f %f %f\n", Forward.x, Forward.y, Forward.z);
+                            //Log->Add("r = %f %f %f\n", Right.x, Right.y, Right.z);
+                            
+                            Forward.z = 0.0f;
+                            Right.z = 0.0f;
+                            v3 NForward = Normalize(Forward);
+                            v3 NRight = Normalize(Right);
+                            
+                            if(ConHero->ddP.x == 1.0f)
+                            {
+                                int f4324 = 0;
+                            }
+                            
+                            r32 FMove = ForceForMove * ConHero->ddP.x;
+                            r32 SMove = -ForceForMove * ConHero->ddP.y;
+                            
+                            v3 WishVel;
+                            WishVel.x = NForward.x * FMove + NRight.x * SMove;
+                            WishVel.y = NForward.y * FMove + NRight.y * SMove;
+                            WishVel.z = 0.0f;
+                            
+                            if((WishVel.x != 0) || (WishVel.y != 0) | (WishVel.z != 0))
+                            {
+                                WishDir = Normalize(WishVel);
+                            }
+                            WishSpeed = Length(WishVel);
 #endif
                             
                             if((ConHero->dSword.x != 0.0f) || (ConHero->dSword.y != 0.0f))
@@ -857,7 +899,9 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                                 if(Sword && IsSet(Sword, EntityFlag_Nonspatial))
                                 {
                                     Sword->DistanceLimit = 1.0f;
-                                    MakeEntitySpatial(Sword, Entity->P, Entity->dP + 5.0f * V3(ConHero->dSword, 0));
+                                    //MakeEntitySpatial(Sword, Entity->P, Entity->dP + 5.0f * V3(ConHero->dSword, 0));
+                                    r32 dSwordMultiplier = 10.0f;
+                                    MakeEntitySpatial(Sword, Entity->P, V3(ConHero->dSword * dSwordMultiplier, 0));
                                     AddCollisionRule(GameState, Sword->StorageIndex, Entity->StorageIndex, false);
                                     
                                     PlaySound(&GameState->AudioState, GetFirstSoundFrom(TranState->Assets, Asset_Bloop));
@@ -916,14 +960,15 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             if(!IsSet(Entity, EntityFlag_Nonspatial) &&
                IsSet(Entity, EntityFlag_Moveable))
             {
-                MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, &MoveSpec, ddP);
+                MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, &MoveSpec, ddP,
+                           WishDir, WishSpeed, sv_accelerate);
             }
             
             //RenderGroup->Transform.OffsetP = GetEntityGroundPoint(Entity);
             Frame->OffsetP = GetEntityGroundPoint(Entity);
             
             //
-            // NOTE(me): Post-physics entity work
+            // NOTE(ezexff): Post-physics entity work
             //
             switch(Entity->Type)
             {
@@ -1103,7 +1148,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 
                 PushRectOutlineOnGround(Frame, Delta, World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
                 PushBitmapOnGround(Frame, Assets, GetFirstBitmapFrom(Assets, Asset_Ground), 
-                                   Delta, World->ChunkDimInMeters.xy, 4.0f);
+                                   Delta.xy, World->ChunkDimInMeters.xy, 4.0f);
             }
         }
     }
@@ -1134,7 +1179,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 {
                     //PushRectOutlineOnGround(Frame, V3(RelP.xy, 0), World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
                     PushBitmapOnGround(Frame, Assets, GetFirstBitmapFrom(Assets, Asset_Ground), 
-                                       V3(RelP.xy, 0), World->ChunkDimInMeters.xy, 4.0f);
+                                       RelP.xy, World->ChunkDimInMeters.xy, 4.0f);
                 }
                 TestIndex++;
             }
@@ -1237,7 +1282,6 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     
     // TODO(ezexff): Debug
     char *TestString = "The quick brown fox jumps over a lazy dog.";
-    //char *TestString = "The ";
     DEBUGTextLine(Frame, TranState->Assets, TestString);
     /*PushRectOnGround(Frame, V3(0, 0, 0), V2(5, 5), V4(0, 1, 0, 1));
     PushRectOutlineOnGround(Frame, V3(0, 7, 0), V2(5, 5), V4(0, 0, 1, 1), 0.5f);
@@ -1266,9 +1310,22 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         ImGui::Text("ChunkP: %.3f %.3f %.3f", CameraP->Offset_.x, CameraP->Offset_.y, CameraP->Offset_.z);
         ImGui::Text("Ang: %.3f %.3f %.3f", Camera->Angle.x, Camera->Angle.y, Camera->Angle.z);
         ImGui::Text("CameraZ: %.3f", Frame->CameraZ);
-        ImGui::Text("Vel: %.3f", 0);
         ImGui::Text("Fps: %.1f", 1.0f / Input->dtForFrame);
         ImGui::Text("dt: %.6f", Input->dtForFrame);
+        
+        for(u32 EntityIndex = 0;
+            EntityIndex < SimRegion->EntityCount;
+            ++EntityIndex)
+        {
+            sim_entity *Entity = SimRegion->Entities + EntityIndex;
+            if(Entity->Updatable)
+            {
+                if(Entity->Type == EntityType_Hero)
+                {
+                    ImGui::Text("Vel: %.3f %.3f", Entity->dP.x, Entity->dP.y);
+                }
+            }
+        }
         
         ImGui::End();
     }

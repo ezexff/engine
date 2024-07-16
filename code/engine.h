@@ -18,35 +18,12 @@
 #include "engine_sim_region.h"
 #include "engine_entity.h"
 
+#include "engine_mode_test.h"
 #include "engine_mode_world.h"
-
 enum game_mode
 {
     GameMode_Test,
     GameMode_World,
-};
-
-struct mode_world
-{
-    b32 IsInitialized;
-    
-    //camera Camera;
-    
-    v4 ClearColor;
-    
-};
-
-struct mode_test
-{
-    b32 IsInitialized;
-    
-    camera Camera;
-    
-    v4 ClearColor;
-    
-    opengl_program FrameProgram;
-    opengl_shader FrameVert;
-    opengl_shader FrameFrag;
 };
 
 struct game_state
@@ -58,6 +35,7 @@ struct game_state
     mode_world ModeWorld;
     mode_test ModeTest;
     
+    //~ NOTE(ezexff): Audio
     audio_state AudioState;
     playing_sound *PlayingSound;
 #if ENGINE_INTERNAL
@@ -77,6 +55,7 @@ struct game_state
     world_position CameraP;
     r32 CameraPitch;
     r32 CameraYaw;
+    r32 CameraRoll;
     
     controlled_hero ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
     
