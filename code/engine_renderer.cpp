@@ -63,23 +63,24 @@ PushRectOnScreen(renderer_frame *Frame, v2 Offset, v2 Dim, v4 Color = V4(1, 1, 1
 }
 
 void
-PushRectOutlineOnGround(renderer_frame *Frame, v3 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1), r32 LineWidth = 1)
+PushRectOutlineOnGround(renderer_frame *Frame, v2 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1), r32 LineWidth = 1)
 {
-    v3 P = (Offset - V3(0.5f * Dim, 0));
+    //v3 P = (Offset - V3(0.5f * Dim, 0));
+    v2 P = Offset - 0.5f * Dim;
     //P += Group->Transform.OffsetP;
     
     renderer_entry_rect_outline_on_ground *Entry = PushRenderElement(Frame, renderer_entry_rect_outline_on_ground);
     if(Entry)
     {
         Entry->Color = Color;
-        Entry->P = P.xy;
+        Entry->P = P;
         Entry->Dim = Dim;
         Entry->LineWidth = LineWidth;
     }
 }
 
 void
-PushBitmapOnGround(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 Offset, v2 Dim, r32 Repeat)
+PushBitmapOnGround(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 Offset, v2 Dim, r32 Repeat = 1)
 {
     loaded_bitmap *Bitmap = GetBitmap(Assets, ID, true);
     if(Bitmap)
@@ -103,7 +104,7 @@ PushBitmapOnGround(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 
 }
 
 void
-PushBitmapOnScreen(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 Offset, v2 Dim, r32 Repeat)
+PushBitmapOnScreen(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 Offset, v2 Dim, r32 Repeat = 1)
 {
     loaded_bitmap *Bitmap = GetBitmap(Assets, ID, true);
     if(Bitmap)
@@ -126,6 +127,7 @@ PushBitmapOnScreen(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 
     }
 }
 
+// TODO(ezexff): Need rework!
 inline loaded_font *
 PushFont(renderer_frame *Frame, game_assets *Assets, font_id ID)
 {
@@ -142,4 +144,44 @@ PushFont(renderer_frame *Frame, game_assets *Assets, font_id ID)
     }
     
     return(Font);
+}
+
+void
+PushCube(renderer_frame *Frame, v3 Offset, v3 Dim, v4 Color = V4(1, 1, 1, 1))
+{
+    v3 P = Offset - 0.5f * Dim;
+    
+    renderer_entry_cube *Entry = PushRenderElement(Frame, renderer_entry_cube);
+    if(Entry)
+    {
+        Entry->Color = Color;
+        Entry->P = P;
+        Entry->Dim = Dim;
+    }
+}
+
+void
+PushCubeOutline(renderer_frame *Frame, v3 Offset, v3 Dim, v4 Color = V4(1, 1, 1, 1), r32 LineWidth = 1)
+{
+    v3 P = Offset - 0.5f * Dim;
+    
+    renderer_entry_cube_outline *Entry = PushRenderElement(Frame, renderer_entry_cube_outline);
+    if(Entry)
+    {
+        Entry->Color = Color;
+        Entry->P = P;
+        Entry->Dim = Dim;
+        Entry->LineWidth = LineWidth;
+    }
+}
+
+void
+PushTerrainChunk(renderer_frame *Frame, u32 PositionsCount, v3 *Positions)
+{
+    renderer_entry_terrain_chunk *Entry = PushRenderElement(Frame, renderer_entry_terrain_chunk);
+    if(Entry)
+    {
+        Entry->PositionsCount = PositionsCount;
+        Entry->Positions = Positions;
+    }
 }

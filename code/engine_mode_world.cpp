@@ -1,3 +1,53 @@
+internal void CreateTerrainModel(memory_arena *WorldArena, loaded_model Model)
+{
+    Model.MeshesCount = 1;
+    Model.Meshes = PushArray(WorldArena, Model.MeshesCount, mesh);
+    
+    mesh *Mesh = &Model.Meshes[0];
+    
+    u32 TMapW = 1;
+    u32 TMapH = 1;
+    Mesh->VertCount = TMapW * TMapH;
+    Mesh->Positions = PushArray(WorldArena, Mesh->VertCount, v3);
+    Mesh->TexCoords = PushArray(WorldArena, Mesh->VertCount, v2);
+    
+    u32 VertCountTmp = 0;
+    for(u32 i = 0; i < TMapW; i++)
+    {
+        for(u32 j = 0; j < TMapH; j++)
+        {
+            Mesh->Positions[VertCountTmp] = V3((r32)i, (r32)j, (rand() % 10) * 0.02f);
+            Mesh->TexCoords[VertCountTmp] = V2((r32)i, (r32)j);
+            VertCountTmp++;
+        }
+    }
+    
+    Mesh->IndicesCount = (TMapW - 1) * (TMapH - 1) * 6;
+    Mesh->Indices = PushArray(WorldArena, Mesh->IndicesCount, u32);
+    
+    for(u32 i = 0; i < TMapW - 1; i++)
+    {
+        u32 Pos = i * TMapH; // номер ячейки массива использующий сквозную нумерацию
+        for(u32 j = 0; j < TMapH - 1; j++)
+        {
+            // Flat[ x * TMapH * depth + y * depth + z ] = elements[x][y][z]
+            u32 TmpIndex = i * (TMapH - 1) * 6 + j * 6;
+            
+            // первый треугольник на плоскости (левая верхняя часть квадрата)
+            Mesh->Indices[TmpIndex + 0] = Pos;
+            Mesh->Indices[TmpIndex + 1] = Pos + 1; // переход к следующей вершине (перемещение по оси y)
+            Mesh->Indices[TmpIndex + 2] =
+                Pos + 1 + TMapH; // переход к вершине во второй размерности (перемещение по оси x)
+            
+            // второй треугольник на плоскости (правая нижняя часть квадрата)
+            Mesh->Indices[TmpIndex + 3] = Pos + 1 + TMapH;
+            Mesh->Indices[TmpIndex + 4] = Pos + TMapH;
+            Mesh->Indices[TmpIndex + 5] = Pos;
+            Pos++;
+        }
+    }
+}
+
 internal void
 FillGroundChunk(tran_state *TranState, game_state *GameState,
                 ground_buffer *GroundBuffer,
@@ -66,6 +116,31 @@ FillGroundChunk(tran_state *TranState, game_state *GameState,
 #else
     //temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
     GroundBuffer->P = *ChunkP;
+    
+    //Log->Add("ChunkP = (%d,%d)\n", ChunkP->ChunkX, ChunkP->ChunkY);
+    
+    s32 ChunkX = ChunkP->ChunkX;
+    s32 ChunkY = ChunkP->ChunkY;
+    s32 ChunkZ = ChunkP->ChunkZ;
+    
+    // TODO(casey): Make random number generation more systemic
+    // TODO(casey): Look into wang hashing or some other spatial seed generation "thing"!
+    
+    r32 MaxTerrainHeight = 0.2f;
+    random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
+    GroundBuffer->RandomZ = RandomUnilateral(&Series) * MaxTerrainHeight;
+    
+    /*if(ChunkX == 1 && ChunkY == 1)
+    {
+        for(u32 Index = 0;
+            Index < 6;
+            ++Index)
+        {
+            random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ + 222 * Index);
+            r32 RandomZ = RandomUnilateral(&Series) * MaxTerrainHeight;
+            Log->Add("Random[%d] = (%.3f)\n", Index, RandomZ);
+        }
+    }*/
     
     /*loaded_texture *Buffer = &GroundBuffer->DrawBuffer;
     r32 Width = (r32)Buffer->Width;
@@ -983,7 +1058,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                         ++VolumeIndex)
                     {
                         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
-                        PushRectOutlineOnGround(Frame, Frame->OffsetP, Volume->Dim.xy, V4(0, 1, 0, 1));
+                        PushRectOutlineOnGround(Frame, Frame->OffsetP.xy, Volume->Dim.xy, V4(0, 1, 0, 1));
                     }
                 } break;
                 
@@ -995,7 +1070,8 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                         ++VolumeIndex)
                     {
                         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
-                        PushRectOutlineOnGround(Frame, Frame->OffsetP, Volume->Dim.xy, V4(1, 0.5f, 0, 1));
+                        //PushRectOutlineOnGround(Frame, Frame->OffsetP, Volume->Dim.xy, V4(1, 0.5f, 0, 1));
+                        PushCube(Frame, Frame->OffsetP, Volume->Dim, V4(1, 0.5f, 0, 1));
                     }
                 } break;
                 
@@ -1014,7 +1090,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                         ++VolumeIndex)
                     {
                         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
-                        PushRectOutlineOnGround(Frame, Frame->OffsetP, Volume->Dim.xy, V4(0, 0, 1, 1));
+                        PushRectOutlineOnGround(Frame, Frame->OffsetP.xy, Volume->Dim.xy, V4(0, 0, 1, 1));
                     }
                 } break;
                 
@@ -1036,7 +1112,8 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                         ++VolumeIndex)
                     {
                         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
-                        PushRectOutlineOnGround(Frame, Frame->OffsetP, Volume->Dim.xy, V4(1, 0, 0, 1));
+                        //PushRectOutlineOnGround(Frame, Frame->OffsetP, Volume->Dim.xy, V4(1, 0, 0, 1));
+                        PushCubeOutline(Frame, Frame->OffsetP, Volume->Dim, V4(1, 0, 0, 1));
                     }
                     
                     /*ImGui::Begin("Monstar");
@@ -1052,7 +1129,8 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                         ++VolumeIndex)
                     {
                         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
-                        PushRectOutlineOnGround(Frame, Frame->OffsetP, Volume->Dim.xy, V4(1, 1, 1, 1));
+                        //PushRectOnGround(Frame, Frame->OffsetP.xy, Volume->Dim.xy, V4(0.5f, 0.5f, 0.5f, 1));
+                        PushRectOutlineOnGround(Frame, Frame->OffsetP.xy, Volume->Dim.xy, V4(1, 1, 1, 1));
                     }
                     // DrawCollisionRectOutline(Entity, 0.0f, V3(0, 0, 1));
                 } break;
@@ -1063,7 +1141,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     }
     
     // NOTE(ezexff): Fill ground buffer
-#if 0
+#if 1
     world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMinCorner(CameraBoundsInMeters));
     world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMaxCorner(CameraBoundsInMeters));
     
@@ -1118,8 +1196,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 
                 if(FurthestBuffer)
                 {
-                    //Log->Add("[fillgroundchunk] TmpGroundBufferIndex=%d (%d,%d)\n",
-                    //TmpGroundBufferIndex, ChunkCenterP.ChunkX, ChunkCenterP.ChunkY);
+                    //Log->Add("[fillgroundchunk] TmpGroundBufferIndex=%d (%d,%d)\n", TmpGroundBufferIndex, ChunkCenterP.ChunkX, ChunkCenterP.ChunkY);
                     FillGroundChunk(TranState, GameState,
                                     FurthestBuffer,
                                     &ChunkCenterP);
@@ -1127,8 +1204,6 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             }
         }
     }
-#endif
-    
     
     for(u32 GroundBufferIndex = 0;
         GroundBufferIndex < TranState->GroundBufferCount;
@@ -1146,12 +1221,55 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 // PushModel(RenderGroup, Delta, World->ChunkDimInMeters.xy, GroundBuffer->TerrainModel);
                 //PushRectOutline(RenderGroup, Delta, World->ChunkDimInMeters.xy, V4(1, 0, 0, 1));
                 
-                PushRectOutlineOnGround(Frame, Delta, World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
+                /*PushRectOutlineOnGround(Frame, Delta.xy, World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
                 PushBitmapOnGround(Frame, Assets, GetFirstBitmapFrom(Assets, Asset_Ground), 
-                                   Delta.xy, World->ChunkDimInMeters.xy, 4.0f);
+                                   Delta.xy, World->ChunkDimInMeters.xy, 4.0f);*/
+                
+                u32 PositionsCount = 4;
+                v3 *Positions = PushArray(&TranState->TranArena, 4, v3);
+                r32 MaxTerrainHeight = 2.5f;
+                //v3 TerrainChunkP[4] = {};
+                
+                s32 MinX = GroundBuffer->P.ChunkX;
+                s32 MinY = GroundBuffer->P.ChunkY;
+                s32 MinZ = GroundBuffer->P.ChunkZ;
+                s32 MaxX = MinX + 1;
+                s32 MaxY = MinY + 1;
+                r32 MinDeltaX = Delta.x - GroundBufferWidth / 2;
+                r32 MinDeltaY = Delta.y - GroundBufferHeight / 2;
+                r32 MaxDeltaX = MinDeltaX + GroundBufferWidth;
+                r32 MaxDeltaY = MinDeltaY + GroundBufferHeight;
+                
+                
+                random_series Series00 = RandomSeed(139 * MinX + 593 * MinY + 329 * MinZ);
+                r32 RandomZ00 = RandomUnilateral(&Series00) * MaxTerrainHeight;
+                //TerrainChunkP[0] = V3((r32)MinX, (r32)MinY, RandomZ00);
+                //Positions[0] = V3((r32)MinX, (r32)MinY, RandomZ00);
+                Positions[0] = V3(MinDeltaX, MinDeltaY, RandomZ00);
+                
+                random_series Series10 = RandomSeed(139 * MaxX + 593 * MinY + 329 * MinZ);
+                r32 RandomZ10 = RandomUnilateral(&Series10) * MaxTerrainHeight;
+                //TerrainChunkP[1] = V3((r32)MaxX, (r32)MinY, RandomZ10);
+                Positions[1] = V3(MaxDeltaX, MinDeltaY, RandomZ10);
+                
+                random_series Series01 = RandomSeed(139 * MinX + 593 * MaxY + 329 * MinZ);
+                r32 RandomZ01 = RandomUnilateral(&Series01) * MaxTerrainHeight;
+                //TerrainChunkP[2] = V3((r32)MinX, (r32)MaxY, RandomZ01);
+                Positions[2] = V3(MinDeltaX, MaxDeltaY, RandomZ01);
+                
+                random_series Series11 = RandomSeed(139 * MaxX + 593 * MaxY + 329 * MinZ);
+                r32 RandomZ11 = RandomUnilateral(&Series11) * MaxTerrainHeight;
+                //TerrainChunkP[3] = V3((r32)MaxX, (r32)MaxY, RandomZ11);
+                Positions[3] = V3(MaxDeltaX, MaxDeltaY, RandomZ11);
+                
+                
+                PushTerrainChunk(Frame, PositionsCount, Positions);
+                
+                int sfsdf = 0;
             }
         }
     }
+#endif
     
 #if 0
     // NOTE(ezexff): Ground chunks

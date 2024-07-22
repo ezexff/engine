@@ -111,27 +111,6 @@ break
 #define Align8(Value) ((Value + 7) & ~7)
 #define Align16(Value) ((Value + 15) & ~15)
 
-struct loaded_bitmap
-{
-    //v2 AlignPercentage;
-    //r32 WidthOverHeight;
-    
-    s32 Width;
-    s32 Height;
-    s32 BytesPerPixel;
-    void *Memory;
-    u32 OpenglID;
-};
-
-struct loaded_sound
-{
-    u32 SampleCount;
-    u32 ChannelCount;
-    s16 *Samples[2];
-    
-    void *Free;
-};
-
 //~ NOTE(ezexff): Vectors
 union v2
 {
@@ -361,3 +340,56 @@ operator==(string A, wchar_t *B)
     
     return (Result);
 }
+
+//~ NOTE(ezexff): Assets
+struct loaded_bitmap
+{
+    //v2 AlignPercentage;
+    //r32 WidthOverHeight;
+    
+    s32 Width;
+    s32 Height;
+    s32 BytesPerPixel;
+    void *Memory;
+    u32 OpenglID;
+};
+
+struct loaded_sound
+{
+    u32 SampleCount;
+    u32 ChannelCount;
+    s16 *Samples[2];
+    
+    void *Free;
+};
+
+enum mesh_flags
+{
+    MeshFlag_HasTexCoords = (1 << 0),
+    MeshFlag_HasNormals = (1 << 1),
+    MeshFlag_HasTangents = (1 << 2),
+    MeshFlag_HasIndices = (1 << 3),
+    MeshFlag_HasMaterial = (1 << 4),
+    MeshFlag_HasAnimations = (1 << 5),
+    
+};
+
+struct mesh
+{
+    u32 VertCount;
+    v3 *Positions;
+    v2 *TexCoords;
+    v3 *Normals;
+    //v3 *Tangents; // Normal mapping
+    
+    u32 IndicesCount;
+    u32 *Indices;
+    
+    u32 Flags;
+};
+
+struct loaded_model
+{
+    u32 MeshesCount;
+    mesh *Meshes;
+};

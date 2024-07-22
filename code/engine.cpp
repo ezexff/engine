@@ -215,6 +215,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             {
                 ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
                 GroundBuffer->P = NullPosition();
+                GroundBuffer->RandomZ = 0.0f;
                 // GroundBuffer->Bitmap = MakeEmptyBitmap(TranArena, GroundBufferWidth, GroundBufferHeight, false);
                 // GroundBuffer->Texture = U32Max;
                 //s32 GroundTextureSizeMultiplyer = 32;

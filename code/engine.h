@@ -18,6 +18,8 @@
 #include "engine_sim_region.h"
 #include "engine_entity.h"
 
+#include "engine_random.h"
+
 #include "engine_mode_test.h"
 #include "engine_mode_world.h"
 enum game_mode

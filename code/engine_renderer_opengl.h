@@ -21,13 +21,8 @@ OpenglCompileShader(opengl *Opengl, GLuint Type, opengl_shader *Shader)
         Opengl->glGetShaderInfoLog(Shader->ID, 2000, NULL, LogInfo);
         Opengl->glDeleteShader(Shader->ID);
         Shader->ID = 0;
-#if ENGINE_INTERNAL
         //Log->Add("[opengl]: %s shader compilaton error (info below):\n%s", TypeStr, LogInfo);
-#endif
-    }
-    else
-    {
-        //Log->Add("[opengl]: %s shader successfully compiled\n", TypeStr);
+        InvalidCodePath;
     }
 }
 
@@ -48,9 +43,8 @@ OpenglLinkProgram(opengl *Opengl, opengl_program *Program,
     }
     else
     {
-#if ENGINE_INTERNAL
         //Log->Add("[program error]: vert shader null\n");
-#endif
+        InvalidCodePath;
     }
     
     if(FragShader->ID != 0)
@@ -59,9 +53,8 @@ OpenglLinkProgram(opengl *Opengl, opengl_program *Program,
     }
     else
     {
-#if ENGINE_INTERNAL
         //Log->Add("[program error]: frag shader null\n");
-#endif
+        InvalidCodePath;
     }
     
     Opengl->glLinkProgram(Program->ID);
@@ -72,23 +65,238 @@ OpenglLinkProgram(opengl *Opengl, opengl_program *Program,
     if(!NoErrors)
     {
         Opengl->glGetProgramInfoLog(Program->ID, 2000, NULL, LogInfo);
-#if ENGINE_INTERNAL
         //Log->Add("[program error]: program linking error (info below):\n%s", LogInfo);
-#endif
+        InvalidCodePath;
     }
-    else
+}
+
+void
+OpenglDrawTerrainChunk(u32 PositionsCount, v3 *Positions)
+{
+    v3 *P = Positions;
+    r32 VertPositions[] =
     {
-#if ENGINE_INTERNAL
-        //Log->Add("[program]: program successfully linked\n");
+        // bot
+        P[0].x, P[0].y, P[0].z, // 0
+        P[1].x, P[1].y, P[1].z, // 1
+        P[2].x, P[2].y, P[2].z, // 2
+        // top
+        P[3].x, P[3].y, P[3].z,
+        P[1].x, P[1].y, P[1].z,
+        P[2].x, P[2].y, P[2].z,
+    };
+    
+    r32 VertColors[] =
+    {
+        0, 1, 0, 0, 1, 0, 0, 1, 0,
+        0, 1, 0, 0, 1, 0, 0, 1, 0,
+    };
+    
+    u32 Indices[] =
+    {
+        0,  1,  2, // bot
+        3,  4,  5, // top
+    };
+    
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    
+    s32 IndicesCount = ArrayCount(Indices);
+    
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    
+    glVertexPointer(3, GL_FLOAT, 0, VertPositions);
+    glColorPointer(3, GL_FLOAT, 0, VertColors);
+    glDrawElements(GL_TRIANGLES, IndicesCount, GL_UNSIGNED_INT, Indices);
+    
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+    
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+}
+
+void
+OpenglDrawCube(v3 P, v3 Dim, v3 Color)
+{
+    r32 MinX = P.x;
+    r32 MaxX = P.x + Dim.x;
+    r32 MinY = P.y;
+    r32 MaxY = P.y + Dim.y;
+    r32 MinZ = P.z;
+    r32 MaxZ = P.z + Dim.z;
+    
+    r32 VertPositions[] =
+    {
+        // front
+        MinX, MinY, MaxZ, // 0
+        MaxX, MinY, MaxZ, // 1
+        MaxX, MaxY, MaxZ, // 2
+        MinX, MaxY, MaxZ, // 3
+        // back
+        MinX, MaxY, MinZ, // 4
+        MaxX, MaxY, MinZ, // 5
+        MaxX, MinY, MinZ, // 6
+        MinX, MinY, MinZ, // 7
+        // right
+        MaxX, MinY, MaxZ, // 8, 1
+        MaxX, MinY, MinZ, // 9, 6
+        MaxX, MaxY, MinZ, // 10, 5
+        MaxX, MaxY, MaxZ, // 11, 2
+        // left
+        MinX, MinY, MinZ, // 12, 7
+        MinX, MinY, MaxZ, // 13, 0
+        MinX, MaxY, MaxZ, // 14, 3
+        MinX, MaxY, MinZ, // 15, 4
+        // top
+        MinX, MaxY, MinZ, // 16
+        MaxX, MaxY, MinZ, // 17
+        MaxX, MaxY, MaxZ, // 18
+        MinX, MaxY, MaxZ, // 19
+        // bot
+        MinX, MinY, MinZ, // 20
+        MaxX, MinY, MinZ, // 21
+        MaxX, MinY, MaxZ, // 22
+        MinX, MinY, MaxZ, // 23
+    };
+    
+#if 1
+    r32 VertColors[] =
+    {
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+        Color.x, Color.y, Color.z,
+    };
+#else
+    // NOTE(ezexff): Test
+    r32 VertColors[] =
+    {
+        1,   0, 0,   1,   0, 0,   1,   0, 0,   1,   0, 0,   // red
+        0,   1, 0,   0,   1, 0,   0,   1, 0,   0,   1, 0,   // green
+        0,   0, 1,   0,   0, 1,   0,   0, 1,   0,   0, 1,   // blue
+        0.5, 0, 0.5, 0.5, 0, 0.5, 0.5, 0, 0.5, 0.5, 0, 0.5, // purple
+        1,   1, 0,   1,   1, 0,   1,   1, 0,   1,   1, 0,   // yellow
+        1,   1, 1,   1,   1, 1,   1,   1, 1,   1,   1, 1    // white
+    };
 #endif
-    }
+    
+    u32 Indices[] =
+    {
+        0,  1,  2,  3,  // front - red
+        4,  5,  6,  7,  // back - green
+        8,  9,  10, 11, // right - blue
+        12, 13, 14, 15, // left - purple
+        16, 17, 18, 19, // top - yellow
+        20, 21, 22, 23  // bot - white
+    };
+    
+    s32 IndicesCount = ArrayCount(Indices);
+    
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    
+    glVertexPointer(3, GL_FLOAT, 0, VertPositions);
+    glColorPointer(3, GL_FLOAT, 0, VertColors);
+    glDrawElements(GL_QUADS, IndicesCount, GL_UNSIGNED_INT, Indices);
+    
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+}
+
+void
+OpenglDrawCubeOutline(v3 P, v3 Dim, v3 Color, r32 LineWidth)
+{
+    r32 MinX = P.x;
+    r32 MaxX = P.x + Dim.x;
+    r32 MinY = P.y;
+    r32 MaxY = P.y + Dim.y;
+    r32 MinZ = P.z;
+    r32 MaxZ = P.z + Dim.z;
+    
+    r32 VertPositions[] = 
+    {
+        // bot
+        MinX, MinY, MinZ, // 0
+        MaxX, MinY, MinZ, // 1
+        MaxX, MaxY, MinZ, // 2
+        MinX, MaxY, MinZ, // 3
+        // top
+        MinX, MinY, MaxZ, // 4
+        MaxX, MinY, MaxZ, // 5
+        MaxX, MaxY, MaxZ, // 6
+        MinX, MaxY, MaxZ, // 7
+    };
+    
+    r32 VertColors[] = 
+    {
+        // bot
+        Color.x, Color.y, Color.z, // 0
+        Color.x, Color.y, Color.z, // 1
+        Color.x, Color.y, Color.z, // 2
+        Color.x, Color.y, Color.z, // 3
+        // top
+        Color.x, Color.y, Color.z, // 4
+        Color.x, Color.y, Color.z, // 5
+        Color.x, Color.y, Color.z, // 6
+        Color.x, Color.y, Color.z  // 7
+    };
+    
+    u32 Indices[] = 
+    {
+        0, 1, 1, 2, 2, 3, 3, 0, // bot
+        4, 5, 5, 6, 6, 7, 7, 4, // top
+        0, 4, 3, 7, 1, 5, 2, 6, // side
+    };
+    
+    s32 IndicesCount = ArrayCount(Indices);
+    
+    glLineWidth(LineWidth);
+    glEnable(GL_LINE_SMOOTH);
+    
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    
+    glVertexPointer(3, GL_FLOAT, 0, VertPositions);
+    glColorPointer(3, GL_FLOAT, 0, VertColors);
+    glDrawElements(GL_LINES, IndicesCount, GL_UNSIGNED_INT, Indices);
+    
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+    
+    glLineWidth(1);
+    glDisable(GL_LINE_SMOOTH);
 }
 
 void
 OpenglDrawRectOnScreen(rectangle2 R, v3 Color)
 {
-    r32 VRectangle[] = {
-        // ground
+    r32 VertPositions[] = 
+    {
         R.Min.x, R.Min.y, // 0
         R.Max.x, R.Min.y, // 1
         R.Max.x, R.Max.y, // 2
@@ -105,7 +313,7 @@ OpenglDrawRectOnScreen(rectangle2 R, v3 Color)
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
     
-    glVertexPointer(2, GL_FLOAT, 0, VRectangle);
+    glVertexPointer(2, GL_FLOAT, 0, VertPositions);
     glColorPointer(3, GL_FLOAT, 0, VertColors);
     glDrawArrays(GL_QUADS, 0, 4);
     
@@ -114,9 +322,9 @@ OpenglDrawRectOnScreen(rectangle2 R, v3 Color)
 }
 
 void
-OpenglDrawRectOnGround(rectangle2 R, r32 Z, v3 Color)
+OpenglDrawRectOnGround(GLenum Mode, rectangle2 R, r32 Z, v3 Color, r32 LineWidth = 1.0f)
 {
-    r32 VRectangle[] = {
+    r32 VertPositions[] = {
         // ground
         R.Min.x, R.Min.y, Z, // 0
         R.Max.x, R.Min.y, Z, // 1
@@ -131,50 +339,27 @@ OpenglDrawRectOnGround(rectangle2 R, r32 Z, v3 Color)
         Color.x, Color.y, Color.z, // 3
     };
     
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
-    
-    glVertexPointer(3, GL_FLOAT, 0, VRectangle);
-    glColorPointer(3, GL_FLOAT, 0, VertColors);
-    glDrawArrays(GL_QUADS, 0, 4);
-    
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_COLOR_ARRAY);
-}
-
-void
-OpenglDrawRectOutlineOnGround(rectangle2 R, r32 Z, v3 Color, r32 LineWidth)
-{
-    r32 VRectangle[] = {
-        // ground
-        R.Min.x, R.Min.y, Z, // 0
-        R.Max.x, R.Min.y, Z, // 1
-        R.Max.x, R.Max.y, Z, // 2
-        R.Min.x, R.Max.y, Z, // 3
-    };
-    
-    r32 VertColors[] = {
-        Color.x, Color.y, Color.z, // 0
-        Color.x, Color.y, Color.z, // 1
-        Color.x, Color.y, Color.z, // 2
-        Color.x, Color.y, Color.z, // 3
-    };
-    
-    glLineWidth(LineWidth);
-    glEnable(GL_LINE_SMOOTH);
+    if(Mode == GL_LINE_LOOP)
+    {
+        glLineWidth(LineWidth);
+        glEnable(GL_LINE_SMOOTH);
+    }
     
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
     
-    glVertexPointer(3, GL_FLOAT, 0, VRectangle);
+    glVertexPointer(3, GL_FLOAT, 0, VertPositions);
     glColorPointer(3, GL_FLOAT, 0, VertColors);
-    glDrawArrays(GL_LINE_LOOP, 0, 4);
+    glDrawArrays(Mode, 0, 4);
     
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
     
-    glLineWidth(1);
-    glDisable(GL_LINE_SMOOTH);
+    if(Mode == GL_LINE_LOOP)
+    {
+        glLineWidth(1);
+        glDisable(GL_LINE_SMOOTH);
+    }
 }
 
 void
@@ -204,9 +389,9 @@ OpenglDrawBitmapOnGround(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, r3
     r32 MaxX = P.x + Dim.x;
     r32 MinY = P.y;
     r32 MaxY = P.y + Dim.y;
-    r32 MinZ = 0.0;
+    r32 MinZ = 0.0f;
     
-    r32 VRectangle[] =
+    r32 VertPositions[] =
     {
         // bot
         MinX, MinY, MinZ, // 0
@@ -231,7 +416,7 @@ OpenglDrawBitmapOnGround(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, r3
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     
-    glVertexPointer(3, GL_FLOAT, 0, VRectangle);
+    glVertexPointer(3, GL_FLOAT, 0, VertPositions);
     glTexCoordPointer(2, GL_FLOAT, 0, TexRectangle);
     glDrawArrays(GL_QUADS, 0, 4);
     
@@ -242,7 +427,7 @@ OpenglDrawBitmapOnGround(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, r3
 }
 
 void
-OpenglDrawBitmapOnScreen(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, v3 Color, r32 Repeat = 1.0f)
+OpenglDrawBitmapOnScreen(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, v3 Color, r32 Repeat)
 {
     if(Bitmap->OpenglID == 0)
     {
@@ -285,7 +470,7 @@ OpenglDrawBitmapOnScreen(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, v3
     r32 MaxX = P.x + Dim.x;
     r32 MinY = P.y;
     r32 MaxY = P.y + Dim.y;
-    r32 VRectangle[] =
+    r32 VertPositions[] =
     {
         // bot
         MinX, MinY, // 0
@@ -319,7 +504,7 @@ OpenglDrawBitmapOnScreen(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, v3
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
     
-    glVertexPointer(2, GL_FLOAT, 0, VRectangle);
+    glVertexPointer(2, GL_FLOAT, 0, VertPositions);
     glTexCoordPointer(2, GL_FLOAT, 0, TexRectangle);
     glColorPointer(3, GL_FLOAT, 0, Colors);
     glDrawArrays(GL_QUADS, 0, 4);
@@ -706,7 +891,8 @@ OpenglEndFrame(renderer_frame *Frame)
             case RendererEntryType_renderer_entry_rect_on_ground:
             {
                 renderer_entry_rect_on_ground *Entry = (renderer_entry_rect_on_ground *)Data;
-                OpenglDrawRectOnGround({Entry->P, Entry->P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+                OpenglDrawRectOnGround(GL_QUADS,
+                                       {Entry->P, Entry->P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
                 
                 BaseAddress += sizeof(*Entry);
             } break;
@@ -714,7 +900,8 @@ OpenglEndFrame(renderer_frame *Frame)
             case RendererEntryType_renderer_entry_rect_outline_on_ground:
             {
                 renderer_entry_rect_outline_on_ground *Entry = (renderer_entry_rect_outline_on_ground *)Data;
-                OpenglDrawRectOutlineOnGround({Entry->P, Entry->P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z), Entry->LineWidth);
+                OpenglDrawRectOnGround(GL_LINE_LOOP,
+                                       {Entry->P, Entry->P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z), Entry->LineWidth);
                 
                 BaseAddress += sizeof(*Entry);
             } break;
@@ -727,10 +914,26 @@ OpenglEndFrame(renderer_frame *Frame)
                 BaseAddress += sizeof(*Entry);
             } break;
             
+            case RendererEntryType_renderer_entry_cube:
+            {
+                renderer_entry_cube *Entry = (renderer_entry_cube *)Data;
+                OpenglDrawCube(Entry->P, Entry->Dim, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+                
+                BaseAddress += sizeof(*Entry);
+            } break;
+            
+            case RendererEntryType_renderer_entry_cube_outline:
+            {
+                renderer_entry_cube_outline *Entry = (renderer_entry_cube_outline *)Data;
+                OpenglDrawCubeOutline(Entry->P, Entry->Dim, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z),
+                                      Entry->LineWidth);
+                
+                BaseAddress += sizeof(*Entry);
+            } break;
+            
             case RendererEntryType_renderer_entry_rect_on_screen:
             {
                 renderer_entry_rect_on_screen *Entry = (renderer_entry_rect_on_screen *)Data;
-                //OpenglDrawBitmapOnGround(&Frame->Opengl, Entry->Bitmap, Entry->P, Entry->Dim, Entry->Repeat);
                 
                 BaseAddress += sizeof(*Entry);
             } break;
@@ -738,7 +941,14 @@ OpenglEndFrame(renderer_frame *Frame)
             case RendererEntryType_renderer_entry_bitmap_on_screen:
             {
                 renderer_entry_bitmap_on_screen *Entry = (renderer_entry_bitmap_on_screen *)Data;
-                //OpenglDrawBitmapOnGround(&Frame->Opengl, Entry->Bitmap, Entry->P, Entry->Dim, Entry->Repeat);
+                
+                BaseAddress += sizeof(*Entry);
+            } break;
+            
+            case RendererEntryType_renderer_entry_terrain_chunk:
+            {
+                renderer_entry_terrain_chunk *Entry = (renderer_entry_terrain_chunk *)Data;
+                OpenglDrawTerrainChunk(Entry->PositionsCount, Entry->Positions);
                 
                 BaseAddress += sizeof(*Entry);
             } break;
@@ -895,16 +1105,12 @@ OpenglEndFrame(renderer_frame *Frame)
                 {
                     renderer_entry_clear *Entry = (renderer_entry_clear *)Data;
                     
-                    //glClearColor(Entry->Color.r, Entry->Color.g, Entry->Color.b, Entry->Color.a);
-                    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                    
                     BaseAddress += sizeof(*Entry);
                 } break;
                 
                 case RendererEntryType_renderer_entry_rect_on_ground:
                 {
                     renderer_entry_rect_on_ground *Entry = (renderer_entry_rect_on_ground *)Data;
-                    //OpenglDrawRectOnGround({Entry->P, Entry->P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
                     
                     BaseAddress += sizeof(*Entry);
                 } break;
@@ -912,7 +1118,6 @@ OpenglEndFrame(renderer_frame *Frame)
                 case RendererEntryType_renderer_entry_rect_outline_on_ground:
                 {
                     renderer_entry_rect_outline_on_ground *Entry = (renderer_entry_rect_outline_on_ground *)Data;
-                    //OpenglDrawRectOutlineOnGround({Entry->P, Entry->P + Entry->Dim}, 0.0f, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z), Entry->LineWidth);
                     
                     BaseAddress += sizeof(*Entry);
                 } break;
@@ -920,7 +1125,20 @@ OpenglEndFrame(renderer_frame *Frame)
                 case RendererEntryType_renderer_entry_bitmap_on_ground:
                 {
                     renderer_entry_bitmap_on_ground *Entry = (renderer_entry_bitmap_on_ground *)Data;
-                    //OpenglDrawBitmapOnGround(&Frame->Opengl, Entry->Bitmap, Entry->P, Entry->Dim, Entry->Repeat);
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
+                
+                case RendererEntryType_renderer_entry_cube:
+                {
+                    renderer_entry_cube *Entry = (renderer_entry_cube *)Data;
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
+                
+                case RendererEntryType_renderer_entry_cube_outline:
+                {
+                    renderer_entry_cube_outline *Entry = (renderer_entry_cube_outline *)Data;
                     
                     BaseAddress += sizeof(*Entry);
                 } break;
@@ -929,8 +1147,6 @@ OpenglEndFrame(renderer_frame *Frame)
                 {
                     renderer_entry_rect_on_screen *Entry = (renderer_entry_rect_on_screen *)Data;
                     OpenglDrawRectOnScreen({Entry->P, Entry->P + Entry->Dim}, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
-                    //OpenglDrawRectOnGround({Entry->P, Entry->P + Entry->Dim}, 
-                    //0.0f, );
                     
                     BaseAddress += sizeof(*Entry);
                 } break;
@@ -938,7 +1154,16 @@ OpenglEndFrame(renderer_frame *Frame)
                 case RendererEntryType_renderer_entry_bitmap_on_screen:
                 {
                     renderer_entry_bitmap_on_screen *Entry = (renderer_entry_bitmap_on_screen *)Data;
-                    OpenglDrawBitmapOnScreen(&Frame->Opengl, Entry->Bitmap, Entry->P, Entry->Dim, V3(0, 1, 0));
+                    OpenglDrawBitmapOnScreen(&Frame->Opengl, Entry->Bitmap, Entry->P, Entry->Dim, 
+                                             V3(0, 1, 0), Entry->Repeat);
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
+                
+                case RendererEntryType_renderer_entry_terrain_chunk:
+                {
+                    renderer_entry_terrain_chunk *Entry = (renderer_entry_terrain_chunk *)Data;
+                    OpenglDrawTerrainChunk(Entry->PositionsCount, Entry->Positions);
                     
                     BaseAddress += sizeof(*Entry);
                 } break;
