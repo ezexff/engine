@@ -353,6 +353,7 @@ MakeSimpleGroundedCollision(game_state *GameState, r32 DimX, r32 DimY, r32 DimZ)
     Group->VolumeCount = 1;
     Group->Volumes = PushArray(&GameState->ConstArena, Group->VolumeCount, sim_entity_collision_volume);
     Group->TotalVolume.OffsetP = V3(0, 0, 0.5f * DimZ);
+    //Group->TotalVolume.OffsetP = V3(0, 0, 0);
     Group->TotalVolume.Dim = V3(DimX, DimY, DimZ);
     Group->Volumes[0] = Group->TotalVolume;
     
@@ -662,6 +663,10 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         AddMonstar(GameState, CameraTileX, CameraTileY + 2, CameraTileZ);
         AddMonstar(GameState, CameraTileX + 3, CameraTileY + 2, CameraTileZ);
         
+        // NOTE(ezexff): Terrain parameters
+        GameState->MaxTerrainHeight = 0.2f;
+        GameState->TilesPerChunkRow = 16;
+        
         ModeWorld->IsInitialized = true;
     }
     
@@ -849,12 +854,24 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         }
     }
     
-#if 0
+#if ENGINE_INTERNAL
     // NOTE(ezexff): Sim region outlines
-    PushRectOutlineOnGround(Frame, V3(0, 0, 0), V2(CameraWidthInMeters, CameraHeightInMeters), V4(1.0f, 1.0f, 0.0f, 1));
-    PushRectOutlineOnGround(Frame, V3(0, 0, 0), GetDim(SimBounds).xy, V4(0.0f, 1.0f, 1.0f, 1));
-    PushRectOutlineOnGround(Frame, V3(0, 0, 0), GetDim(SimRegion->Bounds).xy, V4(1, 0.5, 0, 1));
-    PushRectOutlineOnGround(Frame, V3(0, 0, 0), GetDim(SimRegion->UpdatableBounds).xy, V4(1.0f, 0.0f, 1.0f, 1));
+    if(ImGuiHandle->DrawCameraBounds)
+    {
+        PushRectOutlineOnGround(Frame, V2(0, 0), V2(CameraWidthInMeters, CameraHeightInMeters), V4(1.0f, 1.0f, 0.0f, 1));
+    }
+    if(ImGuiHandle->DrawSimBounds)
+    {
+        PushRectOutlineOnGround(Frame, V2(0, 0), GetDim(SimBounds).xy, V4(0.0f, 1.0f, 1.0f, 1));
+    }
+    if(ImGuiHandle->DrawSimRegionBounds)
+    {
+        PushRectOutlineOnGround(Frame, V2(0, 0), GetDim(SimRegion->Bounds).xy, V4(1, 0.5, 0, 1));
+    }
+    if(ImGuiHandle->DrawSimRegionUpdatableBounds)
+    {
+        PushRectOutlineOnGround(Frame, V2(0, 0), GetDim(SimRegion->UpdatableBounds).xy, V4(1.0f, 0.0f, 1.0f, 1));
+    }
 #endif
     
     // NOTE(ezexff): Entities
@@ -1042,6 +1059,45 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             //RenderGroup->Transform.OffsetP = GetEntityGroundPoint(Entity);
             Frame->OffsetP = GetEntityGroundPoint(Entity);
             
+            // NOTE(ezexff): Calc entity z based on terrain height
+            if(Entity->Type == EntityType_Wall || 
+               Entity->Type == EntityType_Monstar ||
+               Entity->Type == EntityType_Hero)
+            {
+                low_entity *LowEntity = GetLowEntity(GameState, Entity->StorageIndex);
+                world_position WorldEntityP = LowEntity->P;
+                
+                r32 RelTileX = GameState->TilesPerChunkRow * WorldEntityP.ChunkX + 
+                (GroundBufferWidth / 2.0f) + WorldEntityP.Offset_.x;
+                r32 RelTileY = GameState->TilesPerChunkRow * WorldEntityP.ChunkY +
+                (GroundBufferHeight / 2.0f) + WorldEntityP.Offset_.y;
+                s32 TileX = FloorReal32ToInt32(RelTileX);
+                s32 TileY = FloorReal32ToInt32(RelTileY);
+                s32 TileZ = 0; // TODO(ezexff): Need rework when start using z chunks
+                
+                random_series Series = RandomSeed(139 * (TileX) + 593 * (TileY) + 329 * TileZ);
+                r32 RandomZ00 = RandomUnilateral(&Series) * GameState->MaxTerrainHeight;
+                Series = RandomSeed(139 * (TileX + 1) + 593 * (TileY) + 329 * TileZ);
+                r32 RandomZ10 = RandomUnilateral(&Series) * GameState->MaxTerrainHeight;
+                Series = RandomSeed(139 * (TileX) + 593 * (TileY + 1) + 329 * TileZ);
+                r32 RandomZ01 = RandomUnilateral(&Series) * GameState->MaxTerrainHeight;
+                Series = RandomSeed(139 * (TileX + 1) + 593 * (TileY + 1) + 329 * TileZ);
+                r32 RandomZ11 = RandomUnilateral(&Series) * GameState->MaxTerrainHeight;
+                
+                r32 BaseOffsetX = RelTileX - TileX;
+                r32 BaseOffsetY = RelTileY - TileY;
+                r32 H1 = Lerp(RandomZ00, BaseOffsetX, RandomZ10); // x-axis
+                r32 H2 = Lerp(RandomZ01, BaseOffsetX, RandomZ11); // y-axis
+                r32 OnTerrainZ = (H1, BaseOffsetY, H2);
+                Frame->OffsetP.z = OnTerrainZ;
+                
+                // NOTE(ezexff): Terrain z for player camera
+                if(Entity->Type == EntityType_Hero)
+                {
+                    Frame->CameraZ = OnTerrainZ + 1.75f;
+                }
+            }
+            
             //
             // NOTE(ezexff): Post-physics entity work
             //
@@ -1070,7 +1126,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                         ++VolumeIndex)
                     {
                         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
-                        //PushRectOutlineOnGround(Frame, Frame->OffsetP, Volume->Dim.xy, V4(1, 0.5f, 0, 1));
+                        Frame->OffsetP.z += Volume->OffsetP.z;
                         PushCube(Frame, Frame->OffsetP, Volume->Dim, V4(1, 0.5f, 0, 1));
                     }
                 } break;
@@ -1113,6 +1169,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                     {
                         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
                         //PushRectOutlineOnGround(Frame, Frame->OffsetP, Volume->Dim.xy, V4(1, 0, 0, 1));
+                        Frame->OffsetP.z += Volume->OffsetP.z;
                         PushCubeOutline(Frame, Frame->OffsetP, Volume->Dim, V4(1, 0, 0, 1));
                     }
                     
@@ -1205,6 +1262,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         }
     }
     
+    // NOTE(ezexff): Render ground buffers
     for(u32 GroundBufferIndex = 0;
         GroundBufferIndex < TranState->GroundBufferCount;
         ++GroundBufferIndex)
@@ -1224,12 +1282,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 /*PushRectOutlineOnGround(Frame, Delta.xy, World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
                 PushBitmapOnGround(Frame, Assets, GetFirstBitmapFrom(Assets, Asset_Ground), 
                                    Delta.xy, World->ChunkDimInMeters.xy, 4.0f);*/
-                
-                u32 PositionsCount = 4;
-                v3 *Positions = PushArray(&TranState->TranArena, 4, v3);
-                r32 MaxTerrainHeight = 2.5f;
                 //v3 TerrainChunkP[4] = {};
-                
                 s32 MinX = GroundBuffer->P.ChunkX;
                 s32 MinY = GroundBuffer->P.ChunkY;
                 s32 MinZ = GroundBuffer->P.ChunkZ;
@@ -1240,6 +1293,9 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 r32 MaxDeltaX = MinDeltaX + GroundBufferWidth;
                 r32 MaxDeltaY = MinDeltaY + GroundBufferHeight;
                 
+#if 0
+                u32 PositionsCount = 4;
+                v3 *Positions = PushArray(&TranState->TranArena, 4, v3);
                 
                 random_series Series00 = RandomSeed(139 * MinX + 593 * MinY + 329 * MinZ);
                 r32 RandomZ00 = RandomUnilateral(&Series00) * MaxTerrainHeight;
@@ -1261,11 +1317,104 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 r32 RandomZ11 = RandomUnilateral(&Series11) * MaxTerrainHeight;
                 //TerrainChunkP[3] = V3((r32)MaxX, (r32)MaxY, RandomZ11);
                 Positions[3] = V3(MaxDeltaX, MaxDeltaY, RandomZ11);
+#else
                 
+                s32 ChunkX = GroundBuffer->P.ChunkX;
+                s32 ChunkY = GroundBuffer->P.ChunkY;
+                s32 ChunkZ = GroundBuffer->P.ChunkZ;
+                /*
+                r32 MinChunkRelX = Delta.x - GroundBufferWidth / 2;
+                r32 MinChunkRelY = Delta.y - GroundBufferHeight / 2;
                 
-                PushTerrainChunk(Frame, PositionsCount, Positions);
+                r32 MaxChunkRelX = MinChunkRelX + GroundBufferWidth;
+                r32 MaxChunkRelY = MinChunkRelY + GroundBufferHeight;
                 
-                int sfsdf = 0;
+                u32 TilesPerChunkRow = 1;
+                r32 TileWidth = (r32)GroundBufferWidth / TilesPerChunkRow;
+                r32 TileHeight = (r32)GroundBufferHeight / TilesPerChunkRow; 
+                
+                u32 PositionsCount = (TilesPerChunkRow + 1) * (TilesPerChunkRow + 1);
+                v3 *Positions = PushArray(&TranState->TranArena, PositionsCount, v3);
+                
+                u32 Index00 = 0;
+                u32 Index10 = TilesPerChunkRow;
+                u32 Index01 = PositionsCount - 1 - TilesPerChunkRow;
+                u32 Index11 = PositionsCount - 1;
+                // 0;0
+                random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
+                r32 RandomZ0 = RandomUnilateral(&Series) * MaxTerrainHeight;
+                Positions[Index00] = V3(MinChunkRelX, MinChunkRelY, RandomZ0);
+                
+                // 1;0
+                Series = RandomSeed(139 * (ChunkX + 1) + 593 * ChunkY + 329 * ChunkZ);
+                r32 RandomZ1 = RandomUnilateral(&Series) * MaxTerrainHeight;
+                Positions[Index10] = V3(MaxChunkRelX, MinChunkRelY, RandomZ1);
+                
+                // 0;1
+                Series = RandomSeed(139 * ChunkX + 593 * (ChunkY + 1) + 329 * ChunkZ);
+                r32 RandomZ2 = RandomUnilateral(&Series) * MaxTerrainHeight;
+                Positions[Index01] = V3(MinChunkRelX, MaxChunkRelY, RandomZ2);
+                
+                // 1;1
+                Series = RandomSeed(139 * (ChunkX + 1) + 593 * (ChunkY + 1) + 329 * ChunkZ);
+                r32 RandomZ3 = RandomUnilateral(&Series) * MaxTerrainHeight;
+                Positions[Index11] = V3(MaxChunkRelX, MaxChunkRelY, RandomZ3);
+    */
+                //r32 MaxTerrainHeight = 0.2f;
+                //u32 TilesPerChunkRow = 16;
+                
+                u32 TilesPerChunkRow = GameState->TilesPerChunkRow;
+                s32 TileX = ChunkX * TilesPerChunkRow;
+                s32 TileY = ChunkY * TilesPerChunkRow;
+                s32 TileZ = ChunkZ * TilesPerChunkRow;
+                if((TileX > 1000000) || (TileY > 1000000) || (TileZ > 1000000))
+                {
+                    InvalidCodePath;
+                }
+                
+                r32 TileWidth = (r32)GroundBufferWidth / TilesPerChunkRow;
+                r32 TileHeight = (r32)GroundBufferHeight / TilesPerChunkRow; 
+                
+                u32 PositionsCount = (TilesPerChunkRow + 1) * (TilesPerChunkRow + 1);
+                u32 IndicesCount = 6 * TilesPerChunkRow * TilesPerChunkRow;
+                v3 *Positions = PushArray(&TranState->TranArena, PositionsCount, v3);
+                u32 *Indices = PushArray(&TranState->TranArena, IndicesCount, u32);
+                
+                u32 PCount = 0;
+                for(u32 Y = 0;
+                    Y <= TilesPerChunkRow;
+                    ++Y)
+                {
+                    for(u32 X = 0;
+                        X <= TilesPerChunkRow;
+                        ++X)
+                    {
+                        random_series Series = RandomSeed(139 * (TileX + X) + 593 * (TileY + Y) + 329 * TileZ);
+                        r32 RandomZ = RandomUnilateral(&Series) * GameState->MaxTerrainHeight;
+                        
+                        Positions[PCount].x = MinDeltaX + X * TileWidth;
+                        Positions[PCount].y = MinDeltaY + Y * TileHeight;
+                        Positions[PCount].z = RandomZ;
+                        
+                        if((X != TilesPerChunkRow) && (Y != TilesPerChunkRow))
+                        {
+                            u32 ICount = Y * TilesPerChunkRow * 6 + X * 6;
+                            
+                            Indices[ICount + 0] = PCount;
+                            Indices[ICount + 1] = PCount + 1;
+                            Indices[ICount + 2] = PCount + TilesPerChunkRow + 1;
+                            
+                            Indices[ICount + 3] = PCount + 1;
+                            Indices[ICount + 4] = PCount + TilesPerChunkRow + 1;
+                            Indices[ICount + 5] = PCount + TilesPerChunkRow + 2;
+                        }
+                        
+                        
+                        PCount++;
+                    }
+                }
+#endif
+                PushTerrainChunk(Frame, PositionsCount, Positions, IndicesCount, Indices);
             }
         }
     }

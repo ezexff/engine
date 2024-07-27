@@ -170,6 +170,12 @@ struct imgui
     bool ShowBitmapPreviewWindow;
     bool ShowSimRegionWindow;
     
+    // NOTE(ezexff): Sim Region borders
+    bool DrawCameraBounds;
+    bool DrawSimBounds;
+    bool DrawSimRegionBounds;
+    bool DrawSimRegionUpdatableBounds;
+    
     // NOTE(ezexff): Log audio
     bool LogAudio;
     

@@ -76,6 +76,10 @@ struct game_state
     sim_entity_collision_volume_group *FamiliarCollision;
     sim_entity_collision_volume_group *WallCollision;
     sim_entity_collision_volume_group *StandardRoomCollision;
+    
+    // NOTE(ezexff): Terrain parameters
+    u32 TilesPerChunkRow;
+    r32 MaxTerrainHeight;
 };
 
 struct task_with_memory

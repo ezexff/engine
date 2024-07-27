@@ -72,4 +72,6 @@ struct renderer_entry_terrain_chunk
 {
     u32 PositionsCount;
     v3 *Positions;
+    u32 IndicesCount;
+    u32 *Indices;
 };

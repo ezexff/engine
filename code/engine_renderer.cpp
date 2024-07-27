@@ -150,6 +150,7 @@ void
 PushCube(renderer_frame *Frame, v3 Offset, v3 Dim, v4 Color = V4(1, 1, 1, 1))
 {
     v3 P = Offset - 0.5f * Dim;
+    //P.z = Offset.z;
     
     renderer_entry_cube *Entry = PushRenderElement(Frame, renderer_entry_cube);
     if(Entry)
@@ -164,6 +165,7 @@ void
 PushCubeOutline(renderer_frame *Frame, v3 Offset, v3 Dim, v4 Color = V4(1, 1, 1, 1), r32 LineWidth = 1)
 {
     v3 P = Offset - 0.5f * Dim;
+    //P.z = Offset.z;
     
     renderer_entry_cube_outline *Entry = PushRenderElement(Frame, renderer_entry_cube_outline);
     if(Entry)
@@ -176,12 +178,14 @@ PushCubeOutline(renderer_frame *Frame, v3 Offset, v3 Dim, v4 Color = V4(1, 1, 1,
 }
 
 void
-PushTerrainChunk(renderer_frame *Frame, u32 PositionsCount, v3 *Positions)
+PushTerrainChunk(renderer_frame *Frame, u32 PositionsCount, v3 *Positions, u32 IndicesCount, u32 *Indices)
 {
     renderer_entry_terrain_chunk *Entry = PushRenderElement(Frame, renderer_entry_terrain_chunk);
     if(Entry)
     {
         Entry->PositionsCount = PositionsCount;
         Entry->Positions = Positions;
+        Entry->IndicesCount = IndicesCount;
+        Entry->Indices = Indices;
     }
 }

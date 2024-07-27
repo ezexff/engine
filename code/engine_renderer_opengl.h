@@ -71,48 +71,24 @@ OpenglLinkProgram(opengl *Opengl, opengl_program *Program,
 }
 
 void
-OpenglDrawTerrainChunk(u32 PositionsCount, v3 *Positions)
+OpenglDrawTerrainChunk(u32 PositionsCount, v3 *Positions, u32 IndicesCount, u32 *Indices)
 {
-    v3 *P = Positions;
-    r32 VertPositions[] =
-    {
-        // bot
-        P[0].x, P[0].y, P[0].z, // 0
-        P[1].x, P[1].y, P[1].z, // 1
-        P[2].x, P[2].y, P[2].z, // 2
-        // top
-        P[3].x, P[3].y, P[3].z,
-        P[1].x, P[1].y, P[1].z,
-        P[2].x, P[2].y, P[2].z,
-    };
-    
-    r32 VertColors[] =
-    {
-        0, 1, 0, 0, 1, 0, 0, 1, 0,
-        0, 1, 0, 0, 1, 0, 0, 1, 0,
-    };
-    
-    u32 Indices[] =
-    {
-        0,  1,  2, // bot
-        3,  4,  5, // top
-    };
-    
+    glColor3f(0.0f, 1.0f, 0.0f);
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     
-    s32 IndicesCount = ArrayCount(Indices);
-    
     glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
+    //glEnableClientState(GL_COLOR_ARRAY);
     
-    glVertexPointer(3, GL_FLOAT, 0, VertPositions);
-    glColorPointer(3, GL_FLOAT, 0, VertColors);
+    glVertexPointer(3, GL_FLOAT, 0, Positions);
+    //glColorPointer(3, GL_FLOAT, 0, VertColors);
+    //glDrawElements(GL_TRIANGLES, IndicesCount, GL_UNSIGNED_INT, Indices);
     glDrawElements(GL_TRIANGLES, IndicesCount, GL_UNSIGNED_INT, Indices);
     
     glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_COLOR_ARRAY);
+    //glDisableClientState(GL_COLOR_ARRAY);
     
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glColor3f(1.0f, 1.0f, 1.0f);
 }
 
 void
@@ -948,7 +924,8 @@ OpenglEndFrame(renderer_frame *Frame)
             case RendererEntryType_renderer_entry_terrain_chunk:
             {
                 renderer_entry_terrain_chunk *Entry = (renderer_entry_terrain_chunk *)Data;
-                OpenglDrawTerrainChunk(Entry->PositionsCount, Entry->Positions);
+                OpenglDrawTerrainChunk(Entry->PositionsCount, Entry->Positions,
+                                       Entry->IndicesCount, Entry->Indices);
                 
                 BaseAddress += sizeof(*Entry);
             } break;
@@ -1163,7 +1140,6 @@ OpenglEndFrame(renderer_frame *Frame)
                 case RendererEntryType_renderer_entry_terrain_chunk:
                 {
                     renderer_entry_terrain_chunk *Entry = (renderer_entry_terrain_chunk *)Data;
-                    OpenglDrawTerrainChunk(Entry->PositionsCount, Entry->Positions);
                     
                     BaseAddress += sizeof(*Entry);
                 } break;

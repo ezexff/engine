@@ -272,8 +272,6 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             ImGui::Begin("Game", &ImGuiHandle->ShowGameWindow);
             ImGui::Text("Debug window for game layer...");
             
-            ImGui::Checkbox("Sim Region Window", &ImGuiHandle->ShowSimRegionWindow);
-            
             ImGui::SeparatorText("Subsystems");
             if(ImGui::CollapsingHeader("Memory"))
             {
@@ -813,8 +811,7 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                 ImGui::PopItemWidth();
                 GameState->GameMode = CurrentMode;
                 
-                ImGui::SeparatorText("Camera");
-                camera *Camera = 0;
+                //camera *Camera = 0;
                 switch(GameState->GameMode)
                 {
                     case GameMode_Test:
@@ -825,12 +822,38 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                     case GameMode_World:
                     {
                         //Camera = &GameState->ModeWorld.Camera;
+                        
+                        ImGui::SeparatorText("Terrain");
+                        s32 TilesPerChunkRow = GameState->TilesPerChunkRow;
+                        if(ImGui::InputInt("TilesPerChunkRow", &TilesPerChunkRow))
+                        {
+                            if(TilesPerChunkRow < 1)
+                            {
+                                TilesPerChunkRow= 1;
+                            } 
+                            else if(TilesPerChunkRow > 128)
+                            {
+                                TilesPerChunkRow = 128;
+                            }
+                            GameState->TilesPerChunkRow = TilesPerChunkRow;
+                        }
+                        ImGui::InputFloat("MaxTerrainHeight", &GameState->MaxTerrainHeight, 0.01f, 1.0f, "%.3f");
+                        
+                        ImGui::SeparatorText("Sim Region Window");
+                        ImGui::Checkbox("Visibility", &ImGuiHandle->ShowSimRegionWindow);
+                        
+                        ImGui::SeparatorText("SimRegionBorders");
+                        ImGui::Checkbox("DrawCameraBounds (Yellow)", &ImGuiHandle->DrawCameraBounds);
+                        ImGui::Checkbox("DrawSimBounds (Cyan)", &ImGuiHandle->DrawSimBounds);
+                        ImGui::Checkbox("DrawSimRegionBounds (Orange)", &ImGuiHandle->DrawSimRegionBounds);
+                        ImGui::Checkbox("DrawSimRegionUpdatableBounds (Purple)", &ImGuiHandle->DrawSimRegionUpdatableBounds);
                     } break;
                     
                     InvalidDefaultCase;
                 }
-                if(Camera != 0)
+                /*if(Camera != 0)
                 {
+                ImGui::SeparatorText("Camera");
                     ImGui::Text("Pos");
                     ImGui::InputFloat("x", &Camera->P.x, 0.01f, 1.0f, "%.3f");
                     ImGui::InputFloat("y", &Camera->P.y, 0.01f, 1.0f, "%.3f");
@@ -839,7 +862,7 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                     ImGui::InputFloat("Pitch", &Camera->Angle.x, 0.01f, 1.0f, "%.3f");
                     ImGui::InputFloat("Yaw", &Camera->Angle.y, 0.01f, 1.0f, "%.3f");
                     ImGui::InputFloat("Roll", &Camera->Angle.z, 0.01f, 1.0f, "%.3f");
-                }
+                }*/
                 
                 float *ClearColor = 0;
                 switch(GameState->GameMode)
