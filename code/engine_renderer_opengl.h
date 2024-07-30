@@ -70,6 +70,51 @@ OpenglLinkProgram(opengl *Opengl, opengl_program *Program,
     }
 }
 
+/*void
+OpenglFillTerrainVBO(renderer_frame *Frame, u32 PositionsCount, v3 *Positions, u32 IndicesCount, u32 *Indices)
+{
+    //sfsfsfs;
+}*/
+void
+OpenglDrawLine(v3 P1, v3 P2, v4 Color, r32 LineWidth)
+{
+    r32 VertPositions[] = 
+    {
+        P1.x, P1.y, P1.z, // 0
+        P2.x, P2.y, P2.z, // 1
+    };
+    
+    r32 VertColors[] = 
+    {
+        Color.x, Color.y, Color.z, // 0
+        Color.x, Color.y, Color.z, // 1
+    };
+    
+    glLineWidth(LineWidth);
+    glEnable(GL_LINE_SMOOTH);
+    
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    
+    glVertexPointer(3, GL_FLOAT, 0, VertPositions);
+    glColorPointer(3, GL_FLOAT, 0, VertColors);
+    glDrawArrays(GL_LINES, 0, 2);
+    
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+    
+    glLineWidth(1);
+    glDisable(GL_LINE_SMOOTH);
+    
+    glPointSize(5);
+    glBegin(GL_POINTS);
+    glColor3f(1.0f, 0.0f, 0.0f);
+    glVertex3f(P1.x, P1.y, P1.z);
+    glColor3f(0.0f, 1.0f, 0.0f);
+    glVertex3f(P2.x, P2.y, P2.z);
+    glEnd();
+}
+
 void
 OpenglDrawTerrainChunk(u32 PositionsCount, v3 *Positions, u32 IndicesCount, u32 *Indices)
 {
@@ -795,15 +840,32 @@ OpenglBeginFrame(renderer_frame *Frame)
     // NOTE(ezexff): Compile shaders
     if(Frame->CompileShaders)
     {
+        // Frame
         OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
         OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->Frag);
         OpenglLinkProgram(Opengl, &Frame->Program, &Frame->Vert, &Frame->Frag);
         
+        // Default
+        OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->DefaultVert);
+        OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->DefaultFrag);
+        OpenglLinkProgram(Opengl, &Frame->DefaultProg, &Frame->DefaultVert, &Frame->DefaultFrag);
+        
+        // Skybox
         OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->SkyboxVert);
         OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->SkyboxFrag);
         OpenglLinkProgram(Opengl, &Frame->SkyboxProgram, &Frame->SkyboxVert, &Frame->SkyboxFrag);
         
         Frame->CompileShaders = false;
+    }
+    
+    // NOTE(ezexff): Init terrain VBO
+    if(!Frame->IsTerrainVBOInitialized)
+    {
+        Opengl->glGenVertexArrays(1, &Frame->TerrainVAO);
+        Opengl->glGenBuffers(1, &Frame->TerrainVBO);
+        Opengl->glGenBuffers(1, &Frame->TerrainEBO);
+        
+        Frame->IsTerrainVBOInitialized = true;
     }
 }
 
@@ -924,8 +986,18 @@ OpenglEndFrame(renderer_frame *Frame)
             case RendererEntryType_renderer_entry_terrain_chunk:
             {
                 renderer_entry_terrain_chunk *Entry = (renderer_entry_terrain_chunk *)Data;
-                OpenglDrawTerrainChunk(Entry->PositionsCount, Entry->Positions,
-                                       Entry->IndicesCount, Entry->Indices);
+                //OpenglDrawTerrainChunk(Entry->PositionsCount, Entry->Positions,
+                //Entry->IndicesCount, Entry->Indices);
+                //OpenglFillTerrainVBO(Frame, Entry->PositionsCount, Entry->Positions,
+                //Entry->IndicesCount, Entry->Indices);
+                
+                BaseAddress += sizeof(*Entry);
+            } break;
+            
+            case RendererEntryType_renderer_entry_line:
+            {
+                renderer_entry_line *Entry = (renderer_entry_line *)Data;
+                OpenglDrawLine(Entry->P1, Entry->P2, Entry->Color, Entry->LineWidth);
                 
                 BaseAddress += sizeof(*Entry);
             } break;
@@ -934,45 +1006,198 @@ OpenglEndFrame(renderer_frame *Frame)
         }
     }
     
+    // NOTE(ezexff): Terrain
+    if(Frame->DrawTerrain)
+    {
+        // TODO(ezexff): Test only, delete this
+        /*
+        #define GL_ARRAY_BUFFER_BINDING 0x8894
+        #define GL_ELEMENT_ARRAY_BUFFER_BINDING 0x8895
+                glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &Frame->TestDefaultVAO);
+                glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &Frame->TestDefaultEBO);
+*/
+        
+        // NOTE(ezexff): Bind VAO
+        {
+            Opengl->glBindVertexArray(Frame->TerrainVAO);
+            Opengl->glBindBuffer(GL_ARRAY_BUFFER, Frame->TerrainVBO);
+            Opengl->glBufferData(GL_ARRAY_BUFFER, sizeof(vbo_vertex) * Frame->TerrainVerticesCount, Frame->TerrainVertices, GL_STATIC_DRAW);
+            
+            Opengl->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Frame->TerrainEBO);
+            Opengl->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * Frame->TerrainIndicesCount, Frame->TerrainIndices, GL_STATIC_DRAW);
+            
+            Opengl->glEnableVertexAttribArray(0);
+            Opengl->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vbo_vertex), (void *)0);
+            Opengl->glEnableVertexAttribArray(1);
+            Opengl->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vbo_vertex), (void *)offsetof(vbo_vertex, Normal));
+            Opengl->glEnableVertexAttribArray(2);
+            Opengl->glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vbo_vertex), (void *)offsetof(vbo_vertex, TexCoords));
+            
+            Opengl->glBindBuffer(GL_ARRAY_BUFFER, 0);
+            Opengl->glBindVertexArray(0);
+        }
+        
+        Opengl->glUseProgram(Frame->DefaultProg.ID);
+        
+        // NOTE(ezexff): Send camera pos into shader for light calc
+        {
+            // TODO(ezexff): What pos needed here?
+            v3 CameraP = {};
+            Opengl->glUniform3fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "gCameraWorldPos"), 1, CameraP.E);
+        }
+        
+        // NOTE(ezexff): Send light sources into shader
+        {
+            Opengl->glUniform3fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "gDirectionalLight.Base.Color"), 1, Frame->DirLight.Base.Color.E);
+            Opengl->glUniform1f(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "gDirectionalLight.Base.AmbientIntensity"), Frame->DirLight.Base.AmbientIntensity);
+            Opengl->glUniform1f(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "gDirectionalLight.Base.DiffuseIntensity"), Frame->DirLight.Base.DiffuseIntensity);
+            v3 DirLightDirection = Frame->DirLight.WorldDirection;
+            Opengl->glUniform3fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "gDirectionalLight.Direction"), 1, DirLightDirection.E);
+        }
+        
+        // NOTE(ezexff): Send material into shader
+        {
+            Opengl->glUniform3fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "gMaterial.AmbientColor"), 1, Frame->TerrainMaterial.Ambient.E);
+            
+            Opengl->glUniform3fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "gMaterial.DiffuseColor"), 1, Frame->TerrainMaterial.Diffuse.E);
+            
+            Opengl->glUniform3fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "gMaterial.SpecularColor"), 1, Frame->TerrainMaterial.Specular.E);
+        }
+        
+        // NOTE(ezexff): Send shadow matrices and parameters into shader
+        {
+            /*glUniform1f(glGetUniformLocation(ShaderProg, "Bias"), Render->Bias);
+            
+            glActiveTexture(GL_TEXTURE0 + 1);
+            glBindTexture(GL_TEXTURE_2D, Render->DepthMap);
+            glUniform1i(glGetUniformLocation(ShaderProg, "ShadowMap"), 1);
+            
+            // матрица проекции (источник света для теней)
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            glOrtho(-Render->ShadowMapSize, Render->ShadowMapSize, -Render->ShadowMapSize, Render->ShadowMapSize,
+                    Render->NearPlane, Render->FarPlane);
+            r32 MatProjShadows[16];
+            glGetFloatv(GL_PROJECTION_MATRIX, MatProjShadows);
+            glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatProjShadows"), 1, GL_FALSE, MatProjShadows);
+            
+            // матрица вида (источник света для теней)
+            glMatrixMode(GL_MODELVIEW);
+            glLoadIdentity();
+            glRotatef(-Render->ShadowCameraPitch, 1.0f, 0.0f, 0.0f);
+            glRotatef(-Render->ShadowCameraYaw, 0.0f, 0.0f, 1.0f);
+            glTranslatef(-Render->SunPos.x, -Render->SunPos.y, -Render->SunPos.z);
+            r32 MatViewShadows[16];
+            glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
+            glUniformMatrix4fv(glGetUniformLocation(ShaderProg, "MatViewShadows"), 1, GL_FALSE, MatViewShadows);*/
+        }
+        
+        // NOTE(ezexff): Send transform matrices into shader
+        {
+            // Proj
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+            r32 MatProj[16];
+            glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
+            Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "Proj"), 1, GL_FALSE, MatProj);
+            
+            // View
+            glMatrixMode(GL_MODELVIEW);
+            glLoadIdentity();
+            glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
+            glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
+            glRotatef(-Camera->Angle.z, 0.0f, 1.0f, 0.0f);
+            glTranslatef(-WorldOrigin.x, -WorldOrigin.y, -Frame->CameraZ);
+            r32 MatView[16];
+            glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
+            Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "View"), 1, GL_FALSE, MatView);
+            
+            // Model
+            m4x4 MatModel = Identity();
+            v3 WorldOrigin = {};
+            MatModel = Translate(WorldOrigin);
+            MatModel = Transpose(MatModel); // opengl to glsl format
+            Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "Model"), 1, GL_FALSE, (const GLfloat *)&MatModel);
+        }
+        
+        // отправка плоскости отсечения в шейдер
+        //glUniform4fv(glGetUniformLocation(ShaderProg, "CutPlane"), 1, Render->CutPlane.E);
+        
+        // отправка позиции камеры (игрока) в шейдер
+        //v3 RelPlayerP = GetRelPos(World, Player->P, Player->TmpZ);
+        //glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, RelPlayerP.E);
+        // glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, Player->Position.E);
+        
+        if(Frame->IsTerrainInLinePolygonMode)
+        {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        }
+        
+        // NOTE(ezexff): Draw
+        {
+            Opengl->glBindVertexArray(Frame->TerrainVAO);
+            // (void *)(sizeof(u32) * BaseIndex
+            //glDrawElementsBaseVertex(GL_TRIANGLES, Frame->TerrainIndicesCount, GL_UNSIGNED_INT, 0);
+            glDrawElements(GL_TRIANGLES, Frame->TerrainIndicesCount, GL_UNSIGNED_INT, 0);
+            Opengl->glBindVertexArray(0);
+        }
+        
+        if(Frame->IsTerrainInLinePolygonMode)
+        {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
+        
+        Opengl->glUseProgram(0);
+    }
+    
     // NOTE(ezexff): Skybox
     if(Frame->DrawSkybox)
     {
         glDepthFunc(GL_LEQUAL);
         Opengl->glUseProgram(Frame->SkyboxProgram.ID);
         
-        // Proj
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
-        r32 MatProj[16];
-        glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "Proj"), 1, GL_FALSE, MatProj);
+        // NOTE(ezexff): Send transform matrices into shader
+        {
+            // Proj
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+            r32 MatProj[16];
+            glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
+            Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "Proj"), 1, GL_FALSE, MatProj);
+            
+            // View
+            glMatrixMode(GL_MODELVIEW);
+            glLoadIdentity();
+            glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
+            glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
+            glRotatef(-Camera->Angle.z, 0.0f, 1.0f, 0.0f);
+            glTranslatef(-Camera->P.x, -Camera->P.y, -Camera->P.z);
+            r32 MatView[16];
+            glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
+            Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "View"), 1, GL_FALSE, MatView);
+            
+            // Model
+            m4x4 MatModel = Identity();
+            MatModel = Translate(Camera->P) * XRotation(90) * Scale(200);
+            MatModel = Transpose(MatModel); // opengl to glsl format
+            Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "Model"), 1, GL_FALSE, (const GLfloat *)&MatModel);
+        }
         
-        // View
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-        glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
-        glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
-        glRotatef(-Camera->Angle.z, 0.0f, 1.0f, 0.0f);
-        glTranslatef(-Camera->P.x, -Camera->P.y, -Camera->P.z);
-        r32 MatView[16];
-        glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "View"), 1, GL_FALSE, MatView);
+        // NOTE(ezexff): Send texture into shader
+        {
+            Opengl->glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, Frame->SkyboxTexture);
+            Opengl->glUniform1i(Opengl->glGetUniformLocation(Frame->Program.ID, "SkyboxTexture"), 0);
+        }
         
-        // Model
-        m4x4 MatModel = Identity();
-        MatModel = Translate(Camera->P) * XRotation(90) * Scale(200);
-        MatModel = Transpose(MatModel); // opengl to glsl format
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "Model"), 1, GL_FALSE, (const GLfloat *)&MatModel);
-        
-        // Draw
-        Opengl->glBindVertexArray(Frame->SkyboxVAO);
-        Opengl->glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, Frame->SkyboxTexture);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(Frame->Program.ID, "SkyboxTexture"), 0);
-        
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        Opengl->glBindVertexArray(0);
+        // NOTE(ezexff): Draw
+        {
+            Opengl->glBindVertexArray(Frame->SkyboxVAO);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+            Opengl->glBindVertexArray(0);
+        }
         
         Opengl->glUseProgram(0);
         glDepthFunc(GL_LESS);
@@ -1059,12 +1284,10 @@ OpenglEndFrame(renderer_frame *Frame)
         glOrtho(0, (r32)Frame->Dim.x, (r32)Frame->Dim.y, 0, -1, 1);
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
-        //glDisable(GL_DEPTH_TEST);
         
-        //glScalef(52, 2, 1);
+        // NOTE(ezexff): Center y and scale
         s32 ScreenCenterY = (Frame->Dim.y + 1) / 2;
         glTranslatef(0, (r32)ScreenCenterY, 0);
-        //glScalef(15, 15, 1);
         glScalef(0.5f, 0.5f, 1);
         
         for(u32 BaseAddress = 0;
@@ -1140,6 +1363,13 @@ OpenglEndFrame(renderer_frame *Frame)
                 case RendererEntryType_renderer_entry_terrain_chunk:
                 {
                     renderer_entry_terrain_chunk *Entry = (renderer_entry_terrain_chunk *)Data;
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
+                
+                case RendererEntryType_renderer_entry_line:
+                {
+                    renderer_entry_line *Entry = (renderer_entry_line *)Data;
                     
                     BaseAddress += sizeof(*Entry);
                 } break;

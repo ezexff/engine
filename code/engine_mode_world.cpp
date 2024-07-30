@@ -1,4 +1,67 @@
-internal void CreateTerrainModel(memory_arena *WorldArena, loaded_model Model)
+internal v3
+CalcNormal(v3 P1, v3 P2, v3 P3)
+{
+#if 0
+    v3 Result = {};
+    // Vec1 = B - A;
+    v3 Vec1;
+    Vec1.x = A.x - B.x;
+    Vec1.y = A.y - B.y;
+    Vec1.z = A.z - B.z;
+    
+    // Vec2 = C - A
+    v3 Vec2;
+    Vec2.x = B.x - C.x;
+    Vec2.y = B.y - C.y;
+    Vec2.z = B.z - C.z;
+    
+    // N = (B - A) * (C - A)
+    Result.x = (Vec1.y * Vec2.z - Vec1.z * Vec2.y);
+    Result.y = (Vec1.z * Vec2.x - Vec1.x * Vec2.z);
+    Result.z = (Vec1.x * Vec2.y - Vec1.y * Vec2.x);
+#else
+    // Vec1 = B - A;
+    /*v3 Vec1;
+    Vec1.x = B.x - A.x;
+    Vec1.y = B.y - A.y;
+    Vec1.z = B.z - A.z;
+    
+    // Vec2 = C - A
+    v3 Vec2;
+    Vec2.x = C.x - A.x;
+    Vec2.y = C.y - A.y;
+    Vec2.z = C.z - A.z;
+    
+    // N = (B - A) * (C - A)
+    Result.x = (Vec1.y * Vec2.z - Vec1.z * Vec2.y);
+    Result.y = (Vec1.z * Vec2.x - Vec1.x * Vec2.z);
+    Result.z = (Vec1.x * Vec2.y - Vec1.y * Vec2.x);*/
+#endif
+    
+    /*r32 Magnitude = SquareRoot(Square(Result.x) + Square(Result.y) + Square(Result.z));
+    Result.x /= Magnitude;
+    Result.y /= Magnitude;
+    Result.z /= Magnitude;*/
+    /*
+    So for a triangle p1, p2, p3, if the vector U = p2 - p1 and the vector
+V = p3 - p1 then the normal N = U X V and can be calculated by:
+    Nx = UyVz - UzVy
+        Ny = UzVx - UxVz
+        Nz = UxVy - UyVx
+*/
+    
+    v3 U = P2 - P1;
+    v3 V = P3 - P1;
+    v3 Result;
+    Result.x = U.y * V.z - U.z * V.y;
+    Result.y = U.z * V.x - U.x * V.z;
+    Result.z = U.x * V.y - U.y * V.x;
+    
+    return(Result);
+}
+
+internal void
+CreateTerrainModel(memory_arena *WorldArena, loaded_model Model)
 {
     Model.MeshesCount = 1;
     Model.Meshes = PushArray(WorldArena, Model.MeshesCount, mesh);
@@ -119,16 +182,16 @@ FillGroundChunk(tran_state *TranState, game_state *GameState,
     
     //Log->Add("ChunkP = (%d,%d)\n", ChunkP->ChunkX, ChunkP->ChunkY);
     
-    s32 ChunkX = ChunkP->ChunkX;
+    /*s32 ChunkX = ChunkP->ChunkX;
     s32 ChunkY = ChunkP->ChunkY;
-    s32 ChunkZ = ChunkP->ChunkZ;
+    s32 ChunkZ = ChunkP->ChunkZ;*/
     
     // TODO(casey): Make random number generation more systemic
     // TODO(casey): Look into wang hashing or some other spatial seed generation "thing"!
     
-    r32 MaxTerrainHeight = 0.2f;
+    /*r32 MaxTerrainHeight = 0.2f;
     random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
-    GroundBuffer->RandomZ = RandomUnilateral(&Series) * MaxTerrainHeight;
+    GroundBuffer->RandomZ = RandomUnilateral(&Series) * MaxTerrainHeight;*/
     
     /*if(ChunkX == 1 && ChunkY == 1)
     {
@@ -537,6 +600,9 @@ AddFamiliar(game_state *GameState, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
 internal void
 UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
 {
+#if ENGINE_INTERNAL
+    imgui *ImGuiHandle = &Memory->Frame.ImGuiHandle;
+#endif
     game_state *GameState = (game_state *)Memory->PermanentStorage;
     tran_state *TranState = (tran_state *)Memory->TransientStorage;
     
@@ -551,126 +617,159 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     
     if(!ModeWorld->IsInitialized)
     {
-        //~ NOTE(ezexff): World init
-        // NOTE(casey): Reserve entity slot 0 for the null entity
-        AddLowEntity(GameState, EntityType_Null, NullPosition());
-        
-        GameState->TypicalFloorHeight = 3.0f;
-        v3 WorldChunkDimInMeters = V3((r32)GroundBufferWidth,
-                                      (r32)GroundBufferHeight,
-                                      GameState->TypicalFloorHeight);
-        
-        GameState->World = PushStruct(&GameState->ConstArena, world);
-        World = GameState->World;
-        InitializeWorld(World, WorldChunkDimInMeters);
-        
-        u32 TilesPerWidth = 17;
-        u32 TilesPerHeight = 9;
-        r32 TileSideInMeters = 1.4f;
-        r32 TileDepthInMeters = GameState->TypicalFloorHeight;
-        
-        GameState->NullCollision = MakeNullCollision(GameState);
-        //GameState->SwordCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 0.1f);
-        GameState->SwordCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 1.2f);
-        GameState->StairCollision = MakeSimpleGroundedCollision(GameState,
-                                                                TileSideInMeters,
-                                                                2.0f * TileSideInMeters,
-                                                                1.1f * TileDepthInMeters);
-        GameState->PlayerCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 1.2f);
-        GameState->MonstarCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 0.5f);
-        GameState->FamiliarCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 0.5f);
-        GameState->WallCollision = MakeSimpleGroundedCollision(GameState,
-                                                               TileSideInMeters,
-                                                               TileSideInMeters,
-                                                               TileDepthInMeters);
-        /*GameState->StandardRoomCollision = MakeSimpleGroundedCollision(GameState,
-                                                                       TilesPerWidth * TileSideInMeters,
-                                                                       TilesPerHeight * TileSideInMeters,
-                                                                       0.9f * TileDepthInMeters);*/
-        
-        GameState->StandardRoomCollision = MakeSimpleGroundedCollision(GameState,
-                                                                       2 * TilesPerWidth * TileSideInMeters,
-                                                                       2 * TilesPerHeight * TileSideInMeters,
-                                                                       0.9f * TileDepthInMeters);
-        
-        u32 ScreenBaseX = 0;
-        u32 ScreenBaseY = 0;
-        u32 ScreenBaseZ = 0;
-        u32 ScreenX = ScreenBaseX;
-        u32 ScreenY = ScreenBaseY;
-        //u32 AbsTileX = ScreenX * TilesPerWidth + 1;  // TileX=1
-        //u32 AbsTileY = ScreenY * TilesPerHeight + 1; // TileY=2
-        u32 AbsTileZ = ScreenBaseZ;
-        
-        AddStandardRoom(GameState,
-                        ScreenX * TilesPerWidth + TilesPerWidth / 2,
-                        ScreenY * TilesPerHeight + TilesPerHeight / 2,
-                        AbsTileZ);
-        // left
-        for(u32 Index = 0;
-            Index < TilesPerHeight;
-            Index++)
+        //~ NOTE(ezexff): World creation
         {
-            AddWall(GameState, 0, Index, AbsTileZ);
-        }
-        // top and bot
-        for(u32 Index = 1;
-            Index < TilesPerWidth;
-            Index++)
-        {
-            AddWall(GameState, Index, TilesPerHeight - 1, AbsTileZ);
-            AddWall(GameState, Index, 0, AbsTileZ);
-        }
-        
-        for(u32 RoomIndex = 0;
-            RoomIndex < 100;
-            RoomIndex++)
-        {
-            ScreenX++;
+            // NOTE(casey): Reserve entity slot 0 for the null entity
+            AddLowEntity(GameState, EntityType_Null, NullPosition());
+            
+            GameState->TypicalFloorHeight = 3.0f;
+            v3 WorldChunkDimInMeters = V3((r32)GroundBufferWidth,
+                                          (r32)GroundBufferHeight,
+                                          GameState->TypicalFloorHeight);
+            
+            GameState->World = PushStruct(&GameState->ConstArena, world);
+            World = GameState->World;
+            InitializeWorld(World, WorldChunkDimInMeters);
+            
+            
+            u32 TilesPerWidth = 17;
+            u32 TilesPerHeight = 9;
+            r32 TileSideInMeters = 1.4f;
+            r32 TileDepthInMeters = GameState->TypicalFloorHeight;
+            
+            GameState->NullCollision = MakeNullCollision(GameState);
+            //GameState->SwordCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 0.1f);
+            GameState->SwordCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 1.2f);
+            GameState->StairCollision = MakeSimpleGroundedCollision(GameState,
+                                                                    TileSideInMeters,
+                                                                    2.0f * TileSideInMeters,
+                                                                    1.1f * TileDepthInMeters);
+            GameState->PlayerCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 1.2f);
+            GameState->MonstarCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 0.5f);
+            GameState->FamiliarCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 0.5f);
+            GameState->WallCollision = MakeSimpleGroundedCollision(GameState,
+                                                                   TileSideInMeters,
+                                                                   TileSideInMeters,
+                                                                   TileDepthInMeters);
+            /*GameState->StandardRoomCollision = MakeSimpleGroundedCollision(GameState,
+                                                                           TilesPerWidth * TileSideInMeters,
+                                                                           TilesPerHeight * TileSideInMeters,
+                                                                           0.9f * TileDepthInMeters);*/
+            
+            GameState->StandardRoomCollision = MakeSimpleGroundedCollision(GameState,
+                                                                           2 * TilesPerWidth * TileSideInMeters,
+                                                                           2 * TilesPerHeight * TileSideInMeters,
+                                                                           0.9f * TileDepthInMeters);
+            
+            u32 ScreenBaseX = 0;
+            u32 ScreenBaseY = 0;
+            u32 ScreenBaseZ = 0;
+            u32 ScreenX = ScreenBaseX;
+            u32 ScreenY = ScreenBaseY;
+            //u32 AbsTileX = ScreenX * TilesPerWidth + 1;  // TileX=1
+            //u32 AbsTileY = ScreenY * TilesPerHeight + 1; // TileY=2
+            u32 AbsTileZ = ScreenBaseZ;
             
             AddStandardRoom(GameState,
                             ScreenX * TilesPerWidth + TilesPerWidth / 2,
                             ScreenY * TilesPerHeight + TilesPerHeight / 2,
                             AbsTileZ);
+            // left
+            for(u32 Index = 0;
+                Index < TilesPerHeight;
+                Index++)
+            {
+                AddWall(GameState, 0, Index, AbsTileZ);
+            }
+            // top and bot
+            for(u32 Index = 1;
+                Index < TilesPerWidth;
+                Index++)
+            {
+                AddWall(GameState, Index, TilesPerHeight - 1, AbsTileZ);
+                AddWall(GameState, Index, 0, AbsTileZ);
+            }
+            
+            for(u32 RoomIndex = 0;
+                RoomIndex < 100;
+                RoomIndex++)
+            {
+                ScreenX++;
+                
+                AddStandardRoom(GameState,
+                                ScreenX * TilesPerWidth + TilesPerWidth / 2,
+                                ScreenY * TilesPerHeight + TilesPerHeight / 2,
+                                AbsTileZ);
+            }
+            
+            /*ScreenY = 1;
+            ScreenX = 1;
+            
+            AddStandardRoom(GameState,
+                            ScreenX * TilesPerWidth + TilesPerWidth / 2,
+                            ScreenY * TilesPerHeight + TilesPerHeight / 2,
+                            AbsTileZ);*/
+            
+            world_position NewCameraP = {};
+            u32 CameraTileX = ScreenBaseX * TilesPerWidth + 17 / 2;
+            u32 CameraTileY = ScreenBaseY * TilesPerHeight + 9 / 2;
+            u32 CameraTileZ = ScreenBaseZ;
+            NewCameraP = ChunkPositionFromTilePosition(World, CameraTileX, CameraTileY, CameraTileZ);
+            GameState->CameraP = NewCameraP;
+            GameState->CameraPitch = 0.0f;
+            GameState->CameraYaw = 0.0f;
+            GameState->CameraRoll = 0.0f;
+            
+            AddMonstar(GameState, CameraTileX - 3, CameraTileY + 2, CameraTileZ);
+            AddMonstar(GameState, CameraTileX, CameraTileY + 2, CameraTileZ);
+            AddMonstar(GameState, CameraTileX + 3, CameraTileY + 2, CameraTileZ);
         }
         
-        /*ScreenY = 1;
-        ScreenX = 1;
-        
-        AddStandardRoom(GameState,
-                        ScreenX * TilesPerWidth + TilesPerWidth / 2,
-                        ScreenY * TilesPerHeight + TilesPerHeight / 2,
-                        AbsTileZ);*/
-        
-        world_position NewCameraP = {};
-        u32 CameraTileX = ScreenBaseX * TilesPerWidth + 17 / 2;
-        u32 CameraTileY = ScreenBaseY * TilesPerHeight + 9 / 2;
-        u32 CameraTileZ = ScreenBaseZ;
-        NewCameraP = ChunkPositionFromTilePosition(World, CameraTileX, CameraTileY, CameraTileZ);
-        GameState->CameraP = NewCameraP;
-        GameState->CameraPitch = 0.0f;
-        GameState->CameraYaw = 0.0f;
-        GameState->CameraRoll = 0.0f;
-        
-        GameState->CameraPitch = 45.0f;
-        GameState->CameraYaw = 315.0f;
-        //Frame->CameraZ = 3.75f;
-        Frame->CameraZ = 1.75f;
-        //Frame->CameraZ = 100.0f;
-        //Frame->CameraZ = 14.75f;
-        
-        AddMonstar(GameState, CameraTileX - 3, CameraTileY + 2, CameraTileZ);
-        AddMonstar(GameState, CameraTileX, CameraTileY + 2, CameraTileZ);
-        AddMonstar(GameState, CameraTileX + 3, CameraTileY + 2, CameraTileZ);
-        
-        // NOTE(ezexff): Terrain parameters
-        GameState->MaxTerrainHeight = 0.2f;
-        GameState->TilesPerChunkRow = 16;
+        // NOTE(ezexff): Rendering parameters
+        {
+            // NOTE(ezexff): Camera
+            GameState->CameraPitch = 45.0f;
+            GameState->CameraYaw = 315.0f;
+            Frame->CameraZ = 1.75f;
+            
+            // NOTE(ezexff): Skybox
+            Frame->DrawSkybox = true;
+            
+            // NOTE(ezexff): Terrain
+            GameState->MaxTerrainHeight = 0.2f;
+            GameState->TilesPerChunkRow = 16;
+            Frame->DrawTerrain = true;
+            /*Frame->TerrainMaterial.Ambient = V4(0.2f, 0.2f, 0.2f, 1.0f);
+            Frame->TerrainMaterial.Diffuse = V4(0.8f, 0.8f, 0.8f, 1.0f);
+            Frame->TerrainMaterial.Specular = V4(0.0f, 0.0f, 0.0f, 1.0f);
+            Frame->TerrainMaterial.Emission = V4(0.0f, 0.0f, 0.0f, 1.0f);
+            Frame->TerrainMaterial.Shininess = 0.0f;*/
+            Frame->TerrainMaterial.Ambient = V4(0.0f, 0.0f, 0.0f, 1.0f);
+            Frame->TerrainMaterial.Diffuse = V4(0.1f, 0.35f, 0.1f, 1.0f);
+            Frame->TerrainMaterial.Specular = V4(0.45f, 0.55f, 0.45f, 1.0f);
+            Frame->TerrainMaterial.Emission = V4(0.0f, 0.0f, 0.0f, 1.0f);
+            Frame->TerrainMaterial.Shininess = 0.25f;
+            
+            // NOTE(ezexff): Light
+            //Frame->DirLight.Base.Color = V3(0.5f, 0.5f, 0.5f);
+            Frame->DirLight.Base.Color = V3(1.0f, 1.0f, 1.0f);
+            Frame->DirLight.Base.AmbientIntensity = 0.1f;
+            Frame->DirLight.Base.DiffuseIntensity = 1.0f;
+            //Frame->DirLight.WorldDirection = V3(1.0f, 1.0f, -1.0f);
+            //Frame->DirLight.WorldDirection = V3(1.5f, 0.0f, 3.0f);
+            //Frame->DirLight.WorldDirection = V3(3.0f, 6.0f, -73.5f);
+            //Frame->DirLight.WorldDirection = V3(1.0f, 0.0f, 1.0f);
+            Frame->DirLight.WorldDirection = V3(0.0f, 0.0f, 3.0f);
+            
+#if ENGINE_INTERNAL
+            ImGuiHandle->DrawSpaceBounds = true;
+#endif
+        }
         
         ModeWorld->IsInitialized = true;
     }
     
-    //~ NOTE(ezexff): Inputs
+    //~ NOTE(ezexff): Keyboard and gamepad inputs
     for(int ControllerIndex = 0;
         ControllerIndex < ArrayCount(Input->Controllers);
         ++ControllerIndex)
@@ -744,62 +843,64 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     }
     
     // NOTE(ezexff): Mouse
-    if(Input->MouseDelta.z != 0)
     {
-        Frame->CameraZ -= Input->MouseDelta.z;
-        //Camera->P.z -= Input->MouseDelta.z;
-    }
-    if(WasPressed(Input->MouseButtons[PlatformMouseButton_Left]))
-    {
-        //Log->Add("[input]: VK_LBUTTON was pressed\n");
-    }
-    if(WasPressed(Input->MouseButtons[PlatformMouseButton_Middle]))
-    {
-        //Log->Add("[input]: VK_MBUTTON was pressed\n");
-    }
-    if(WasPressed(Input->MouseButtons[PlatformMouseButton_Right]))
-    {
-        //Log->Add("[input]: VK_RBUTTON was pressed\n");
-    }
-    if(WasPressed(Input->MouseButtons[PlatformMouseButton_Extended0]))
-    {
-        //Log->Add("[input]: VK_XBUTTON1 was pressed\n");
-    }
-    if(WasPressed(Input->MouseButtons[PlatformMouseButton_Extended1]))
-    {
-        //Log->Add("[input]: VK_XBUTTON2 was pressed\n");
-    }
-    
-    // NOTE(ezexff): Mouse input delta
-    Input->CenteringMouseCursor = true;
-    
+        // NOTE(ezexff): Camera z
+        if(Input->MouseDelta.z != 0)
+        {
+            Frame->CameraZ -= Input->MouseDelta.z;
+        }
+        
+        // NOTE(ezexff): Keys
+        if(WasPressed(Input->MouseButtons[PlatformMouseButton_Left]))
+        {
+            //Log->Add("[input]: VK_LBUTTON was pressed\n");
+        }
+        if(WasPressed(Input->MouseButtons[PlatformMouseButton_Middle]))
+        {
+            //Log->Add("[input]: VK_MBUTTON was pressed\n");
+        }
+        if(WasPressed(Input->MouseButtons[PlatformMouseButton_Right]))
+        {
+            //Log->Add("[input]: VK_RBUTTON was pressed\n");
+        }
+        if(WasPressed(Input->MouseButtons[PlatformMouseButton_Extended0]))
+        {
+            //Log->Add("[input]: VK_XBUTTON1 was pressed\n");
+        }
+        if(WasPressed(Input->MouseButtons[PlatformMouseButton_Extended1]))
+        {
+            //Log->Add("[input]: VK_XBUTTON2 was pressed\n");
+        }
+        
+        // NOTE(ezexff): Mouse cursor input delta
+        Input->CenteringMouseCursor = true;
 #if ENGINE_INTERNAL
-    imgui *ImGuiHandle = &Memory->Frame.ImGuiHandle;
-    if(!ImGuiHandle->ShowImGuiWindows)
+        if(!ImGuiHandle->ShowImGuiWindows)
 #endif
-    {
-        r32 Sensitivity = 0.05;
-        
-        // Horizontal (camera yaw)
-        GameState->CameraYaw -= (r32)Input->MouseDelta.x * Sensitivity;
-        if(GameState->CameraYaw < -180)
         {
-            GameState->CameraYaw += 360;
-        }
-        if(GameState->CameraYaw > 180)
-        {
-            GameState->CameraYaw -= 360;
-        }
-        
-        // Vertical (camera pitch)
-        GameState->CameraPitch += (r32)Input->MouseDelta.y * Sensitivity;
-        if(GameState->CameraPitch < 0)
-        {
-            GameState->CameraPitch = 0;
-        }
-        if(GameState->CameraPitch > 180)
-        {
-            GameState->CameraPitch = 180;
+            r32 Sensitivity = 0.05;
+            
+            // Horizontal (camera yaw)
+            GameState->CameraYaw -= (r32)Input->MouseDelta.x * Sensitivity;
+            if(GameState->CameraYaw < -180)
+            {
+                GameState->CameraYaw += 360;
+            }
+            if(GameState->CameraYaw > 180)
+            {
+                GameState->CameraYaw -= 360;
+            }
+            
+            // Vertical (camera pitch)
+            GameState->CameraPitch += (r32)Input->MouseDelta.y * Sensitivity;
+            if(GameState->CameraPitch < 0)
+            {
+                GameState->CameraPitch = 0;
+            }
+            if(GameState->CameraPitch > 180)
+            {
+                GameState->CameraPitch = 180;
+            }
         }
     }
     
@@ -822,10 +923,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     Frame->Camera.Angle.y = GameState->CameraYaw;
     Frame->Camera.Angle.z = GameState->CameraRoll;
     
-    //Clear(Frame, ModeWorld->ClearColor);
-    Frame->DrawSkybox = true;
-    
-    // NOTE(ezexff): Skybox
+    //~ NOTE(ezexff): Load skybox assets
     asset_type *Type = TranState->Assets->AssetTypes + Asset_Skybox;
     u32 SkyboxBitmapCount = Type->OnePastLastAssetIndex - Type->FirstAssetIndex;
     if(SkyboxBitmapCount >= 6)
@@ -856,21 +954,23 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     
 #if ENGINE_INTERNAL
     // NOTE(ezexff): Sim region outlines
-    if(ImGuiHandle->DrawCameraBounds)
     {
-        PushRectOutlineOnGround(Frame, V2(0, 0), V2(CameraWidthInMeters, CameraHeightInMeters), V4(1.0f, 1.0f, 0.0f, 1));
-    }
-    if(ImGuiHandle->DrawSimBounds)
-    {
-        PushRectOutlineOnGround(Frame, V2(0, 0), GetDim(SimBounds).xy, V4(0.0f, 1.0f, 1.0f, 1));
-    }
-    if(ImGuiHandle->DrawSimRegionBounds)
-    {
-        PushRectOutlineOnGround(Frame, V2(0, 0), GetDim(SimRegion->Bounds).xy, V4(1, 0.5, 0, 1));
-    }
-    if(ImGuiHandle->DrawSimRegionUpdatableBounds)
-    {
-        PushRectOutlineOnGround(Frame, V2(0, 0), GetDim(SimRegion->UpdatableBounds).xy, V4(1.0f, 0.0f, 1.0f, 1));
+        if(ImGuiHandle->DrawCameraBounds)
+        {
+            PushRectOutlineOnGround(Frame, V2(0, 0), V2(CameraWidthInMeters, CameraHeightInMeters), V4(1.0f, 1.0f, 0.0f, 1));
+        }
+        if(ImGuiHandle->DrawSimBounds)
+        {
+            PushRectOutlineOnGround(Frame, V2(0, 0), GetDim(SimBounds).xy, V4(0.0f, 1.0f, 1.0f, 1));
+        }
+        if(ImGuiHandle->DrawSimRegionBounds)
+        {
+            PushRectOutlineOnGround(Frame, V2(0, 0), GetDim(SimRegion->Bounds).xy, V4(1, 0.5, 0, 1));
+        }
+        if(ImGuiHandle->DrawSimRegionUpdatableBounds)
+        {
+            PushRectOutlineOnGround(Frame, V2(0, 0), GetDim(SimRegion->UpdatableBounds).xy, V4(1.0f, 0.0f, 1.0f, 1));
+        }
     }
 #endif
     
@@ -1092,9 +1192,10 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 Frame->OffsetP.z = OnTerrainZ;
                 
                 // NOTE(ezexff): Terrain z for player camera
-                if(Entity->Type == EntityType_Hero)
+                if(Entity->Type == EntityType_Hero && Frame->FixCameraOnTerrain)
                 {
-                    Frame->CameraZ = OnTerrainZ + 1.75f;
+#define PLAYER_HEIGHT 1.75f
+                    Frame->CameraZ = OnTerrainZ + PLAYER_HEIGHT;
                 }
             }
             
@@ -1180,16 +1281,19 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 
                 case EntityType_Space:
                 {
-                    //PushRectOutlineCollisionVolumes(RenderGroup, Entity, V4(0, 0, 1, 1), 2);
-                    for(u32 VolumeIndex = 0;
-                        VolumeIndex < Entity->Collision->VolumeCount;
-                        ++VolumeIndex)
+#if ENGINE_INTERNAL
+                    if(ImGuiHandle->DrawSpaceBounds)
                     {
-                        sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
-                        //PushRectOnGround(Frame, Frame->OffsetP.xy, Volume->Dim.xy, V4(0.5f, 0.5f, 0.5f, 1));
-                        PushRectOutlineOnGround(Frame, Frame->OffsetP.xy, Volume->Dim.xy, V4(1, 1, 1, 1));
+                        for(u32 VolumeIndex = 0;
+                            VolumeIndex < Entity->Collision->VolumeCount;
+                            ++VolumeIndex)
+                        {
+                            sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
+                            //PushRectOnGround(Frame, Frame->OffsetP.xy, Volume->Dim.xy, V4(0.5f, 0.5f, 0.5f, 1));
+                            PushRectOutlineOnGround(Frame, Frame->OffsetP.xy, Volume->Dim.xy, V4(1, 1, 1, 1));
+                        }
                     }
-                    // DrawCollisionRectOutline(Entity, 0.0f, V3(0, 0, 1));
+#endif
                 } break;
                 
                 InvalidDefaultCase;
@@ -1263,6 +1367,14 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     }
     
     // NOTE(ezexff): Render ground buffers
+    Frame->TerrainVerticesCount = TranState->GroundBufferCount * ((GameState->TilesPerChunkRow + 1) * (GameState->TilesPerChunkRow + 1));
+    Frame->TerrainIndicesCount = TranState->GroundBufferCount * (6 * GameState->TilesPerChunkRow * GameState->TilesPerChunkRow);
+    Frame->TerrainVertices = PushArray(&TranState->TranArena, Frame->TerrainVerticesCount, vbo_vertex);
+    Frame->TerrainIndices = PushArray(&TranState->TranArena, Frame->TerrainIndicesCount, u32);
+    
+    u32 CurrentVertex = 0;
+    u32 CurrentIndex = 0;
+    
     for(u32 GroundBufferIndex = 0;
         GroundBufferIndex < TranState->GroundBufferCount;
         ++GroundBufferIndex)
@@ -1270,98 +1382,18 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
         if(IsValid(GroundBuffer->P))
         {
-            // loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
             v3 Delta = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);
             
             if((Delta.z >= -1.0f) && (Delta.z < 1.0f))
             {
-                // PushTexture(RenderGroup, Delta, World->ChunkDimInMeters.xy, GroundBuffer->DrawBuffer.ID);
-                // PushModel(RenderGroup, Delta, World->ChunkDimInMeters.xy, GroundBuffer->TerrainModel);
-                //PushRectOutline(RenderGroup, Delta, World->ChunkDimInMeters.xy, V4(1, 0, 0, 1));
-                
-                /*PushRectOutlineOnGround(Frame, Delta.xy, World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
-                PushBitmapOnGround(Frame, Assets, GetFirstBitmapFrom(Assets, Asset_Ground), 
-                                   Delta.xy, World->ChunkDimInMeters.xy, 4.0f);*/
-                //v3 TerrainChunkP[4] = {};
-                s32 MinX = GroundBuffer->P.ChunkX;
-                s32 MinY = GroundBuffer->P.ChunkY;
-                s32 MinZ = GroundBuffer->P.ChunkZ;
-                s32 MaxX = MinX + 1;
-                s32 MaxY = MinY + 1;
                 r32 MinDeltaX = Delta.x - GroundBufferWidth / 2;
                 r32 MinDeltaY = Delta.y - GroundBufferHeight / 2;
                 r32 MaxDeltaX = MinDeltaX + GroundBufferWidth;
                 r32 MaxDeltaY = MinDeltaY + GroundBufferHeight;
                 
-#if 0
-                u32 PositionsCount = 4;
-                v3 *Positions = PushArray(&TranState->TranArena, 4, v3);
-                
-                random_series Series00 = RandomSeed(139 * MinX + 593 * MinY + 329 * MinZ);
-                r32 RandomZ00 = RandomUnilateral(&Series00) * MaxTerrainHeight;
-                //TerrainChunkP[0] = V3((r32)MinX, (r32)MinY, RandomZ00);
-                //Positions[0] = V3((r32)MinX, (r32)MinY, RandomZ00);
-                Positions[0] = V3(MinDeltaX, MinDeltaY, RandomZ00);
-                
-                random_series Series10 = RandomSeed(139 * MaxX + 593 * MinY + 329 * MinZ);
-                r32 RandomZ10 = RandomUnilateral(&Series10) * MaxTerrainHeight;
-                //TerrainChunkP[1] = V3((r32)MaxX, (r32)MinY, RandomZ10);
-                Positions[1] = V3(MaxDeltaX, MinDeltaY, RandomZ10);
-                
-                random_series Series01 = RandomSeed(139 * MinX + 593 * MaxY + 329 * MinZ);
-                r32 RandomZ01 = RandomUnilateral(&Series01) * MaxTerrainHeight;
-                //TerrainChunkP[2] = V3((r32)MinX, (r32)MaxY, RandomZ01);
-                Positions[2] = V3(MinDeltaX, MaxDeltaY, RandomZ01);
-                
-                random_series Series11 = RandomSeed(139 * MaxX + 593 * MaxY + 329 * MinZ);
-                r32 RandomZ11 = RandomUnilateral(&Series11) * MaxTerrainHeight;
-                //TerrainChunkP[3] = V3((r32)MaxX, (r32)MaxY, RandomZ11);
-                Positions[3] = V3(MaxDeltaX, MaxDeltaY, RandomZ11);
-#else
-                
                 s32 ChunkX = GroundBuffer->P.ChunkX;
                 s32 ChunkY = GroundBuffer->P.ChunkY;
                 s32 ChunkZ = GroundBuffer->P.ChunkZ;
-                /*
-                r32 MinChunkRelX = Delta.x - GroundBufferWidth / 2;
-                r32 MinChunkRelY = Delta.y - GroundBufferHeight / 2;
-                
-                r32 MaxChunkRelX = MinChunkRelX + GroundBufferWidth;
-                r32 MaxChunkRelY = MinChunkRelY + GroundBufferHeight;
-                
-                u32 TilesPerChunkRow = 1;
-                r32 TileWidth = (r32)GroundBufferWidth / TilesPerChunkRow;
-                r32 TileHeight = (r32)GroundBufferHeight / TilesPerChunkRow; 
-                
-                u32 PositionsCount = (TilesPerChunkRow + 1) * (TilesPerChunkRow + 1);
-                v3 *Positions = PushArray(&TranState->TranArena, PositionsCount, v3);
-                
-                u32 Index00 = 0;
-                u32 Index10 = TilesPerChunkRow;
-                u32 Index01 = PositionsCount - 1 - TilesPerChunkRow;
-                u32 Index11 = PositionsCount - 1;
-                // 0;0
-                random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
-                r32 RandomZ0 = RandomUnilateral(&Series) * MaxTerrainHeight;
-                Positions[Index00] = V3(MinChunkRelX, MinChunkRelY, RandomZ0);
-                
-                // 1;0
-                Series = RandomSeed(139 * (ChunkX + 1) + 593 * ChunkY + 329 * ChunkZ);
-                r32 RandomZ1 = RandomUnilateral(&Series) * MaxTerrainHeight;
-                Positions[Index10] = V3(MaxChunkRelX, MinChunkRelY, RandomZ1);
-                
-                // 0;1
-                Series = RandomSeed(139 * ChunkX + 593 * (ChunkY + 1) + 329 * ChunkZ);
-                r32 RandomZ2 = RandomUnilateral(&Series) * MaxTerrainHeight;
-                Positions[Index01] = V3(MinChunkRelX, MaxChunkRelY, RandomZ2);
-                
-                // 1;1
-                Series = RandomSeed(139 * (ChunkX + 1) + 593 * (ChunkY + 1) + 329 * ChunkZ);
-                r32 RandomZ3 = RandomUnilateral(&Series) * MaxTerrainHeight;
-                Positions[Index11] = V3(MaxChunkRelX, MaxChunkRelY, RandomZ3);
-    */
-                //r32 MaxTerrainHeight = 0.2f;
-                //u32 TilesPerChunkRow = 16;
                 
                 u32 TilesPerChunkRow = GameState->TilesPerChunkRow;
                 s32 TileX = ChunkX * TilesPerChunkRow;
@@ -1375,12 +1407,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 r32 TileWidth = (r32)GroundBufferWidth / TilesPerChunkRow;
                 r32 TileHeight = (r32)GroundBufferHeight / TilesPerChunkRow; 
                 
-                u32 PositionsCount = (TilesPerChunkRow + 1) * (TilesPerChunkRow + 1);
-                u32 IndicesCount = 6 * TilesPerChunkRow * TilesPerChunkRow;
-                v3 *Positions = PushArray(&TranState->TranArena, PositionsCount, v3);
-                u32 *Indices = PushArray(&TranState->TranArena, IndicesCount, u32);
-                
-                u32 PCount = 0;
+                // Positions and indices
                 for(u32 Y = 0;
                     Y <= TilesPerChunkRow;
                     ++Y)
@@ -1389,35 +1416,68 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                         X <= TilesPerChunkRow;
                         ++X)
                     {
-                        random_series Series = RandomSeed(139 * (TileX + X) + 593 * (TileY + Y) + 329 * TileZ);
-                        r32 RandomZ = RandomUnilateral(&Series) * GameState->MaxTerrainHeight;
+                        // NOTE(ezexff): Position
+                        v3 A = {};
+                        A.x = MinDeltaX + X * TileWidth;
+                        A.y = MinDeltaY + Y * TileHeight;
+                        u32 SeedValueA = 139 * (TileX + X) + 593 * (TileY + Y) + 329 * TileZ;
+                        random_series SeriesA = RandomSeed(SeedValueA);
+                        r32 AZ = RandomUnilateral(&SeriesA);
+                        AZ *= GameState->MaxTerrainHeight;
+                        A.z = AZ;
+                        Frame->TerrainVertices[CurrentVertex].Position = A;
                         
-                        Positions[PCount].x = MinDeltaX + X * TileWidth;
-                        Positions[PCount].y = MinDeltaY + Y * TileHeight;
-                        Positions[PCount].z = RandomZ;
+                        // NOTE(ezexff): Normal
+                        v3 B = {};
+                        B.x = MinDeltaX + (X + 1) * TileWidth;
+                        B.y = A.y;
+                        u32 SeedValueB = 139 * (TileX + (X + 1)) + 593 * (TileY + Y) + 329 * TileZ;
+                        random_series SeriesB = RandomSeed(SeedValueB);
+                        r32 BZ = RandomUnilateral(&SeriesB);
+                        BZ *= GameState->MaxTerrainHeight;
+                        B.z = BZ;
                         
+                        v3 C = {};
+                        C.x = A.x;;
+                        C.y = MinDeltaY + (Y + 1) * TileHeight;
+                        u32 SeedValueC = 139 * (TileX + X) + 593 * (TileY + (Y + 1)) + 329 * TileZ;
+                        random_series SeriesC = RandomSeed(SeedValueC);
+                        r32 CZ = RandomUnilateral(&SeriesC);
+                        CZ *= GameState->MaxTerrainHeight;
+                        C.z = CZ;
+                        
+                        Frame->TerrainVertices[CurrentVertex].Normal = CalcNormal(A, B, C);
+                        
+                        /* 
+                                                if((ChunkX == 0) && (ChunkY == 0) && (ChunkZ == 0))
+                                                {
+                                                    v3 P1 = Frame->TerrainVertices[CurrentVertex].Position;
+                                                    v3 P2 = Frame->TerrainVertices[CurrentVertex].Position + Frame->TerrainVertices[CurrentVertex].Normal;
+                                                    PushLine(Frame, P1,  P2);
+                                                }
+                         */
+                        
+                        // NOTE(ezexff): Indices
                         if((X != TilesPerChunkRow) && (Y != TilesPerChunkRow))
                         {
-                            u32 ICount = Y * TilesPerChunkRow * 6 + X * 6;
+                            Frame->TerrainIndices[CurrentIndex + 0] = CurrentVertex;
+                            Frame->TerrainIndices[CurrentIndex + 1] = CurrentVertex + 1;
+                            Frame->TerrainIndices[CurrentIndex + 2] = CurrentVertex + TilesPerChunkRow + 1;
                             
-                            Indices[ICount + 0] = PCount;
-                            Indices[ICount + 1] = PCount + 1;
-                            Indices[ICount + 2] = PCount + TilesPerChunkRow + 1;
+                            Frame->TerrainIndices[CurrentIndex + 3] = CurrentVertex + 1;
+                            Frame->TerrainIndices[CurrentIndex + 4] = CurrentVertex + TilesPerChunkRow + 1;
+                            Frame->TerrainIndices[CurrentIndex + 5] = CurrentVertex + TilesPerChunkRow + 2;
                             
-                            Indices[ICount + 3] = PCount + 1;
-                            Indices[ICount + 4] = PCount + TilesPerChunkRow + 1;
-                            Indices[ICount + 5] = PCount + TilesPerChunkRow + 2;
+                            CurrentIndex += 6;
                         }
-                        
-                        
-                        PCount++;
+                        CurrentVertex++;
                     }
                 }
-#endif
-                PushTerrainChunk(Frame, PositionsCount, Positions, IndicesCount, Indices);
             }
         }
     }
+    Frame->TerrainVerticesCount = CurrentVertex;
+    Frame->TerrainIndicesCount = CurrentIndex;
 #endif
     
 #if 0
@@ -1547,9 +1607,12 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     }
 #endif
     
-    // TODO(ezexff): Debug
-    char *TestString = "The quick brown fox jumps over a lazy dog.";
-    DEBUGTextLine(Frame, TranState->Assets, TestString);
+    // TODO(ezexff): Mb rework text output and add kerning
+    if(Frame->DrawDebugTextLine)
+    {
+        char *TestString = "The quick brown fox jumps over a lazy dog.";
+        DEBUGTextLine(Frame, TranState->Assets, TestString);
+    }
     /*PushRectOnGround(Frame, V3(0, 0, 0), V2(5, 5), V4(0, 1, 0, 1));
     PushRectOutlineOnGround(Frame, V3(0, 7, 0), V2(5, 5), V4(0, 0, 1, 1), 0.5f);
     PushBitmapOnGround(Frame, Assets, GetFirstBitmapFrom(Assets, Asset_Ground), V3(0, -7, 0), V2(5, 5), 4.0f);*/

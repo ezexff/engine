@@ -39,7 +39,8 @@ struct ground_buffer
 {
     // NOTE(casey): An invalid P tells us that this ground_buffer has not been filled
     world_position P; // NOTE(casey): This is the center of the bitmap
-    r32 RandomZ;
+    b32 UpdateVertices;
+    //r32 RandomZ;
     // u32 Texture;
     // loaded_bitmap Bitmap;
     //loaded_texture DrawBuffer;

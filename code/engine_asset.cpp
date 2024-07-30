@@ -783,6 +783,10 @@ LoadFrameAndSkyboxShaders(memory_arena *ConstArena, renderer_frame *Frame)
                 {
                     Text = Frame->SkyboxVert.Text;
                 }
+                else if(FileHandle->Name == L"default.vert")
+                {
+                    Text = Frame->DefaultVert.Text;
+                }
                 else
                 {
                     InvalidCodePath;
@@ -833,6 +837,10 @@ LoadFrameAndSkyboxShaders(memory_arena *ConstArena, renderer_frame *Frame)
                 else if(FileHandle->Name == L"skybox.frag")
                 {
                     Text = Frame->SkyboxFrag.Text;
+                }
+                else if(FileHandle->Name == L"default.frag")
+                {
+                    Text = Frame->DefaultFrag.Text;
                 }
                 else
                 {

@@ -14,6 +14,8 @@ enum renderer_entry_type
     RendererEntryType_renderer_entry_bitmap_on_screen,
     
     RendererEntryType_renderer_entry_terrain_chunk,
+    RendererEntryType_renderer_entry_line,
+    
 };
 
 struct renderer_entry_header
@@ -62,6 +64,14 @@ struct renderer_entry_cube_outline
     v4 Color;
     v3 P;
     v3 Dim;
+    r32 LineWidth;
+};
+
+struct renderer_entry_line
+{
+    v4 Color;
+    v3 P1;
+    v3 P2;
     r32 LineWidth;
 };
 

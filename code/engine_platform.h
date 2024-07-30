@@ -176,6 +176,9 @@ struct imgui
     bool DrawSimRegionBounds;
     bool DrawSimRegionUpdatableBounds;
     
+    // NOTE(ezexff): Sim Region entities
+    bool DrawSpaceBounds;
+    
     // NOTE(ezexff): Log audio
     bool LogAudio;
     
@@ -311,14 +314,18 @@ typedef void WINAPI type_glBufferData(GLenum target, GLsizeiptr size, const void
 typedef void WINAPI type_glEnableVertexAttribArray(GLuint index);
 typedef void WINAPI type_glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
 
-// Other
-typedef void WINAPI type_glUniform1i(GLint location, GLint v0);
+// Send variable into shader
 typedef GLint WINAPI type_glGetUniformLocation(GLuint program, const GLchar *name);
 typedef GLenum WINAPI type_glCheckFramebufferStatus(GLenum target);
+typedef void WINAPI type_glUniform1i(GLint location, GLint v0);
+typedef void WINAPI type_glUniformMatrix4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
+typedef void WINAPI type_glUniform3fv(GLint location, GLsizei count, const GLfloat *value);
+typedef void WINAPI type_glUniform1f(GLint location, GLfloat v0);
 
+// Mipmap for texture
 typedef void WINAPI type_glGenerateMipmap(GLenum target);
 
-typedef void WINAPI type_glUniformMatrix4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
+
 
 #define OpenglFunction(Name) type_##Name *Name
 struct opengl
@@ -379,14 +386,16 @@ struct opengl
     OpenglFunction(glEnableVertexAttribArray);
     OpenglFunction(glVertexAttribPointer);
     
-    //
-    OpenglFunction(glUniform1i);
+    // Send variable into shader
     OpenglFunction(glGetUniformLocation);
     OpenglFunction(glCheckFramebufferStatus);
-    
-    OpenglFunction(glGenerateMipmap);
-    
+    OpenglFunction(glUniform1i);
     OpenglFunction(glUniformMatrix4fv);
+    OpenglFunction(glUniform3fv);
+    OpenglFunction(glUniform1f);
+    
+    // Mipmap for texture
+    OpenglFunction(glGenerateMipmap);
     
 #if ENGINE_INTERNAL
     // NOTE(ezexff): OpenGL info
@@ -419,10 +428,63 @@ struct opengl_program
     u32 ID;
 };
 
+struct vbo_vertex
+{
+    v3 Position;
+    v3 Normal;
+    v2 TexCoords;
+};
+
+struct base_light
+{
+    v3 Color;
+    r32 AmbientIntensity;
+    r32 DiffuseIntensity;
+};
+
+struct directional_light
+{
+    base_light Base;
+    v3 WorldDirection;
+};
+
+struct attenuation
+{
+    r32 Constant;
+    r32 Linear;
+    r32 Exp;
+};
+
+struct point_light
+{
+    base_light Base;
+    v3 WorldPosition;
+    attenuation Atten;
+};
+
+struct spot_light
+{
+    point_light Base;
+    v3 WorldDirection;
+    r32 Cutoff;
+};
+
+
+struct material
+{
+    v4 Ambient;
+    v4 Diffuse;
+    v4 Specular;
+    v4 Emission;
+    r32 Shininess;
+};
+
 struct renderer_frame
 {
-    v2s Dim; // NOTE(ezexff): Client render area
-    v3 OffsetP; // TODO(ezexff): World offsetP
+    v3 OffsetP; // TODO(ezexff): World offsetP for entity pos calc
+    
+    //~ NOTE(ezexff): Frame
+    v2s Dim; // NOTE(ezexff): Client render area (window size)
     u8 PushBufferMemory[65536];
     u32 MaxPushBufferSize;
     u8 *PushBufferBase;
@@ -432,17 +494,25 @@ struct renderer_frame
     camera Camera;
     r32 CameraZ;
     
+    // NOTE(ezexff): We output rendered scene through ColorTexture and using shaders for on screen effects
     u32 ColorTexture;
-    u32 DepthTexture;
+    u32 DepthTexture; // Need for FBO
+    u32 FBO;
     u32 VAO;
     u32 VBO;
-    //u32 EBO;
-    u32 FBO;
+    opengl_shader Vert;
+    opengl_shader Frag;
+    opengl_program Program;
+    s32 FragEffect; // NOTE(ezexff): abberation, blur, emboss, grayscale, inverse, sepia, normal
     
-    // NOTE(ezexff): Shaders
-    b32 CompileShaders;
+    //~ NOTE(ezexff): Need For recompile shaders
+    b32 CompileShaders; // TODO(ezexff): Mb replace with IsShadersCompiled
     
-    b32 DrawSkybox;
+    //~ NOTE(ezexff): Clear color
+    v3 ClearColor; // TODO(ezexff): Do i need this?
+    
+    //~ NOTE(ezexff): Skybox
+    bool DrawSkybox;
     b32 InitializeSkyboxTexture;
     u32 SkyboxVAO;
     u32 SkyboxVBO;
@@ -452,17 +522,44 @@ struct renderer_frame
     opengl_shader SkyboxFrag;
     opengl_program SkyboxProgram;
     
-    opengl_shader Vert;
-    opengl_shader Frag;
-    opengl_program Program;
-    s32 FragEffect; // NOTE(ezexff): abberation, blur, emboss, grayscale, inverse, sepia, normal
+    // NOTE(ezexff): Default shaders and program
+    opengl_shader DefaultVert;
+    opengl_shader DefaultFrag;
+    opengl_program DefaultProg;
+    
+    //~ NOTE(ezexff): Terrain
+    // TODO(ezexff): Mb move terrain arrays in GameState
+    u32 TerrainVerticesCount;
+    vbo_vertex *TerrainVertices;
+    u32 TerrainIndicesCount;
+    u32 *TerrainIndices;
+    
+    material TerrainMaterial;
+    
+    b32 IsTerrainVBOInitialized;
+    u32 TerrainVAO;
+    u32 TerrainVBO;
+    u32 TerrainEBO;
+    
+    // TODO(ezexff): Mb these variable only for debug in imgui?
+    bool DrawTerrain;
+    bool IsTerrainInLinePolygonMode;
+    bool FixCameraOnTerrain;
+    
+    //~ NOTE(ezexff): Light
+    directional_light DirLight;
+    u32 PointLightsCount;
+    point_light PointLights;
+    u32 SpotLightsCount;
+    spot_light SpotLights;
+    
+    //~ TODO(ezexff): Move into ImGui?
+    bool DrawDebugTextLine;
     
 #if ENGINE_INTERNAL
+    // NOTE(ezexff): ImGui bitmap preview window
     loaded_bitmap Preview;
     u32 PreviewTexture;
-    /*u32 BitmapPreviewBPP;
-    u32 BitmapPreviewDim[2];
-    void *BitmapPreviewMemory;*/
     imgui ImGuiHandle;
 #endif
     

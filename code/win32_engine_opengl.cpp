@@ -79,14 +79,16 @@ Win32InitOpengl(renderer_frame *Frame, HDC WindowDC)
         Win32GetOpenglFunction(glEnableVertexAttribArray);
         Win32GetOpenglFunction(glVertexAttribPointer);
         
-        //
-        Win32GetOpenglFunction(glUniform1i);
+        // Send variable into shader
         Win32GetOpenglFunction(glGetUniformLocation);
         Win32GetOpenglFunction(glCheckFramebufferStatus);
-        
-        Win32GetOpenglFunction(glGenerateMipmap);
-        
+        Win32GetOpenglFunction(glUniform1i);
         Win32GetOpenglFunction(glUniformMatrix4fv);
+        Win32GetOpenglFunction(glUniform3fv);
+        Win32GetOpenglFunction(glUniform1f);
+        
+        // Mipmap for texture
+        Win32GetOpenglFunction(glGenerateMipmap);
     }
     else
     {

@@ -189,3 +189,16 @@ PushTerrainChunk(renderer_frame *Frame, u32 PositionsCount, v3 *Positions, u32 I
         Entry->Indices = Indices;
     }
 }
+
+void
+PushLine(renderer_frame *Frame, v3 P1, v3 P2, v4 Color = V4(0.5f, 0.0f, 0.5f, 1.0f), r32 LineWidth = 1)
+{
+    renderer_entry_line *Entry = PushRenderElement(Frame, renderer_entry_line);
+    if(Entry)
+    {
+        Entry->P1 = P1;
+        Entry->P2 = P2;
+        Entry->Color = Color;
+        Entry->LineWidth = LineWidth;
+    }
+}

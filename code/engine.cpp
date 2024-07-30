@@ -215,7 +215,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             {
                 ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
                 GroundBuffer->P = NullPosition();
-                GroundBuffer->RandomZ = 0.0f;
+                //GroundBuffer->RandomZ = 0.0f;
                 // GroundBuffer->Bitmap = MakeEmptyBitmap(TranArena, GroundBufferWidth, GroundBufferHeight, false);
                 // GroundBuffer->Texture = U32Max;
                 //s32 GroundTextureSizeMultiplyer = 32;
@@ -822,6 +822,16 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                     case GameMode_World:
                     {
                         //Camera = &GameState->ModeWorld.Camera;
+                        ImGui::SeparatorText("SimRegion");
+                        ImGui::Checkbox("Window visibility", &ImGuiHandle->ShowSimRegionWindow);
+                        ImGui::Checkbox("DrawSpaceBounds", &ImGuiHandle->DrawSpaceBounds);
+                        ImGui::Checkbox("DrawCameraBounds (Yellow)", &ImGuiHandle->DrawCameraBounds);
+                        ImGui::Checkbox("DrawSimBounds (Cyan)", &ImGuiHandle->DrawSimBounds);
+                        ImGui::Checkbox("DrawSimRegionBounds (Orange)", &ImGuiHandle->DrawSimRegionBounds);
+                        ImGui::Checkbox("DrawSimRegionUpdatableBounds (Purple)", &ImGuiHandle->DrawSimRegionUpdatableBounds);
+                        
+                        ImGui::SeparatorText("Skybox");
+                        ImGui::Checkbox("Visibility##Skybox", &Frame->DrawSkybox);
                         
                         ImGui::SeparatorText("Terrain");
                         s32 TilesPerChunkRow = GameState->TilesPerChunkRow;
@@ -829,7 +839,7 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                         {
                             if(TilesPerChunkRow < 1)
                             {
-                                TilesPerChunkRow= 1;
+                                TilesPerChunkRow = 1;
                             } 
                             else if(TilesPerChunkRow > 128)
                             {
@@ -838,15 +848,31 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                             GameState->TilesPerChunkRow = TilesPerChunkRow;
                         }
                         ImGui::InputFloat("MaxTerrainHeight", &GameState->MaxTerrainHeight, 0.01f, 1.0f, "%.3f");
+                        ImGui::Checkbox("Visibility##Terrain", &Frame->DrawTerrain);
+                        ImGui::Checkbox("GL_LINE", &Frame->IsTerrainInLinePolygonMode);
+                        ImGui::Checkbox("FixCameraOnTerrain", &Frame->FixCameraOnTerrain);
+                        ImGui::Text("Material");
+                        float *TerrainMaterialAmbient = (float *)&Frame->TerrainMaterial.Ambient;
+                        ImGui::DragFloat4("Ambient##Terrain", TerrainMaterialAmbient, 0.01f, -100.0f, 100.0f);
+                        float *TerrainMaterialDiffuse = (float *)&Frame->TerrainMaterial.Diffuse;
+                        ImGui::DragFloat4("Diffuse##Terrain", TerrainMaterialDiffuse, 0.01f, -100.0f, 100.0f);
+                        float *TerrainMaterialSpecular = (float *)&Frame->TerrainMaterial.Specular;
+                        ImGui::DragFloat4("Specular##Terrain", TerrainMaterialSpecular, 0.01f, -100.0f, 100.0f);
+                        float *TerrainMaterialEmission = (float *)&Frame->TerrainMaterial.Emission;
+                        ImGui::DragFloat4("Emission##Terrain", TerrainMaterialEmission, 0.01f, -100.0f, 100.0f);
+                        ImGui::InputFloat("Shininess##Terrain", &Frame->TerrainMaterial.Shininess, 0.01f, 1.0f, "%.3f");
                         
-                        ImGui::SeparatorText("Sim Region Window");
-                        ImGui::Checkbox("Visibility", &ImGuiHandle->ShowSimRegionWindow);
+                        ImGui::SeparatorText("DEBUGTextLine");
+                        ImGui::Checkbox("Visibility##DEBUGTextLine", &Frame->DrawDebugTextLine);
                         
-                        ImGui::SeparatorText("SimRegionBorders");
-                        ImGui::Checkbox("DrawCameraBounds (Yellow)", &ImGuiHandle->DrawCameraBounds);
-                        ImGui::Checkbox("DrawSimBounds (Cyan)", &ImGuiHandle->DrawSimBounds);
-                        ImGui::Checkbox("DrawSimRegionBounds (Orange)", &ImGuiHandle->DrawSimRegionBounds);
-                        ImGui::Checkbox("DrawSimRegionUpdatableBounds (Purple)", &ImGuiHandle->DrawSimRegionUpdatableBounds);
+                        ImGui::SeparatorText("DirLight");
+                        float *DirLightBaseColor = (float *)&Frame->DirLight.Base.Color;
+                        ImGui::ColorEdit3("Color##DirLight", DirLightBaseColor);
+                        ImGui::InputFloat("AmbientIntensity##TerrainDirLight", &Frame->DirLight.Base.AmbientIntensity, 0.01f, 1.0f, "%.3f");
+                        float *DirLightWorldDirection = (float *)&Frame->DirLight.WorldDirection;
+                        ImGui::DragFloat3("WorldDirection##TerrainDirLight", DirLightWorldDirection, 0.01f, -100.0f, 100.0f);
+                        
+                        
                     } break;
                     
                     InvalidDefaultCase;
