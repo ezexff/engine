@@ -35,14 +35,21 @@ struct game_state;
 internal void AddCollisionRule(game_state *GameState, u32 StorageIndexA, u32 StorageIndexB, b32 ShouldCollide);
 internal void ClearCollisionRulesFor(game_state *GameState, u32 StorageIndex);
 
-struct ground_buffer
+/*struct ground_buffer
 {
     // NOTE(casey): An invalid P tells us that this ground_buffer has not been filled
     world_position P; // NOTE(casey): This is the center of the bitmap
-    b32 UpdateVertices;
+    
+    v3 OffsetP; // смещение относительно камеры для рендера чанка
+    
+    // заполнение в fillgroundchunk
+    r32 *PositionsZ;
+    v3 *Normals;
+    v2 *TexCoords;
+    
     //r32 RandomZ;
     // u32 Texture;
     // loaded_bitmap Bitmap;
     //loaded_texture DrawBuffer;
     //loaded_model *TerrainModel;
-};
+};*/

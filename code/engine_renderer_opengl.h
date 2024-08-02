@@ -1097,7 +1097,7 @@ OpenglDrawPushBuffer(renderer_frame *Frame, r32 AspectRatio, r32 FOV, v3 WorldOr
 }
 
 void
-OpenglDrawScene(renderer_frame *Frame, r32 AspectRatio, r32 FOV, v3 WorldOrigin)
+OpenglDrawScene(renderer_frame *Frame, r32 AspectRatio, r32 FOV, v3 WorldOrigin, u32 ShaderProgramID)
 {
     opengl *Opengl = &Frame->Opengl;
     camera *Camera = &Frame->Camera;
@@ -1115,7 +1115,7 @@ OpenglDrawScene(renderer_frame *Frame, r32 AspectRatio, r32 FOV, v3 WorldOrigin)
         
         // NOTE(ezexff): Bind VAO
         {
-            Opengl->glBindVertexArray(Frame->TerrainVAO);
+            /*Opengl->glBindVertexArray(Frame->TerrainVAO);
             Opengl->glBindBuffer(GL_ARRAY_BUFFER, Frame->TerrainVBO);
             Opengl->glBufferData(GL_ARRAY_BUFFER, sizeof(vbo_vertex) * Frame->TerrainVerticesCount, Frame->TerrainVertices, GL_STATIC_DRAW);
             
@@ -1130,7 +1130,7 @@ OpenglDrawScene(renderer_frame *Frame, r32 AspectRatio, r32 FOV, v3 WorldOrigin)
             Opengl->glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vbo_vertex), (void *)offsetof(vbo_vertex, TexCoords));
             
             Opengl->glBindBuffer(GL_ARRAY_BUFFER, 0);
-            Opengl->glBindVertexArray(0);
+            Opengl->glBindVertexArray(0);*/
         }
         
         // отправка плоскости отсечения в шейдер
@@ -1141,7 +1141,7 @@ OpenglDrawScene(renderer_frame *Frame, r32 AspectRatio, r32 FOV, v3 WorldOrigin)
         //glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, RelPlayerP.E);
         // glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, Player->Position.E);
         
-        if(Frame->IsTerrainInLinePolygonMode)
+        /*if(Frame->IsTerrainInLinePolygonMode)
         {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         }
@@ -1158,6 +1158,69 @@ OpenglDrawScene(renderer_frame *Frame, r32 AspectRatio, r32 FOV, v3 WorldOrigin)
         if(Frame->IsTerrainInLinePolygonMode)
         {
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }*/
+        
+        
+        
+        
+        // TODO(ezexff): Test Terrain v2.0
+        {
+            for(u32 GroundBufferIndex = 0;
+                GroundBufferIndex < Frame->GroundBufferCount;
+                ++GroundBufferIndex)
+            {
+                ground_buffer *GroundBuffer = Frame->GroundBuffers + GroundBufferIndex;
+                
+                if(GroundBuffer->IsFilled)
+                {
+                    if(!GroundBuffer->IsInitialized)
+                    {
+                        Opengl->glGenVertexArrays(1, &GroundBuffer->VAO);
+                        Opengl->glGenBuffers(1, &GroundBuffer->VBO);
+                        Opengl->glGenBuffers(1, &GroundBuffer->EBO);
+                        GroundBuffer->IsInitialized = true;
+                    }
+                    Opengl->glBindVertexArray(GroundBuffer->VAO);
+                    Opengl->glBindBuffer(GL_ARRAY_BUFFER, GroundBuffer->VBO);
+                    Opengl->glBufferData(GL_ARRAY_BUFFER, sizeof(vbo_vertex) * Frame->ChunkVertexCount, GroundBuffer->Vertices, GL_STATIC_DRAW);
+                    
+                    Opengl->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GroundBuffer->EBO);
+                    Opengl->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * Frame->ChunkIndexCount, Frame->ChunkIndices, GL_STATIC_DRAW);
+                    
+                    Opengl->glEnableVertexAttribArray(0);
+                    Opengl->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vbo_vertex), (void *)0);
+                    Opengl->glEnableVertexAttribArray(1);
+                    Opengl->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vbo_vertex), (void *)offsetof(vbo_vertex, Normal));
+                    Opengl->glEnableVertexAttribArray(2);
+                    Opengl->glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vbo_vertex), (void *)offsetof(vbo_vertex, TexCoords));
+                    
+                    Opengl->glBindBuffer(GL_ARRAY_BUFFER, 0);
+                    Opengl->glBindVertexArray(0);
+                    
+                    
+                    //v3 OffsetP = GroundBuffer->OffsetP;
+                    //Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uOffsetP"), 1, OffsetP.E);
+                    
+                    m4x4 MatModel = Identity();
+                    MatModel = Translate(GroundBuffer->OffsetP);
+                    MatModel = Transpose(MatModel); // opengl to glsl format
+                    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
+                    
+                    if(Frame->IsTerrainInLinePolygonMode)
+                    {
+                        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+                    }
+                    
+                    Opengl->glBindVertexArray(GroundBuffer->VAO);
+                    glDrawElements(GL_TRIANGLES, Frame->ChunkIndexCount, GL_UNSIGNED_INT, 0);
+                    Opengl->glBindVertexArray(0);
+                    
+                    if(Frame->IsTerrainInLinePolygonMode)
+                    {
+                        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+                    }
+                }
+            }
         }
     }
 }
@@ -1208,13 +1271,15 @@ OpenglEndFrame(renderer_frame *Frame)
                     glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
                     Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->ShadowMapProg.ID, "uView"), 1, GL_FALSE, MatViewShadows);
                     
-                    m4x4 MatModel = Identity();
-                    MatModel = Translate(WorldOrigin);
-                    MatModel = Transpose(MatModel); // opengl to glsl format
-                    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->ShadowMapProg.ID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
+                    /* 
+                                        m4x4 MatModel = Identity();
+                                        MatModel = Translate(WorldOrigin);
+                                        MatModel = Transpose(MatModel); // opengl to glsl format
+                                        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->ShadowMapProg.ID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
+                     */
                 }
                 
-                OpenglDrawScene(Frame, AspectRatio, FOV, WorldOrigin);
+                OpenglDrawScene(Frame, AspectRatio, FOV, WorldOrigin, Frame->ShadowMapProg.ID);
             }
             Opengl->glUseProgram(0);
         }
@@ -1259,11 +1324,13 @@ OpenglEndFrame(renderer_frame *Frame)
                 Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uView"), 1, GL_FALSE, MatView);
                 
                 // Model
-                m4x4 MatModel = Identity();
-                //v3 WorldOrigin = {};
-                MatModel = Translate(WorldOrigin);
-                MatModel = Transpose(MatModel); // opengl to glsl format
-                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
+                /* 
+                                m4x4 MatModel = Identity();
+                                //v3 WorldOrigin = {};
+                                MatModel = Translate(WorldOrigin);
+                                MatModel = Transpose(MatModel); // opengl to glsl format
+                                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
+                 */
                 
                 // Proj ShadowMap
                 glMatrixMode(GL_PROJECTION);
@@ -1285,7 +1352,7 @@ OpenglEndFrame(renderer_frame *Frame)
                 Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uViewShadowMap"), 1, GL_FALSE, MatViewShadows);
             }
             DefaultUniforms(Frame);
-            OpenglDrawScene(Frame, AspectRatio, FOV, WorldOrigin);
+            OpenglDrawScene(Frame, AspectRatio, FOV, WorldOrigin, Frame->DefaultProg.ID);
         }
         Opengl->glUseProgram(0);
         
@@ -1478,34 +1545,34 @@ OpenglEndFrame(renderer_frame *Frame)
     }
     
     /*
-// NOTE(ezexff): Draw Player Crosshair
-    r32 Crosshair[] = {0, -1, 0, 1, -1, 0, 1, 0};
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glVertexPointer(2, GL_FLOAT, 0, Crosshair);
-    glPushMatrix();
-    glColor3f(1, 1, 1);
-    glTranslatef((Frame->Dim.x - 1) / 2.0f, (Frame->Dim.y - 1) / 2.0f, 0);
-    glScalef(15, 15, 1);
-    glLineWidth(3);
-    glDisable(GL_TEXTURE_2D);
-    glDrawArrays(GL_LINES, 0, 4);
-    glPopMatrix();
-    glDisableClientState(GL_VERTEX_ARRAY);*/
+    // NOTE(ezexff): Draw Player Crosshair
+        r32 Crosshair[] = {0, -1, 0, 1, -1, 0, 1, 0};
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glVertexPointer(2, GL_FLOAT, 0, Crosshair);
+        glPushMatrix();
+        glColor3f(1, 1, 1);
+        glTranslatef((Frame->Dim.x - 1) / 2.0f, (Frame->Dim.y - 1) / 2.0f, 0);
+        glScalef(15, 15, 1);
+        glLineWidth(3);
+        glDisable(GL_TEXTURE_2D);
+        glDrawArrays(GL_LINES, 0, 4);
+        glPopMatrix();
+        glDisableClientState(GL_VERTEX_ARRAY);*/
     
     
     // NOTE(ezexff): Red rectangle
     /*{
-        glColor3f(1, 0, 0);
-        glBegin(GL_QUADS);
-        
-        float OffsetFromCenter = 0.5f;
-        glVertex2f(-OffsetFromCenter, -OffsetFromCenter);
-        glVertex2f(OffsetFromCenter, -OffsetFromCenter);
-        glVertex2f(OffsetFromCenter, OffsetFromCenter);
-        glVertex2f(-OffsetFromCenter, OffsetFromCenter);
-        
-        glEnd();
-    }*/
+    glColor3f(1, 0, 0);
+    glBegin(GL_QUADS);
+    
+    float OffsetFromCenter = 0.5f;
+    glVertex2f(-OffsetFromCenter, -OffsetFromCenter);
+    glVertex2f(OffsetFromCenter, -OffsetFromCenter);
+    glVertex2f(OffsetFromCenter, OffsetFromCenter);
+    glVertex2f(-OffsetFromCenter, OffsetFromCenter);
+    
+    glEnd();
+}*/
     
     // NOTE(ezexff): Clear push buffer memory
     while(Frame->PushBufferSize--)

@@ -1,4 +1,4 @@
-struct world_position
+/*struct world_position
 {
     // TODO(casey): It seems like we have to store ChunkX/Y/Z with each
     // entity because even though the sim region gather doesn't need it
@@ -12,7 +12,7 @@ struct world_position
     
     // NOTE(casey): These are the offsets from the chunk center
     v3 Offset_;
-};
+};*/
 
 // TODO(casey): Could make this just tile_chunk and then allow multiple tile chunks per X/Y/Z
 struct world_entity_block

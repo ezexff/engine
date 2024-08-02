@@ -113,7 +113,7 @@ CreateTerrainModel(memory_arena *WorldArena, loaded_model Model)
 }
 
 internal void
-FillGroundChunk(tran_state *TranState, game_state *GameState,
+FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Frame,
                 ground_buffer *GroundBuffer,
                 world_position *ChunkP)
 {
@@ -180,65 +180,138 @@ FillGroundChunk(tran_state *TranState, game_state *GameState,
 #else
     //temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
     GroundBuffer->P = *ChunkP;
-    
-    r32 Width = GameState->World->ChunkDimInMeters.x;
-    r32 Height = GameState->World->ChunkDimInMeters.y;
-    
-    if((ChunkP->ChunkX == 0) && (ChunkP->ChunkY == 0) & (ChunkP->ChunkZ == 0))
+    GroundBuffer->IsFilled = true;
+    if(IsValid(GroundBuffer->P))
     {
-        // TODO(ezexff): Add hill or pit
-        int dsfdsf = 0;
+        s32 TileX = GroundBuffer->P.ChunkX * Frame->TileCount;
+        s32 TileY = GroundBuffer->P.ChunkY * Frame->TileCount;
+        s32 TileZ = GroundBuffer->P.ChunkZ * Frame->TileCount;
         
-        for(s32 ChunkOffsetY = -1;
-            ChunkOffsetY <= 1;
-            ++ChunkOffsetY)
+        u32 TmpPosCount3 = 0;
+        for(u32 Y = 0;
+            Y <= Frame->TileCount;
+            ++Y)
         {
-            for(s32 ChunkOffsetX = -1;
-                ChunkOffsetX <= 1;
-                ++ChunkOffsetX)
+            for(u32 X = 0;
+                X <= Frame->TileCount;
+                ++X)
             {
-                s32 ChunkX = ChunkP->ChunkX + ChunkOffsetX;
-                s32 ChunkY = ChunkP->ChunkY + ChunkOffsetY;
-                s32 ChunkZ = ChunkP->ChunkZ;
-                
-                // TODO(casey): Make random number generation more systemic
-                // TODO(casey): Look into wang hashing or some other spatial seed generation "thing"!
-                random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
-                
-                // v2 Center = V2(ChunkOffsetX * Width + HalfDim.x, ChunkOffsetY * Height + HalfDim.y);
-                v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
-                
-                /*r32 MaxTerrainHeight = 0.2f;
-                
-                int VertexIndex = 0;
-                for(u32 Y = 0;      //
-                    Y < Height + 1; //
-                    Y++)
+                GroundBuffer->Vertices[TmpPosCount3].Position.z = 0;
+                TmpPosCount3++;
+            }
+        }
+        
+        // NOTE(ezexff): Calc pit and hill
+        {
+            s32 HillTileX = 8;
+            s32 HillTileY = 8;
+            s32 HillZ = 2;
+            s32 HillRadius = 8;
+            if((ChunkP->ChunkX == 0) && (ChunkP->ChunkY == 0) & (ChunkP->ChunkZ == 0))
+            {
+                // TODO(ezexff): Add hill or pit
+                for(s32 Y = HillTileY - HillRadius;
+                    Y <= HillTileY + HillRadius;
+                    ++Y)
                 {
-                    for(u32 X = 0;     //
-                        X < Width + 1; //
-                        X++, VertexIndex++)
+                    for(s32 X = HillTileX - HillRadius;
+                        X <= HillTileX + HillRadius;
+                        ++X)
                     {
-                        // r32 RandomZ2 = (r32)(rand() % 10) * 0.02f;
-                        
-                        //
+                        s32 TmpIndex = Y * (Frame->TileCount + 1) + X;
+                        Assert(TmpIndex >= 0);
+                        Assert(TmpIndex < (s32)Frame->ChunkVertexCount);
+                        r32 t1 = (r32)(HillTileX - X);
+                        r32 t2 = (r32)(HillTileY - Y);
+                        r32 Length = SquareRoot(Square(t1) + Square(t2));
+                        if(Length < HillRadius)
                         {
-                            if((X == 0) || (Y == 0) || (X == Width) || (Y == Height))
-                            {
-                                // if((ChunkOffsetX == 0) && (ChunkOffsetY == 0))
-                                {
-                                    // r32 RandomZ1 = RandomUnilateral(&Series) * MaxTerrainHeight;
-                                    // Mesh->Positions[VertexIndex] = V3((r32)X, (r32)Y, RandomZ1);
-                                }
-                            }
-                            else
-                            {
-                                r32 RandomZ1 = RandomUnilateral(&Series) * MaxTerrainHeight;
-                                Mesh->Positions[VertexIndex] = V3((r32)X, (r32)Y, RandomZ1);
-                            }
+                            Length = Length / HillRadius * (r32)Pi32_2;
+                            GroundBuffer->Vertices[TmpIndex].Position.z += Cos(Length) * HillZ;
                         }
                     }
-                }*/
+                }
+            }
+            
+            HillZ = -2;
+            if((ChunkP->ChunkX == 1) && (ChunkP->ChunkY == 0) & (ChunkP->ChunkZ == 0))
+            {
+                // TODO(ezexff): Add hill or pit
+                for(s32 Y = HillTileY - HillRadius;
+                    Y <= HillTileY + HillRadius;
+                    ++Y)
+                {
+                    for(s32 X = HillTileX - HillRadius;
+                        X <= HillTileX + HillRadius;
+                        ++X)
+                    {
+                        s32 TmpIndex = Y * (Frame->TileCount + 1) + X;
+                        Assert(TmpIndex >= 0);
+                        Assert(TmpIndex < (s32)Frame->ChunkVertexCount);
+                        r32 t1 = (r32)(HillTileX - X);
+                        r32 t2 = (r32)(HillTileY - Y);
+                        r32 Length = SquareRoot(Square(t1) + Square(t2));
+                        if(Length < HillRadius)
+                        {
+                            Length = Length / HillRadius * (r32)Pi32_2;
+                            GroundBuffer->Vertices[TmpIndex].Position.z += Cos(Length) * HillZ;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // NOTE(ezexff): Calc z
+        u32 TmpPosCount = 0;
+        for(u32 Y = 0;
+            Y <= Frame->TileCount;
+            ++Y)
+        {
+            for(u32 X = 0;
+                X <= Frame->TileCount;
+                ++X)
+            {
+                /* 
+                                u32 SeedValueA = 139 * (TileX + X) + 593 * (TileY + Y) + 329 * TileZ;
+                                random_series SeriesA = RandomSeed(SeedValueA);
+                                r32 Z = RandomUnilateral(&SeriesA);
+                                Z *= Frame->MaxTerrainHeight;
+                                GroundBuffer->Vertices[TmpPosCount].Position.z = Z;
+                 */
+                
+                v3 A = {};
+                A.x = X * Frame->TileWidth;
+                A.y = Y * Frame->TileWidth;
+                u32 SeedValueA = 139 * (TileX + X) + 593 * (TileY + Y) + 329 * TileZ;
+                random_series SeriesA = RandomSeed(SeedValueA);
+                r32 AZ = RandomUnilateral(&SeriesA);
+                AZ *= Frame->MaxTerrainHeight;
+                A.z = AZ;
+                GroundBuffer->Vertices[TmpPosCount].Position.z += AZ;
+                
+                
+                // NOTE(ezexff): Normal
+                v3 B = {};
+                B.x = (X + 1) * Frame->TileWidth;
+                B.y = A.y;
+                u32 SeedValueB = 139 * (TileX + (X + 1)) + 593 * (TileY + Y) + 329 * TileZ;
+                random_series SeriesB = RandomSeed(SeedValueB);
+                r32 BZ = RandomUnilateral(&SeriesB);
+                BZ *= Frame->MaxTerrainHeight;
+                B.z = BZ;
+                
+                v3 C = {};
+                C.x = A.x;;
+                C.y = (Y + 1) * Frame->TileHeight;
+                u32 SeedValueC = 139 * (TileX + X) + 593 * (TileY + (Y + 1)) + 329 * TileZ;
+                random_series SeriesC = RandomSeed(SeedValueC);
+                r32 CZ = RandomUnilateral(&SeriesC);
+                CZ *= Frame->MaxTerrainHeight;
+                
+                //Frame->TerrainVertices[CurrentVertex].Normal = CalcNormal(A, B, C);
+                GroundBuffer->Vertices[TmpPosCount].Normal = CalcNormal(A, B, C);
+                
+                TmpPosCount++;
             }
         }
     }
@@ -360,21 +433,21 @@ FillGroundChunk(tran_state *TranState, game_state *GameState,
             int32 ChunkX = ChunkP->ChunkX + ChunkOffsetX;
             int32 ChunkY = ChunkP->ChunkY + ChunkOffsetY;
             int32 ChunkZ = ChunkP->ChunkZ;
-
+    
             // TODO(casey): Make random number generation more systemic
             // TODO(casey): Look into wang hashing or some other spatial seed generation "thing"!
             //random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
-
+    
             v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
-
+    
             for(uint32 GrassIndex = 0; GrassIndex < 50; ++GrassIndex)
             {
                 loaded_bitmap *Stamp = GameState->Tuft + RandomChoice(&Series, ArrayCount(GameState->Tuft));
-
+    
                 v2 BitmapCenter = 0.5f * V2i(Stamp->Width, Stamp->Height);
                 v2 Offset = {Width * RandomUnilateral(&Series), Height * RandomUnilateral(&Series)};
                 v2 P = Center + Offset - BitmapCenter;
-
+    
                 PushBitmap(RenderGroup, Stamp, V3(P, 0.0f));
             }
         }
@@ -675,9 +748,6 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     renderer_frame *Frame = &Memory->Frame;
     world *World = GameState->World;
     
-    u32 GroundBufferWidth = 8;
-    u32 GroundBufferHeight = 8;
-    
     if(!ModeWorld->IsInitialized)
     {
         //~ NOTE(ezexff): World creation
@@ -685,9 +755,8 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             // NOTE(casey): Reserve entity slot 0 for the null entity
             AddLowEntity(GameState, EntityType_Null, NullPosition());
             
-            GameState->TypicalFloorHeight = 3.0f;
-            v3 WorldChunkDimInMeters = V3((r32)GroundBufferWidth,
-                                          (r32)GroundBufferHeight,
+            v3 WorldChunkDimInMeters = V3((r32)GameState->GroundBufferWidth,
+                                          (r32)GameState->GroundBufferHeight,
                                           GameState->TypicalFloorHeight);
             
             GameState->World = PushStruct(&GameState->ConstArena, world);
@@ -1242,9 +1311,9 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 world_position WorldEntityP = LowEntity->P;
                 
                 r32 RelTileX = GameState->TilesPerChunkRow * WorldEntityP.ChunkX + 
-                (GroundBufferWidth / 2.0f) + WorldEntityP.Offset_.x;
+                (GameState->GroundBufferWidth / 2.0f) + WorldEntityP.Offset_.x;
                 r32 RelTileY = GameState->TilesPerChunkRow * WorldEntityP.ChunkY +
-                (GroundBufferHeight / 2.0f) + WorldEntityP.Offset_.y;
+                (GameState->GroundBufferHeight / 2.0f) + WorldEntityP.Offset_.y;
                 s32 TileX = FloorReal32ToInt32(RelTileX);
                 s32 TileY = FloorReal32ToInt32(RelTileY);
                 s32 TileZ = 0; // TODO(ezexff): Need rework when start using z chunks
@@ -1400,10 +1469,10 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 r32 FurthestBufferLengthSq = 0.0f;
                 ground_buffer *FurthestBuffer = 0;
                 for(u32 GroundBufferIndex = 0;
-                    GroundBufferIndex < TranState->GroundBufferCount;
+                    GroundBufferIndex < Frame->GroundBufferCount;
                     ++GroundBufferIndex)
                 {
-                    ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+                    ground_buffer *GroundBuffer = Frame->GroundBuffers + GroundBufferIndex;
                     if(AreInSameChunk(World, &GroundBuffer->P, &ChunkCenterP))
                     {
                         TmpGroundBufferIndex = 0;
@@ -1432,7 +1501,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 if(FurthestBuffer)
                 {
                     //Log->Add("[fillgroundchunk] TmpGroundBufferIndex=%d (%d,%d)\n", TmpGroundBufferIndex, ChunkCenterP.ChunkX, ChunkCenterP.ChunkY);
-                    FillGroundChunk(TranState, GameState,
+                    FillGroundChunk(TranState, GameState, Frame,
                                     FurthestBuffer,
                                     &ChunkCenterP);
                 }
@@ -1440,6 +1509,42 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         }
     }
     
+    // NOTE(ezexff): Render Ground Buffers
+    {
+        for(u32 GroundBufferIndex = 0;
+            GroundBufferIndex < Frame->GroundBufferCount;
+            ++GroundBufferIndex)
+        {
+            ground_buffer *GroundBuffer = Frame->GroundBuffers + GroundBufferIndex;
+            if(IsValid(GroundBuffer->P))
+            {
+                GroundBuffer->OffsetP = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);
+                
+                // TODO(ezexff): Test
+                if((GroundBuffer->P.ChunkX == 0) && (GroundBuffer->P.ChunkY == 0) && (GroundBuffer->P.ChunkZ == 0))
+                {
+                    u32 CurrentVertex = 0;
+                    for(u32 Y = 0;
+                        Y <= Frame->TileCount;
+                        ++Y)
+                    {
+                        for(u32 X = 0;
+                            X <= Frame->TileCount;
+                            ++X)
+                        {
+                            v3 P1 = GroundBuffer->OffsetP + GroundBuffer->Vertices[CurrentVertex].Position;
+                            v3 P2 = GroundBuffer->OffsetP + GroundBuffer->Vertices[CurrentVertex].Position + GroundBuffer->Vertices[CurrentVertex].Normal;
+                            PushLine(Frame, P1,  P2);
+                            CurrentVertex++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+#endif
+    
+#if 0
     // NOTE(ezexff): Render ground buffers
     Frame->TerrainVerticesCount = TranState->GroundBufferCount * ((GameState->TilesPerChunkRow + 1) * (GameState->TilesPerChunkRow + 1));
     Frame->TerrainIndicesCount = TranState->GroundBufferCount * (6 * GameState->TilesPerChunkRow * GameState->TilesPerChunkRow);
@@ -1460,10 +1565,10 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             
             if((Delta.z >= -1.0f) && (Delta.z < 1.0f))
             {
-                r32 MinDeltaX = Delta.x - GroundBufferWidth / 2;
-                r32 MinDeltaY = Delta.y - GroundBufferHeight / 2;
-                r32 MaxDeltaX = MinDeltaX + GroundBufferWidth;
-                r32 MaxDeltaY = MinDeltaY + GroundBufferHeight;
+                r32 MinDeltaX = Delta.x - GameState->GroundBufferWidth / 2;
+                r32 MinDeltaY = Delta.y - GameState->GroundBufferHeight / 2;
+                r32 MaxDeltaX = MinDeltaX + GameState->GroundBufferWidth;
+                r32 MaxDeltaY = MinDeltaY + GameState->GroundBufferHeight;
                 
                 s32 ChunkX = GroundBuffer->P.ChunkX;
                 s32 ChunkY = GroundBuffer->P.ChunkY;
@@ -1478,8 +1583,8 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                     InvalidCodePath;
                 }
                 
-                r32 TileWidth = (r32)GroundBufferWidth / TilesPerChunkRow;
-                r32 TileHeight = (r32)GroundBufferHeight / TilesPerChunkRow; 
+                r32 TileWidth = (r32)GameState->GroundBufferWidth / TilesPerChunkRow;
+                r32 TileHeight = (r32)GameState->GroundBufferHeight / TilesPerChunkRow; 
                 
                 // Positions and indices
                 for(u32 Y = 0;

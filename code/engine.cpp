@@ -164,6 +164,12 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             Frame->FragEffect = EFFECT_NORMAL;
         }
         
+        // NOTE(ezexff): Terrain options
+        // TODO(ezexff): Mb rework?
+        GameState->GroundBufferWidth = 8;
+        GameState->GroundBufferHeight = 8;
+        GameState->TypicalFloorHeight = 3.0f;
+        
         GameState->IsInitialized = true;
     }
     
@@ -207,14 +213,99 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         
         // NOTE(ezexff): Init ground buffers
         {
-            TranState->GroundBufferCount = 64;
-            TranState->GroundBuffers = PushArray(TranArena, TranState->GroundBufferCount, ground_buffer);
+            Frame->GroundBufferCount = 64;
+            Frame->TileCount = 16;
+            Frame->MaxTerrainHeight = 0.2f;
+            
+            Frame->TileWidth = (r32)GameState->GroundBufferWidth / Frame->TileCount;
+            Frame->TileHeight = (r32)GameState->GroundBufferHeight / Frame->TileCount;
+            
+            
+            Frame->ChunkVertexCount = (Frame->TileCount + 1) * (Frame->TileCount + 1);
+            //Frame->ChunkPositionsXY = PushArray(TranArena, Frame->ChunkVertexCount, v2);
+            
+            Frame->ChunkIndexCount = (6 * Frame->TileCount * Frame->TileCount);
+            Frame->ChunkIndices = PushArray(TranArena, Frame->ChunkIndexCount, u32);
+            u32 TmpPosCount = 0;
+            u32 TmpIndCount = 0;
+            for(u32 Y = 0;
+                Y <= Frame->TileCount;
+                ++Y)
+            {
+                for(u32 X = 0;
+                    X <= Frame->TileCount;
+                    ++X)
+                {
+                    if((X != Frame->TileCount) && (Y != Frame->TileCount))
+                    {
+                        Frame->ChunkIndices[TmpIndCount + 0] = TmpPosCount;
+                        Frame->ChunkIndices[TmpIndCount + 1] = TmpPosCount + 1;
+                        Frame->ChunkIndices[TmpIndCount + 2] = TmpPosCount + Frame->TileCount + 1;
+                        
+                        Frame->ChunkIndices[TmpIndCount + 3] = TmpPosCount + 1;
+                        Frame->ChunkIndices[TmpIndCount + 4] = TmpPosCount + Frame->TileCount + 1;
+                        Frame->ChunkIndices[TmpIndCount + 5] = TmpPosCount + Frame->TileCount + 2;
+                        
+                        TmpIndCount += 6;
+                    }
+                    TmpPosCount++;
+                }
+            }
+            Assert(TmpIndCount == Frame->ChunkIndexCount);
+            
+            Frame->GroundBuffers = PushArray(TranArena, Frame->GroundBufferCount, ground_buffer);
+            //Frame->GroundBuffers = PushArray(TranArena, Frame->GroundBufferCount, ground_buffer);
             for(u32 GroundBufferIndex = 0;
-                GroundBufferIndex < TranState->GroundBufferCount;
+                GroundBufferIndex < Frame->GroundBufferCount;
                 ++GroundBufferIndex)
             {
-                ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
+                ground_buffer *GroundBuffer = Frame->GroundBuffers + GroundBufferIndex;
+                
+                GroundBuffer->IsInitialized = false;
+                GroundBuffer->IsFilled = false;
+                
                 GroundBuffer->P = NullPosition();
+                
+                GroundBuffer->OffsetP = V3(0, 0, 0); // смещение относительно камеры для рендера чанка
+                
+                // заполнение в fillgroundchunk
+                //GroundBuffer->PositionsZ = PushArray(TranArena, Frame->ChunkVertexCount, r32);
+                //GroundBuffer->Normals = PushArray(TranArena, Frame->ChunkVertexCount, v3);
+                //GroundBuffer->TexCoords = PushArray(TranArena, Frame->ChunkVertexCount, v2);
+                GroundBuffer->Vertices = PushArray(TranArena, Frame->ChunkVertexCount, vbo_vertex);
+                
+                // NOTE(ezexff): Fill default chunk positions and indices
+                u32 TmpPosCount2 = 0;
+                //u32 TmpIndCount = 0;
+                for(u32 Y = 0;
+                    Y <= Frame->TileCount;
+                    ++Y)
+                {
+                    for(u32 X = 0;
+                        X <= Frame->TileCount;
+                        ++X)
+                    {
+                        GroundBuffer->Vertices[TmpPosCount2].Position.x = X * Frame->TileWidth;
+                        GroundBuffer->Vertices[TmpPosCount2].Position.y = Y * Frame->TileHeight;
+                        //GroundBuffer->Vertices[TmpPosCount].Position.z = 0;
+                        
+                        /*if((X != Frame->TileCount) && (Y != Frame->TileCount))
+                        {
+                            Frame->ChunkIndices[TmpIndCount + 0] = TmpPosCount;
+                            Frame->ChunkIndices[TmpIndCount + 1] = TmpPosCount + 1;
+                            Frame->ChunkIndices[TmpIndCount + 2] = TmpPosCount + Frame->TileCount + 1;
+                            
+                            Frame->ChunkIndices[TmpIndCount + 3] = TmpPosCount + 1;
+                            Frame->ChunkIndices[TmpIndCount + 4] = TmpPosCount + Frame->TileCount + 1;
+                            Frame->ChunkIndices[TmpIndCount + 5] = TmpPosCount + Frame->TileCount + 2;
+                            
+                            TmpIndCount += 6;
+                        }*/
+                        TmpPosCount2++;
+                    }
+                }
+                Assert(TmpPosCount2 == Frame->ChunkVertexCount);
+                
                 //GroundBuffer->RandomZ = 0.0f;
                 // GroundBuffer->Bitmap = MakeEmptyBitmap(TranArena, GroundBufferWidth, GroundBufferHeight, false);
                 // GroundBuffer->Texture = U32Max;

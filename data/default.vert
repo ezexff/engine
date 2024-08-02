@@ -18,6 +18,8 @@ uniform mat4 uModel;
 uniform mat4 uProjShadowMap;
 uniform mat4 uViewShadowMap;
 
+//uniform vec3 uOffsetP;
+
 /*uniform bool WithAnimations;
 
 const int MAX_BONES = 100;

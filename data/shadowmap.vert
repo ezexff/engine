@@ -13,6 +13,8 @@ layout(location = 0) in vec3 iPosition;
 uniform mat4 uProj;
 uniform mat4 uView;
 uniform mat4 uModel; // матрица модели
+
+//uniform vec3 uOffsetP;
 // uniform vec3 ViewPosition; // позиция камеры
 
 //uniform bool WithAnimations;

@@ -479,6 +479,35 @@ struct material
     r32 Shininess;
 };
 
+struct world_position
+{
+    s32 ChunkX;
+    s32 ChunkY;
+    s32 ChunkZ;
+    
+    v3 Offset_;
+};
+
+struct ground_buffer
+{
+    b32 IsInitialized;
+    b32 IsFilled;
+    
+    world_position P;
+    
+    u32 VAO;
+    u32 VBO;
+    u32 EBO;
+    
+    v3 OffsetP; // смещение относительно камеры
+    
+    //r32 *PositionsZ;
+    vbo_vertex *Vertices;
+    //v3*Positions;
+    //v3 *Normals;
+    //v2 *TexCoords;
+};
+
 struct renderer_frame
 {
     v3 OffsetP; // TODO(ezexff): World offsetP for entity pos calc
@@ -571,6 +600,26 @@ struct renderer_frame
     
     //~ TODO(ezexff): Move into ImGui?
     bool DrawDebugTextLine;
+    
+    // NOTE(ezexff): Terrain v2.0
+    //b32 GroundBuffersIsInitialized;
+    
+    u32 GroundBufferCount;
+    ground_buffer *GroundBuffers;
+    
+    u32 TileCount; // NOTE(ezexff): In 1 terrain chunk row
+    r32 TileWidth;
+    r32 TileHeight;
+    
+    u32 ChunkVertexCount;
+    //v2 *ChunkPositionsXY;
+    
+    u32 ChunkIndexCount;
+    u32 *ChunkIndices;
+    
+    r32 MaxTerrainHeight;
+    
+    
     
 #if ENGINE_INTERNAL
     // NOTE(ezexff): ImGui bitmap preview window

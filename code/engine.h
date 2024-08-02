@@ -51,6 +51,8 @@ struct game_state
     //~ NOTE(ezexff): Sim region
     world *World;
     
+    u32 GroundBufferWidth;
+    u32 GroundBufferHeight;
     r32 TypicalFloorHeight;
     
     u32 CameraFollowingEntityIndex;
@@ -101,8 +103,22 @@ struct tran_state
     
     game_assets *Assets;
     
-    u32 GroundBufferCount;
+    // NOTE(ezexff): Terrain
+    // NOTE(ezexff): Тиррейн состоит из чанков, а чанки из тайлов
+    /*u32 GroundBufferCount;
     ground_buffer *GroundBuffers;
+    
+    u32 TileCount; // NOTE(ezexff): In 1 terrain chunk row
+    r32 TileWidth;
+    r32 TileHeight;
+    
+    u32 ChunkVertexCount;
+    v2 *ChunkPositionsXY;
+    
+    u32 ChunkIndexCount;
+    u32 *ChunkIndices;
+    
+    r32 MaxTerrainHeight;*/
 };
 
 global_variable platform_api Platform;
