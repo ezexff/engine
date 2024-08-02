@@ -368,6 +368,24 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                     ImGui::TreePop();
                     ImGui::Spacing();
                 }
+                if(ImGui::TreeNode("ShadowMap"))
+                {
+                    ImGui::Image((void *)(intptr_t)Frame->ShadowMap,
+                                 ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
+                                 ImVec2(0, 0), ImVec2(1, -1));
+                    
+                    ImGui::InputFloat("Size##ShadowMap", &Frame->ShadowMapSize, 0.01f, 1.0f, "%.3f");
+                    ImGui::InputFloat("NearPlane##ShadowMap", &Frame->ShadowMapNearPlane, 0.01f, 1.0f, "%.3f");
+                    ImGui::InputFloat("FarPlane##ShadowMap", &Frame->ShadowMapFarPlane, 0.01f, 1.0f, "%.3f");
+                    ImGui::InputFloat("CameraPitch##ShadowMap", &Frame->ShadowMapCameraPitch, 0.01f, 1.0f, "%.3f");
+                    ImGui::InputFloat("CameraYaw##ShadowMap", &Frame->ShadowMapCameraYaw, 0.01f, 1.0f, "%.3f");
+                    float *ShadowMapCameraPos = (float *)&Frame->ShadowMapCameraPos;
+                    ImGui::DragFloat3("CameraPos##ShadowMap", ShadowMapCameraPos, 0.01f, -100.0f, 100.0f);
+                    ImGui::InputFloat("Bias##ShadowMap", &Frame->ShadowMapBias, 0.001f, 1.0f, "%.3f");
+                    
+                    ImGui::TreePop();
+                    ImGui::Spacing();
+                }
                 
                 ImGui::SeparatorText("Frag effects");
                 char *FragEffects[] = 
@@ -869,9 +887,13 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                         float *DirLightBaseColor = (float *)&Frame->DirLight.Base.Color;
                         ImGui::ColorEdit3("Color##DirLight", DirLightBaseColor);
                         ImGui::InputFloat("AmbientIntensity##TerrainDirLight", &Frame->DirLight.Base.AmbientIntensity, 0.01f, 1.0f, "%.3f");
+                        ImGui::InputFloat("DiffuseIntensity##TerrainDirLight", &Frame->DirLight.Base.DiffuseIntensity, 0.01f, 1.0f, "%.3f");
+                        
                         float *DirLightWorldDirection = (float *)&Frame->DirLight.WorldDirection;
                         ImGui::DragFloat3("WorldDirection##TerrainDirLight", DirLightWorldDirection, 0.01f, -100.0f, 100.0f);
                         
+                        ImGui::SeparatorText("Test");
+                        ImGui::Checkbox("PushBufferWithLight##Test", &Frame->PushBufferWithLight);
                         
                     } break;
                     

@@ -490,6 +490,8 @@ struct renderer_frame
     u8 *PushBufferBase;
     u32 PushBufferSize;
     u32 MissingResourceCount;
+    // TODO(ezexff): Mb add FOV?
+    
     
     camera Camera;
     r32 CameraZ;
@@ -547,11 +549,25 @@ struct renderer_frame
     bool FixCameraOnTerrain;
     
     //~ NOTE(ezexff): Light
+    bool PushBufferWithLight;
     directional_light DirLight;
     u32 PointLightsCount;
     point_light PointLights;
     u32 SpotLightsCount;
     spot_light SpotLights;
+    
+    //~ NOTE(ezexff): Shadows
+    u32 ShadowMapFBO;
+    u32 ShadowMap;
+    v2s ShadowMapDim;
+    r32 ShadowMapSize;
+    r32 ShadowMapNearPlane, ShadowMapFarPlane;
+    r32 ShadowMapCameraPitch, ShadowMapCameraYaw;
+    v3 ShadowMapCameraPos;
+    r32 ShadowMapBias;
+    opengl_shader ShadowMapVert;
+    opengl_shader ShadowMapFrag;
+    opengl_program ShadowMapProg;
     
     //~ TODO(ezexff): Move into ImGui?
     bool DrawDebugTextLine;

@@ -56,6 +56,7 @@ V = p3 - p1 then the normal N = U X V and can be calculated by:
     Result.x = U.y * V.z - U.z * V.y;
     Result.y = U.z * V.x - U.x * V.z;
     Result.z = U.x * V.y - U.y * V.x;
+    Result = Normalize(Result);
     
     return(Result);
 }
@@ -179,6 +180,68 @@ FillGroundChunk(tran_state *TranState, game_state *GameState,
 #else
     //temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
     GroundBuffer->P = *ChunkP;
+    
+    r32 Width = GameState->World->ChunkDimInMeters.x;
+    r32 Height = GameState->World->ChunkDimInMeters.y;
+    
+    if((ChunkP->ChunkX == 0) && (ChunkP->ChunkY == 0) & (ChunkP->ChunkZ == 0))
+    {
+        // TODO(ezexff): Add hill or pit
+        int dsfdsf = 0;
+        
+        for(s32 ChunkOffsetY = -1;
+            ChunkOffsetY <= 1;
+            ++ChunkOffsetY)
+        {
+            for(s32 ChunkOffsetX = -1;
+                ChunkOffsetX <= 1;
+                ++ChunkOffsetX)
+            {
+                s32 ChunkX = ChunkP->ChunkX + ChunkOffsetX;
+                s32 ChunkY = ChunkP->ChunkY + ChunkOffsetY;
+                s32 ChunkZ = ChunkP->ChunkZ;
+                
+                // TODO(casey): Make random number generation more systemic
+                // TODO(casey): Look into wang hashing or some other spatial seed generation "thing"!
+                random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
+                
+                // v2 Center = V2(ChunkOffsetX * Width + HalfDim.x, ChunkOffsetY * Height + HalfDim.y);
+                v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
+                
+                /*r32 MaxTerrainHeight = 0.2f;
+                
+                int VertexIndex = 0;
+                for(u32 Y = 0;      //
+                    Y < Height + 1; //
+                    Y++)
+                {
+                    for(u32 X = 0;     //
+                        X < Width + 1; //
+                        X++, VertexIndex++)
+                    {
+                        // r32 RandomZ2 = (r32)(rand() % 10) * 0.02f;
+                        
+                        //
+                        {
+                            if((X == 0) || (Y == 0) || (X == Width) || (Y == Height))
+                            {
+                                // if((ChunkOffsetX == 0) && (ChunkOffsetY == 0))
+                                {
+                                    // r32 RandomZ1 = RandomUnilateral(&Series) * MaxTerrainHeight;
+                                    // Mesh->Positions[VertexIndex] = V3((r32)X, (r32)Y, RandomZ1);
+                                }
+                            }
+                            else
+                            {
+                                r32 RandomZ1 = RandomUnilateral(&Series) * MaxTerrainHeight;
+                                Mesh->Positions[VertexIndex] = V3((r32)X, (r32)Y, RandomZ1);
+                            }
+                        }
+                    }
+                }*/
+            }
+        }
+    }
     
     //Log->Add("ChunkP = (%d,%d)\n", ChunkP->ChunkX, ChunkP->ChunkY);
     
@@ -759,7 +822,18 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             //Frame->DirLight.WorldDirection = V3(1.5f, 0.0f, 3.0f);
             //Frame->DirLight.WorldDirection = V3(3.0f, 6.0f, -73.5f);
             //Frame->DirLight.WorldDirection = V3(1.0f, 0.0f, 1.0f);
-            Frame->DirLight.WorldDirection = V3(0.0f, 0.0f, 3.0f);
+            Frame->DirLight.WorldDirection = V3(0.0f, 0.0f, -1.0f);
+            
+            // NOTE(ezexff): Shadows
+            //Frame->ShadowMapDim.x = 1920 * 4;
+            //Frame->ShadowMapDim.y = 1080 * 4;
+            Frame->ShadowMapSize = 60.0f;
+            Frame->ShadowMapNearPlane = -50.0f;
+            Frame->ShadowMapFarPlane = 100.0f;
+            Frame->ShadowMapCameraPitch = 60.0f;
+            Frame->ShadowMapCameraYaw = -120.0f;
+            Frame->ShadowMapCameraPos = V3(0.0f, 0.0f, 0.0f);
+            Frame->ShadowMapBias = 0.005f;
             
 #if ENGINE_INTERNAL
             ImGuiHandle->DrawSpaceBounds = true;
@@ -1444,9 +1518,9 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                         random_series SeriesC = RandomSeed(SeedValueC);
                         r32 CZ = RandomUnilateral(&SeriesC);
                         CZ *= GameState->MaxTerrainHeight;
-                        C.z = CZ;
                         
                         Frame->TerrainVertices[CurrentVertex].Normal = CalcNormal(A, B, C);
+                        
                         
                         /* 
                                                 if((ChunkX == 0) && (ChunkY == 0) && (ChunkZ == 0))
