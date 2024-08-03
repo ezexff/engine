@@ -429,6 +429,14 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             
             if(ImGui::CollapsingHeader("Frame"))
             {
+                ImGui::SeparatorText("Variables");
+                ImGui::Text("Dim = %dx%d", Frame->Dim.x, Frame->Dim.y);
+                ImGui::Text("AspectRatio = %.3f", Frame->AspectRatio);
+                ImGui::InputFloat("FOV##Frame", &Frame->FOV, 0.01f, 1.0f, "%.3f");
+                float *WorldOrigin = (float *)&Frame->WorldOrigin;
+                ImGui::DragFloat3("WorldOrigin##Frame", WorldOrigin, 0.01f, -100.0f, 100.0f);
+                ImGui::Text("Effect ID = %d", Frame->FragEffect);
+                
                 ImGui::SeparatorText("Push buffer");
                 ImGui::Text("MaxSize = %d", Frame->MaxPushBufferSize);
                 ImGui::Text("Size = %d", Frame->PushBufferSize);
@@ -501,15 +509,6 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                 
                 ImGui::SeparatorText("Shaders editor");
                 ImGui::Checkbox("Visibility", &ImGuiHandle->ShowFrameShadersEditorWindow);
-                
-                ImGui::SeparatorText("Variables");
-                ImGui::Text("RenderTexture ID = %d", Frame->ColorTexture);
-                ImGui::Text("DepthTexture ID = %d", Frame->DepthTexture);
-                ImGui::Text("FBO ID = %d", Frame->FBO);
-                ImGui::Text("Vert ID = %d", Frame->Vert.ID);
-                ImGui::Text("Frag ID = %d", Frame->Frag.ID);
-                ImGui::Text("Program ID = %d", Frame->Program.ID);
-                ImGui::Text("Effect ID = %d", Frame->FragEffect);
             }
             
             if(ImGui::CollapsingHeader("Input"))
@@ -938,6 +937,7 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                         ImGui::Checkbox("DrawSimBounds (Cyan)", &ImGuiHandle->DrawSimBounds);
                         ImGui::Checkbox("DrawSimRegionBounds (Orange)", &ImGuiHandle->DrawSimRegionBounds);
                         ImGui::Checkbox("DrawSimRegionUpdatableBounds (Purple)", &ImGuiHandle->DrawSimRegionUpdatableBounds);
+                        ImGui::Checkbox("DrawGroundBufferBounds (blue)", &ImGuiHandle->DrawGroundBufferBounds);
                         
                         ImGui::SeparatorText("Skybox");
                         ImGui::Checkbox("Visibility##Skybox", &Frame->DrawSkybox);

@@ -176,6 +176,9 @@ struct imgui
     bool DrawSimRegionBounds;
     bool DrawSimRegionUpdatableBounds;
     
+    // NOTE(ezexff): Ground
+    bool DrawGroundBufferBounds;
+    
     // NOTE(ezexff): Sim Region entities
     bool DrawSpaceBounds;
     
@@ -510,10 +513,13 @@ struct ground_buffer
 
 struct renderer_frame
 {
-    v3 OffsetP; // TODO(ezexff): World offsetP for entity pos calc
-    
     //~ NOTE(ezexff): Frame
     v2s Dim; // NOTE(ezexff): Client render area (window size)
+    r32 AspectRatio;
+    r32 FOV;
+    v3 WorldOrigin;
+    
+    // NOTE(ezexff): PushBuffer
     u8 PushBufferMemory[65536];
     u32 MaxPushBufferSize;
     u8 *PushBufferBase;
@@ -521,9 +527,10 @@ struct renderer_frame
     u32 MissingResourceCount;
     // TODO(ezexff): Mb add FOV?
     
+    v3 OffsetP; // TODO(ezexff): World offsetP for entity pos calc
     
     camera Camera;
-    r32 CameraZ;
+    //r32 CameraZ;
     
     // NOTE(ezexff): We output rendered scene through ColorTexture and using shaders for on screen effects
     u32 ColorTexture;

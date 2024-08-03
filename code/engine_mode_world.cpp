@@ -186,6 +186,12 @@ FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Fr
         s32 TileX = GroundBuffer->P.ChunkX * Frame->TileCount;
         s32 TileY = GroundBuffer->P.ChunkY * Frame->TileCount;
         s32 TileZ = GroundBuffer->P.ChunkZ * Frame->TileCount;
+        s32 TileMax = 1000000;
+        if((TileX > TileMax) || (TileY > TileMax) || (TileZ > TileMax) ||
+           (TileX < -TileMax) || (TileY < -TileMax) || (TileZ < -TileMax))
+        {
+            InvalidCodePath;
+        }
         
         u32 TmpPosCount3 = 0;
         for(u32 Y = 0;
@@ -207,7 +213,7 @@ FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Fr
             s32 HillTileY = 8;
             s32 HillZ = 2;
             s32 HillRadius = 8;
-            if((ChunkP->ChunkX == 0) && (ChunkP->ChunkY == 0) & (ChunkP->ChunkZ == 0))
+            if((ChunkP->ChunkX == 4) && (ChunkP->ChunkY == 0) && (ChunkP->ChunkZ == 0))
             {
                 // TODO(ezexff): Add hill or pit
                 for(s32 Y = HillTileY - HillRadius;
@@ -221,9 +227,9 @@ FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Fr
                         s32 TmpIndex = Y * (Frame->TileCount + 1) + X;
                         Assert(TmpIndex >= 0);
                         Assert(TmpIndex < (s32)Frame->ChunkVertexCount);
-                        r32 t1 = (r32)(HillTileX - X);
-                        r32 t2 = (r32)(HillTileY - Y);
-                        r32 Length = SquareRoot(Square(t1) + Square(t2));
+                        r32 T1 = (r32)(HillTileX - X);
+                        r32 T2 = (r32)(HillTileY - Y);
+                        r32 Length = SquareRoot(Square(T1) + Square(T2));
                         if(Length < HillRadius)
                         {
                             Length = Length / HillRadius * (r32)Pi32_2;
@@ -234,7 +240,7 @@ FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Fr
             }
             
             HillZ = -2;
-            if((ChunkP->ChunkX == 1) && (ChunkP->ChunkY == 0) & (ChunkP->ChunkZ == 0))
+            if((ChunkP->ChunkX == 5) && (ChunkP->ChunkY == 0) && (ChunkP->ChunkZ == 0))
             {
                 // TODO(ezexff): Add hill or pit
                 for(s32 Y = HillTileY - HillRadius;
@@ -248,9 +254,9 @@ FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Fr
                         s32 TmpIndex = Y * (Frame->TileCount + 1) + X;
                         Assert(TmpIndex >= 0);
                         Assert(TmpIndex < (s32)Frame->ChunkVertexCount);
-                        r32 t1 = (r32)(HillTileX - X);
-                        r32 t2 = (r32)(HillTileY - Y);
-                        r32 Length = SquareRoot(Square(t1) + Square(t2));
+                        r32 T1 = (r32)(HillTileX - X);
+                        r32 T2 = (r32)(HillTileY - Y);
+                        r32 Length = SquareRoot(Square(T1) + Square(T2));
                         if(Length < HillRadius)
                         {
                             Length = Length / HillRadius * (r32)Pi32_2;
@@ -271,14 +277,6 @@ FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Fr
                 X <= Frame->TileCount;
                 ++X)
             {
-                /* 
-                                u32 SeedValueA = 139 * (TileX + X) + 593 * (TileY + Y) + 329 * TileZ;
-                                random_series SeriesA = RandomSeed(SeedValueA);
-                                r32 Z = RandomUnilateral(&SeriesA);
-                                Z *= Frame->MaxTerrainHeight;
-                                GroundBuffer->Vertices[TmpPosCount].Position.z = Z;
-                 */
-                
                 v3 A = {};
                 A.x = X * Frame->TileWidth;
                 A.y = Y * Frame->TileWidth;
@@ -862,14 +860,14 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             // NOTE(ezexff): Camera
             GameState->CameraPitch = 45.0f;
             GameState->CameraYaw = 315.0f;
-            Frame->CameraZ = 1.75f;
+            Frame->WorldOrigin.z = 1.75f;
             
             // NOTE(ezexff): Skybox
             Frame->DrawSkybox = true;
             
             // NOTE(ezexff): Terrain
-            GameState->MaxTerrainHeight = 0.2f;
-            GameState->TilesPerChunkRow = 16;
+            //GameState->MaxTerrainHeight = 0.2f;
+            //GameState->TilesPerChunkRow = 16;
             Frame->DrawTerrain = true;
             /*Frame->TerrainMaterial.Ambient = V4(0.2f, 0.2f, 0.2f, 1.0f);
             Frame->TerrainMaterial.Diffuse = V4(0.8f, 0.8f, 0.8f, 1.0f);
@@ -903,10 +901,6 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             Frame->ShadowMapCameraYaw = -120.0f;
             Frame->ShadowMapCameraPos = V3(0.0f, 0.0f, 0.0f);
             Frame->ShadowMapBias = 0.005f;
-            
-#if ENGINE_INTERNAL
-            ImGuiHandle->DrawSpaceBounds = true;
-#endif
         }
         
         ModeWorld->IsInitialized = true;
@@ -990,7 +984,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         // NOTE(ezexff): Camera z
         if(Input->MouseDelta.z != 0)
         {
-            Frame->CameraZ -= Input->MouseDelta.z;
+            Frame->WorldOrigin.z -= Input->MouseDelta.z;
         }
         
         // NOTE(ezexff): Keys
@@ -1310,22 +1304,22 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 low_entity *LowEntity = GetLowEntity(GameState, Entity->StorageIndex);
                 world_position WorldEntityP = LowEntity->P;
                 
-                r32 RelTileX = GameState->TilesPerChunkRow * WorldEntityP.ChunkX + 
-                (GameState->GroundBufferWidth / 2.0f) + WorldEntityP.Offset_.x;
-                r32 RelTileY = GameState->TilesPerChunkRow * WorldEntityP.ChunkY +
-                (GameState->GroundBufferHeight / 2.0f) + WorldEntityP.Offset_.y;
+                r32 RelTileX = Frame->TileCount * WorldEntityP.ChunkX + 
+                (GameState->GroundBufferWidth) + WorldEntityP.Offset_.x;
+                r32 RelTileY = Frame->TileCount * WorldEntityP.ChunkY +
+                (GameState->GroundBufferHeight) + WorldEntityP.Offset_.y;
                 s32 TileX = FloorReal32ToInt32(RelTileX);
                 s32 TileY = FloorReal32ToInt32(RelTileY);
                 s32 TileZ = 0; // TODO(ezexff): Need rework when start using z chunks
                 
                 random_series Series = RandomSeed(139 * (TileX) + 593 * (TileY) + 329 * TileZ);
-                r32 RandomZ00 = RandomUnilateral(&Series) * GameState->MaxTerrainHeight;
+                r32 RandomZ00 = RandomUnilateral(&Series) * Frame->MaxTerrainHeight;
                 Series = RandomSeed(139 * (TileX + 1) + 593 * (TileY) + 329 * TileZ);
-                r32 RandomZ10 = RandomUnilateral(&Series) * GameState->MaxTerrainHeight;
+                r32 RandomZ10 = RandomUnilateral(&Series) * Frame->MaxTerrainHeight;
                 Series = RandomSeed(139 * (TileX) + 593 * (TileY + 1) + 329 * TileZ);
-                r32 RandomZ01 = RandomUnilateral(&Series) * GameState->MaxTerrainHeight;
+                r32 RandomZ01 = RandomUnilateral(&Series) * Frame->MaxTerrainHeight;
                 Series = RandomSeed(139 * (TileX + 1) + 593 * (TileY + 1) + 329 * TileZ);
-                r32 RandomZ11 = RandomUnilateral(&Series) * GameState->MaxTerrainHeight;
+                r32 RandomZ11 = RandomUnilateral(&Series) * Frame->MaxTerrainHeight;
                 
                 r32 BaseOffsetX = RelTileX - TileX;
                 r32 BaseOffsetY = RelTileY - TileY;
@@ -1334,11 +1328,46 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 r32 OnTerrainZ = (H1, BaseOffsetY, H2);
                 Frame->OffsetP.z = OnTerrainZ;
                 
+                r32 HillHeight = 0.0f;
+                {
+                    s32 HillTileX = 8;
+                    s32 HillTileY = 8;
+                    s32 HillZ = 2;
+                    r32 HillRadius = 8.0f;
+                    if((WorldEntityP.ChunkX == 4) && (WorldEntityP.ChunkY == 0) && (WorldEntityP.ChunkZ == 0))
+                    {
+                        s32 ChunkTileX = TileX - WorldEntityP.ChunkX * Frame->TileCount;
+                        s32 ChunkTileY = TileY - WorldEntityP.ChunkY * Frame->TileCount;
+                        r32 T1 = (r32)(HillTileX - ChunkTileX);
+                        r32 T2 = (r32)(HillTileY - ChunkTileY);
+                        r32 Length = SquareRoot(Square(T1) + Square(T2));
+                        if(Length < HillRadius)
+                        {
+                            Length = Length / HillRadius * (r32)Pi32_2;
+                            HillHeight = Cos(Length) * HillZ;
+                        }
+                    }
+                    HillZ = -2;
+                    if((WorldEntityP.ChunkX == 5) && (WorldEntityP.ChunkY == 0) && (WorldEntityP.ChunkZ == 0))
+                    {
+                        s32 ChunkTileX = TileX - WorldEntityP.ChunkX * Frame->TileCount;
+                        s32 ChunkTileY = TileY - WorldEntityP.ChunkY * Frame->TileCount;
+                        r32 T1 = (r32)(HillTileX - ChunkTileX);
+                        r32 T2 = (r32)(HillTileY - ChunkTileY);
+                        r32 Length = SquareRoot(Square(T1) + Square(T2));
+                        if(Length < HillRadius)
+                        {
+                            Length = Length / HillRadius * (r32)Pi32_2;
+                            HillHeight = Cos(Length) * HillZ;
+                        }
+                    }
+                }
+                
                 // NOTE(ezexff): Terrain z for player camera
                 if(Entity->Type == EntityType_Hero && Frame->FixCameraOnTerrain)
                 {
 #define PLAYER_HEIGHT 1.75f
-                    Frame->CameraZ = OnTerrainZ + PLAYER_HEIGHT;
+                    Frame->WorldOrigin.z = OnTerrainZ + HillHeight + PLAYER_HEIGHT;
                 }
             }
             
@@ -1519,8 +1548,17 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             if(IsValid(GroundBuffer->P))
             {
                 GroundBuffer->OffsetP = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);
-                
-                // TODO(ezexff): Test
+#if ENGINE_INTERNAL
+                if(ImGuiHandle->DrawGroundBufferBounds)
+                {
+                    PushRectOutlineOnGround(Frame, GroundBuffer->OffsetP.xy, V2(8, 8), V4(0, 0, 1, 1));
+                }
+#endif
+                // NOTE(ezexff): From center pos to left bottom pos for proper rendering
+                GroundBuffer->OffsetP.x -= 0.5f * GameState->GroundBufferWidth;
+                GroundBuffer->OffsetP.y -= 0.5f * GameState->GroundBufferHeight;
+#if 0                
+                // NOTE(ezexff): Draw terrain chunk normals
                 if((GroundBuffer->P.ChunkX == 0) && (GroundBuffer->P.ChunkY == 0) && (GroundBuffer->P.ChunkZ == 0))
                 {
                     u32 CurrentVertex = 0;
@@ -1539,6 +1577,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                         }
                     }
                 }
+#endif
             }
         }
     }
@@ -1657,41 +1696,6 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     }
     Frame->TerrainVerticesCount = CurrentVertex;
     Frame->TerrainIndicesCount = CurrentIndex;
-#endif
-    
-#if 0
-    // NOTE(ezexff): Ground chunks
-    world_position MinChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMinCorner(SimRegion->Bounds));
-    world_position MaxChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMaxCorner(SimRegion->Bounds));
-    
-    u32 TestIndex = 0;
-    for(s32 ChunkZ = MinChunkP.ChunkZ;
-        ChunkZ <= MaxChunkP.ChunkZ;
-        ++ChunkZ)
-    {
-        for(s32 ChunkY = MinChunkP.ChunkY;
-            ChunkY <= MaxChunkP.ChunkY;
-            ++ChunkY)
-        {
-            for(s32 ChunkX = MinChunkP.ChunkX;
-                ChunkX <= MaxChunkP.ChunkX;
-                ++ChunkX)
-            {
-                
-                world_position ChunkCenterP = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
-                v3 RelP = Subtract(World, &ChunkCenterP, &GameState->CameraP);
-                
-                //if(Debug->DrawSimChunks)
-                {
-                    //PushRectOutlineOnGround(Frame, V3(RelP.xy, 0), World->ChunkDimInMeters.xy, V4(0, 1, 0, 1));
-                    PushBitmapOnGround(Frame, Assets, GetFirstBitmapFrom(Assets, Asset_Ground), 
-                                       RelP.xy, World->ChunkDimInMeters.xy, 4.0f);
-                }
-                TestIndex++;
-            }
-        }
-    }
-    Log->Add("TestIndex = %u\n", TestIndex);
 #endif
     
 #if ENGINE_INTERNAL
@@ -1817,8 +1821,8 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         world_position *CameraP = &GameState->CameraP;
         ImGui::Text("WorldP: %d %d %d", CameraP->ChunkX, CameraP->ChunkY, CameraP->ChunkZ);
         ImGui::Text("ChunkP: %.3f %.3f %.3f", CameraP->Offset_.x, CameraP->Offset_.y, CameraP->Offset_.z);
+        ImGui::Text("RenderWorldOrigin: %.3f %.3f %.3f", Frame->WorldOrigin.x, Frame->WorldOrigin.y, Frame->WorldOrigin.z);
         ImGui::Text("Ang: %.3f %.3f %.3f", Camera->Angle.x, Camera->Angle.y, Camera->Angle.z);
-        ImGui::Text("CameraZ: %.3f", Frame->CameraZ);
         ImGui::Text("Fps: %.1f", 1.0f / Input->dtForFrame);
         ImGui::Text("dt: %.6f", Input->dtForFrame);
         

@@ -548,6 +548,10 @@ OpenglInit(renderer_frame *Frame)
 {
     opengl *Opengl = &Frame->Opengl;
     
+    // NOTE(ezexff): Init frame
+    Frame->FOV = 0.1f;
+    Frame->WorldOrigin = {};
+    
 #if ENGINE_INTERNAL
     // NOTE(ezexff): For ImGuiPreview window
     glGenTextures(1, &Frame->PreviewTexture);
@@ -917,24 +921,106 @@ OpenglBeginFrame(renderer_frame *Frame)
 }
 
 void
-DefaultUniforms(renderer_frame *Frame)
+ShadowMapUniforms(renderer_frame *Frame, u32 ShaderProgramID)
 {
     opengl *Opengl = &Frame->Opengl;
+    camera *Camera = &Frame->Camera;
+    
+    // NOTE(ezexff): Send shadow matrices and parameters into shader
+    // Proj
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(-Frame->ShadowMapSize, Frame->ShadowMapSize, -Frame->ShadowMapSize, Frame->ShadowMapSize,
+            Frame->ShadowMapNearPlane, Frame->ShadowMapFarPlane);
+    r32 MatProjShadows[16];
+    glGetFloatv(GL_PROJECTION_MATRIX, MatProjShadows);
+    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, MatProjShadows);
+    
+    // View
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    glRotatef(-Frame->ShadowMapCameraPitch, 1.0f, 0.0f, 0.0f);
+    glRotatef(-Frame->ShadowMapCameraYaw, 0.0f, 0.0f, 1.0f);
+    glTranslatef(-Frame->ShadowMapCameraPos.x, -Frame->ShadowMapCameraPos.y, -Frame->ShadowMapCameraPos.z);
+    r32 MatViewShadows[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
+    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, MatViewShadows);
+    
+    // Model
+    m4x4 MatModel = Identity();
+    //MatModel = Translate(Frame->WorldOrigin);
+    MatModel = Transpose(MatModel); // opengl to glsl format
+    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
+}
+
+void
+DefaultUniforms(renderer_frame *Frame, u32 ShaderProgramID)
+{
+    opengl *Opengl = &Frame->Opengl;
+    camera *Camera = &Frame->Camera;
+    
+    // NOTE(ezexff): Send transform matrices into shader
+    {
+        // Proj
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glFrustum(-Frame->AspectRatio * Frame->FOV, Frame->AspectRatio * Frame->FOV, -Frame->FOV, Frame->FOV, Frame->FOV * 2, 1000);
+        r32 MatProj[16];
+        glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
+        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, MatProj);
+        
+        // View
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
+        glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
+        glRotatef(-Camera->Angle.z, 0.0f, 1.0f, 0.0f);
+        glTranslatef(-Frame->WorldOrigin.x, -Frame->WorldOrigin.y, -Frame->WorldOrigin.z);
+        //glTranslatef(-Frame->WorldOrigin.x, -Frame->WorldOrigin.y, -Frame->CameraZ);
+        r32 MatView[16];
+        glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
+        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, MatView);
+        
+        // Model
+        m4x4 MatModel = Identity();
+        //MatModel = Translate(Frame->WorldOrigin);
+        MatModel = Transpose(MatModel); // opengl to glsl format
+        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
+        
+        // Proj ShadowMap
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(-Frame->ShadowMapSize, Frame->ShadowMapSize, -Frame->ShadowMapSize, Frame->ShadowMapSize,
+                Frame->ShadowMapNearPlane, Frame->ShadowMapFarPlane);
+        r32 MatProjShadows[16]; 
+        glGetFloatv(GL_PROJECTION_MATRIX, MatProjShadows);
+        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProjShadowMap"), 1, GL_FALSE, MatProjShadows);
+        
+        // View ShadowMap
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        glRotatef(-Frame->ShadowMapCameraPitch, 1.0f, 0.0f, 0.0f);
+        glRotatef(-Frame->ShadowMapCameraYaw, 0.0f, 0.0f, 1.0f);
+        glTranslatef(-Frame->ShadowMapCameraPos.x, -Frame->ShadowMapCameraPos.y, -Frame->ShadowMapCameraPos.z);
+        r32 MatViewShadows[16];
+        glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
+        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uViewShadowMap"), 1, GL_FALSE, MatViewShadows);
+    }
     
     // NOTE(ezexff): Send camera pos into shader for light calc
     {
         // TODO(ezexff): What pos needed here?
         v3 CameraP = {};
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uCameraWorldP"), 1, CameraP.E);
+        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uCameraWorldP"), 1, CameraP.E);
     }
     
     // NOTE(ezexff): Send material into shader
     {
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uMaterial.AmbientColor"), 1, Frame->TerrainMaterial.Ambient.E);
+        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uMaterial.AmbientColor"), 1, Frame->TerrainMaterial.Ambient.E);
         
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uMaterial.DiffuseColor"), 1, Frame->TerrainMaterial.Diffuse.E);
+        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uMaterial.DiffuseColor"), 1, Frame->TerrainMaterial.Diffuse.E);
         
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uMaterial.SpecularColor"), 1, Frame->TerrainMaterial.Specular.E);
+        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uMaterial.SpecularColor"), 1, Frame->TerrainMaterial.Specular.E);
     }
     
     /* 
@@ -950,31 +1036,25 @@ DefaultUniforms(renderer_frame *Frame)
     
     // NOTE(ezexff): Send light sources into shader
     {
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uDirectionalLight.Base.Color"), 1, Frame->DirLight.Base.Color.E);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uDirectionalLight.Base.AmbientIntensity"), Frame->DirLight.Base.AmbientIntensity);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uDirectionalLight.Base.DiffuseIntensity"), Frame->DirLight.Base.DiffuseIntensity);
+        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.Color"), 1, Frame->DirLight.Base.Color.E);
+        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.AmbientIntensity"), Frame->DirLight.Base.AmbientIntensity);
+        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.DiffuseIntensity"), Frame->DirLight.Base.DiffuseIntensity);
         v3 DirLightDirection = Frame->DirLight.WorldDirection;
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uDirectionalLight.Direction"), 1, DirLightDirection.E);
+        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Direction"), 1, DirLightDirection.E);
     }
     
     // NOTE(ezexff): Send shadowmap and bias into shader
     {
         Opengl->glActiveTexture(GL_TEXTURE0 + 1);
         glBindTexture(GL_TEXTURE_2D, Frame->ShadowMap);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uShadowMap"), 1);
+        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uShadowMap"), 1);
         
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uBias"), Frame->ShadowMapBias);
+        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uBias"), Frame->ShadowMapBias);
     }
 }
 
-/*void
-ShadowMapUniformsToShader(renderer_frame *Frame, opengl *Opengl)
-{
-    //
-}*/
-
 void
-OpenglDrawPushBuffer(renderer_frame *Frame, r32 AspectRatio, r32 FOV, v3 WorldOrigin)
+OpenglDrawPushBuffer(renderer_frame *Frame)
 {
     camera *Camera = &Frame->Camera;
     
@@ -982,14 +1062,15 @@ OpenglDrawPushBuffer(renderer_frame *Frame, r32 AspectRatio, r32 FOV, v3 WorldOr
     glLoadIdentity();
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
+    glFrustum(-Frame->AspectRatio * Frame->FOV, Frame->AspectRatio * Frame->FOV, -Frame->FOV, Frame->FOV, Frame->FOV * 2, 1000);
     
     // View
     glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
     glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
     glRotatef(-Camera->Angle.z, 0.0f, 1.0f, 0.0f);
     // TODO(me): think about real z for camera 
-    glTranslatef(-WorldOrigin.x, -WorldOrigin.y, -Frame->CameraZ);
+    //glTranslatef(-Frame->WorldOrigin.x, -Frame->WorldOrigin.y, -Frame->CameraZ);
+    glTranslatef(-Frame->WorldOrigin.x, -Frame->WorldOrigin.y, -Frame->WorldOrigin.z);
     //v3 IsometricCameraPos = V3(-5.0f, -5.0f, 0.0f);
     //glTranslatef(-IsometricCameraPos.x, -IsometricCameraPos.y, -IsometricCameraPos.z);
     
@@ -1097,7 +1178,59 @@ OpenglDrawPushBuffer(renderer_frame *Frame, r32 AspectRatio, r32 FOV, v3 WorldOr
 }
 
 void
-OpenglDrawScene(renderer_frame *Frame, r32 AspectRatio, r32 FOV, v3 WorldOrigin, u32 ShaderProgramID)
+OpenglDrawSkybox(renderer_frame *Frame)
+{
+    opengl *Opengl = &Frame->Opengl;
+    camera *Camera = &Frame->Camera;
+    
+    glDepthFunc(GL_LEQUAL);
+    Opengl->glUseProgram(Frame->SkyboxProgram.ID);
+    
+    // NOTE(ezexff): Send transform matrices into shader
+    {
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glFrustum(-Frame->AspectRatio * Frame->FOV, Frame->AspectRatio * Frame->FOV, -Frame->FOV, Frame->FOV, Frame->FOV * 2, 1000);
+        r32 MatProj[16];
+        glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
+        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "Proj"), 1, GL_FALSE, MatProj);
+        
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
+        glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
+        glRotatef(-Camera->Angle.z, 0.0f, 1.0f, 0.0f);
+        glTranslatef(-Camera->P.x, -Camera->P.y, -Camera->P.z);
+        r32 MatView[16];
+        glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
+        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "View"), 1, GL_FALSE, MatView);
+        
+        m4x4 MatModel = Identity();
+        MatModel = Translate(Camera->P) * XRotation(90) * Scale(200);
+        MatModel = Transpose(MatModel); // opengl to glsl format
+        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "Model"), 1, GL_FALSE, (const GLfloat *)&MatModel);
+    }
+    
+    // NOTE(ezexff): Send texture into shader
+    {
+        Opengl->glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, Frame->SkyboxTexture);
+        Opengl->glUniform1i(Opengl->glGetUniformLocation(Frame->Program.ID, "SkyboxTexture"), 0);
+    }
+    
+    // NOTE(ezexff): Draw
+    {
+        Opengl->glBindVertexArray(Frame->SkyboxVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        Opengl->glBindVertexArray(0);
+    }
+    
+    Opengl->glUseProgram(0);
+    glDepthFunc(GL_LESS);
+}
+
+void
+OpenglDrawScene(renderer_frame *Frame, u32 ShaderProgramID)
 {
     opengl *Opengl = &Frame->Opengl;
     camera *Camera = &Frame->Camera;
@@ -1231,10 +1364,7 @@ OpenglEndFrame(renderer_frame *Frame)
     opengl *Opengl = &Frame->Opengl;
     camera *Camera = &Frame->Camera;
     
-    r32 AspectRatio = (r32)Frame->Dim.x / (r32)Frame->Dim.y;
-    r32 FOV = 0.1f;
-    v3 WorldOrigin = {};
-    //r32 FOV = 1.0f;
+    Frame->AspectRatio = (r32)Frame->Dim.x / (r32)Frame->Dim.y;
     
     glEnable(GL_DEPTH_TEST);
     
@@ -1247,39 +1377,12 @@ OpenglEndFrame(renderer_frame *Frame)
         {
             Opengl->glUseProgram(Frame->ShadowMapProg.ID);
             {
+                ShadowMapUniforms(Frame, Frame->ShadowMapProg.ID);
                 if(Frame->PushBufferWithLight)
                 {
-                    OpenglDrawPushBuffer(Frame, AspectRatio, FOV, WorldOrigin);
+                    OpenglDrawPushBuffer(Frame);
                 }
-                
-                // NOTE(ezexff): Send shadow matrices and parameters into shader
-                {
-                    glMatrixMode(GL_PROJECTION);
-                    glLoadIdentity();
-                    glOrtho(-Frame->ShadowMapSize, Frame->ShadowMapSize, -Frame->ShadowMapSize, Frame->ShadowMapSize,
-                            Frame->ShadowMapNearPlane, Frame->ShadowMapFarPlane);
-                    r32 MatProjShadows[16];
-                    glGetFloatv(GL_PROJECTION_MATRIX, MatProjShadows);
-                    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->ShadowMapProg.ID, "uProj"), 1, GL_FALSE, MatProjShadows);
-                    
-                    glMatrixMode(GL_MODELVIEW);
-                    glLoadIdentity();
-                    glRotatef(-Frame->ShadowMapCameraPitch, 1.0f, 0.0f, 0.0f);
-                    glRotatef(-Frame->ShadowMapCameraYaw, 0.0f, 0.0f, 1.0f);
-                    glTranslatef(-Frame->ShadowMapCameraPos.x, -Frame->ShadowMapCameraPos.y, -Frame->ShadowMapCameraPos.z);
-                    r32 MatViewShadows[16];
-                    glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
-                    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->ShadowMapProg.ID, "uView"), 1, GL_FALSE, MatViewShadows);
-                    
-                    /* 
-                                        m4x4 MatModel = Identity();
-                                        MatModel = Translate(WorldOrigin);
-                                        MatModel = Transpose(MatModel); // opengl to glsl format
-                                        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->ShadowMapProg.ID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
-                     */
-                }
-                
-                OpenglDrawScene(Frame, AspectRatio, FOV, WorldOrigin, Frame->ShadowMapProg.ID);
+                OpenglDrawScene(Frame, Frame->ShadowMapProg.ID);
             }
             Opengl->glUseProgram(0);
         }
@@ -1295,121 +1398,29 @@ OpenglEndFrame(renderer_frame *Frame)
         glClearColor(0.5, 0.5, 0.5, 1);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
+        // NOTE(ezexff): Scene with default shader
         Opengl->glUseProgram(Frame->DefaultProg.ID);
         {
+            DefaultUniforms(Frame, Frame->DefaultProg.ID);
             if(Frame->PushBufferWithLight)
             {
-                OpenglDrawPushBuffer(Frame, AspectRatio, FOV, WorldOrigin);
+                OpenglDrawPushBuffer(Frame);
             }
-            
-            // NOTE(ezexff): Send transform matrices into shader
-            {
-                // Proj
-                glMatrixMode(GL_PROJECTION);
-                glLoadIdentity();
-                glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
-                r32 MatProj[16];
-                glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
-                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uProj"), 1, GL_FALSE, MatProj);
-                
-                // View
-                glMatrixMode(GL_MODELVIEW);
-                glLoadIdentity();
-                glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
-                glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
-                glRotatef(-Camera->Angle.z, 0.0f, 1.0f, 0.0f);
-                glTranslatef(-WorldOrigin.x, -WorldOrigin.y, -Frame->CameraZ);
-                r32 MatView[16];
-                glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
-                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uView"), 1, GL_FALSE, MatView);
-                
-                // Model
-                /* 
-                                m4x4 MatModel = Identity();
-                                //v3 WorldOrigin = {};
-                                MatModel = Translate(WorldOrigin);
-                                MatModel = Transpose(MatModel); // opengl to glsl format
-                                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
-                 */
-                
-                // Proj ShadowMap
-                glMatrixMode(GL_PROJECTION);
-                glLoadIdentity();
-                glOrtho(-Frame->ShadowMapSize, Frame->ShadowMapSize, -Frame->ShadowMapSize, Frame->ShadowMapSize,
-                        Frame->ShadowMapNearPlane, Frame->ShadowMapFarPlane);
-                r32 MatProjShadows[16]; 
-                glGetFloatv(GL_PROJECTION_MATRIX, MatProjShadows);
-                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uProjShadowMap"), 1, GL_FALSE, MatProjShadows);
-                
-                // View ShadowMap
-                glMatrixMode(GL_MODELVIEW);
-                glLoadIdentity();
-                glRotatef(-Frame->ShadowMapCameraPitch, 1.0f, 0.0f, 0.0f);
-                glRotatef(-Frame->ShadowMapCameraYaw, 0.0f, 0.0f, 1.0f);
-                glTranslatef(-Frame->ShadowMapCameraPos.x, -Frame->ShadowMapCameraPos.y, -Frame->ShadowMapCameraPos.z);
-                r32 MatViewShadows[16];
-                glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
-                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uViewShadowMap"), 1, GL_FALSE, MatViewShadows);
-            }
-            DefaultUniforms(Frame);
-            OpenglDrawScene(Frame, AspectRatio, FOV, WorldOrigin, Frame->DefaultProg.ID);
+            OpenglDrawScene(Frame, Frame->DefaultProg.ID);
         }
         Opengl->glUseProgram(0);
         
+        // NOTE(ezexff): Push buffer without default shader
         if(!Frame->PushBufferWithLight)
         {
-            OpenglDrawPushBuffer(Frame, AspectRatio, FOV, WorldOrigin);
+            OpenglDrawPushBuffer(Frame);
         }
         
         // NOTE(ezexff): Skybox
         if(Frame->DrawSkybox)
         {
-            glDepthFunc(GL_LEQUAL);
-            Opengl->glUseProgram(Frame->SkyboxProgram.ID);
-            
-            // NOTE(ezexff): Send transform matrices into shader
-            {
-                glMatrixMode(GL_PROJECTION);
-                glLoadIdentity();
-                glFrustum(-AspectRatio * FOV, AspectRatio * FOV, -FOV, FOV, FOV * 2, 1000);
-                r32 MatProj[16];
-                glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
-                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "Proj"), 1, GL_FALSE, MatProj);
-                
-                glMatrixMode(GL_MODELVIEW);
-                glLoadIdentity();
-                glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
-                glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
-                glRotatef(-Camera->Angle.z, 0.0f, 1.0f, 0.0f);
-                glTranslatef(-Camera->P.x, -Camera->P.y, -Camera->P.z);
-                r32 MatView[16];
-                glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
-                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "View"), 1, GL_FALSE, MatView);
-                
-                m4x4 MatModel = Identity();
-                MatModel = Translate(Camera->P) * XRotation(90) * Scale(200);
-                MatModel = Transpose(MatModel); // opengl to glsl format
-                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "Model"), 1, GL_FALSE, (const GLfloat *)&MatModel);
-            }
-            
-            // NOTE(ezexff): Send texture into shader
-            {
-                Opengl->glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, Frame->SkyboxTexture);
-                Opengl->glUniform1i(Opengl->glGetUniformLocation(Frame->Program.ID, "SkyboxTexture"), 0);
-            }
-            
-            // NOTE(ezexff): Draw
-            {
-                Opengl->glBindVertexArray(Frame->SkyboxVAO);
-                glDrawArrays(GL_TRIANGLES, 0, 36);
-                Opengl->glBindVertexArray(0);
-            }
-            
-            Opengl->glUseProgram(0);
-            glDepthFunc(GL_LESS);
+            OpenglDrawSkybox(Frame);
         }
-        
     }
     Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
