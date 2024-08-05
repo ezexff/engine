@@ -89,7 +89,7 @@ internal PLATFORM_WORK_QUEUE_CALLBACK(TestWork)
     test_work *Work = (test_work *)Data;
     
 #if ENGINE_INTERNAL
-    Log->Add("[test_work] TestWorkWithMemory\n");
+    Log->Add("[enginework] TestWorkWithMemory\n");
 #endif
     
     EndTaskWithMemory(Work->Task);
@@ -287,6 +287,9 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                     {
                         GroundBuffer->Vertices[TmpPosCount2].Position.x = X * Frame->TileWidth;
                         GroundBuffer->Vertices[TmpPosCount2].Position.y = Y * Frame->TileHeight;
+                        
+                        GroundBuffer->Vertices[TmpPosCount2].TexCoords.x = (r32)X;
+                        GroundBuffer->Vertices[TmpPosCount2].TexCoords.y = (r32)Y;
                         //GroundBuffer->Vertices[TmpPosCount].Position.z = 0;
                         
                         /*if((X != Frame->TileCount) && (Y != Frame->TileCount))
@@ -390,67 +393,94 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             
             if(ImGui::CollapsingHeader("Audio"))
             {
-                ImGui::SeparatorText("PlayingSoundInfo");
-                playing_sound *PlayingSound = GameState->PlayingSound;
-                if(PlayingSound)
+                audio_state *AudioState = &GameState->AudioState;
+                if(AudioState)
                 {
-                    ImGui::BulletText("CurrentVolume = %f %f", 
-                                      PlayingSound->CurrentVolume.x, PlayingSound->CurrentVolume.y);
-                    ImGui::BulletText("dCurrentVolume = %f %f", 
-                                      PlayingSound->dCurrentVolume.x, PlayingSound->dCurrentVolume.y);
-                    ImGui::BulletText("TargetVolume = %f %f", PlayingSound->TargetVolume.x, PlayingSound->TargetVolume.y);
-                    ImGui::BulletText("dSample = %f", PlayingSound->dSample);
-                    ImGui::BulletText("dSample = %f", PlayingSound->dSample);
-                    ImGui::BulletText("sound_id = %d", PlayingSound->ID.Value);
-                    ImGui::BulletText("SamplesPlayed = %f", PlayingSound->SamplesPlayed);
+                    float *MasterVolume = (float *)&AudioState->MasterVolume;
+                    ImGui::DragFloat2("MasterVolume", MasterVolume, 0.01f, 0.0f, 1.0f);
                 }
                 else
                 {
-                    ImGui::BulletText("Sound isn't playing");
+                    ImGui::BulletText("AudioState isn't initialized");
                 }
                 
+                ImGui::SeparatorText("PlayingSounds");
+                playing_sound *PlayingSound = AudioState->FirstPlayingSound;
+                u32 PlayingSoundCount = 0;
+                if(PlayingSound)
+                {
+                    for(;;)
+                    {
+                        ImGui::SetNextItemOpen(true);
+                        if(ImGui::TreeNode((void *)(intptr_t)PlayingSoundCount, "Sound%d", PlayingSoundCount))
+                        {
+                            ImGui::BulletText("SoundID = %d", PlayingSound->ID.Value);
+                            ImGui::BulletText("CurrentVolume = %f %f", 
+                                              PlayingSound->CurrentVolume.x, PlayingSound->CurrentVolume.y);
+                            ImGui::BulletText("dCurrentVolume = %f %f", 
+                                              PlayingSound->dCurrentVolume.x, PlayingSound->dCurrentVolume.y);
+                            ImGui::BulletText("TargetVolume = %f %f", PlayingSound->TargetVolume.x, PlayingSound->TargetVolume.y);
+                            ImGui::BulletText("dSample = %f", PlayingSound->dSample);
+                            ImGui::BulletText("SamplesPlayed = %f", PlayingSound->SamplesPlayed);
+                            r32 dSample = PlayingSound->dSample;
+                            ImGui::InputFloat("Pitch", &dSample, 0.01f, 1.0f, "%.3f");
+                            ChangePitch(AudioState, PlayingSound, dSample);
+                            float *Volume = (float *)&PlayingSound->CurrentVolume;
+                            ImGui::DragFloat2("Volume", Volume, 0.01f, 0.0f, 1.0f);
+                            r32 FadeDurationInSeconds = 1.0f;
+                            v2 NewVolume = V2(Volume[0], Volume[1]);
+                            ChangeVolume(AudioState, PlayingSound, FadeDurationInSeconds, NewVolume);
+                            
+                            ImGui::TreePop();
+                            ImGui::Spacing();
+                        }
+                        
+                        PlayingSound = PlayingSound->Next;
+                        PlayingSoundCount++;
+                        if(!PlayingSound)
+                        {
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    ImGui::BulletText("Sounds isn't playing");
+                }
                 
-                ImGui::Checkbox("TestSineWave", &GameState->IsTestSineWave);
-                
-                ImGui::SeparatorText("Sine wave mixer");
+                ImGui::SeparatorText("TestSineWave");
+                ImGui::Checkbox("PlaySineWave", &GameState->IsTestSineWave);
                 ImGui::SliderInt("tone hz", &GameState->ToneHz, 20, 20000);
                 int ToneVolume = (int)GameState->ToneVolume;
                 ImGui::SliderInt("tone volume", &ToneVolume, 0, 20000);
                 GameState->ToneVolume = (s16)ToneVolume;
-                
-                ImGui::SeparatorText("Loaded sound");
-                if (ImGui::Button("Play"))
-                {
-                    GameState->PlayingSound = PlaySound(&GameState->AudioState, GetFirstSoundFrom(TranState->Assets, Asset_Bloop));
-                    //GameState->SampleIndex = 0;
-                    Log->Add("[test]: Play sound button pressed!\n");
-                }
             }
             
             if(ImGui::CollapsingHeader("Frame"))
             {
-                ImGui::SeparatorText("Variables");
-                ImGui::Text("Dim = %dx%d", Frame->Dim.x, Frame->Dim.y);
-                ImGui::Text("AspectRatio = %.3f", Frame->AspectRatio);
+                ImGui::BulletText("Dim = %dx%d", Frame->Dim.x, Frame->Dim.y);
+                ImGui::BulletText("AspectRatio = %.3f", Frame->AspectRatio);
                 ImGui::InputFloat("FOV##Frame", &Frame->FOV, 0.01f, 1.0f, "%.3f");
                 float *WorldOrigin = (float *)&Frame->WorldOrigin;
                 ImGui::DragFloat3("WorldOrigin##Frame", WorldOrigin, 0.01f, -100.0f, 100.0f);
-                ImGui::Text("Effect ID = %d", Frame->FragEffect);
+                float *ClearColor = (float *)&Frame->ClearColor;
+                ImGui::ColorEdit4("ClearColor##Frame", ClearColor);
                 
-                ImGui::SeparatorText("Push buffer");
-                ImGui::Text("MaxSize = %d", Frame->MaxPushBufferSize);
-                ImGui::Text("Size = %d", Frame->PushBufferSize);
+                ImGui::SeparatorText("PushBuffer");
+                ImGui::BulletText("MaxSize = %d", Frame->MaxPushBufferSize);
+                ImGui::BulletText("Size = %d", Frame->PushBufferSize);
                 
                 ImGui::SeparatorText("Camera");
                 camera *Camera = &Frame->Camera;
-                ImGui::Text("Pos: %.3f %.3f %.3f", Camera->P.x, Camera->P.y, Camera->P.z);
-                ImGui::Text("Ang: %.3f %.3f %.3f", Camera->Angle.x, Camera->Angle.y, Camera->Angle.z);
-                ImGui::Text("Vel: %.3f", 0);
+                ImGui::BulletText("Pos = %.3f %.3f %.3f", Camera->P.x, Camera->P.y, Camera->P.z);
+                ImGui::BulletText("Ang = %.3f %.3f %.3f", Camera->Angle.x, Camera->Angle.y, Camera->Angle.z);
+                ImGui::BulletText("PitchInverted = %.3f", Frame->CameraPitchInverted);
                 
                 ImGui::SeparatorText("Textures");
                 ImVec2 WinDim = ImGui::GetWindowSize();
                 s32 ScrollBarSize = 100;
                 r32 AspectRatio = Frame->Dim.x / (WinDim.x - ScrollBarSize);
+                
                 if(ImGui::TreeNode("Color"))
                 {
                     ImGui::Image((void *)(intptr_t)Frame->ColorTexture,
@@ -459,6 +489,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                     ImGui::TreePop();
                     ImGui::Spacing();
                 }
+                
                 if(ImGui::TreeNode("Depth"))
                 {
                     ImGui::Image((void *)(intptr_t)Frame->DepthTexture,
@@ -467,6 +498,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                     ImGui::TreePop();
                     ImGui::Spacing();
                 }
+                
                 if(ImGui::TreeNode("ShadowMap"))
                 {
                     ImGui::Image((void *)(intptr_t)Frame->ShadowMap,
@@ -486,7 +518,34 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                     ImGui::Spacing();
                 }
                 
-                ImGui::SeparatorText("Frag effects");
+                if(ImGui::TreeNode("Water"))
+                {
+                    ImGui::Text("ReflectionColor");
+                    ImGui::Image((void *)(intptr_t)Frame->WaterReflectionColorTexture,
+                                 ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
+                                 ImVec2(0, 0), ImVec2(1, -1));
+                    
+                    ImGui::Text("RefractionColor");
+                    ImGui::Image((void *)(intptr_t)Frame->WaterRefractionColorTexture,
+                                 ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
+                                 ImVec2(0, 0), ImVec2(1, -1));
+                    ImGui::Text("RefractionDepth");
+                    ImGui::Image((void *)(intptr_t)Frame->WaterRefractionDepthTexture,
+                                 ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
+                                 ImVec2(0, 0), ImVec2(1, -1));
+                    
+                    ImGui::InputFloat("WaveSpeed##Water", &Frame->WaterWaveSpeed, 0.01f, 1.0f, "%.3f");
+                    ImGui::InputFloat("Tiling##Water", &Frame->WaterTiling, 0.01f, 1.0f, "%.3f");
+                    ImGui::InputFloat("WaveStrength##Water", &Frame->WaterWaveStrength, 0.01f, 1.0f, "%.3f");
+                    ImGui::InputFloat("ShineDamper##Water", &Frame->WaterShineDamper, 0.01f, 1.0f, "%.3f");
+                    ImGui::InputFloat("Reflectivity##Water", &Frame->WaterReflectivity, 0.01f, 1.0f, "%.3f");
+                    
+                    ImGui::TreePop();
+                    ImGui::Spacing();
+                }
+                
+                ImGui::SeparatorText("FragEffects");
+                ImGui::BulletText("EffectID = %d", Frame->FragEffect);
                 char *FragEffects[] = 
                 {
                     "Abberation",
@@ -507,55 +566,52 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                 ImGui::ListBox("##frageffects", &Frame->FragEffect, FragEffects, FragEffectsCount, RowCount);
                 ImGui::PopItemWidth();
                 
-                ImGui::SeparatorText("Shaders editor");
-                ImGui::Checkbox("Visibility", &ImGuiHandle->ShowFrameShadersEditorWindow);
+                ImGui::SeparatorText("EditShaders");
+                ImGui::Checkbox("Frame shaders editor", &ImGuiHandle->ShowFrameShadersEditorWindow);
             }
             
             if(ImGui::CollapsingHeader("Input"))
             {
                 // NOTE(ezexff): Mouse input
                 ImGui::SeparatorText("Mouse");
-                ImGui::Text("Pos: %d %d", Input->MouseP.x, Input->MouseP.y);
-                ImGui::Text("Delta: %d %d", Input->MouseDelta.x, Input->MouseDelta.y);
-                if(Input->MouseDelta.z != 0)
-                {
-                    ImGui::SameLine();
-                    ImGui::Text(" %d", Input->MouseDelta.z);
-                }
-                ImGui::Checkbox("Log mouse input", &ImGuiHandle->LogMouseInput);
+                ImGui::BulletText("CursorPos = %d %d", Input->MouseP.x, Input->MouseP.y);
+                ImGui::BulletText("CursorDelta = %d %d", Input->MouseDelta.x, Input->MouseDelta.y);
+                ImGui::BulletText("ScrollDelta = %d", Input->MouseDelta.z);
+                
+                ImGui::Checkbox("Log mouse keys", &ImGuiHandle->LogMouseInput);
                 
                 if(ImGuiHandle->LogMouseInput)
                 {
                     if(Input->MouseDelta.z != 0)
                     {
-                        Log->Add("[input]: Scroll delta = %d\n", Input->MouseDelta.z);
+                        Log->Add("[engineinput] Scroll delta = %d\n", Input->MouseDelta.z);
                     }
                     
                     if(WasPressed(Input->MouseButtons[PlatformMouseButton_Left]))
                     {
-                        Log->Add("[input]: VK_LBUTTON was pressed\n");
+                        Log->Add("[engineinput] VK_LBUTTON was pressed\n");
                     }
                     if(WasPressed(Input->MouseButtons[PlatformMouseButton_Middle]))
                     {
-                        Log->Add("[input]: VK_MBUTTON was pressed\n");
+                        Log->Add("[engineinput] VK_MBUTTON was pressed\n");
                     }
                     if(WasPressed(Input->MouseButtons[PlatformMouseButton_Right]))
                     {
-                        Log->Add("[input]: VK_RBUTTON was pressed\n");
+                        Log->Add("[engineinput] VK_RBUTTON was pressed\n");
                     }
                     if(WasPressed(Input->MouseButtons[PlatformMouseButton_Extended0]))
                     {
-                        Log->Add("[input]: VK_XBUTTON1 was pressed\n");
+                        Log->Add("[engineinput] VK_XBUTTON1 was pressed\n");
                     }
                     if(WasPressed(Input->MouseButtons[PlatformMouseButton_Extended1]))
                     {
-                        Log->Add("[input]: VK_XBUTTON2 was pressed\n");
+                        Log->Add("[engineinput] VK_XBUTTON2 was pressed\n");
                     }
                 }
                 
                 // NOTE(ezexff): Keyboard input
                 ImGui::SeparatorText("Keyboard");
-                ImGui::Checkbox("Log keyboard input", &ImGuiHandle->LogKeyboardInput);
+                ImGui::Checkbox("Log keyboard keys", &ImGuiHandle->LogKeyboardInput);
                 
                 if(ImGuiHandle->LogKeyboardInput)
                 {
@@ -567,19 +623,39 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                         
                         if(WasPressed(Controller->MoveUp))
                         {
-                            Log->Add("[input]: MoveUp was pressed\n");
+                            Log->Add("[engineinput] MoveUp was pressed\n");
                         }
                         if(WasPressed(Controller->MoveDown))
                         {
-                            Log->Add("[input]: MoveDown was pressed\n");
+                            Log->Add("[engineinput] MoveDown was pressed\n");
                         }
                         if(WasPressed(Controller->MoveLeft))
                         {
-                            Log->Add("[input]: MoveLeft was pressed\n");
+                            Log->Add("[engineinput] MoveLeft was pressed\n");
                         }
                         if(WasPressed(Controller->MoveRight))
                         {
-                            Log->Add("[input]: MoveRight was pressed\n");
+                            Log->Add("[engineinput] MoveRight was pressed\n");
+                        }
+                        if(WasPressed(Controller->ActionUp))
+                        {
+                            Log->Add("[engineinput] ActionUp was pressed\n");
+                        }
+                        if(WasPressed(Controller->ActionDown))
+                        {
+                            Log->Add("[engineinput] ActionDown was pressed\n");
+                        }
+                        if(WasPressed(Controller->ActionLeft))
+                        {
+                            Log->Add("[engineinput] ActionLeft was pressed\n");
+                        }
+                        if(WasPressed(Controller->ActionRight))
+                        {
+                            Log->Add("[engineinput] ActionRight was pressed\n");
+                        }
+                        if(WasPressed(Controller->Start))
+                        {
+                            Log->Add("[engineinput] Start was pressed\n");
                         }
                     }
                 }
@@ -608,7 +684,6 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                 ImGui::BulletText("TagCount = %d", Assets->TagCount);
                 ImGui::BulletText("AssetCount = %d", Assets->AssetCount);
                 
-                //ImGui::SeparatorText("Memory blocks");
                 u32 BlockCount = 0;
                 if(ImGui::TreeNode("Memory blocks"))
                 {
@@ -624,31 +699,8 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                     ImGui::TreePop();
                     ImGui::Spacing();
                 }
-                /*
-ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
-                                  Assets->Arena.Size / Megabytes(1),
-                                  Assets->Arena.Size / Kilobytes(1),
-                                  Assets->Arena.Size);
-                ImGui::BulletText("Used = %d MB or %d KB or %d bytes",
-                                  Assets->Arena.Used / Megabytes(1),
-                                  Assets->Arena.Used / Kilobytes(1),
-                                  Assets->Arena.Used);
                 
-                
-                ImGui::SeparatorText("Variables");
-                ImGui::Text("TargetMemoryUsed = %d MB or %d KB or %d bytes", 
-                            Assets->TargetMemoryUsed / Megabytes(1),
-                            Assets->TargetMemoryUsed / Kilobytes(1),
-                            Assets->TargetMemoryUsed);
-                ImGui::Text("TotalMemoryUsed = %d MB or %d KB or %d bytes",
-                            Assets->TotalMemoryUsed / Megabytes(1),
-                            Assets->TotalMemoryUsed / Kilobytes(1),
-                            Assets->TotalMemoryUsed);
-*/
-                
-                ImGui::SeparatorText("Types");
-                
-                // NOTE(ezexff): asset_type_id
+                ImGui::SeparatorText("AssetCountByType");
                 char *TypeNames[] =
                 {
                     "None",
@@ -658,11 +710,16 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                     "Clip",
                     "Ground",
                     "Skybox",
+                    "Terrain",
+                    "DuDvMap",
+                    "NormalMap",
                     "Bloop",
                     "Music",
                     "Font",
                     "FontGlyph"
                 };
+                u32 TypeNamesCount = ArrayCount(TypeNames);
+                Assert(TypeNamesCount == Asset_Count);
                 
                 for(u32 TypeID = 1;
                     TypeID < Asset_Count;
@@ -673,7 +730,7 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                     u32 AssetCount = Type->OnePastLastAssetIndex - Type->FirstAssetIndex;
                     if(AssetCount > 0)
                     {
-                        ImGui::BulletText("%sCount = %d", TypeNames[TypeID], AssetCount);
+                        ImGui::BulletText("%s = %d", TypeNames[TypeID], AssetCount);
                     }
                 }
                 
@@ -681,16 +738,12 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                 if(ImGui::TreeNode("Bitmaps"))
                 {
                     for(u32 TypeID = Asset_Grass;
-                        TypeID <= Asset_Skybox;
+                        TypeID <= Asset_NormalMap;
                         TypeID++)
                     {
                         asset_type *Type = Assets->AssetTypes + TypeID;
                         u32 AssetCount = Type->OnePastLastAssetIndex - Type->FirstAssetIndex;
                         
-                        if(TypeID == Asset_Skybox)
-                        {
-                            int fsdfdsf = 0;
-                        }
                         if(AssetCount > 0)
                         {
                             if(ImGui::TreeNode((void *)(intptr_t)TypeID, "%s", TypeNames[TypeID]))
@@ -740,7 +793,6 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                 if(ImGui::TreeNode("Fonts"))
                 {
                     {
-                        //LoadFont(TranState->Assets, FirstFont);
                         font_id FirstFont = GetFirstFontFrom(TranState->Assets, Asset_Font);
                         
                         u32 FirstFontAsset = GetFirstAssetFrom(TranState->Assets, Asset_Font);
@@ -749,7 +801,6 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                         if(Asset->State == AssetState_Loaded)
                         {
                             loaded_font *Font = GetFont(Assets, FirstFont, true);
-                            int dsg32432 = 54645;
                         }
                         else if(Asset->State == AssetState_Unloaded)
                         {
@@ -816,12 +867,13 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                                         Frame->MissingResourceCount++;
                                     }
                                     
-                                    char *TagNames[] = 
+                                    /*char *TagNames[] = 
                                     {
                                         "Opacity",
                                         "Face",
                                         "UnicodeCodepoint",
                                     };
+                                    
                                     for(u32 TagIndex = Asset->EAB.FirstTagIndex;
                                         TagIndex < Asset->EAB.OnePastLastTagIndex;
                                         TagIndex++)
@@ -829,7 +881,7 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                                         eab_tag Tag = Assets->Tags[TagIndex];
                                         ImGui::Text("  Tag#%d ID = %s Value = %.3f", 
                                                     TagIndex, TagNames[Tag.ID], Tag.Value);
-                                    }
+                                    }*/
                                 }
                                 
                                 ImGui::TreePop();
@@ -931,12 +983,12 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                     {
                         //Camera = &GameState->ModeWorld.Camera;
                         ImGui::SeparatorText("SimRegion");
-                        ImGui::Checkbox("Window visibility", &ImGuiHandle->ShowSimRegionWindow);
-                        ImGui::Checkbox("DrawSpaceBounds", &ImGuiHandle->DrawSpaceBounds);
-                        ImGui::Checkbox("DrawCameraBounds (Yellow)", &ImGuiHandle->DrawCameraBounds);
-                        ImGui::Checkbox("DrawSimBounds (Cyan)", &ImGuiHandle->DrawSimBounds);
-                        ImGui::Checkbox("DrawSimRegionBounds (Orange)", &ImGuiHandle->DrawSimRegionBounds);
-                        ImGui::Checkbox("DrawSimRegionUpdatableBounds (Purple)", &ImGuiHandle->DrawSimRegionUpdatableBounds);
+                        ImGui::Checkbox("ShowSimRegionWindow", &ImGuiHandle->ShowSimRegionWindow);
+                        ImGui::Checkbox("DrawSpaceBounds (white)", &ImGuiHandle->DrawSpaceBounds);
+                        ImGui::Checkbox("DrawCameraBounds (yellow)", &ImGuiHandle->DrawCameraBounds);
+                        ImGui::Checkbox("DrawSimBounds (cyan)", &ImGuiHandle->DrawSimBounds);
+                        ImGui::Checkbox("DrawSimRegionBounds (orange)", &ImGuiHandle->DrawSimRegionBounds);
+                        ImGui::Checkbox("DrawSimRegionUpdatableBounds (purple)", &ImGuiHandle->DrawSimRegionUpdatableBounds);
                         ImGui::Checkbox("DrawGroundBufferBounds (blue)", &ImGuiHandle->DrawGroundBufferBounds);
                         
                         ImGui::SeparatorText("Skybox");
@@ -982,6 +1034,9 @@ ImGui::BulletText("Size = %d MB or %d KB or %d bytes",
                         
                         float *DirLightWorldDirection = (float *)&Frame->DirLight.WorldDirection;
                         ImGui::DragFloat3("WorldDirection##TerrainDirLight", DirLightWorldDirection, 0.01f, -100.0f, 100.0f);
+                        
+                        float *TestSun2P = (float *)&Frame->TestSun2P;
+                        ImGui::DragFloat3("TestSun2P##TerrainDirLight", TestSun2P, 0.01f, -100.0f, 100.0f);
                         
                         ImGui::SeparatorText("Test");
                         ImGui::Checkbox("PushBufferWithLight##Test", &Frame->PushBufferWithLight);
@@ -1084,7 +1139,6 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
             
             ImGuiWindowFlags Flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar;
             ImGui::Begin("Bitmap preview", &ImGuiHandle->ShowBitmapPreviewWindow, Flags);
-            //ImGui::Text("gkdfjglfdg");
             ImGui::Image((void *)(intptr_t)Frame->PreviewTexture,
                          ImVec2(WindowDim.x,WindowDim.y));
             

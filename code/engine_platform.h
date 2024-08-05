@@ -323,11 +323,17 @@ typedef GLenum WINAPI type_glCheckFramebufferStatus(GLenum target);
 typedef void WINAPI type_glUniform1i(GLint location, GLint v0);
 typedef void WINAPI type_glUniformMatrix4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
 typedef void WINAPI type_glUniform3fv(GLint location, GLsizei count, const GLfloat *value);
+typedef void WINAPI type_glUniform4fv(GLint location, GLsizei count, const GLfloat *value);
 typedef void WINAPI type_glUniform1f(GLint location, GLfloat v0);
 
 // Mipmap for texture
 typedef void WINAPI type_glGenerateMipmap(GLenum target);
 
+// RBO
+typedef void WINAPI type_glGenRenderbuffers(GLsizei n, GLuint *renderbuffers);
+typedef void WINAPI type_glBindRenderbuffer(GLenum target, GLuint renderbuffer);
+typedef void WINAPI type_glRenderbufferStorage(GLenum target, GLenum internalformat, GLsizei width, GLsizei height);
+typedef void WINAPI type_glFramebufferRenderbuffer(GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer);
 
 
 #define OpenglFunction(Name) type_##Name *Name
@@ -344,6 +350,9 @@ struct opengl
 #define GL_DEPTH_ATTACHMENT 0x8D00
 #define GL_TEXTURE0 0x84C0
 #define GL_TEXTURE1 0x84C1
+#define GL_TEXTURE2 0x84C2
+#define GL_TEXTURE3 0x84C3
+#define GL_TEXTURE4 0x84C4
 #define GL_CLAMP_TO_EDGE 0x812F
     
 #define GL_ARRAY_BUFFER 0x8892
@@ -354,6 +363,9 @@ struct opengl
 #define GL_TEXTURE_CUBE_MAP 0x8513
 #define GL_TEXTURE_CUBE_MAP_POSITIVE_X 0x8515
 #define GL_TEXTURE_WRAP_R 0x8072
+    
+#define GL_RENDERBUFFER 0x8D41
+#define GL_CLIP_DISTANCE0 0x3000
     
     // Load shader
     OpenglFunction(glCreateShader);
@@ -395,10 +407,17 @@ struct opengl
     OpenglFunction(glUniform1i);
     OpenglFunction(glUniformMatrix4fv);
     OpenglFunction(glUniform3fv);
+    OpenglFunction(glUniform4fv);
     OpenglFunction(glUniform1f);
     
     // Mipmap for texture
     OpenglFunction(glGenerateMipmap);
+    
+    // RBO
+    OpenglFunction(glGenRenderbuffers);
+    OpenglFunction(glBindRenderbuffer);
+    OpenglFunction(glRenderbufferStorage);
+    OpenglFunction(glFramebufferRenderbuffer);
     
 #if ENGINE_INTERNAL
     // NOTE(ezexff): OpenGL info
@@ -518,6 +537,7 @@ struct renderer_frame
     r32 AspectRatio;
     r32 FOV;
     v3 WorldOrigin;
+    v4 ClearColor;
     
     // NOTE(ezexff): PushBuffer
     u8 PushBufferMemory[65536];
@@ -546,9 +566,6 @@ struct renderer_frame
     //~ NOTE(ezexff): Need For recompile shaders
     b32 CompileShaders; // TODO(ezexff): Mb replace with IsShadersCompiled
     
-    //~ NOTE(ezexff): Clear color
-    v3 ClearColor; // TODO(ezexff): Do i need this?
-    
     //~ NOTE(ezexff): Skybox
     bool DrawSkybox;
     b32 InitializeSkyboxTexture;
@@ -567,17 +584,17 @@ struct renderer_frame
     
     //~ NOTE(ezexff): Terrain
     // TODO(ezexff): Mb move terrain arrays in GameState
-    u32 TerrainVerticesCount;
-    vbo_vertex *TerrainVertices;
-    u32 TerrainIndicesCount;
-    u32 *TerrainIndices;
+    /* 
+        u32 TerrainVerticesCount;
+        vbo_vertex *TerrainVertices;
+        u32 TerrainIndicesCount;
+        u32 *TerrainIndices;
+         */
     
-    material TerrainMaterial;
-    
-    b32 IsTerrainVBOInitialized;
+    /*b32 IsTerrainVBOInitialized;
     u32 TerrainVAO;
     u32 TerrainVBO;
-    u32 TerrainEBO;
+    u32 TerrainEBO;*/
     
     // TODO(ezexff): Mb these variable only for debug in imgui?
     bool DrawTerrain;
@@ -599,7 +616,7 @@ struct renderer_frame
     r32 ShadowMapSize;
     r32 ShadowMapNearPlane, ShadowMapFarPlane;
     r32 ShadowMapCameraPitch, ShadowMapCameraYaw;
-    v3 ShadowMapCameraPos;
+    v3 ShadowMapCameraPos; // NOTE(ezexff): Sun for water
     r32 ShadowMapBias;
     opengl_shader ShadowMapVert;
     opengl_shader ShadowMapFrag;
@@ -608,7 +625,7 @@ struct renderer_frame
     //~ TODO(ezexff): Move into ImGui?
     bool DrawDebugTextLine;
     
-    // NOTE(ezexff): Terrain v2.0
+    //~ NOTE(ezexff): Terrain v2.0
     //b32 GroundBuffersIsInitialized;
     
     u32 GroundBufferCount;
@@ -626,9 +643,49 @@ struct renderer_frame
     
     r32 MaxTerrainHeight;
     
+    material TerrainMaterial;
+    loaded_bitmap *TerrainTexture;
     
+    //~ NOTE(ezexff): Water
+    v4 CutPlane;
+    r32 CameraPitchInverted;
+    
+    r32 WaterWaveSpeed;
+    r32 WaterMoveFactor;
+    r32 WaterTiling;
+    r32 WaterWaveStrength;
+    r32 WaterShineDamper;
+    r32 WaterReflectivity;
+    
+    // Reflection
+    v2s WaterReflectionDim;
+    u32 WaterReflectionFBO;
+    u32 WaterReflectionColorTexture;
+    u32 WaterReflectionDepthRBO;
+    //string WaterDUDVTextureName;
+    loaded_bitmap *WaterDUDVTexture;
+    //string WaterNormalMapName;
+    loaded_bitmap *WaterNormalMapTexture;
+    
+    // Refraction
+    v2s WaterRefractionDim;
+    u32 WaterRefractionFBO;
+    u32 WaterRefractionColorTexture;
+    u32 WaterRefractionDepthTexture;
+    
+    opengl_shader WaterVert;
+    opengl_shader WaterFrag;
+    opengl_program WaterProg;
+    
+    // TODO(ezexff): Test
+    world_position TestWaterP;
+    v3 TestWaterRelP;
+    world_position TestSunP;
+    v3 TestSunRelP;
+    v3 TestSun2P;
     
 #if ENGINE_INTERNAL
+    b32 IsOpenglImGuiInitialized;
     // NOTE(ezexff): ImGui bitmap preview window
     loaded_bitmap Preview;
     u32 PreviewTexture;

@@ -858,9 +858,10 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         // NOTE(ezexff): Rendering parameters
         {
             // NOTE(ezexff): Camera
-            GameState->CameraPitch = 45.0f;
-            GameState->CameraYaw = 315.0f;
+            GameState->CameraPitch = 90.0f;
+            GameState->CameraYaw = 0.0f;
             Frame->WorldOrigin.z = 1.75f;
+            Frame->CameraPitchInverted = 90.0f;
             
             // NOTE(ezexff): Skybox
             Frame->DrawSkybox = true;
@@ -901,6 +902,26 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             Frame->ShadowMapCameraYaw = -120.0f;
             Frame->ShadowMapCameraPos = V3(0.0f, 0.0f, 0.0f);
             Frame->ShadowMapBias = 0.005f;
+            
+            // NOTE(ezexff): Water
+            Frame->WaterWaveSpeed = 0.4f;
+            Frame->WaterTiling = 0.5f;
+            Frame->WaterWaveStrength = 0.02f;
+            Frame->WaterShineDamper = 20.0f;
+            Frame->WaterReflectivity = 0.6f;
+            // TODO(ezexff): Test
+            Frame->TestWaterP.ChunkX = 5;
+            Frame->TestSunP.ChunkX = 0;
+            Frame->TestSunP.ChunkY = 0;
+            
+            LoadBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_Terrain), true);
+            LoadBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_DuDvMap), true);
+            LoadBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_NormalMap), true);
+            // TODO(ezexff): Load water textures
+            //Frame->WaterDUDVTextureName = PushString(WorldArena, "NewWaterDUDV.png");
+            //Frame->WaterDUDVTexture = LoadTexture(&Render->WaterDUDVTextureName);
+            //Frame->WaterNormalMapName = PushString(WorldArena, "NewWaterNormalMap.png");
+            //Frame->WaterNormalMap = LoadTexture(&Render->WaterNormalMapName);
         }
         
         ModeWorld->IsInitialized = true;
@@ -918,11 +939,11 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             //if(Controller->Start.EndedDown)
             if(WasPressed(Controller->Start))
             {
-#if ENGINE_INTERNAL
-                Log->Add("[world input]: 1st time start was pressed\n");
-#endif
                 *ConHero = {};
                 ConHero->EntityIndex = AddPlayer(GameState).LowIndex;
+#if ENGINE_INTERNAL
+                Log->Add("[engineworld] 1st player added\n");
+#endif
             }
         }
         else
@@ -950,9 +971,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             
             if(WasPressed(Controller->Start))
             {
-#if ENGINE_INTERNAL
-                Log->Add("[world input]: Start was pressed\n");
-#endif
+                // TODO(ezexff): Mb implement jump
                 ConHero->dZ = 3.0f;
             }
             
@@ -1038,6 +1057,17 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             {
                 GameState->CameraPitch = 180;
             }
+            
+            // Camera pitch (inverted)
+            Frame->CameraPitchInverted -= (r32)Input->MouseDelta.y * Sensitivity;
+            if(Frame->CameraPitchInverted < 0)
+            {
+                Frame->CameraPitchInverted = 0;
+            }
+            if(Frame->CameraPitchInverted > 180)
+            {
+                Frame->CameraPitchInverted = 180;
+            }
         }
     }
     
@@ -1059,6 +1089,29 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     Frame->Camera.Angle.x = GameState->CameraPitch;
     Frame->Camera.Angle.y = GameState->CameraYaw;
     Frame->Camera.Angle.z = GameState->CameraRoll;
+    Frame->WaterMoveFactor += Frame->WaterWaveSpeed * Input->dtForFrame;
+    if(Frame->WaterMoveFactor >= 1)
+    {
+        Frame->WaterMoveFactor = 0;
+    }
+    Frame->TerrainTexture = GetBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_Terrain), true);
+    Frame->WaterDUDVTexture = GetBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_DuDvMap), true);
+    Frame->WaterNormalMapTexture = GetBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_NormalMap), true);
+    // TODO(ezexff): Test
+    world_position WaterChunkCenterP = CenteredChunkPoint(Frame->TestWaterP.ChunkX, Frame->TestWaterP.ChunkY, Frame->TestWaterP.ChunkZ);
+    Frame->TestWaterRelP = Subtract(World, &WaterChunkCenterP, &GameState->CameraP);
+    
+    world_position SunChunkCenterP = CenteredChunkPoint(Frame->TestSunP.ChunkX, Frame->TestSunP.ChunkY, Frame->TestSunP.ChunkZ);
+    Frame->TestSunRelP = Subtract(World, &SunChunkCenterP, &GameState->CameraP);
+    Frame->TestSunRelP.z = 10.0f;
+    Frame->TestSun2P = V3(-17.0f, 40.0f, 35.0f);
+    
+    
+    //fsdfdsf;
+    //Frame->WaterDUDVTextureName = PushString(WorldArena, "NewWaterDUDV.png");
+    //Frame->WaterDUDVTexture = LoadTexture(&Render->WaterDUDVTextureName);
+    //Frame->WaterNormalMapName = PushString(WorldArena, "NewWaterNormalMap.png");
+    //Frame->WaterNormalMap = LoadTexture(&Render->WaterNormalMapName);
     
     //~ NOTE(ezexff): Load skybox assets
     asset_type *Type = TranState->Assets->AssetTypes + Asset_Skybox;
@@ -1732,7 +1785,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             ImGui::BulletText("MaxEntityCount = %d", SimRegion->MaxEntityCount);
             ImGui::BulletText("EntityCount = %d", SimRegion->EntityCount);
             
-            if(ImGui::CollapsingHeader("List"))
+            if(ImGui::CollapsingHeader("EntityList"))
             {
                 char *EntityTypes[] = 
                 {
@@ -1745,6 +1798,8 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                     "Sword",
                     "Stairwell",
                 };
+                u32 EntityTypesCount = ArrayCount(EntityTypes);
+                Assert(EntityTypesCount == EntityType_Count);
                 
                 /*
                 for(u32 EntityIndex = 0;

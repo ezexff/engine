@@ -54,10 +54,7 @@ enum asset_type_id
 {
     Asset_None,
     
-    //
-    // NOTE(casey): Bitmaps!
-    //
-    
+    //~ NOTE(ezexff): Bitmap!
     //Asset_Shadow,
     //Asset_Tree,
     //Asset_Sword,
@@ -74,11 +71,11 @@ enum asset_type_id
     Asset_Clip,
     Asset_Ground,
     Asset_Skybox,
+    Asset_Terrain,
+    Asset_DuDvMap,
+    Asset_NormalMap,
     
-    //
-    // NOTE(casey): Sounds!
-    //
-    
+    //~ NOTE(ezexff): Sounds
     Asset_Bloop,
     //Asset_Crack,
     //Asset_Drop,
@@ -86,17 +83,12 @@ enum asset_type_id
     Asset_Music,
     //Asset_Puhp,
     
-    //
-    // NOTE(ezexff): Fonts!
-    //
+    //~ NOTE(ezexff): Fonts
     
     Asset_Font,
     Asset_FontGlyph,
     
-    //
-    //
-    //
-    
+    //~
     Asset_Count,
 };
 

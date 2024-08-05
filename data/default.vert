@@ -18,6 +18,8 @@ uniform mat4 uModel;
 uniform mat4 uProjShadowMap;
 uniform mat4 uViewShadowMap;
 
+uniform vec4 uCutPlane;
+
 //uniform vec3 uOffsetP;
 
 /*uniform bool WithAnimations;
@@ -31,7 +33,8 @@ uniform bool WithOffset;*/
 
 /*uniform vec4 CutPlane;*/
 
-out vec3 vWorldP;
+//out vec3 vWorldP;
+out vec3 vLocalP;
 out vec3 vNormal;
 out vec2 vTexCoords;
 out vec4 vShadowMapCameraWorldP;
@@ -44,14 +47,16 @@ void main()
 {
     vec4 LocalP = vec4(iPosition, 1.0);
     
-    gl_Position = uProj * uView * uModel * LocalP;
-    
     // NOTE(ezexff): To frag
-    vWorldP = (uModel * LocalP).xyz;
+    //vWorldP = (uModel * LocalP).xyz;
+    vLocalP = (uModel * LocalP).xyz;
     vNormal = (uModel * vec4(iNormal, 0.0)).xyz;
     vTexCoords = iTexCoords;
     vShadowMapCameraWorldP = uProjShadowMap * uViewShadowMap * uModel * LocalP;
     
+    gl_Position = uProj * uView * uModel * LocalP;
+    gl_ClipDistance[0] = dot(vec4(vLocalP, 1.0), uCutPlane);
+    //gl_ClipDistance[0] = dot(vec4(vWorldP, 1.0), uCutPlane);
     // Tangent0 = (Model * vec4(Tangent, 0.0)).xyz;
     /*if(WithAnimations)
     /*{

@@ -85,10 +85,17 @@ Win32InitOpengl(renderer_frame *Frame, HDC WindowDC)
         Win32GetOpenglFunction(glUniform1i);
         Win32GetOpenglFunction(glUniformMatrix4fv);
         Win32GetOpenglFunction(glUniform3fv);
+        Win32GetOpenglFunction(glUniform4fv);
         Win32GetOpenglFunction(glUniform1f);
         
         // Mipmap for texture
         Win32GetOpenglFunction(glGenerateMipmap);
+        
+        // RBO
+        Win32GetOpenglFunction(glGenRenderbuffers);
+        Win32GetOpenglFunction(glBindRenderbuffer);
+        Win32GetOpenglFunction(glRenderbufferStorage);
+        Win32GetOpenglFunction(glFramebufferRenderbuffer);
     }
     else
     {

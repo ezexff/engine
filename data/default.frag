@@ -2,6 +2,15 @@
 
 layout(location = 0) out vec4 FragColor;
 
+//in vec3 vWorldP;
+in vec3 vLocalP;
+in vec3 vNormal;
+in vec2 vTexCoords;
+in vec4 vShadowMapCameraWorldP;
+// in vec3 Tangent0;
+//flat in ivec4 BoneIDs0;
+//in vec4 Weights0;
+
 struct BaseLight
 {
     vec3 Color;
@@ -43,10 +52,10 @@ struct Material
     vec3 SpecularColor;
 };
 
-uniform vec3 uCameraWorldP; // Completed
+uniform vec3 uCameraLocalP; // Completed
 uniform Material uMaterial; // Completed
 uniform DirectionalLight uDirectionalLight; // Completed
-//uniform sampler2D gSampler;
+uniform sampler2D uSampler;
 uniform sampler2D uSamplerSpecularExponent;
 /*uniform int gNumPointLights;
 uniform PointLight gPointLights[MAX_POINT_LIGHTS];
@@ -63,14 +72,6 @@ uniform float uBias; // Completed
 //const int MAX_POINT_LIGHTS = 1;
 //const int MAX_SPOT_LIGHTS = 1;
 
-in vec3 vWorldP;
-in vec3 vNormal;
-in vec2 vTexCoords;
-in vec4 vShadowMapCameraWorldP;
-// in vec3 Tangent0;
-//flat in ivec4 BoneIDs0;
-//in vec4 Weights0;
-
 vec4 CalcLightInternalWS(BaseLight Light, vec3 LightDirection, vec3 Normal, float Shadow)
 {
     vec4 AmbientColor = vec4(Light.Color, 1.0f) * Light.AmbientIntensity * vec4(uMaterial.AmbientColor, 1.0f);
@@ -85,7 +86,7 @@ vec4 CalcLightInternalWS(BaseLight Light, vec3 LightDirection, vec3 Normal, floa
         DiffuseColor =
             vec4(Light.Color, 1.0f) * Light.DiffuseIntensity * vec4(uMaterial.DiffuseColor, 1.0f) * DiffuseFactor;
 
-        vec3 PixelToCamera = normalize(uCameraWorldP - vWorldP);
+        vec3 PixelToCamera = normalize(uCameraLocalP - vLocalP);
         vec3 LightReflect = normalize(reflect(LightDirection, Normal));
         float SpecularFactor = dot(PixelToCamera, LightReflect);
         if(SpecularFactor > 0)
@@ -198,8 +199,9 @@ void main()
     
     vec4 TotalLight = CalcDirectionalLightWS(Normal, Shadow);
     
-    FragColor = TotalLight;
+    //FragColor = TotalLight;
     //FragColor = vec4(Normal, 1.0);
+    FragColor = texture2D(uSampler, vTexCoords.xy) * TotalLight;
     
     /*for(int i = 0; i < gNumPointLights; i++)
     {

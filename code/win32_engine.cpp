@@ -360,7 +360,7 @@ internal PLATFORM_OPEN_FILE(Win32OpenNextFile)
 internal PLATFORM_FILE_ERROR(Win32FileError)
 {
 #if ENGINE_INTERNAL
-    Log->Add("WIN32 FILE ERROR: %s\n", Message);
+    Log->Add("[win32file] error: %s\n", Message);
 #endif
     Handle->NoErrors = false;
 }
@@ -723,7 +723,7 @@ ThreadProc(LPVOID lpParameter)
 internal PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork)
 {
 #if ENGINE_INTERNAL
-    Log->Add("Thread %u: %s\n", GetCurrentThreadId(), (char *)Data);
+    Log->Add("[win32workqueue] thread %u: %s\n", GetCurrentThreadId(), (char *)Data);
 #endif
 }
 
@@ -893,7 +893,7 @@ extern "C" void __stdcall WinMainCRTStartup(void)
             GameMemory.PlatformAPI.FileError = Win32FileError;
             
             
-            // NOTE(ezexff): Load and init renderer
+            // NOTE(ezexff): Init and load renderer
             renderer_frame *Frame = &GameMemory.Frame;
             LoadRenderer(Frame, GetDC(Window));
             
@@ -1078,7 +1078,7 @@ extern "C" void __stdcall WinMainCRTStartup(void)
 #if 0
                                 if(NewInput->MouseDelta.x != 0 || NewInput->MouseDelta.y != 0)
                                 {
-                                    Log->Add("[win32 input]: mouse delta = %d %d\n",
+                                    Log->Add("[win32input] mouse delta = %d %d\n",
                                              NewInput->MouseDelta.x, NewInput->MouseDelta.y);
                                     
                                     IsCenteringMouseCursorInitialized = true;
@@ -1147,7 +1147,7 @@ extern "C" void __stdcall WinMainCRTStartup(void)
 #if ENGINE_INTERNAL
                                     if(ImGuiHandle->LogAudio)
                                     {
-                                        Log->Add("[audio]: SamplesToWrite = %d LatencySampleCount = %d Aligned8LatencySampleCount = %d\n", 
+                                        Log->Add("[win32audio] SamplesToWrite = %d LatencySampleCount = %d Aligned8LatencySampleCount = %d\n", 
                                                  SamplesToWrite, SoundOutput.LatencySampleCount, Align8(SoundOutput.LatencySampleCount));
                                     }
 #endif
@@ -1196,18 +1196,17 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                     
                                     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGuiHandle->IO->Framerate, ImGuiHandle->IO->Framerate);
                                     
-                                    ImGui::SeparatorText("Windows visibility");
-                                    ImGui::Checkbox("Demo", &ImGuiHandle->ShowDemoWindow);
-                                    ImGui::Checkbox("Game", &ImGuiHandle->ShowGameWindow);
-                                    ImGui::Checkbox("Log", &ImGuiHandle->ShowLogWindow);
+                                    //ImGui::SeparatorText("Windows visibility");
+                                    ImGui::Checkbox("Demo window", &ImGuiHandle->ShowDemoWindow);
+                                    ImGui::Checkbox("Game window", &ImGuiHandle->ShowGameWindow);
+                                    ImGui::Checkbox("Log window", &ImGuiHandle->ShowLogWindow);
                                     
                                     ImGui::SeparatorText("Settings");
                                     bool IsFullscreen = GlobalIsFullscreen;
-                                    if(ImGui::Checkbox("Is fullscreen?", &IsFullscreen))
+                                    if(ImGui::Checkbox("IsFullscreen", &IsFullscreen))
                                     {
                                         GlobalIsFullscreen = IsFullscreen;
                                         Win32ToggleFullscreen(Window);
-                                        Log->Add("[win32]: IsFullscreen = %d\n", IsFullscreen);
                                     }
                                     //if(ImGui::SliderInt("fps", &GlobalGameUpdateHz, 30, 4096))
                                     if(ImGui::InputInt("fps lock", &GlobalGameUpdateHz))
@@ -1227,9 +1226,9 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                     if(ImGui::CollapsingHeader("Renderer"))
                                     {
                                         ImGui::SeparatorText("Frame");
-                                        ImGui::Text("Dim = %dx%d", Frame->Dim.x, Frame->Dim.y);
+                                        ImGui::BulletText("Dim = %dx%d", Frame->Dim.x, Frame->Dim.y);
                                         
-                                        ImGui::Text("Loaded renderer:");
+                                        ImGui::BulletText("LoadedRendererName =");
                                         switch(LoadedRendererName)
                                         {
                                             case LoadedRenderer_opengl:
@@ -1256,19 +1255,19 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                         if(LoadedRendererName == LoadedRenderer_opengl)
                                         {
                                             ImGui::SeparatorText("OpenGL");
-                                            ImGui::Text("VENDOR = %s", Frame->Opengl.GLVendorStr);
-                                            ImGui::Text("RENDERER = %s", Frame->Opengl.GLRendererStr);
-                                            ImGui::Text("VERSION = %s", Frame->Opengl.GLVersionStr);
+                                            ImGui::BulletText("VENDOR = %s", Frame->Opengl.GLVendorStr);
+                                            ImGui::BulletText("RENDERER = %s", Frame->Opengl.GLRendererStr);
+                                            ImGui::BulletText("VERSION = %s", Frame->Opengl.GLVersionStr);
                                         }
                                     }
                                     
                                     if(ImGui::CollapsingHeader("Audio"))
                                     {
                                         ImGui::SeparatorText("WASAPI");
-                                        ImGui::Text("BufferSize = %d", SoundOutput.BufferSize);
+                                        ImGui::BulletText("BufferSize = %d", SoundOutput.BufferSize);
                                         //ImGui::Text("LatencySampleCount = %d", SoundOutput.LatencySampleCount);
-                                        ImGui::Text("SamplesToWrite = %d", SamplesToWrite);
-                                        ImGui::Text("SoundPaddingSize = %d", SoundPaddingSize);
+                                        ImGui::BulletText("SamplesToWrite = %d", SamplesToWrite);
+                                        ImGui::BulletText("SoundPaddingSize = %d", SoundPaddingSize);
                                         /*r64 AudioLatencyMS = 1000.0f *
                                         (r64)SoundOutput.LatencySampleCount / (r64)SoundOutput.BufferSize;
                                         ImGui::Text("AudioLatencyMS = %.10f (this value + 1 frame)", AudioLatencyMS);*/
@@ -1285,12 +1284,12 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                         u64 AudioPlaybackPosInSeconds = AudioPlaybackPos / AudioPlaybackFreq;
                                         u64 AudioPlaybackPosInSamples = AudioPlaybackPosInSeconds*SoundOutput.SamplesPerSecond;
                                         
-                                        ImGui::Text("AudioPlaybackFreq = %lu", AudioPlaybackFreq);
-                                        ImGui::Text("AudioPlaybackPos = %lu", AudioPlaybackPos);
-                                        ImGui::Text("AudioPlaybackPosInSeconds = %lu", AudioPlaybackPosInSeconds);
-                                        ImGui::Text("AudioPlaybackPosInSamples = %lu", AudioPlaybackPosInSamples);
+                                        ImGui::BulletText("AudioPlaybackFreq = %lu", AudioPlaybackFreq);
+                                        ImGui::BulletText("AudioPlaybackPos = %lu", AudioPlaybackPos);
+                                        ImGui::BulletText("AudioPlaybackPosInSeconds = %lu", AudioPlaybackPosInSeconds);
+                                        ImGui::BulletText("AudioPlaybackPosInSamples = %lu", AudioPlaybackPosInSamples);
                                         
-                                        ImGui::Checkbox("Log audio", &ImGuiHandle->LogAudio);
+                                        ImGui::Checkbox("Log audio debug info", &ImGuiHandle->LogAudio);
                                     }
                                     
                                     if(ImGui::CollapsingHeader("Input"))

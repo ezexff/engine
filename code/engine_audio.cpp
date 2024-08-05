@@ -302,3 +302,30 @@ PlaySound(audio_state *AudioState, sound_id SoundID)
     
     return(PlayingSound);
 }
+
+internal void
+ChangeVolume(audio_state *AudioState, playing_sound *Sound, r32 FadeDurationInSeconds, v2 Volume)
+{
+    if(Sound)
+    {
+        if(FadeDurationInSeconds <= 0.0f)
+        {
+            Sound->CurrentVolume = Sound->TargetVolume = Volume;
+        }
+        else
+        {
+            r32 OneOverFade = 1.0f / FadeDurationInSeconds;
+            Sound->TargetVolume = Volume;
+            Sound->dCurrentVolume = OneOverFade*(Sound->TargetVolume - Sound->CurrentVolume);
+        }
+    }
+}
+
+internal void
+ChangePitch(audio_state *AudioState, playing_sound *Sound, r32 dSample)
+{
+    if(Sound)
+    {
+        Sound->dSample = dSample;
+    }
+}

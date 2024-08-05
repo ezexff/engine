@@ -791,6 +791,10 @@ LoadFrameAndSkyboxShaders(memory_arena *ConstArena, renderer_frame *Frame)
                 {
                     Text = Frame->ShadowMapVert.Text;
                 }
+                else if(FileHandle->Name == L"water.vert")
+                {
+                    Text = Frame->WaterVert.Text;
+                }
                 else
                 {
                     InvalidCodePath;
@@ -799,7 +803,7 @@ LoadFrameAndSkyboxShaders(memory_arena *ConstArena, renderer_frame *Frame)
                 {
                     Platform.ReadDataFromFile(FileHandle, 0, FileHandle->Size, Text);
 #if ENGINE_INTERNAL
-                    Log->Add("[vert shader text]: Loaded text from %ls\n", FileHandle->Name.Data);
+                    Log->Add("[asset] loaded text from %ls\n", FileHandle->Name.Data);
 #endif
                 }
                 else
@@ -850,6 +854,10 @@ LoadFrameAndSkyboxShaders(memory_arena *ConstArena, renderer_frame *Frame)
                 {
                     Text = Frame->ShadowMapFrag.Text;
                 }
+                else if(FileHandle->Name == L"water.frag")
+                {
+                    Text = Frame->WaterFrag.Text;
+                }
                 else
                 {
                     InvalidCodePath;
@@ -858,7 +866,7 @@ LoadFrameAndSkyboxShaders(memory_arena *ConstArena, renderer_frame *Frame)
                 {
                     Platform.ReadDataFromFile(FileHandle, 0, FileHandle->Size, Text);
 #if ENGINE_INTERNAL
-                    Log->Add("[frag shader text]: Loaded text from %ls\n", FileHandle->Name.Data);
+                    Log->Add("[asset] loaded text from %ls\n", FileHandle->Name.Data);
 #endif
                 }
                 else

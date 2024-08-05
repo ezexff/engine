@@ -156,7 +156,8 @@ RemoveAssetHeaderFromList(asset_memory_header *Header)
     Header->Next = Header->Prev = 0;
 }
 
-inline asset_memory_header *GetAsset(game_assets *Assets, u32 ID, u32 GenerationID)
+inline asset_memory_header 
+*GetAsset(game_assets *Assets, u32 ID, u32 GenerationID)
 {
     Assert(ID <= Assets->AssetCount);
     asset *Asset = Assets->Assets + ID;
@@ -260,7 +261,8 @@ IsValid(sound_id ID)
 internal void LoadSound(game_assets *Assets, sound_id ID);
 inline void PrefetchSound(game_assets *Assets, sound_id ID) {LoadSound(Assets, ID);}
 
-inline sound_id GetNextSoundInChain(game_assets *Assets, sound_id ID)
+inline sound_id 
+GetNextSoundInChain(game_assets *Assets, sound_id ID)
 {
     sound_id Result = {};
     

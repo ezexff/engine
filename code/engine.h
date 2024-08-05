@@ -22,6 +22,7 @@
 
 #include "engine_mode_test.h"
 #include "engine_mode_world.h"
+
 enum game_mode
 {
     GameMode_Test,
@@ -121,11 +122,6 @@ struct tran_state
     r32 MaxTerrainHeight;*/
 };
 
-global_variable platform_api Platform;
-#if ENGINE_INTERNAL
-app_log *Log;
-#endif
-
 internal task_with_memory *
 BeginTaskWithMemory(tran_state *TranState)
 {
@@ -156,3 +152,8 @@ EndTaskWithMemory(task_with_memory *Task)
     CompletePreviousWritesBeforeFutureWrites;
     Task->BeingUsed = false;
 }
+
+global_variable platform_api Platform;
+#if ENGINE_INTERNAL
+app_log *Log;
+#endif
