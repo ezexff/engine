@@ -1,9 +1,3 @@
-
-struct mode_world
-{
-    b32 IsInitialized;
-};
-
 struct controlled_hero
 {
     u32 EntityIndex;
@@ -31,25 +25,54 @@ struct pairwise_collision_rule
     
     pairwise_collision_rule *NextInHash;
 };
-struct game_state;
-internal void AddCollisionRule(game_state *GameState, u32 StorageIndexA, u32 StorageIndexB, b32 ShouldCollide);
-internal void ClearCollisionRulesFor(game_state *GameState, u32 StorageIndex);
 
-/*struct ground_buffer
+struct mode_world
 {
-    // NOTE(casey): An invalid P tells us that this ground_buffer has not been filled
-    world_position P; // NOTE(casey): This is the center of the bitmap
+    //~ NOTE(ezexff): Pointers to allocated memory
+    memory_arena *ConstArena;
+    memory_arena *TranArena;
     
-    v3 OffsetP; // смещение относительно камеры для рендера чанка
+    //~ NOTE(ezexff): Sim region
+    world *World;
     
-    // заполнение в fillgroundchunk
-    r32 *PositionsZ;
-    v3 *Normals;
-    v2 *TexCoords;
+    u32 GroundBufferWidth;
+    u32 GroundBufferHeight;
+    r32 TypicalFloorHeight;
     
-    //r32 RandomZ;
-    // u32 Texture;
-    // loaded_bitmap Bitmap;
-    //loaded_texture DrawBuffer;
-    //loaded_model *TerrainModel;
-};*/
+    controlled_hero ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
+    
+    u32 LowEntityCount;
+    low_entity LowEntities[100000];
+    
+    // TODO(casey): Must be power of two
+    pairwise_collision_rule *CollisionRuleHash[256];
+    pairwise_collision_rule *FirstFreeCollisionRule;
+    
+    sim_entity_collision_volume_group *NullCollision;
+    sim_entity_collision_volume_group *SwordCollision;
+    sim_entity_collision_volume_group *StairCollision;
+    sim_entity_collision_volume_group *PlayerCollision;
+    sim_entity_collision_volume_group *MonstarCollision;
+    sim_entity_collision_volume_group *FamiliarCollision;
+    sim_entity_collision_volume_group *WallCollision;
+    sim_entity_collision_volume_group *StandardRoomCollision;
+    sim_entity_collision_volume_group *WaterCollision;
+    
+    // NOTE(ezexff): Terrain parameters
+    u32 TilesPerChunkRow;
+    r32 MaxTerrainHeight;
+    
+    camera Camera;
+    u32 CameraFollowingEntityIndex;
+    
+    //~ NOTE(ezexff): Renderer
+    renderer *Renderer;
+    r32 PlayerEyeHeight;
+    
+    //~
+    b32 IsInitialized;
+};
+
+struct game_state;
+internal void AddCollisionRule(mode_world *ModeWorld, u32 StorageIndexA, u32 StorageIndexB, b32 CanCollide);
+internal void ClearCollisionRulesFor(mode_world *ModeWorld, u32 StorageIndex);

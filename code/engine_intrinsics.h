@@ -37,15 +37,6 @@ Sin(r32 Angle)
     return(Result);
 }*/
 
-#define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
-#define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
-inline u32 AtomicCompareExchangeUInt32(u32 volatile *Value, u32 New, u32 Expected)
-{
-    u32 Result = _InterlockedCompareExchange((long *)Value, New, Expected);
-    
-    return(Result);
-}
-
 #include "immintrin.h"
 #if ENGINE_INTERNAL
 #include "math.h"
@@ -96,7 +87,7 @@ inline r32 Sin(r32 Angle)
     return (Result);
 }
 
-inline s32 FloorReal32ToInt32(r32 R32)
+inline s32 FloorR32ToS32(r32 R32)
 {
     //r32 Result = _mm_cvtss_f32(_mm_svml_floor_ps(_mm_set_ss(R32)));
     s32 Result = (s32)floorf(R32);

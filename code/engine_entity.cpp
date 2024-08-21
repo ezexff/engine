@@ -1,11 +1,11 @@
 inline low_entity *
-GetLowEntity(game_state *GameState, u32 Index)
+GetLowEntity(mode_world *ModeWorld, u32 Index)
 {
     low_entity *Result = 0;
     
-    if((Index > 0) && (Index < GameState->LowEntityCount))
+    if((Index > 0) && (Index < ModeWorld->LowEntityCount))
     {
-        Result = GameState->LowEntities + Index;
+        Result = ModeWorld->LowEntities + Index;
     }
     
     return (Result);

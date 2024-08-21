@@ -8,6 +8,7 @@
 #include "engine_math.h"
 #include "engine_renderer.h"
 #include "engine_renderer_opengl.h"
+#include "engine_renderer_opengl.cpp"
 
 void Win32ErrorMessageBox(char *Message)
 {
@@ -144,7 +145,7 @@ RENDERER_END_FRAME(Win32EndFrame)
     OpenglEndFrame(Frame);
     
 #if ENGINE_INTERNAL
-    Frame->ImGuiHandle.WGL = wglGetCurrentDC();
+    Frame->ImGuiHandle->WGL = wglGetCurrentDC();
 #else
     SwapBuffers(wglGetCurrentDC());
 #endif

@@ -458,7 +458,7 @@ FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Fr
 
 // NOTE(ezexff): Collision rules
 internal void
-AddCollisionRule(game_state *GameState, u32 StorageIndexA, u32 StorageIndexB, b32 CanCollide)
+AddCollisionRule(mode_world *ModeWorld, u32 StorageIndexA, u32 StorageIndexB, b32 CanCollide)
 {
     // TODO(casey): Collapse this with ShouldCollide
     if(StorageIndexA > StorageIndexB)
@@ -470,8 +470,8 @@ AddCollisionRule(game_state *GameState, u32 StorageIndexA, u32 StorageIndexB, b3
     
     // TODO(casey): BETTER HASH FUNCTION
     pairwise_collision_rule *Found = 0;
-    u32 HashBucket = StorageIndexA & (ArrayCount(GameState->CollisionRuleHash) - 1);
-    for(pairwise_collision_rule *Rule = GameState->CollisionRuleHash[HashBucket];
+    u32 HashBucket = StorageIndexA & (ArrayCount(ModeWorld->CollisionRuleHash) - 1);
+    for(pairwise_collision_rule *Rule = ModeWorld->CollisionRuleHash[HashBucket];
         Rule;
         Rule = Rule->NextInHash)
     {
@@ -484,18 +484,18 @@ AddCollisionRule(game_state *GameState, u32 StorageIndexA, u32 StorageIndexB, b3
     
     if(!Found)
     {
-        Found = GameState->FirstFreeCollisionRule;
+        Found = ModeWorld->FirstFreeCollisionRule;
         if(Found)
         {
-            GameState->FirstFreeCollisionRule = Found->NextInHash;
+            ModeWorld->FirstFreeCollisionRule = Found->NextInHash;
         }
         else
         {
-            Found = PushStruct(&GameState->ConstArena, pairwise_collision_rule);
+            Found = PushStruct(ModeWorld->ConstArena, pairwise_collision_rule);
         }
         
-        Found->NextInHash = GameState->CollisionRuleHash[HashBucket];
-        GameState->CollisionRuleHash[HashBucket] = Found;
+        Found->NextInHash = ModeWorld->CollisionRuleHash[HashBucket];
+        ModeWorld->CollisionRuleHash[HashBucket] = Found;
     }
     
     if(Found)
@@ -507,7 +507,7 @@ AddCollisionRule(game_state *GameState, u32 StorageIndexA, u32 StorageIndexB, b3
 }
 
 internal void
-ClearCollisionRulesFor(game_state *GameState, u32 StorageIndex)
+ClearCollisionRulesFor(mode_world *ModeWorld, u32 StorageIndex)
 {
     // TODO(casey): Need to make a better data structure that allows
     // removal of collision rules without searching the entire table
@@ -520,10 +520,10 @@ ClearCollisionRulesFor(game_state *GameState, u32 StorageIndex)
     // the new things on the free list, and remove the reverse of
     // those pairs.
     for(u32 HashBucket = 0;
-        HashBucket < ArrayCount(GameState->CollisionRuleHash);
+        HashBucket < ArrayCount(ModeWorld->CollisionRuleHash);
         ++HashBucket)
     {
-        for(pairwise_collision_rule **Rule = &GameState->CollisionRuleHash[HashBucket];
+        for(pairwise_collision_rule **Rule = &ModeWorld->CollisionRuleHash[HashBucket];
             *Rule;)
         {
             if(((*Rule)->StorageIndexA == StorageIndex) || ((*Rule)->StorageIndexB == StorageIndex))
@@ -531,8 +531,8 @@ ClearCollisionRulesFor(game_state *GameState, u32 StorageIndex)
                 pairwise_collision_rule *RemovedRule = *Rule;
                 *Rule = (*Rule)->NextInHash;
                 
-                RemovedRule->NextInHash = GameState->FirstFreeCollisionRule;
-                GameState->FirstFreeCollisionRule = RemovedRule;
+                RemovedRule->NextInHash = ModeWorld->FirstFreeCollisionRule;
+                ModeWorld->FirstFreeCollisionRule = RemovedRule;
             }
             else
             {
@@ -543,12 +543,12 @@ ClearCollisionRulesFor(game_state *GameState, u32 StorageIndex)
 }
 
 sim_entity_collision_volume_group *
-MakeSimpleGroundedCollision(game_state *GameState, r32 DimX, r32 DimY, r32 DimZ)
+MakeSimpleGroundedCollision(mode_world *ModeWorld, r32 DimX, r32 DimY, r32 DimZ)
 {
     // TODO(casey): NOT WORLD ARENA!  Change to using the fundamental types arena, etc.
-    sim_entity_collision_volume_group *Group = PushStruct(&GameState->ConstArena, sim_entity_collision_volume_group);
+    sim_entity_collision_volume_group *Group = PushStruct(ModeWorld->ConstArena, sim_entity_collision_volume_group);
     Group->VolumeCount = 1;
-    Group->Volumes = PushArray(&GameState->ConstArena, Group->VolumeCount, sim_entity_collision_volume);
+    Group->Volumes = PushArray(ModeWorld->ConstArena, Group->VolumeCount, sim_entity_collision_volume);
     Group->TotalVolume.OffsetP = V3(0, 0, 0.5f * DimZ);
     //Group->TotalVolume.OffsetP = V3(0, 0, 0);
     Group->TotalVolume.Dim = V3(DimX, DimY, DimZ);
@@ -558,10 +558,10 @@ MakeSimpleGroundedCollision(game_state *GameState, r32 DimX, r32 DimY, r32 DimZ)
 }
 
 sim_entity_collision_volume_group *
-MakeNullCollision(game_state *GameState)
+MakeNullCollision(mode_world *ModeWorld)
 {
     // TODO(casey): NOT WORLD ARENA!  Change to using the fundamental types arena, etc.
-    sim_entity_collision_volume_group *Group = PushStruct(&GameState->ConstArena, sim_entity_collision_volume_group);
+    sim_entity_collision_volume_group *Group = PushStruct(ModeWorld->ConstArena, sim_entity_collision_volume_group);
     Group->VolumeCount = 0;
     Group->Volumes = 0;
     Group->TotalVolume.OffsetP = V3(0, 0, 0);
@@ -596,18 +596,18 @@ struct add_low_entity_result
     u32 LowIndex;
 };
 internal add_low_entity_result
-AddLowEntity(game_state *GameState, entity_type Type, world_position P)
+AddLowEntity(mode_world *ModeWorld, entity_type Type, world_position P)
 {
-    Assert(GameState->LowEntityCount < ArrayCount(GameState->LowEntities));
-    u32 EntityIndex = GameState->LowEntityCount++;
+    Assert(ModeWorld->LowEntityCount < ArrayCount(ModeWorld->LowEntities));
+    u32 EntityIndex = ModeWorld->LowEntityCount++;
     
-    low_entity *EntityLow = GameState->LowEntities + EntityIndex;
+    low_entity *EntityLow = ModeWorld->LowEntities + EntityIndex;
     *EntityLow = {};
     EntityLow->Sim.Type = Type;
-    EntityLow->Sim.Collision = GameState->NullCollision;
+    EntityLow->Sim.Collision = ModeWorld->NullCollision;
     EntityLow->P = NullPosition();
     
-    ChangeEntityLocation(&GameState->ConstArena, GameState->World, EntityIndex, EntityLow, P);
+    ChangeEntityLocation(ModeWorld, EntityIndex, EntityLow, P);
     
     add_low_entity_result Result;
     Result.Low = EntityLow;
@@ -621,42 +621,52 @@ AddLowEntity(game_state *GameState, entity_type Type, world_position P)
 }
 
 internal add_low_entity_result 
-AddGroundedEntity(game_state *GameState, entity_type Type, world_position P,
+AddGroundedEntity(mode_world *ModeWorld, entity_type Type, world_position P,
                   sim_entity_collision_volume_group *Collision)
 {
-    add_low_entity_result Entity = AddLowEntity(GameState, Type, P);
+    add_low_entity_result Entity = AddLowEntity(ModeWorld, Type, P);
     Entity.Low->Sim.Collision = Collision;
     return (Entity);
 }
 
 internal add_low_entity_result 
-AddStandardRoom(game_state *GameState, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
+AddStandardRoom(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
 {
-    world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
-    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Space, P, GameState->StandardRoomCollision);
+    world_position P = ChunkPositionFromTilePosition(ModeWorld->World, AbsTileX, AbsTileY, AbsTileZ);
+    add_low_entity_result Entity = AddGroundedEntity(ModeWorld, EntityType_Space, P, ModeWorld->StandardRoomCollision);
     AddFlags(&Entity.Low->Sim, EntityFlag_Traversable);
     
     return (Entity);
 }
 
 internal add_low_entity_result 
-AddWall(game_state *GameState, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
+AddWater(mode_world *ModeWorld, s32 ChunkX, s32 ChunkY, s32 ChunkZ)
 {
-    world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
-    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Wall, P, GameState->WallCollision);
+    world_position P = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
+    add_low_entity_result Entity = AddGroundedEntity(ModeWorld, EntityType_Water, P, ModeWorld->WaterCollision);
+    AddFlags(&Entity.Low->Sim, EntityFlag_Traversable);
+    
+    return (Entity);
+}
+
+internal add_low_entity_result 
+AddWall(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
+{
+    world_position P = ChunkPositionFromTilePosition(ModeWorld->World, AbsTileX, AbsTileY, AbsTileZ);
+    add_low_entity_result Entity = AddGroundedEntity(ModeWorld, EntityType_Wall, P, ModeWorld->WallCollision);
     AddFlags(&Entity.Low->Sim, EntityFlag_Collides);
     
     return (Entity);
 }
 
 internal add_low_entity_result 
-AddStair(game_state *GameState, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
+AddStair(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
 {
-    world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
-    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Stairwell, P, GameState->StairCollision);
+    world_position P = ChunkPositionFromTilePosition(ModeWorld->World, AbsTileX, AbsTileY, AbsTileZ);
+    add_low_entity_result Entity = AddGroundedEntity(ModeWorld, EntityType_Stairwell, P, ModeWorld->StairCollision);
     AddFlags(&Entity.Low->Sim, EntityFlag_Collides);
     Entity.Low->Sim.WalkableDim = Entity.Low->Sim.Collision->TotalVolume.Dim.xy;
-    Entity.Low->Sim.WalkableHeight = GameState->TypicalFloorHeight;
+    Entity.Low->Sim.WalkableHeight = ModeWorld->TypicalFloorHeight;
     
     return (Entity);
 }
@@ -677,10 +687,10 @@ InitHitPoints(low_entity *EntityLow, u32 HitPointCount)
 }
 
 internal add_low_entity_result 
-AddSword(game_state *GameState)
+AddSword(mode_world *ModeWorld)
 {
-    add_low_entity_result Entity = AddLowEntity(GameState, EntityType_Sword, NullPosition());
-    Entity.Low->Sim.Collision = GameState->SwordCollision;
+    add_low_entity_result Entity = AddLowEntity(ModeWorld, EntityType_Sword, NullPosition());
+    Entity.Low->Sim.Collision = ModeWorld->SwordCollision;
     
     AddFlags(&Entity.Low->Sim, EntityFlag_Moveable);
     AddFlags(&Entity.Low->Sim, EntityFlag_Collides);
@@ -689,30 +699,30 @@ AddSword(game_state *GameState)
 }
 
 internal add_low_entity_result 
-AddPlayer(game_state *GameState)
+AddPlayer(mode_world *ModeWorld)
 {
-    world_position P = GameState->CameraP;
-    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Hero, P, GameState->PlayerCollision);
+    world_position P = ModeWorld->Camera.P;
+    add_low_entity_result Entity = AddGroundedEntity(ModeWorld, EntityType_Hero, P, ModeWorld->PlayerCollision);
     AddFlags(&Entity.Low->Sim, EntityFlag_Collides | EntityFlag_Moveable);
     
     InitHitPoints(Entity.Low, 3);
     
-    add_low_entity_result Sword = AddSword(GameState);
+    add_low_entity_result Sword = AddSword(ModeWorld);
     Entity.Low->Sim.Sword.Index = Sword.LowIndex;
     
-    if(GameState->CameraFollowingEntityIndex == 0)
+    if(ModeWorld->CameraFollowingEntityIndex == 0)
     {
-        GameState->CameraFollowingEntityIndex = Entity.LowIndex;
+        ModeWorld->CameraFollowingEntityIndex = Entity.LowIndex;
     }
     
     return (Entity);
 }
 
 internal add_low_entity_result
-AddMonstar(game_state *GameState, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
+AddMonstar(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
 {
-    world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
-    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Monstar, P, GameState->MonstarCollision);
+    world_position P = ChunkPositionFromTilePosition(ModeWorld->World, AbsTileX, AbsTileY, AbsTileZ);
+    add_low_entity_result Entity = AddGroundedEntity(ModeWorld, EntityType_Monstar, P, ModeWorld->MonstarCollision);
     AddFlags(&Entity.Low->Sim, EntityFlag_Collides | EntityFlag_Moveable);
     
     InitHitPoints(Entity.Low, 3);
@@ -721,63 +731,70 @@ AddMonstar(game_state *GameState, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
 }
 
 internal add_low_entity_result 
-AddFamiliar(game_state *GameState, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
+AddFamiliar(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
 {
-    world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
-    add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Familiar, P, GameState->FamiliarCollision);
+    world_position P = ChunkPositionFromTilePosition(ModeWorld->World, AbsTileX, AbsTileY, AbsTileZ);
+    add_low_entity_result Entity = AddGroundedEntity(ModeWorld, EntityType_Familiar, P, ModeWorld->FamiliarCollision);
     AddFlags(&Entity.Low->Sim, EntityFlag_Collides | EntityFlag_Moveable);
     
     return (Entity);
 }
 
-// NOTE(ezexff): Main cycle
 internal void
 UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
 {
 #if ENGINE_INTERNAL
-    imgui *ImGuiHandle = &Memory->Frame.ImGuiHandle;
+    imgui *ImGuiHandle = &Memory->ImGuiHandle;
 #endif
     game_state *GameState = (game_state *)Memory->PermanentStorage;
     tran_state *TranState = (tran_state *)Memory->TransientStorage;
     
     game_assets *Assets = TranState->Assets;
     mode_world *ModeWorld = &GameState->ModeWorld;
-    //camera *Camera = &ModeWorld->Camera;
+    
     renderer_frame *Frame = &Memory->Frame;
-    world *World = GameState->World;
     
     if(!ModeWorld->IsInitialized)
     {
+        //~ NOTE(ezexff): 
+        ModeWorld->ConstArena = &GameState->ConstArena;
+        ModeWorld->TranArena = &TranState->TranArena;
+        
         //~ NOTE(ezexff): World creation
         {
-            // NOTE(casey): Reserve entity slot 0 for the null entity
-            AddLowEntity(GameState, EntityType_Null, NullPosition());
+            AddLowEntity(ModeWorld, EntityType_Null, NullPosition()); // Reserve entity slot 0 for the null entity
             
-            v3 WorldChunkDimInMeters = V3((r32)GameState->GroundBufferWidth,
-                                          (r32)GameState->GroundBufferHeight,
-                                          GameState->TypicalFloorHeight);
+            // NOTE(ezexff): Terrain
+            {
+                ModeWorld->GroundBufferWidth = 8;
+                ModeWorld->GroundBufferHeight = 8;
+                ModeWorld->TypicalFloorHeight = 3.0f;
+            }
             
-            GameState->World = PushStruct(&GameState->ConstArena, world);
-            World = GameState->World;
-            InitializeWorld(World, WorldChunkDimInMeters);
+            v3 WorldChunkDimInMeters = V3((r32)ModeWorld->GroundBufferWidth,
+                                          (r32)ModeWorld->GroundBufferHeight,
+                                          ModeWorld->TypicalFloorHeight);
+            
+            ModeWorld->World = PushStruct(ModeWorld->ConstArena, world);
+            InitializeWorld(ModeWorld->World, WorldChunkDimInMeters);
             
             
             u32 TilesPerWidth = 17;
             u32 TilesPerHeight = 9;
             r32 TileSideInMeters = 1.4f;
-            r32 TileDepthInMeters = GameState->TypicalFloorHeight;
+            r32 TileDepthInMeters = ModeWorld->TypicalFloorHeight;
             
-            GameState->NullCollision = MakeNullCollision(GameState);
+            ModeWorld->NullCollision = MakeNullCollision(ModeWorld);
             //GameState->SwordCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 0.1f);
-            GameState->SwordCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 1.2f);
-            GameState->StairCollision = MakeSimpleGroundedCollision(GameState,
+            ModeWorld->SwordCollision = MakeSimpleGroundedCollision(ModeWorld, 1.0f, 0.5f, 1.2f);
+            ModeWorld->StairCollision = MakeSimpleGroundedCollision(ModeWorld,
                                                                     TileSideInMeters,
                                                                     2.0f * TileSideInMeters,
                                                                     1.1f * TileDepthInMeters);
-            GameState->PlayerCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 1.2f);
-            GameState->MonstarCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 0.5f);
-            GameState->FamiliarCollision = MakeSimpleGroundedCollision(GameState, 1.0f, 0.5f, 0.5f);
-            GameState->WallCollision = MakeSimpleGroundedCollision(GameState,
+            ModeWorld->PlayerCollision = MakeSimpleGroundedCollision(ModeWorld, 1.0f, 0.5f, 1.2f);
+            ModeWorld->MonstarCollision = MakeSimpleGroundedCollision(ModeWorld, 1.0f, 0.5f, 0.5f);
+            ModeWorld->FamiliarCollision = MakeSimpleGroundedCollision(ModeWorld, 1.0f, 0.5f, 0.5f);
+            ModeWorld->WallCollision = MakeSimpleGroundedCollision(ModeWorld,
                                                                    TileSideInMeters,
                                                                    TileSideInMeters,
                                                                    TileDepthInMeters);
@@ -786,10 +803,15 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                                                                            TilesPerHeight * TileSideInMeters,
                                                                            0.9f * TileDepthInMeters);*/
             
-            GameState->StandardRoomCollision = MakeSimpleGroundedCollision(GameState,
+            ModeWorld->StandardRoomCollision = MakeSimpleGroundedCollision(ModeWorld,
                                                                            2 * TilesPerWidth * TileSideInMeters,
                                                                            2 * TilesPerHeight * TileSideInMeters,
                                                                            0.9f * TileDepthInMeters);
+            
+            ModeWorld->WaterCollision = MakeSimpleGroundedCollision(ModeWorld,
+                                                                    (r32)ModeWorld->GroundBufferWidth,
+                                                                    (r32)ModeWorld->GroundBufferHeight,
+                                                                    0.9f * TileDepthInMeters);
             
             u32 ScreenBaseX = 0;
             u32 ScreenBaseY = 0;
@@ -800,7 +822,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             //u32 AbsTileY = ScreenY * TilesPerHeight + 1; // TileY=2
             u32 AbsTileZ = ScreenBaseZ;
             
-            AddStandardRoom(GameState,
+            AddStandardRoom(ModeWorld,
                             ScreenX * TilesPerWidth + TilesPerWidth / 2,
                             ScreenY * TilesPerHeight + TilesPerHeight / 2,
                             AbsTileZ);
@@ -809,15 +831,15 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 Index < TilesPerHeight;
                 Index++)
             {
-                AddWall(GameState, 0, Index, AbsTileZ);
+                AddWall(ModeWorld, 0, Index, AbsTileZ);
             }
             // top and bot
             for(u32 Index = 1;
                 Index < TilesPerWidth;
                 Index++)
             {
-                AddWall(GameState, Index, TilesPerHeight - 1, AbsTileZ);
-                AddWall(GameState, Index, 0, AbsTileZ);
+                AddWall(ModeWorld, Index, TilesPerHeight - 1, AbsTileZ);
+                AddWall(ModeWorld, Index, 0, AbsTileZ);
             }
             
             for(u32 RoomIndex = 0;
@@ -826,7 +848,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             {
                 ScreenX++;
                 
-                AddStandardRoom(GameState,
+                AddStandardRoom(ModeWorld,
                                 ScreenX * TilesPerWidth + TilesPerWidth / 2,
                                 ScreenY * TilesPerHeight + TilesPerHeight / 2,
                                 AbsTileZ);
@@ -844,32 +866,125 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             u32 CameraTileX = ScreenBaseX * TilesPerWidth + 17 / 2;
             u32 CameraTileY = ScreenBaseY * TilesPerHeight + 9 / 2;
             u32 CameraTileZ = ScreenBaseZ;
-            NewCameraP = ChunkPositionFromTilePosition(World, CameraTileX, CameraTileY, CameraTileZ);
-            GameState->CameraP = NewCameraP;
-            GameState->CameraPitch = 0.0f;
-            GameState->CameraYaw = 0.0f;
-            GameState->CameraRoll = 0.0f;
+            NewCameraP = ChunkPositionFromTilePosition(ModeWorld->World, CameraTileX, CameraTileY, CameraTileZ);
+            ModeWorld->Camera.P = NewCameraP;
+            ModeWorld->Camera.Angle.pitch = 0.0f;
+            ModeWorld->Camera.Angle.yaw = 0.0f;
+            ModeWorld->Camera.Angle.roll = 0.0f;
             
-            AddMonstar(GameState, CameraTileX - 3, CameraTileY + 2, CameraTileZ);
-            AddMonstar(GameState, CameraTileX, CameraTileY + 2, CameraTileZ);
-            AddMonstar(GameState, CameraTileX + 3, CameraTileY + 2, CameraTileZ);
+            AddMonstar(ModeWorld, CameraTileX - 3, CameraTileY + 2, CameraTileZ);
+            AddMonstar(ModeWorld, CameraTileX, CameraTileY + 2, CameraTileZ);
+            AddMonstar(ModeWorld, CameraTileX + 3, CameraTileY + 2, CameraTileZ);
+            
+            AddWater(ModeWorld, 5, 0, 0);
+            
+            // NOTE(ezexff): Init ground buffers
+            {
+                Frame->GroundBufferCount = 64;
+                Frame->TileCount = 16;
+                Frame->MaxTerrainHeight = 0.2f;
+                
+                Frame->TileWidth = (r32)ModeWorld->GroundBufferWidth / Frame->TileCount;
+                Frame->TileHeight = (r32)ModeWorld->GroundBufferHeight / Frame->TileCount;
+                
+                
+                Frame->ChunkVertexCount = (Frame->TileCount + 1) * (Frame->TileCount + 1);
+                //Frame->ChunkPositionsXY = PushArray(TranArena, Frame->ChunkVertexCount, v2);
+                
+                Frame->ChunkIndexCount = (6 * Frame->TileCount * Frame->TileCount);
+                Frame->ChunkIndices = PushArray(&GameState->ConstArena, Frame->ChunkIndexCount, u32);
+                u32 TmpPosCount = 0;
+                u32 TmpIndCount = 0;
+                for(u32 Y = 0;
+                    Y <= Frame->TileCount;
+                    ++Y)
+                {
+                    for(u32 X = 0;
+                        X <= Frame->TileCount;
+                        ++X)
+                    {
+                        if((X != Frame->TileCount) && (Y != Frame->TileCount))
+                        {
+                            Frame->ChunkIndices[TmpIndCount + 0] = TmpPosCount;
+                            Frame->ChunkIndices[TmpIndCount + 1] = TmpPosCount + 1;
+                            Frame->ChunkIndices[TmpIndCount + 2] = TmpPosCount + Frame->TileCount + 1;
+                            
+                            Frame->ChunkIndices[TmpIndCount + 3] = TmpPosCount + 1;
+                            Frame->ChunkIndices[TmpIndCount + 4] = TmpPosCount + Frame->TileCount + 1;
+                            Frame->ChunkIndices[TmpIndCount + 5] = TmpPosCount + Frame->TileCount + 2;
+                            
+                            TmpIndCount += 6;
+                        }
+                        TmpPosCount++;
+                    }
+                }
+                Assert(TmpIndCount == Frame->ChunkIndexCount);
+                
+                Frame->GroundBuffers = PushArray(&GameState->ConstArena, Frame->GroundBufferCount, ground_buffer);
+                for(u32 GroundBufferIndex = 0;
+                    GroundBufferIndex < Frame->GroundBufferCount;
+                    ++GroundBufferIndex)
+                {
+                    ground_buffer *GroundBuffer = Frame->GroundBuffers + GroundBufferIndex;
+                    
+                    GroundBuffer->IsInitialized = false;
+                    GroundBuffer->IsFilled = false;
+                    GroundBuffer->P = NullPosition();
+                    GroundBuffer->OffsetP = V3(0, 0, 0); // смещение относительно камеры для рендера чанка
+                    GroundBuffer->Vertices = PushArray(&GameState->ConstArena, Frame->ChunkVertexCount, vbo_vertex);
+                    
+                    // NOTE(ezexff): Fill default chunk positions and indices
+                    u32 TmpPosCount2 = 0;
+                    for(u32 Y = 0;
+                        Y <= Frame->TileCount;
+                        ++Y)
+                    {
+                        for(u32 X = 0;
+                            X <= Frame->TileCount;
+                            ++X)
+                        {
+                            GroundBuffer->Vertices[TmpPosCount2].Position.x = X * Frame->TileWidth;
+                            GroundBuffer->Vertices[TmpPosCount2].Position.y = Y * Frame->TileHeight;
+                            
+                            GroundBuffer->Vertices[TmpPosCount2].TexCoords.x = (r32)X;
+                            GroundBuffer->Vertices[TmpPosCount2].TexCoords.y = (r32)Y;
+                            
+                            TmpPosCount2++;
+                        }
+                    }
+                    Assert(TmpPosCount2 == Frame->ChunkVertexCount);
+                }
+            }
+            
         }
         
-        // NOTE(ezexff): Rendering parameters
+        // NOTE(ezexff): Init renderer
+        {
+            ModeWorld->Renderer = PushStruct(&GameState->ConstArena, renderer);
+            renderer *Renderer = ModeWorld->Renderer;
+            Renderer->FOV = 0.1f;
+#define PLAYER_EYE_HEIGHT_FROM_GROUND 1.75f
+            Renderer->Camera.P = V3(0, 0, PLAYER_EYE_HEIGHT_FROM_GROUND);
+            Renderer->ClearColor = V4(0.5, 0.5, 0.5, 1);
+            AddFlags(Renderer,
+                     RendererFlag_Skybox | 
+                     RendererFlag_Lighting | 
+                     RendererFlag_Shadows |
+                     RendererFlag_Water |
+                     RendererFlag_Terrain);
+        }
+        
+        //~ NOTE(ezexff): Rendering parameters
         {
             // NOTE(ezexff): Camera
-            GameState->CameraPitch = 90.0f;
-            GameState->CameraYaw = 0.0f;
-            Frame->WorldOrigin.z = 1.75f;
+            ModeWorld->Camera.Angle.pitch = 90.0f;
+            ModeWorld->Camera.Angle.yaw = 0.0f;
+            //Frame->WorldOrigin.z = 1.75f;
             Frame->CameraPitchInverted = 90.0f;
-            
-            // NOTE(ezexff): Skybox
-            Frame->DrawSkybox = true;
             
             // NOTE(ezexff): Terrain
             //GameState->MaxTerrainHeight = 0.2f;
             //GameState->TilesPerChunkRow = 16;
-            Frame->DrawTerrain = true;
             /*Frame->TerrainMaterial.Ambient = V4(0.2f, 0.2f, 0.2f, 1.0f);
             Frame->TerrainMaterial.Diffuse = V4(0.8f, 0.8f, 0.8f, 1.0f);
             Frame->TerrainMaterial.Specular = V4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -927,20 +1042,25 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         ModeWorld->IsInitialized = true;
     }
     
+    //~
+    renderer *Renderer = ModeWorld->Renderer;
+    Frame->Renderer = Renderer;
+    world *World = ModeWorld->World;
+    
     //~ NOTE(ezexff): Keyboard and gamepad inputs
     for(int ControllerIndex = 0;
         ControllerIndex < ArrayCount(Input->Controllers);
         ++ControllerIndex)
     {
         game_controller_input *Controller = GetController(Input, ControllerIndex);
-        controlled_hero *ConHero = GameState->ControlledHeroes + ControllerIndex;
+        controlled_hero *ConHero = ModeWorld->ControlledHeroes + ControllerIndex;
         if(ConHero->EntityIndex == 0)
         {
             //if(Controller->Start.EndedDown)
             if(WasPressed(Controller->Start))
             {
                 *ConHero = {};
-                ConHero->EntityIndex = AddPlayer(GameState).LowIndex;
+                ConHero->EntityIndex = AddPlayer(ModeWorld).LowIndex;
 #if ENGINE_INTERNAL
                 Log->Add("[engineworld] 1st player added\n");
 #endif
@@ -1003,7 +1123,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         // NOTE(ezexff): Camera z
         if(Input->MouseDelta.z != 0)
         {
-            Frame->WorldOrigin.z -= Input->MouseDelta.z;
+            Renderer->Camera.P.z -= Input->MouseDelta.z;
         }
         
         // NOTE(ezexff): Keys
@@ -1034,28 +1154,28 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         if(!ImGuiHandle->ShowImGuiWindows)
 #endif
         {
-            r32 Sensitivity = 0.05;
+            r32 Sensitivity = 0.03;
             
             // Horizontal (camera yaw)
-            GameState->CameraYaw -= (r32)Input->MouseDelta.x * Sensitivity;
-            if(GameState->CameraYaw < -180)
+            ModeWorld->Camera.Angle.yaw -= (r32)Input->MouseDelta.x * Sensitivity;
+            if(ModeWorld->Camera.Angle.yaw < -180)
             {
-                GameState->CameraYaw += 360;
+                ModeWorld->Camera.Angle.yaw += 360;
             }
-            if(GameState->CameraYaw > 180)
+            if(ModeWorld->Camera.Angle.yaw > 180)
             {
-                GameState->CameraYaw -= 360;
+                ModeWorld->Camera.Angle.yaw -= 360;
             }
             
             // Vertical (camera pitch)
-            GameState->CameraPitch += (r32)Input->MouseDelta.y * Sensitivity;
-            if(GameState->CameraPitch < 0)
+            ModeWorld->Camera.Angle.pitch += (r32)Input->MouseDelta.y * Sensitivity;
+            if(ModeWorld->Camera.Angle.pitch < 0)
             {
-                GameState->CameraPitch = 0;
+                ModeWorld->Camera.Angle.pitch = 0;
             }
-            if(GameState->CameraPitch > 180)
+            if(ModeWorld->Camera.Angle.pitch > 180)
             {
-                GameState->CameraPitch = 180;
+                ModeWorld->Camera.Angle.pitch = 180;
             }
             
             // Camera pitch (inverted)
@@ -1081,14 +1201,11 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     rectangle3 SimBounds = AddRadiusTo(CameraBoundsInMeters, SimBoundsExpansion);
     
     temporary_memory SimMemory = BeginTemporaryMemory(&TranState->TranArena);
-    sim_region *SimRegion = BeginSim(&TranState->TranArena, GameState, GameState->World, //
-                                     GameState->CameraP, SimBounds, Input->dtForFrame);
+    sim_region *SimRegion = BeginSim(ModeWorld, SimBounds, Input->dtForFrame);
     
     //~ NOTE(ezexff): Render
-    Frame->Camera.P = V3(0, 0, 0);
-    Frame->Camera.Angle.x = GameState->CameraPitch;
-    Frame->Camera.Angle.y = GameState->CameraYaw;
-    Frame->Camera.Angle.z = GameState->CameraRoll;
+    Renderer->Camera.Angle = ModeWorld->Camera.Angle;
+    
     Frame->WaterMoveFactor += Frame->WaterWaveSpeed * Input->dtForFrame;
     if(Frame->WaterMoveFactor >= 1)
     {
@@ -1099,10 +1216,10 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     Frame->WaterNormalMapTexture = GetBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_NormalMap), true);
     // TODO(ezexff): Test
     world_position WaterChunkCenterP = CenteredChunkPoint(Frame->TestWaterP.ChunkX, Frame->TestWaterP.ChunkY, Frame->TestWaterP.ChunkZ);
-    Frame->TestWaterRelP = Subtract(World, &WaterChunkCenterP, &GameState->CameraP);
+    Frame->TestWaterRelP = Subtract(World, &WaterChunkCenterP, &ModeWorld->Camera.P);
     
     world_position SunChunkCenterP = CenteredChunkPoint(Frame->TestSunP.ChunkX, Frame->TestSunP.ChunkY, Frame->TestSunP.ChunkZ);
-    Frame->TestSunRelP = Subtract(World, &SunChunkCenterP, &GameState->CameraP);
+    Frame->TestSunRelP = Subtract(World, &SunChunkCenterP, &ModeWorld->Camera.P);
     Frame->TestSunRelP.z = 10.0f;
     Frame->TestSun2P = V3(-17.0f, 40.0f, 35.0f);
     
@@ -1136,7 +1253,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             else if(Asset->State == AssetState_Unloaded)
             {
                 LoadBitmap(TranState->Assets, ID, true);
-                Frame->MissingResourceCount++;
+                //Frame->MissingResourceCount++;
             }
             Index++;
         }
@@ -1194,10 +1311,10 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                     // TODO(casey): Now that we have some real usage examples, let's solidify
                     // the positioning system!
                     for(u32 ControlIndex = 0;
-                        ControlIndex < ArrayCount(GameState->ControlledHeroes);
+                        ControlIndex < ArrayCount(ModeWorld->ControlledHeroes);
                         ++ControlIndex)
                     {
-                        controlled_hero *ConHero = GameState->ControlledHeroes + ControlIndex;
+                        controlled_hero *ConHero = ModeWorld->ControlledHeroes + ControlIndex;
                         
                         if(Entity->StorageIndex == ConHero->EntityIndex)
                         {
@@ -1220,12 +1337,12 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                             ddP.z = 0;
                             //ddP = V3(ConHero->ddP, 0);
 #else
-                            r32 Yaw = DegToRad(GameState->CameraYaw);
-                            r32 Tmp1 = 90 - GameState->CameraPitch;
+                            r32 Yaw = DegToRad(ModeWorld->Camera.Angle.yaw);
+                            r32 Tmp1 = 90 - ModeWorld->Camera.Angle.pitch;
                             r32 Pitch = DegToRad(Tmp1);
                             //r32 Pitch = DegToRad(GameState->CameraPitch);
                             //Log->Add("test %f\n", Pitch);
-                            r32 Roll = DegToRad(GameState->CameraRoll);
+                            r32 Roll = DegToRad(ModeWorld->Camera.Angle.roll);
                             
                             r32 SinYaw = Sin(Yaw);
                             r32 CosYaw = Cos(Yaw);
@@ -1284,7 +1401,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                                     //MakeEntitySpatial(Sword, Entity->P, Entity->dP + 5.0f * V3(ConHero->dSword, 0));
                                     r32 dSwordMultiplier = 10.0f;
                                     MakeEntitySpatial(Sword, Entity->P, V3(ConHero->dSword * dSwordMultiplier, 0));
-                                    AddCollisionRule(GameState, Sword->StorageIndex, Entity->StorageIndex, false);
+                                    AddCollisionRule(ModeWorld, Sword->StorageIndex, Entity->StorageIndex, false);
                                     
                                     PlaySound(&GameState->AudioState, GetFirstSoundFrom(TranState->Assets, Asset_Bloop));
                                 }
@@ -1301,7 +1418,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                     
                     if(Entity->DistanceLimit == 0.0f)
                     {
-                        ClearCollisionRulesFor(GameState, Entity->StorageIndex);
+                        ClearCollisionRulesFor(ModeWorld, Entity->StorageIndex);
                         MakeEntityNonSpatial(Entity);
                     }
                 } break;
@@ -1333,7 +1450,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 {
                     if(!IsSet(Entity, EntityFlag_Nonspatial) && Entity->HitPointMax == 0.0f)
                     {
-                        ClearCollisionRulesFor(GameState, Entity->StorageIndex);
+                        ClearCollisionRulesFor(ModeWorld, Entity->StorageIndex);
                         MakeEntityNonSpatial(Entity);
                     }
                 } break;
@@ -1342,27 +1459,28 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             if(!IsSet(Entity, EntityFlag_Nonspatial) &&
                IsSet(Entity, EntityFlag_Moveable))
             {
-                MoveEntity(GameState, SimRegion, Entity, Input->dtForFrame, &MoveSpec, ddP,
+                MoveEntity(ModeWorld, SimRegion, Entity, Input->dtForFrame, &MoveSpec, ddP,
                            WishDir, WishSpeed, sv_accelerate);
             }
             
             //RenderGroup->Transform.OffsetP = GetEntityGroundPoint(Entity);
-            Frame->OffsetP = GetEntityGroundPoint(Entity);
+            //Frame->OffsetP = GetEntityGroundPoint(Entity);
+            v3 InCameraSpaceEntityP = GetEntityGroundPoint(Entity);
             
             // NOTE(ezexff): Calc entity z based on terrain height
             if(Entity->Type == EntityType_Wall || 
                Entity->Type == EntityType_Monstar ||
                Entity->Type == EntityType_Hero)
             {
-                low_entity *LowEntity = GetLowEntity(GameState, Entity->StorageIndex);
+                low_entity *LowEntity = GetLowEntity(ModeWorld, Entity->StorageIndex);
                 world_position WorldEntityP = LowEntity->P;
                 
                 r32 RelTileX = Frame->TileCount * WorldEntityP.ChunkX + 
-                (GameState->GroundBufferWidth) + WorldEntityP.Offset_.x;
+                (ModeWorld->GroundBufferWidth) + WorldEntityP.Offset_.x;
                 r32 RelTileY = Frame->TileCount * WorldEntityP.ChunkY +
-                (GameState->GroundBufferHeight) + WorldEntityP.Offset_.y;
-                s32 TileX = FloorReal32ToInt32(RelTileX);
-                s32 TileY = FloorReal32ToInt32(RelTileY);
+                (ModeWorld->GroundBufferHeight) + WorldEntityP.Offset_.y;
+                s32 TileX = FloorR32ToS32(RelTileX);
+                s32 TileY = FloorR32ToS32(RelTileY);
                 s32 TileZ = 0; // TODO(ezexff): Need rework when start using z chunks
                 
                 random_series Series = RandomSeed(139 * (TileX) + 593 * (TileY) + 329 * TileZ);
@@ -1379,7 +1497,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 r32 H1 = Lerp(RandomZ00, BaseOffsetX, RandomZ10); // x-axis
                 r32 H2 = Lerp(RandomZ01, BaseOffsetX, RandomZ11); // y-axis
                 r32 OnTerrainZ = (H1, BaseOffsetY, H2);
-                Frame->OffsetP.z = OnTerrainZ;
+                InCameraSpaceEntityP.z = OnTerrainZ;
                 
                 r32 HillHeight = 0.0f;
                 {
@@ -1419,8 +1537,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 // NOTE(ezexff): Terrain z for player camera
                 if(Entity->Type == EntityType_Hero && Frame->FixCameraOnTerrain)
                 {
-#define PLAYER_HEIGHT 1.75f
-                    Frame->WorldOrigin.z = OnTerrainZ + HillHeight + PLAYER_HEIGHT;
+                    Renderer->Camera.P.z = OnTerrainZ + HillHeight + PLAYER_EYE_HEIGHT_FROM_GROUND;
                 }
             }
             
@@ -1440,7 +1557,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                         ++VolumeIndex)
                     {
                         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
-                        PushRectOutlineOnGround(Frame, Frame->OffsetP.xy, Volume->Dim.xy, V4(0, 1, 0, 1));
+                        PushRectOutlineOnGround(Frame, InCameraSpaceEntityP.xy, Volume->Dim.xy, V4(0, 1, 0, 1));
                     }
                 } break;
                 
@@ -1452,8 +1569,8 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                         ++VolumeIndex)
                     {
                         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
-                        Frame->OffsetP.z += Volume->OffsetP.z;
-                        PushCube(Frame, Frame->OffsetP, Volume->Dim, V4(1, 0.5f, 0, 1));
+                        InCameraSpaceEntityP.z += Volume->OffsetP.z;
+                        PushCube(Frame, InCameraSpaceEntityP, Volume->Dim, V4(1, 0.5f, 0, 1));
                     }
                 } break;
                 
@@ -1472,7 +1589,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                         ++VolumeIndex)
                     {
                         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
-                        PushRectOutlineOnGround(Frame, Frame->OffsetP.xy, Volume->Dim.xy, V4(0, 0, 1, 1));
+                        PushRectOutlineOnGround(Frame, InCameraSpaceEntityP.xy, Volume->Dim.xy, V4(0, 0, 1, 1));
                     }
                 } break;
                 
@@ -1495,8 +1612,8 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                     {
                         sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
                         //PushRectOutlineOnGround(Frame, Frame->OffsetP, Volume->Dim.xy, V4(1, 0, 0, 1));
-                        Frame->OffsetP.z += Volume->OffsetP.z;
-                        PushCubeOutline(Frame, Frame->OffsetP, Volume->Dim, V4(1, 0, 0, 1));
+                        InCameraSpaceEntityP.z += Volume->OffsetP.z;
+                        PushCubeOutline(Frame, InCameraSpaceEntityP, Volume->Dim, V4(1, 0, 0, 1));
                     }
                     
                     /*ImGui::Begin("Monstar");
@@ -1515,10 +1632,22 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                         {
                             sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
                             //PushRectOnGround(Frame, Frame->OffsetP.xy, Volume->Dim.xy, V4(0.5f, 0.5f, 0.5f, 1));
-                            PushRectOutlineOnGround(Frame, Frame->OffsetP.xy, Volume->Dim.xy, V4(1, 1, 1, 1));
+                            PushRectOutlineOnGround(Frame, InCameraSpaceEntityP.xy, Volume->Dim.xy, V4(1, 1, 1, 1));
                         }
                     }
 #endif
+                } break;
+                
+                case EntityType_Water:
+                {
+                    for(u32 VolumeIndex = 0;
+                        VolumeIndex < Entity->Collision->VolumeCount;
+                        ++VolumeIndex)
+                    {
+                        sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
+                        //PushRectOutlineOnGround(Frame, Frame->OffsetP.xy, Volume->Dim.xy, V4(0, 1, 0, 1));
+                        PushWater(Frame, InCameraSpaceEntityP, Volume->Dim.xy);
+                    }
                 } break;
                 
                 InvalidDefaultCase;
@@ -1528,8 +1657,8 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     
     // NOTE(ezexff): Fill ground buffer
 #if 1
-    world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMinCorner(CameraBoundsInMeters));
-    world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMaxCorner(CameraBoundsInMeters));
+    world_position MinChunkP = MapIntoChunkSpace(World, ModeWorld->Camera.P, GetMinCorner(CameraBoundsInMeters));
+    world_position MaxChunkP = MapIntoChunkSpace(World, ModeWorld->Camera.P, GetMaxCorner(CameraBoundsInMeters));
     
     for(s32 ChunkZ = MinChunkP.ChunkZ;
         ChunkZ <= MaxChunkP.ChunkZ;
@@ -1544,7 +1673,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 ++ChunkX)
             {
                 world_position ChunkCenterP = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
-                v3 RelP = Subtract(World, &ChunkCenterP, &GameState->CameraP);
+                v3 RelP = Subtract(World, &ChunkCenterP, &ModeWorld->Camera.P);
                 
                 u32 TmpGroundBufferIndex = 0;
                 // TODO(casey): This is super inefficient fix it!
@@ -1563,7 +1692,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                     }
                     else if(IsValid(GroundBuffer->P))
                     {
-                        v3 RelP = Subtract(World, &GroundBuffer->P, &GameState->CameraP);
+                        v3 RelP = Subtract(World, &GroundBuffer->P, &ModeWorld->Camera.P);
                         r32 BufferLengthSq = LengthSq(RelP.xy);
                         if(FurthestBufferLengthSq < BufferLengthSq)
                         {
@@ -1600,7 +1729,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             ground_buffer *GroundBuffer = Frame->GroundBuffers + GroundBufferIndex;
             if(IsValid(GroundBuffer->P))
             {
-                GroundBuffer->OffsetP = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);
+                GroundBuffer->OffsetP = Subtract(ModeWorld->World, &GroundBuffer->P, &ModeWorld->Camera.P);
 #if ENGINE_INTERNAL
                 if(ImGuiHandle->DrawGroundBufferBounds)
                 {
@@ -1608,8 +1737,8 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 }
 #endif
                 // NOTE(ezexff): From center pos to left bottom pos for proper rendering
-                GroundBuffer->OffsetP.x -= 0.5f * GameState->GroundBufferWidth;
-                GroundBuffer->OffsetP.y -= 0.5f * GameState->GroundBufferHeight;
+                GroundBuffer->OffsetP.x -= 0.5f * ModeWorld->GroundBufferWidth;
+                GroundBuffer->OffsetP.y -= 0.5f * ModeWorld->GroundBufferHeight;
 #if 0                
                 // NOTE(ezexff): Draw terrain chunk normals
                 if((GroundBuffer->P.ChunkX == 0) && (GroundBuffer->P.ChunkY == 0) && (GroundBuffer->P.ChunkZ == 0))
@@ -1856,7 +1985,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     PushBitmapOnGround(Frame, Assets, GetFirstBitmapFrom(Assets, Asset_Ground), V3(0, -7, 0), V2(5, 5), 4.0f);*/
     
     //~ NOTE(ezexff): End frame
-    EndSim(SimRegion, GameState);
+    EndSim(SimRegion, ModeWorld);
     EndTemporaryMemory(SimMemory);
     
     CheckArena(&GameState->ConstArena);
@@ -1871,15 +2000,17 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         static ImGuiWindowFlags Flags = ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove | 
             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize;
         ImGui::Begin("Player", NULL, Flags);
-        camera *Camera = &Frame->Camera;
-        
-        world_position *CameraP = &GameState->CameraP;
-        ImGui::Text("WorldP: %d %d %d", CameraP->ChunkX, CameraP->ChunkY, CameraP->ChunkZ);
-        ImGui::Text("ChunkP: %.3f %.3f %.3f", CameraP->Offset_.x, CameraP->Offset_.y, CameraP->Offset_.z);
-        ImGui::Text("RenderWorldOrigin: %.3f %.3f %.3f", Frame->WorldOrigin.x, Frame->WorldOrigin.y, Frame->WorldOrigin.z);
-        ImGui::Text("Ang: %.3f %.3f %.3f", Camera->Angle.x, Camera->Angle.y, Camera->Angle.z);
-        ImGui::Text("Fps: %.1f", 1.0f / Input->dtForFrame);
-        ImGui::Text("dt: %.6f", Input->dtForFrame);
+        /* 
+                renderer_camera *Camera = (renderer_camera *)Frame->Camera;
+                
+                world_position *CameraP = &GameState->Camera.P;
+                ImGui::Text("WorldP: %d %d %d", CameraP->ChunkX, CameraP->ChunkY, CameraP->ChunkZ);
+                ImGui::Text("ChunkP: %.3f %.3f %.3f", CameraP->Offset_.x, CameraP->Offset_.y, CameraP->Offset_.z);
+                ImGui::Text("RenderWorldOrigin: %.3f %.3f %.3f", Renderer->CameraP.x, Renderer->CameraP.y, Renderer->CameraP.z);
+                ImGui::Text("Ang: %.3f %.3f %.3f", Camera->Angle.x, Camera->Angle.y, Camera->Angle.z);
+                ImGui::Text("Fps: %.1f", 1.0f / Input->dtForFrame);
+                ImGui::Text("dt: %.6f", Input->dtForFrame);
+                 */
         
         for(u32 EntityIndex = 0;
             EntityIndex < SimRegion->EntityCount;

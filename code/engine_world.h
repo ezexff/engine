@@ -45,3 +45,9 @@ struct world
     // NOTE(casey): A the moment, this must be a power of two!
     world_chunk ChunkHash[4096];
 };
+
+struct camera
+{
+    world_position P;
+    v3 Angle;
+};

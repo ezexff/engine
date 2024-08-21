@@ -13,6 +13,7 @@
 
 
 b32 GlobalRunning = false;
+b32 GlobalPause = false;
 b32 GlobalIsFullscreen = false;
 b32 GlobalIsWindowActive = false;
 WINDOWPLACEMENT GlobalWindowPosition = {sizeof(GlobalWindowPosition)};
@@ -31,6 +32,9 @@ u64 GlobalTimerFrequency;
 #if ENGINE_INTERNAL
 app_log *Log;
 b32 GlobalShowImGuiWindows = true; // All ImGui windows visibility
+
+global debug_table GlobalDebugTable_;
+debug_table *GlobalDebugTable = &GlobalDebugTable_;
 
 //~ NOTE(ezexff): Callbacks and inputs
 // Add in beginning Win32MainWindowCallback for ImGui inputs
@@ -147,14 +151,31 @@ Win32ProcessPendingMessages(game_controller_input *KeyboardController, game_inpu
                     {
                         Win32ProcessKeyboardMessage(&KeyboardController->ActionRight, IsDown);
                     }
-                    else if(VKCode == VK_ESCAPE)
-                    {
-                        GlobalRunning = false;
-                    }
                     else if(VKCode == VK_SPACE)
                     {
                         Win32ProcessKeyboardMessage(&KeyboardController->Start, IsDown);
                     }
+                    else if(VKCode == VK_ESCAPE)
+                    {
+                        GlobalRunning = false;
+                    }
+#if ENGINE_INTERNAL
+                    else if(VKCode == 'P')
+                    {
+                        if(IsDown)
+                        {
+                            GlobalPause = !GlobalPause;
+                        }
+                    }
+                    else if(VKCode == VK_F1)
+                    {
+                        if(IsDown)
+                        {
+                            GlobalShowImGuiWindows = !GlobalShowImGuiWindows;
+                            ShowCursor(GlobalShowImGuiWindows);
+                        }
+                    }
+#endif
                 }
                 
                 if(IsDown)
@@ -172,13 +193,6 @@ Win32ProcessPendingMessages(game_controller_input *KeyboardController, game_inpu
                             Win32ToggleFullscreen(Message.hwnd);
                         }
                     }
-#if ENGINE_INTERNAL
-                    else if(VKCode == VK_F1)
-                    {
-                        GlobalShowImGuiWindows = !GlobalShowImGuiWindows;
-                        ShowCursor(GlobalShowImGuiWindows);
-                    }
-#endif
                 }
             } break;
             
@@ -785,10 +799,12 @@ extern "C" void __stdcall WinMainCRTStartup(void)
     void *TestLibrary = LoadLibraryA("engine.dll");
     update_and_render *UpdateAndRender = 0;
     get_sound_samples *GetSoundSamples = 0;
+    debug_game_frame_end *DEBUGGameFrameEnd = 0;
     if(TestLibrary)
     {
         UpdateAndRender = (update_and_render *)GetProcAddress((HMODULE)TestLibrary, "UpdateAndRender");
         GetSoundSamples = (get_sound_samples *)GetProcAddress((HMODULE)TestLibrary, "GetSoundSamples");
+        DEBUGGameFrameEnd = (debug_game_frame_end *)GetProcAddress((HMODULE)TestLibrary, "DEBUGGameFrameEnd");
     }
     else
     {
@@ -872,10 +888,22 @@ extern "C" void __stdcall WinMainCRTStartup(void)
             game_memory GameMemory = {};
             GameMemory.PermanentStorageSize = Megabytes(32);
             GameMemory.TransientStorageSize = Megabytes(256);
-            u64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
+#if ENGINE_INTERNAL
+            GameMemory.DebugStorageSize = Megabytes(64);
+            u64 TotalSize = (GameMemory.PermanentStorageSize + 
+                             GameMemory.TransientStorageSize + 
+                             GameMemory.DebugStorageSize);
+#else
+            u64 TotalSize = (GameMemory.PermanentStorageSize + 
+                             GameMemory.TransientStorageSize);
+#endif
+            
             void *GameMemoryBlock = VirtualAlloc(BaseAddress, (size_t)TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
             GameMemory.PermanentStorage = GameMemoryBlock;
             GameMemory.TransientStorage = ((u8 *)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
+#if ENGINE_INTERNAL
+            GameMemory.DebugStorage = ((u8 *)GameMemory.TransientStorage + GameMemory.TransientStorageSize);
+#endif
             
             // NOTE(ezexff): Work queues
             GameMemory.HighPriorityQueue = &HighPriorityQueue;
@@ -901,19 +929,25 @@ extern "C" void __stdcall WinMainCRTStartup(void)
 #if ENGINE_INTERNAL
             IMGUI_CHECKVERSION();
             ImGui::CreateContext();
+            ImPlot::CreateContext();
             
-            imgui *ImGuiHandle = &GameMemory.Frame.ImGuiHandle;
-            ImGuiHandle->Context = ImGui::GetCurrentContext();
+            imgui *ImGuiHandle = &GameMemory.ImGuiHandle;
+            ImGuiHandle->ContextImGui = ImGui::GetCurrentContext();
+            ImGuiHandle->ContextImPlot = ImPlot::GetCurrentContext();
             ImGui::GetAllocatorFunctions(&ImGuiHandle->AllocFunc, &ImGuiHandle->FreeFunc, &ImGuiHandle->UserData);
             
-            Frame->ImGuiHandle.IO = &ImGui::GetIO();
-            Frame->ImGuiHandle.IO->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+            GameMemory.ImGuiHandle.IO = &ImGui::GetIO();
+            GameMemory.ImGuiHandle.IO->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
             ImGui_ImplWin32_InitForOpenGL(Window);
             ImGui_ImplOpenGL3_Init();
             
             ImGuiHandle->ShowWin32Window = true;
             ImGuiHandle->ShowGameWindow = true;
+            ImGuiHandle->ShowDebugCollationWindow = true;
             ImGuiHandle->ShowLogWindow = true;
+            GameMemory.DebugTable = GlobalDebugTable;
+            Frame->ImGuiHandle = ImGuiHandle;
+            Frame->DebugTable = GlobalDebugTable;
             
             Log = &ImGuiHandle->Log;
 #endif
@@ -949,8 +983,8 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                     if(DeltaFrameTime >= TargetSecondsPerFrame)
                     {
                         EndFrameTime = StartFrameTime;
-                        //NewInput->dtForFrame = (r32)TargetSecondsPerFrame;
                         NewInput->dtForFrame = (r32)DeltaFrameTime;
+                        FRAME_MARKER((r32)DeltaFrameTime);
                         
                         if(GetActiveWindow() == Window)
                         {
@@ -974,6 +1008,7 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                             }
                             Frame->Dim.x = CWidth;
                             Frame->Dim.y = CHeight;
+                            Frame->AspectRatio = (r32)Frame->Dim.x / (r32)Frame->Dim.y;
                         }
                         
                         // NOTE(ezexff): ImGui new frame
@@ -984,12 +1019,16 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                             ImGui::NewFrame();
 #endif
                         }
+                        
                         // NOTE(ezexff): BEGIN FRAME
+                        BEGIN_BLOCK(BeginFrame);
                         {
                             BeginFrame(Frame);
                         }
+                        END_BLOCK(BeginFrame);
                         
                         // NOTE(ezexff): Input processing
+                        BEGIN_BLOCK(InputProcessing);
                         {
                             // NOTE(ezexff): Load prev frame keyboard buttons state
                             game_controller_input *OldKeyboardController = GetController(OldInput, 0);
@@ -1110,8 +1149,10 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                 }
                             }
                         }
+                        END_BLOCK(InputProcessing);
                         
                         // NOTE(ezexff): Init audio update
+                        BEGIN_BLOCK(InitAudioUpdate);
                         int SamplesToWrite = 0;
                         UINT32 SoundPaddingSize = 0;
                         {
@@ -1169,20 +1210,36 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                         SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
                         SoundBuffer.SampleCount = SamplesToWrite;
                         SoundBuffer.Samples = Samples;
+                        END_BLOCK(InitAudioUpdate);
                         
                         
                         // NOTE(ezexff): Game update
+                        BEGIN_BLOCK(GameUpdate);
+                        if(!GlobalPause)
                         {
                             UpdateAndRender(&GameMemory, NewInput);
                         }
+                        END_BLOCK(GameUpdate);
                         
                         // NOTE(ezexff): Audio update
+                        BEGIN_BLOCK(AudioUpdate);
+                        if(!GlobalPause)
                         {
                             GetSoundSamples(&GameMemory, &SoundBuffer);
                             Win32FillSoundBuffer(&SoundOutput, SamplesToWrite, &SoundBuffer);
                         }
+                        END_BLOCK(AudioUpdate);
+                        
+                        // NOTE(ezexff): Debug collation
+                        BEGIN_BLOCK(DebugCollation);
+                        {
+                            DEBUGGameFrameEnd(&GameMemory, NewInput);
+                            GameMemory.DebugTable->EventArrayIndex_EventIndex = 0;
+                        }
+                        END_BLOCK(DebugCollation);
                         
                         // NOTE(ezexff): ImGui demo, win32 and renderer windows
+                        BEGIN_BLOCK(ImGuiUpdate);
                         {
 #if ENGINE_INTERNAL
                             if(ImGuiHandle->ShowImGuiWindows)
@@ -1192,13 +1249,17 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                     ImGui::Begin("Win32");
                                     
                                     ImGui::Text("Debug window for win32 layer...");
-                                    ImGui::Text("Is window active: %s", (GetActiveWindow() == Window) ? "true" : "false");
+                                    ImGui::BulletText("Is window active: %s", (GetActiveWindow() == Window) ? "true" : "false");
+                                    ImGui::BulletText("Pause = %s", GlobalPause ? "true" : "false");
                                     
                                     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGuiHandle->IO->Framerate, ImGuiHandle->IO->Framerate);
                                     
+                                    
                                     //ImGui::SeparatorText("Windows visibility");
-                                    ImGui::Checkbox("Demo window", &ImGuiHandle->ShowDemoWindow);
+                                    ImGui::Checkbox("ImGui demo window", &ImGuiHandle->ShowImGuiDemoWindow);
+                                    ImGui::Checkbox("ImPlot demo window", &ImGuiHandle->ShowImPlotDemoWindow);
                                     ImGui::Checkbox("Game window", &ImGuiHandle->ShowGameWindow);
+                                    ImGui::Checkbox("Debug collation window", &ImGuiHandle->ShowDebugCollationWindow);
                                     ImGui::Checkbox("Log window", &ImGuiHandle->ShowLogWindow);
                                     
                                     ImGui::SeparatorText("Settings");
@@ -1418,6 +1479,12 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                             ImGui::TableSetColumnIndex(1);
                                             ImGui::Text("ImGui windows visibility");
                                             
+                                            ImGui::TableNextRow();
+                                            ImGui::TableSetColumnIndex(0);
+                                            ImGui::Text("P");
+                                            ImGui::TableSetColumnIndex(1);
+                                            ImGui::Text("Pause");
+                                            
                                             ImGui::EndTable();
                                         }
                                         ImGui::Text("NOTE: Win32 inputs with ImGui works\n");
@@ -1427,9 +1494,14 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                     ImGui::End();
                                 }
                                 
-                                if(ImGuiHandle->ShowDemoWindow)
+                                if(ImGuiHandle->ShowImGuiDemoWindow)
                                 {
-                                    ImGui::ShowDemoWindow(&ImGuiHandle->ShowDemoWindow);
+                                    ImGui::ShowDemoWindow(&ImGuiHandle->ShowImGuiDemoWindow);
+                                }
+                                
+                                if(ImGuiHandle->ShowImPlotDemoWindow)
+                                {
+                                    ImPlot::ShowDemoWindow(&ImGuiHandle->ShowImPlotDemoWindow);
                                 }
                                 
                                 // NOTE(ezexff): Draw Log
@@ -1440,18 +1512,30 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                             }
 #endif
                         }
+                        END_BLOCK(ImGuiUpdate);
                         
                         // NOTE(ezexff): END FRAME
+                        BEGIN_BLOCK(EndFrame);
                         {
                             EndFrame(Frame);
                         }
+                        END_BLOCK(EndFrame);
 #if ENGINE_INTERNAL
                         // NOTE(ezexff): ImGui end frame
+                        BEGIN_BLOCK(ImGuiRender);
                         {
                             ImGui::Render();
                             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-                            SwapBuffers(Frame->ImGuiHandle.WGL);
+                            SwapBuffers(GameMemory.ImGuiHandle.WGL);
+                            
+                            if(GlobalDebugTable)
+                            {
+                                // TODO(casey): Move this to a global variable so that
+                                // there can be timers below this one?
+                                GlobalDebugTable->RecordCount[TRANSLATION_UNIT_INDEX] = __COUNTER__;
+                            }
                         }
+                        END_BLOCK(ImGuiRender);
 #endif
                         
                         // NOTE(ezexff): Save input state for next after flip frame
@@ -1483,6 +1567,7 @@ extern "C" void __stdcall WinMainCRTStartup(void)
 #if ENGINE_INTERNAL
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplWin32_Shutdown();
+        ImPlot::DestroyContext();
         ImGui::DestroyContext();
 #endif
     }

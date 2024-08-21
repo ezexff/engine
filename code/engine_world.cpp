@@ -174,7 +174,7 @@ CenteredChunkPoint(world_chunk *Chunk)
 }
 
 inline void 
-ChangeEntityLocationRaw(memory_arena *Arena, world *World, u32 LowEntityIndex, world_position *OldP,
+ChangeEntityLocationRaw(mode_world *ModeWorld, u32 LowEntityIndex, world_position *OldP,
                         world_position *NewP)
 {
     // TODO(casey): If this moves an entity into the camera bounds, should it automatically
@@ -185,7 +185,7 @@ ChangeEntityLocationRaw(memory_arena *Arena, world *World, u32 LowEntityIndex, w
     Assert(!OldP || IsValid(*OldP));
     Assert(!NewP || IsValid(*NewP));
     
-    if(OldP && NewP && AreInSameChunk(World, OldP, NewP))
+    if(OldP && NewP && AreInSameChunk(ModeWorld->World, OldP, NewP))
     {
         // NOTE(casey): Leave entity where it is
     }
@@ -194,7 +194,7 @@ ChangeEntityLocationRaw(memory_arena *Arena, world *World, u32 LowEntityIndex, w
         if(OldP)
         {
             // NOTE(casey): Pull the entity out of its old entity block
-            world_chunk *Chunk = GetWorldChunk(World, OldP->ChunkX, OldP->ChunkY, OldP->ChunkZ);
+            world_chunk *Chunk = GetWorldChunk(ModeWorld->World, OldP->ChunkX, OldP->ChunkY, OldP->ChunkZ);
             Assert(Chunk);
             if(Chunk)
             {
@@ -215,8 +215,8 @@ ChangeEntityLocationRaw(memory_arena *Arena, world *World, u32 LowEntityIndex, w
                                     world_entity_block *NextBlock = FirstBlock->Next;
                                     *FirstBlock = *NextBlock;
                                     
-                                    NextBlock->Next = World->FirstFree;
-                                    World->FirstFree = NextBlock;
+                                    NextBlock->Next = ModeWorld->World->FirstFree;
+                                    ModeWorld->World->FirstFree = NextBlock;
                                 }
                             }
                             
@@ -230,21 +230,21 @@ ChangeEntityLocationRaw(memory_arena *Arena, world *World, u32 LowEntityIndex, w
         if(NewP)
         {
             // NOTE(casey): Insert the entity into its new entity block
-            world_chunk *Chunk = GetWorldChunk(World, NewP->ChunkX, NewP->ChunkY, NewP->ChunkZ, Arena);
+            world_chunk *Chunk = GetWorldChunk(ModeWorld->World, NewP->ChunkX, NewP->ChunkY, NewP->ChunkZ, ModeWorld->ConstArena);
             Assert(Chunk);
             
             world_entity_block *Block = &Chunk->FirstBlock;
             if(Block->EntityCount == ArrayCount(Block->LowEntityIndex))
             {
                 // NOTE(casey): We're out of room, get a new block!
-                world_entity_block *OldBlock = World->FirstFree;
+                world_entity_block *OldBlock = ModeWorld->World->FirstFree;
                 if(OldBlock)
                 {
-                    World->FirstFree = OldBlock->Next;
+                    ModeWorld->World->FirstFree = OldBlock->Next;
                 }
                 else
                 {
-                    OldBlock = PushStruct(Arena, world_entity_block);
+                    OldBlock = PushStruct(ModeWorld->ConstArena, world_entity_block);
                 }
                 
                 *OldBlock = *Block;
@@ -259,7 +259,7 @@ ChangeEntityLocationRaw(memory_arena *Arena, world *World, u32 LowEntityIndex, w
 }
 
 internal void 
-ChangeEntityLocation(memory_arena *Arena, world *World, u32 LowEntityIndex, low_entity *LowEntity,
+ChangeEntityLocation(mode_world *ModeWorld, u32 LowEntityIndex, low_entity *LowEntity,
                      world_position NewPInit)
 {
     world_position *OldP = 0;
@@ -275,7 +275,7 @@ ChangeEntityLocation(memory_arena *Arena, world *World, u32 LowEntityIndex, low_
         NewP = &NewPInit;
     }
     
-    ChangeEntityLocationRaw(Arena, World, LowEntityIndex, OldP, NewP);
+    ChangeEntityLocationRaw(ModeWorld, LowEntityIndex, OldP, NewP);
     
     if(NewP)
     {

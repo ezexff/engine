@@ -15,9 +15,11 @@ SafeTruncateUInt64(u64 Value) // Need it for safety reading files
 
 //~ NOTE(ezexff): ImGui
 #if ENGINE_INTERNAL
+#include <stdio.h>
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_win32.h"
+#include "implot.h"
 
 struct app_log
 {
@@ -149,7 +151,8 @@ struct app_log
 
 struct imgui
 {
-    ImGuiContext *Context;
+    ImGuiContext *ContextImGui;
+    ImPlotContext *ContextImPlot;
     ImGuiIO *IO;
     
     ImGuiMemAllocFunc AllocFunc;
@@ -162,9 +165,11 @@ struct imgui
     bool ShowImGuiWindows;
     
     // NOTE(ezexff): ImGui single window visibility
+    bool ShowImGuiDemoWindow;
+    bool ShowImPlotDemoWindow;
     bool ShowWin32Window;
-    bool ShowDemoWindow;
     bool ShowGameWindow;
+    bool ShowDebugCollationWindow;
     bool ShowLogWindow;
     bool ShowFrameShadersEditorWindow;
     bool ShowBitmapPreviewWindow;
@@ -271,12 +276,167 @@ struct platform_api
     platform_deallocate_memory *DeallocateMemory;
 };
 
-//~ NOTE(ezexff): Renderer frame with push buffer
-struct camera
+//~ TODO(ezexff): Debug collation test
+#define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
+#define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
+inline u32 AtomicCompareExchangeUInt32(u32 volatile *Value, u32 New, u32 Expected)
 {
-    v3 P;
-    v3 Angle; // NOTE(ezexff): Pitch, Yaw, Roll
+    u32 Result = _InterlockedCompareExchange((long *)Value, New, Expected);
+    
+    return(Result);
+}
+inline u64 AtomicExchangeU64(u64 volatile *Value, u64 New)
+{
+    u64 Result = _InterlockedExchange64((__int64 volatile *)Value, New);
+    
+    return(Result);
+}
+inline u64 AtomicAddU64(u64 volatile *Value, u64 Addend)
+{
+    // NOTE(casey): Returns the original value _prior_ to adding
+    u64 Result = _InterlockedExchangeAdd64((__int64 volatile *)Value, Addend);
+    
+    return(Result);
+}    
+inline u32 GetThreadID(void)
+{
+    u8 *ThreadLocalStorage = (u8 *)__readgsqword(0x30);
+    u32 ThreadID = *(u32 *)(ThreadLocalStorage + 0x48);
+    
+    return(ThreadID);
+}
+
+#if ENGINE_INTERNAL
+
+struct game_memory;
+struct game_input;
+game_memory *DebugGlobalMemory;
+game_input *DebugGlobalInput;
+
+struct debug_record
+{
+    char *FileName;
+    char *BlockName;
+    
+    u32 LineNumber;
+    u32 Reserved;
 };
+
+enum debug_event_type
+{
+    DebugEvent_FrameMarker,
+    DebugEvent_BeginBlock,
+    DebugEvent_EndBlock,
+};
+struct threadid_coreindex
+{
+    u16 ThreadID;
+    u16 CoreIndex;
+};
+struct debug_event
+{
+    u64 Clock;
+    union
+    {
+        threadid_coreindex TC;
+        r32 SecondsElapsed;
+    };
+    u16 DebugRecordIndex;
+    u8 TranslationUnit;
+    u8 Type;
+};
+
+#define MAX_DEBUG_THREAD_COUNT 256
+#define MAX_DEBUG_EVENT_ARRAY_COUNT 8
+#define MAX_DEBUG_TRANSLATION_UNITS 3
+#define MAX_DEBUG_EVENT_COUNT (16*65536)
+#define MAX_DEBUG_RECORD_COUNT (65536)
+struct debug_table
+{
+    // TODO(casey): No attempt is currently made to ensure that the final
+    // debug records being written to the event array actually complete
+    // their output prior to the swap of the event array index.
+    
+    u32 CurrentEventArrayIndex;
+    u64 volatile EventArrayIndex_EventIndex;
+    u32 EventCount[MAX_DEBUG_EVENT_ARRAY_COUNT];
+    debug_event Events[MAX_DEBUG_EVENT_ARRAY_COUNT][MAX_DEBUG_EVENT_COUNT];
+    
+    u32 RecordCount[MAX_DEBUG_TRANSLATION_UNITS];
+    debug_record Records[MAX_DEBUG_TRANSLATION_UNITS][MAX_DEBUG_RECORD_COUNT];
+};
+
+extern debug_table *GlobalDebugTable;
+
+// TODO(casey): I would like to switch away from the translation unit indexing
+// and just go to a more standard one-time hash table because the complexity
+// seems to be causing problems
+#define RecordDebugEventCommon(RecordIndex, EventType) \
+u64 ArrayIndex_EventIndex = AtomicAddU64(&GlobalDebugTable->EventArrayIndex_EventIndex, 1); \
+u32 EventIndex = ArrayIndex_EventIndex & 0xFFFFFFFF;            \
+Assert(EventIndex < MAX_DEBUG_EVENT_COUNT);                     \
+debug_event *Event = GlobalDebugTable->Events[ArrayIndex_EventIndex >> 32] + EventIndex; \
+Event->Clock = __rdtsc();                       \
+Event->DebugRecordIndex = (u16)RecordIndex;                     \
+Event->TranslationUnit = TRANSLATION_UNIT_INDEX;                \
+Event->Type = (u8)EventType;                                    
+
+#define RecordDebugEvent(RecordIndex, EventType)        \
+{                                                   \
+RecordDebugEventCommon(RecordIndex, EventType); \
+Event->TC.CoreIndex = 0;                                           \
+Event->TC.ThreadID = (u16)GetThreadID();           \
+}
+
+#define FRAME_MARKER(SecondsElapsedInit) \
+{ \
+int Counter = __COUNTER__; \
+RecordDebugEventCommon(Counter, DebugEvent_FrameMarker); \
+Event->SecondsElapsed = SecondsElapsedInit; \
+debug_record *Record = GlobalDebugTable->Records[TRANSLATION_UNIT_INDEX] + Counter; \
+Record->FileName = __FILE__;                                        \
+Record->LineNumber = __LINE__;                                    \
+Record->BlockName = "Frame Marker";                                   \
+} 
+
+#define TIMED_BLOCK__(BlockName, Number, ...) timed_block TimedBlock_##Number(__COUNTER__, __FILE__, __LINE__, BlockName, ## __VA_ARGS__)
+#define TIMED_BLOCK_(BlockName, Number, ...) TIMED_BLOCK__(BlockName, Number, ## __VA_ARGS__)
+#define TIMED_BLOCK(BlockName, ...) TIMED_BLOCK_(#BlockName, __LINE__, ## __VA_ARGS__)
+#define TIMED_FUNCTION(...) TIMED_BLOCK_((char *)__FUNCTION__, __LINE__, ## __VA_ARGS__)
+
+#define BEGIN_BLOCK_(Counter, FileNameInit, LineNumberInit, BlockNameInit)          \
+{debug_record *Record = GlobalDebugTable->Records[TRANSLATION_UNIT_INDEX] + Counter; \
+Record->FileName = FileNameInit;                                        \
+Record->LineNumber = LineNumberInit;                                    \
+Record->BlockName = BlockNameInit;                                   \
+RecordDebugEvent(Counter, DebugEvent_BeginBlock);}
+#define END_BLOCK_(Counter) \
+RecordDebugEvent(Counter, DebugEvent_EndBlock);
+
+#define BEGIN_BLOCK(Name) \
+int Counter_##Name = __COUNTER__;                       \
+BEGIN_BLOCK_(Counter_##Name, __FILE__, __LINE__, #Name);
+
+#define END_BLOCK(Name) \
+END_BLOCK_(Counter_##Name);
+
+struct timed_block
+{
+    int Counter;
+    
+    timed_block(int CounterInit, char *FileName, int LineNumber, char *BlockName, u32 HitCountInit = 1)
+    {
+        // TODO(casey): Record the hit count value here?
+        Counter = CounterInit;
+        BEGIN_BLOCK_(Counter, FileName, LineNumber, BlockName);
+    }
+    
+    ~timed_block()
+    {
+        END_BLOCK_(Counter);
+    }
+};
+#endif
 
 // NOTE(ezexff): Opengl function declarations
 typedef char GLchar;
@@ -533,24 +693,18 @@ struct ground_buffer
 struct renderer_frame
 {
     //~ NOTE(ezexff): Frame
-    v2s Dim; // NOTE(ezexff): Client render area (window size)
+    v2u Dim; // Client window render area
     r32 AspectRatio;
-    r32 FOV;
-    v3 WorldOrigin;
-    v4 ClearColor;
     
-    // NOTE(ezexff): PushBuffer
     u8 PushBufferMemory[65536];
     u32 MaxPushBufferSize;
     u8 *PushBufferBase;
     u32 PushBufferSize;
-    u32 MissingResourceCount;
-    // TODO(ezexff): Mb add FOV?
+    //u32 MissingResourceCount;
     
-    v3 OffsetP; // TODO(ezexff): World offsetP for entity pos calc
+    void *Renderer;
     
-    camera Camera;
-    //r32 CameraZ;
+    //void *Camera;
     
     // NOTE(ezexff): We output rendered scene through ColorTexture and using shaders for on screen effects
     u32 ColorTexture;
@@ -567,7 +721,7 @@ struct renderer_frame
     b32 CompileShaders; // TODO(ezexff): Mb replace with IsShadersCompiled
     
     //~ NOTE(ezexff): Skybox
-    bool DrawSkybox;
+    //bool DrawSkybox;
     b32 InitializeSkyboxTexture;
     u32 SkyboxVAO;
     u32 SkyboxVBO;
@@ -597,12 +751,12 @@ struct renderer_frame
     u32 TerrainEBO;*/
     
     // TODO(ezexff): Mb these variable only for debug in imgui?
-    bool DrawTerrain;
+    //bool DrawTerrain;
     bool IsTerrainInLinePolygonMode;
     bool FixCameraOnTerrain;
     
     //~ NOTE(ezexff): Light
-    bool PushBufferWithLight;
+    //bool PushBufferWithLight;
     directional_light DirLight;
     u32 PointLightsCount;
     point_light PointLights;
@@ -626,8 +780,6 @@ struct renderer_frame
     bool DrawDebugTextLine;
     
     //~ NOTE(ezexff): Terrain v2.0
-    //b32 GroundBuffersIsInitialized;
-    
     u32 GroundBufferCount;
     ground_buffer *GroundBuffers;
     
@@ -686,10 +838,10 @@ struct renderer_frame
     
 #if ENGINE_INTERNAL
     b32 IsOpenglImGuiInitialized;
-    // NOTE(ezexff): ImGui bitmap preview window
     loaded_bitmap Preview;
     u32 PreviewTexture;
-    imgui ImGuiHandle;
+    imgui *ImGuiHandle;
+    debug_table *DebugTable;
 #endif
     
     opengl Opengl;
@@ -699,10 +851,20 @@ struct renderer_frame
 struct game_memory
 {
     u64 PermanentStorageSize;
-    void *PermanentStorage; // NOTE(ezexff): Clear to zero at startup
+    void *PermanentStorage; // NOTE(ezexff): REQUIRED to be cleared to zero at startup
     
     u64 TransientStorageSize;
-    void *TransientStorage; // NOTE(ezexff): Clear to zero at startup
+    void *TransientStorage; // NOTE(ezexff): REQUIRED to be cleared to zero at startup
+    
+#if ENGINE_INTERNAL
+    imgui ImGuiHandle;
+    debug_table *DebugTable;
+    
+    u64 DebugStorageSize;
+    void *DebugStorage; // NOTE(ezexff): REQUIRED to be cleared to zero at startup
+    //struct debug_state *DebugState;
+    //struct memory_arena *ConstArena;
+#endif
     
     renderer_frame Frame;
     
@@ -819,3 +981,7 @@ typedef GET_SOUND_SAMPLES_FUNC(get_sound_samples);
 
 typedef RENDERER_BEGIN_FRAME(renderer_begin_frame);
 typedef RENDERER_END_FRAME(renderer_end_frame);
+
+//~ NOTE(ezexff): Debug collation at frame end
+#define DEBUG_GAME_FRAME_END(name) void name(game_memory *Memory, game_input *Input)
+typedef DEBUG_GAME_FRAME_END(debug_game_frame_end);

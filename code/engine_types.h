@@ -25,8 +25,8 @@ typedef size_t memory_index;
 #if !defined(internal)
 #define internal static
 #endif
-#define local_persist static
-#define global_variable static
+#define local static
+#define global static
 
 // NOTE(ezexff): Floating point fix for no CRT release compile (MSVC)
 #if !(ENGINE_INTERNAL)
@@ -73,8 +73,6 @@ typedef double r64;
 #if !defined(internal)
 #define internal static
 #endif
-#define local_persist static
-#define global_variable static
 
 #define Pi32 3.14159265359f
 #define Pi32_2 1.57079632679f // pi/2 TODO(me): remove?
@@ -130,6 +128,15 @@ union v2s
     s32 E[2];
 };
 
+union v2u
+{
+    struct
+    {
+        s32 x, y;
+    };
+    u32 E[2];
+};
+
 union v3
 {
     struct
@@ -139,6 +146,10 @@ union v3
     struct
     {
         r32 r, g, b;
+    };
+    struct
+    {
+        r32 pitch, yaw, roll;
     };
     struct
     {
@@ -241,7 +252,7 @@ struct m4x4_inv
 struct buffer
 {
     umm Count;
-    u8 *Data; // NOTE(ezexff): wchar_t or 2 bytes per sybol
+    u8 *Data; // NOTE(ezexff): wchar_t - 2 bytes per symbol
 };
 typedef buffer string;
 

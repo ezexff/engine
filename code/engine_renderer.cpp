@@ -99,7 +99,7 @@ PushBitmapOnGround(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 
     else
     {
         LoadBitmap(Assets, ID, true);
-        ++Frame->MissingResourceCount;
+        //++Frame->MissingResourceCount;
     }
 }
 
@@ -123,7 +123,7 @@ PushBitmapOnScreen(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 
     else
     {
         LoadBitmap(Assets, ID, true);
-        ++Frame->MissingResourceCount;
+        //++Frame->MissingResourceCount;
     }
 }
 
@@ -200,5 +200,18 @@ PushLine(renderer_frame *Frame, v3 P1, v3 P2, v4 Color = V4(0.5f, 0.0f, 0.5f, 1.
         Entry->P2 = P2;
         Entry->Color = Color;
         Entry->LineWidth = LineWidth;
+    }
+}
+
+void
+PushWater(renderer_frame *Frame, v3 Offset, v2 Dim)
+{
+    v3 P = (Offset - V3(0.5f * Dim, 0));
+    
+    renderer_entry_water *Entry = PushRenderElement(Frame, renderer_entry_water);
+    if(Entry)
+    {
+        Entry->P = P;
+        Entry->Dim = Dim;
     }
 }

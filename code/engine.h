@@ -34,7 +34,7 @@ struct game_state
     b32 IsInitialized;
     memory_arena ConstArena;
     
-    u32 GameMode;
+    u32 GameModeID;
     mode_world ModeWorld;
     mode_test ModeTest;
     
@@ -48,41 +48,6 @@ struct game_state
     r32 tSine;
     u32 SampleIndex;
 #endif
-    
-    //~ NOTE(ezexff): Sim region
-    world *World;
-    
-    u32 GroundBufferWidth;
-    u32 GroundBufferHeight;
-    r32 TypicalFloorHeight;
-    
-    u32 CameraFollowingEntityIndex;
-    world_position CameraP;
-    r32 CameraPitch;
-    r32 CameraYaw;
-    r32 CameraRoll;
-    
-    controlled_hero ControlledHeroes[ArrayCount(((game_input *)0)->Controllers)];
-    
-    u32 LowEntityCount;
-    low_entity LowEntities[100000];
-    
-    // TODO(casey): Must be power of two
-    pairwise_collision_rule *CollisionRuleHash[256];
-    pairwise_collision_rule *FirstFreeCollisionRule;
-    
-    sim_entity_collision_volume_group *NullCollision;
-    sim_entity_collision_volume_group *SwordCollision;
-    sim_entity_collision_volume_group *StairCollision;
-    sim_entity_collision_volume_group *PlayerCollision;
-    sim_entity_collision_volume_group *MonstarCollision;
-    sim_entity_collision_volume_group *FamiliarCollision;
-    sim_entity_collision_volume_group *WallCollision;
-    sim_entity_collision_volume_group *StandardRoomCollision;
-    
-    // NOTE(ezexff): Terrain parameters
-    u32 TilesPerChunkRow;
-    r32 MaxTerrainHeight;
 };
 
 struct task_with_memory
@@ -153,7 +118,10 @@ EndTaskWithMemory(task_with_memory *Task)
     Task->BeingUsed = false;
 }
 
-global_variable platform_api Platform;
+platform_api Platform;
+
 #if ENGINE_INTERNAL
+debug_table *GlobalDebugTable;
+//game_memory *GlobalDebugMemory;
 app_log *Log;
 #endif

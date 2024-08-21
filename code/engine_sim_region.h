@@ -17,6 +17,7 @@ enum entity_type
     EntityType_Monstar,
     EntityType_Sword,
     EntityType_Stairwell,
+    EntityType_Water,
     
     EntityType_Count,
 };
