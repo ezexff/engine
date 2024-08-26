@@ -8,7 +8,7 @@ GetLowEntity(mode_world *ModeWorld, u32 Index)
         Result = ModeWorld->LowEntities + Index;
     }
     
-    return (Result);
+    return(Result);
 }
 
 inline move_spec
@@ -20,5 +20,5 @@ DefaultMoveSpec(void)
     Result.Speed = 1.0f;
     Result.Drag = 0.0f;
     
-    return (Result);
+    return(Result);
 }

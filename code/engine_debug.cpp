@@ -204,20 +204,25 @@ UpdateAndRenderImgui()
                     ImGui::Spacing();
                 }
                 
+                renderer *Renderer = (renderer *)Frame->Renderer;
                 if(ImGui::TreeNode("ShadowMap"))
                 {
-                    ImGui::Image((void *)(intptr_t)Frame->ShadowMap,
-                                 ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
-                                 ImVec2(0, 0), ImVec2(1, -1));
-                    
-                    ImGui::InputFloat("Size##ShadowMap", &Frame->ShadowMapSize, 0.01f, 1.0f, "%.3f");
-                    ImGui::InputFloat("NearPlane##ShadowMap", &Frame->ShadowMapNearPlane, 0.01f, 1.0f, "%.3f");
-                    ImGui::InputFloat("FarPlane##ShadowMap", &Frame->ShadowMapFarPlane, 0.01f, 1.0f, "%.3f");
-                    ImGui::InputFloat("CameraPitch##ShadowMap", &Frame->ShadowMapCameraPitch, 0.01f, 1.0f, "%.3f");
-                    ImGui::InputFloat("CameraYaw##ShadowMap", &Frame->ShadowMapCameraYaw, 0.01f, 1.0f, "%.3f");
-                    float *ShadowMapCameraPos = (float *)&Frame->ShadowMapCameraPos;
-                    ImGui::DragFloat3("CameraPos##ShadowMap", ShadowMapCameraPos, 0.01f, -100.0f, 100.0f);
-                    ImGui::InputFloat("Bias##ShadowMap", &Frame->ShadowMapBias, 0.001f, 1.0f, "%.3f");
+                    renderer_shadowmap *ShadowMap = Renderer->ShadowMap;
+                    if(ShadowMap->Texture)
+                    {
+                        ImGui::Image((void *)(intptr_t)ShadowMap->Texture,
+                                     ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
+                                     ImVec2(0, 0), ImVec2(1, -1));
+                        
+                        ImGui::InputFloat("Size##ShadowMap", &ShadowMap->Size, 0.01f, 1.0f, "%.3f");
+                        ImGui::InputFloat("NearPlane##ShadowMap", &ShadowMap->NearPlane, 0.01f, 1.0f, "%.3f");
+                        ImGui::InputFloat("FarPlane##ShadowMap", &ShadowMap->FarPlane, 0.01f, 1.0f, "%.3f");
+                        ImGui::InputFloat("CameraPitch##ShadowMap", &ShadowMap->CameraPitch, 0.01f, 1.0f, "%.3f");
+                        ImGui::InputFloat("CameraYaw##ShadowMap", &ShadowMap->CameraYaw, 0.01f, 1.0f, "%.3f");
+                        float *ShadowMapCameraP = (float *)&ShadowMap->CameraP;
+                        ImGui::DragFloat3("CameraPos##ShadowMap", ShadowMapCameraP, 0.01f, -100.0f, 100.0f);
+                        ImGui::InputFloat("Bias##ShadowMap", &ShadowMap->Bias, 0.001f, 1.0f, "%.3f");
+                    }
                     
                     ImGui::TreePop();
                     ImGui::Spacing();
@@ -225,32 +230,36 @@ UpdateAndRenderImgui()
                 
                 if(ImGui::TreeNode("Water"))
                 {
-                    ImGui::Text("ReflectionColor");
-                    ImGui::Image((void *)(intptr_t)Frame->WaterReflectionColorTexture,
-                                 ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
-                                 ImVec2(0, 0), ImVec2(1, -1));
-                    
-                    ImGui::Text("RefractionColor");
-                    ImGui::Image((void *)(intptr_t)Frame->WaterRefractionColorTexture,
-                                 ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
-                                 ImVec2(0, 0), ImVec2(1, -1));
-                    ImGui::Text("RefractionDepth");
-                    ImGui::Image((void *)(intptr_t)Frame->WaterRefractionDepthTexture,
-                                 ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
-                                 ImVec2(0, 0), ImVec2(1, -1));
-                    
-                    ImGui::InputFloat("WaveSpeed##Water", &Frame->WaterWaveSpeed, 0.01f, 1.0f, "%.3f");
-                    ImGui::InputFloat("Tiling##Water", &Frame->WaterTiling, 0.01f, 1.0f, "%.3f");
-                    ImGui::InputFloat("WaveStrength##Water", &Frame->WaterWaveStrength, 0.01f, 1.0f, "%.3f");
-                    ImGui::InputFloat("ShineDamper##Water", &Frame->WaterShineDamper, 0.01f, 1.0f, "%.3f");
-                    ImGui::InputFloat("Reflectivity##Water", &Frame->WaterReflectivity, 0.01f, 1.0f, "%.3f");
+                    renderer_water *Water = Renderer->Water;
+                    if(Water)
+                    {                    
+                        ImGui::Text("ReflectionColor");
+                        ImGui::Image((void *)(intptr_t)Water->Reflection.ColorTexture,
+                                     ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
+                                     ImVec2(0, 0), ImVec2(1, -1));
+                        
+                        ImGui::Text("RefractionColor");
+                        ImGui::Image((void *)(intptr_t)Water->Refraction.ColorTexture,
+                                     ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
+                                     ImVec2(0, 0), ImVec2(1, -1));
+                        ImGui::Text("RefractionDepth");
+                        ImGui::Image((void *)(intptr_t)Water->Refraction.DepthTexture,
+                                     ImVec2((r32)Frame->Dim.x / AspectRatio, (r32)Frame->Dim.y / AspectRatio), 
+                                     ImVec2(0, 0), ImVec2(1, -1));
+                        
+                        ImGui::InputFloat("WaveSpeed##Water", &Water->WaveSpeed, 0.01f, 1.0f, "%.3f");
+                        ImGui::InputFloat("Tiling##Water", &Water->Tiling, 0.01f, 1.0f, "%.3f");
+                        ImGui::InputFloat("WaveStrength##Water", &Water->WaveStrength, 0.01f, 1.0f, "%.3f");
+                        ImGui::InputFloat("ShineDamper##Water", &Water->ShineDamper, 0.01f, 1.0f, "%.3f");
+                        ImGui::InputFloat("Reflectivity##Water", &Water->Reflectivity, 0.01f, 1.0f, "%.3f");
+                    }
                     
                     ImGui::TreePop();
                     ImGui::Spacing();
                 }
                 
                 ImGui::SeparatorText("FragEffects");
-                ImGui::BulletText("EffectID = %d", Frame->FragEffect);
+                ImGui::BulletText("EffectID = %d", Frame->EffectID);
                 char *FragEffects[] = 
                 {
                     "Abberation",
@@ -262,13 +271,14 @@ UpdateAndRenderImgui()
                     "Normal"
                 };
                 int RowCount = 4;
-                int FragEffectsCount = IM_ARRAYSIZE(FragEffects);
-                if(FragEffectsCount < RowCount)
+                int FragEffectCount = IM_ARRAYSIZE(FragEffects);
+                Assert(FragEffectCount == FrameEffect_Count);
+                if(FragEffectCount < RowCount)
                 {
-                    RowCount = FragEffectsCount;
+                    RowCount = FragEffectCount;
                 }
                 ImGui::PushItemWidth(-1);
-                ImGui::ListBox("##frageffects", &Frame->FragEffect, FragEffects, FragEffectsCount, RowCount);
+                ImGui::ListBox("##frageffects", &Frame->EffectID, FragEffects, FragEffectCount, RowCount);
                 ImGui::PopItemWidth();
                 
                 ImGui::SeparatorText("EditShaders");
@@ -717,27 +727,32 @@ UpdateAndRenderImgui()
                         ImGui::Checkbox("GL_LINE", &Frame->IsTerrainInLinePolygonMode);
                         ImGui::Checkbox("FixCameraOnTerrain", &Frame->FixCameraOnTerrain);
                         ImGui::Text("Material");
-                        float *TerrainMaterialAmbient = (float *)&Frame->TerrainMaterial.Ambient;
-                        ImGui::DragFloat4("Ambient##Terrain", TerrainMaterialAmbient, 0.01f, -100.0f, 100.0f);
-                        float *TerrainMaterialDiffuse = (float *)&Frame->TerrainMaterial.Diffuse;
-                        ImGui::DragFloat4("Diffuse##Terrain", TerrainMaterialDiffuse, 0.01f, -100.0f, 100.0f);
-                        float *TerrainMaterialSpecular = (float *)&Frame->TerrainMaterial.Specular;
-                        ImGui::DragFloat4("Specular##Terrain", TerrainMaterialSpecular, 0.01f, -100.0f, 100.0f);
-                        float *TerrainMaterialEmission = (float *)&Frame->TerrainMaterial.Emission;
-                        ImGui::DragFloat4("Emission##Terrain", TerrainMaterialEmission, 0.01f, -100.0f, 100.0f);
-                        ImGui::InputFloat("Shininess##Terrain", &Frame->TerrainMaterial.Shininess, 0.01f, 1.0f, "%.3f");
+                        /* 
+                                                float *TerrainMaterialAmbient = (float *)&Frame->TerrainMaterial.Ambient;
+                                                ImGui::DragFloat4("Ambient##Terrain", TerrainMaterialAmbient, 0.01f, -100.0f, 100.0f);
+                                                float *TerrainMaterialDiffuse = (float *)&Frame->TerrainMaterial.Diffuse;
+                                                ImGui::DragFloat4("Diffuse##Terrain", TerrainMaterialDiffuse, 0.01f, -100.0f, 100.0f);
+                                                float *TerrainMaterialSpecular = (float *)&Frame->TerrainMaterial.Specular;
+                                                ImGui::DragFloat4("Specular##Terrain", TerrainMaterialSpecular, 0.01f, -100.0f, 100.0f);
+                                                float *TerrainMaterialEmission = (float *)&Frame->TerrainMaterial.Emission;
+                                                ImGui::DragFloat4("Emission##Terrain", TerrainMaterialEmission, 0.01f, -100.0f, 100.0f);
+                                                ImGui::InputFloat("Shininess##Terrain", &Frame->TerrainMaterial.Shininess, 0.01f, 1.0f, "%.3f");
+                                                 */
                         
                         ImGui::SeparatorText("DEBUGTextLine");
                         ImGui::Checkbox("Visibility##DEBUGTextLine", &Frame->DrawDebugTextLine);
                         
                         ImGui::SeparatorText("DirLight");
-                        float *DirLightBaseColor = (float *)&Frame->DirLight.Base.Color;
-                        ImGui::ColorEdit3("Color##DirLight", DirLightBaseColor);
-                        ImGui::InputFloat("AmbientIntensity##TerrainDirLight", &Frame->DirLight.Base.AmbientIntensity, 0.01f, 1.0f, "%.3f");
-                        ImGui::InputFloat("DiffuseIntensity##TerrainDirLight", &Frame->DirLight.Base.DiffuseIntensity, 0.01f, 1.0f, "%.3f");
-                        
-                        float *DirLightWorldDirection = (float *)&Frame->DirLight.WorldDirection;
+                        /* 
+                                                float *DirLightBaseColor = (float *)&Frame->DirLight.Base.Color;
+                                                ImGui::ColorEdit3("Color##DirLight", DirLightBaseColor);
+                                                ImGui::InputFloat("AmbientIntensity##TerrainDirLight", &Frame->DirLight.Base.AmbientIntensity, 0.01f, 1.0f, "%.3f");
+                                                ImGui::InputFloat("DiffuseIntensity##TerrainDirLight", &Frame->DirLight.Base.DiffuseIntensity, 0.01f, 1.0f, "%.3f");
+                                                
+                                                float *DirLightWorldDirection = (float *)&Frame->DirLight.WorldDirection;
+                         
                         ImGui::DragFloat3("WorldDirection##TerrainDirLight", DirLightWorldDirection, 0.01f, -100.0f, 100.0f);
+*/
                         
                         float *TestSun2P = (float *)&Frame->TestSun2P;
                         ImGui::DragFloat3("TestSun2P##TerrainDirLight", TestSun2P, 0.01f, -100.0f, 100.0f);
@@ -790,27 +805,29 @@ UpdateAndRenderImgui()
             ImGui::Text("Debug window for frame shaders...");
             
             ImGui::SeparatorText("Vertex");
-            ImGui::Text("ID = %d", Frame->Vert.ID);
-            static ImGuiInputTextFlags VertFlags = ImGuiInputTextFlags_AllowTabInput;
-            // NOTE(ezexff): InputTextMultiline(label, text, bufferSize, [w=0, h=0, ImGuiInputTextFlags=0])
-            if(ImGui::InputTextMultiline("##vert", (char *)Frame->Vert.Text,
-                                         IM_ARRAYSIZE(Frame->Vert.Text), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16), VertFlags))
-            {
-                //Log->Add("Shader InputTextMultiline changed\n");
-            }
-            ImGui::SeparatorText("Fragment");
-            ImGui::Text("ID = %d", Frame->Frag.ID);
-            static ImGuiInputTextFlags FragFlags = ImGuiInputTextFlags_AllowTabInput;
-            // NOTE(ezexff): InputTextMultiline(label, text, bufferSize, [w=0, h=0, ImGuiInputTextFlags=0])
-            if(ImGui::InputTextMultiline("##frag", (char *)Frame->Frag.Text,
-                                         IM_ARRAYSIZE(Frame->Frag.Text), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16), FragFlags))
-            {
-                //Log->Add("Shader InputTextMultiline changed\n");
-            }
+            /* 
+                        ImGui::Text("ID = %d", Frame->Vert.OpenglID);
+                        static ImGuiInputTextFlags VertFlags = ImGuiInputTextFlags_AllowTabInput;
+                        // NOTE(ezexff): InputTextMultiline(label, text, bufferSize, [w=0, h=0, ImGuiInputTextFlags=0])
+                        if(ImGui::InputTextMultiline("##vert", (char *)Frame->Vert.Text,
+                                                     IM_ARRAYSIZE(Frame->Vert.Text), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16), VertFlags))
+                        {
+                            //Log->Add("Shader InputTextMultiline changed\n");
+                        }
+                        ImGui::SeparatorText("Fragment");
+                        ImGui::Text("ID = %d", Frame->Frag.OpenglID);
+                        static ImGuiInputTextFlags FragFlags = ImGuiInputTextFlags_AllowTabInput;
+                        // NOTE(ezexff): InputTextMultiline(label, text, bufferSize, [w=0, h=0, ImGuiInputTextFlags=0])
+                        if(ImGui::InputTextMultiline("##frag", (char *)Frame->Frag.Text,
+                                                     IM_ARRAYSIZE(Frame->Frag.Text), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 16), FragFlags))
+                        {
+                            //Log->Add("Shader InputTextMultiline changed\n");
+                        }
+                         */
             
             if(ImGui::Button("Recompile shaders and link program"))
             {
-                Frame->CompileShaders = true;
+                Frame->CompileShaders = false;
                 /*
 OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
                 OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->Frag);
@@ -923,9 +940,6 @@ CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex)
                     DebugState->CollationFrame->EndClock = Event->Clock;
                     DebugState->CollationFrame->WallSecondsElapsed = Event->SecondsElapsed;
                     ++DebugState->FrameCount;
-                    
-                    r32 ClockRange = (r32)(DebugState->CollationFrame->EndClock - DebugState->CollationFrame->BeginClock);
-                    
                 }
                 
                 DebugState->CollationFrame = DebugState->Frames + DebugState->FrameCount;
@@ -972,7 +986,7 @@ CollateDebugRecords(debug_state *DebugState, u32 InvalidEventArrayIndex)
                         {
                             if(MatchingBlock->StartingFrameIndex == FrameIndex)
                             {
-                                //if(GetRecordFrom(MatchingBlock->Parent) == DebugState->ScopeToRecord)
+                                if(GetRecordFrom(MatchingBlock->Parent) == DebugState->ScopeToRecord)
                                 {
                                     r32 MinT = (r32)(OpeningEvent->Clock - DebugState->CollationFrame->BeginClock);
                                     r32 MaxT = (r32)(Event->Clock - DebugState->CollationFrame->BeginClock);
@@ -1022,7 +1036,7 @@ RestartCollation(debug_state *DebugState, u32 InvalidEventArrayIndex)
     DebugState->FirstThread = 0;
     DebugState->FirstFreeBlock = 0;
     
-    DebugState->Frames = PushArray(&DebugState->CollateArena, MAX_DEBUG_EVENT_ARRAY_COUNT*4, debug_frame);
+    DebugState->Frames = PushArray(&DebugState->CollateArena, MAX_DEBUG_EVENT_ARRAY_COUNT * 4, debug_frame);
     DebugState->FrameBarLaneCount = 0;
     DebugState->FrameCount = 0;    
     DebugState->FrameBarScale = 1.0f / 60000000.0f;
@@ -1066,24 +1080,78 @@ DEBUGEnd(debug_state *DebugState)
         if(ImGuiHandle->ShowDebugCollationWindow)
         {
             ImGui::Begin("DebugCollation", &ImGuiHandle->ShowDebugCollationWindow);
-            if(DebugState->FrameCount)
-            {/* 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            char TextBuffer[256];
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            _snprintf_s(TextBuffer, sizeof(TextBuffer),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        "Last frame time: %.02fms",
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        DebugState->Frames[DebugState->FrameCount - 1].WallSecondsElapsed * 1000.0f);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     */
-                
-                ImGui::Text("Last frame time: %.02fms", DebugState->Frames[DebugState->FrameCount - 1].WallSecondsElapsed * 1000.0f);
-            }
+            /* 
+                        if(DebugState->FrameCount)
+                        {
+                            ImGui::Text("Last frame time: %.02fms", DebugState->Frames[DebugState->FrameCount - 1].WallSecondsElapsed * 1000.0f);
+                        }
+             */
             
             u32 MaxFrame = DebugState->FrameCount;
+            Log->Add("MaxFrame = %d\n", MaxFrame);
             if(MaxFrame > 10)
             {
                 MaxFrame = 10;
             }
             
             temporary_memory TempMem = BeginTemporaryMemory(&DebugState->DebugArena);
+            
+            // NOTE(ezexff): Realtime plot
+            //local int FrameIndex = 0;
+            //ImGui::SliderInt("FrameIndex", &FrameIndex, 1, 60);
+            
+            u32 FrameIndex = 0;
+            debug_frame *Frame = DebugState->Frames + DebugState->FrameCount - (FrameIndex + 1);
+            u64 FrameCycleCount = Frame->EndClock - Frame->BeginClock;
+            ImGui::Text("FrameCycleCount = %lu", FrameCycleCount);
+            
+            //Assert(Frame->Regions);
+            
+            if(Frame->Regions)
+            {
+                local float History = 15.0f;
+                ImGui::SliderFloat("History", &History, 1, 60, "%.1f s");
+                
+                local float PlotZoom = 50.0f;
+                ImGui::SliderFloat("PlotZoom", &PlotZoom, 1, 100, "%.1f s");
+                
+                Assert(Frame->RegionCount < 16);
+                static RollingBuffer RData[16]; // TODO(ezexff): Replace this with debug storage
+                static float t = 0;
+                t += ImGui::GetIO().DeltaTime;
+                
+                for(u32 RegionIndex = 0;
+                    RegionIndex < Frame->RegionCount;
+                    ++RegionIndex)
+                {
+                    debug_frame_region *Region = Frame->Regions + RegionIndex;
+                    debug_record *Record = Region->Record;
+                    RData[RegionIndex].AddPoint(t, (r32)Region->CycleCount);
+                    RData[RegionIndex].Span = History;
+                }
+                
+                if(ImPlot::BeginPlot("##Rolling", ImVec2(-1, 700)))
+                {
+                    //ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickLabels, ImPlotAxisFlags_NoTickLabels);
+                    ImPlot::SetupAxisLimits(ImAxis_X1, 0, History, ImGuiCond_Always);
+                    ImPlot::SetupAxisLimits(ImAxis_Y1, 0, (r64)(FrameCycleCount / PlotZoom), ImGuiCond_Always);
+                    ImPlot::SetupAxisFormat(ImAxis_Y1, "%.0f");
+                    
+                    for(u32 RegionIndex = 0;
+                        RegionIndex < Frame->RegionCount;
+                        ++RegionIndex)
+                    {
+                        debug_frame_region *Region = Frame->Regions + RegionIndex;
+                        debug_record *Record = Region->Record;
+                        char BlockNameTextBuffer[256];
+                        _snprintf_s(BlockNameTextBuffer, sizeof(BlockNameTextBuffer), "%s", Record->BlockName);
+                        ImPlot::PlotLine(BlockNameTextBuffer, 
+                                         &RData[RegionIndex].Data[0].x, &RData[RegionIndex].Data[0].y, 
+                                         RData[RegionIndex].Data.size(), 0, 0, 2 * sizeof(float));
+                    }
+                    ImPlot::EndPlot();
+                }
+            }
             
             for(u32 FrameIndex = 0;
                 FrameIndex < MaxFrame;
@@ -1155,7 +1223,7 @@ DEBUGEnd(debug_state *DebugState)
                             r32 TooltipTop = ImPlot::GetPlotPos().y;
                             r32 TooltipBot = TooltipTop + ImPlot::GetPlotSize().y;
                             ImPlot::PushPlotClipRect();
-                            DrawList->AddRectFilled(ImVec2(TooltipLeft, TooltipTop), ImVec2(TooltipRight, TooltipBot), IM_COL32(128,128,128,64));
+                            DrawList->AddRectFilled(ImVec2(TooltipLeft, TooltipTop), ImVec2(TooltipRight, TooltipBot), IM_COL32(128, 128, 128, 64));
                             ImPlot::PopPlotClipRect();
                             
                             debug_frame_region *Region = Frame->Regions + RegionIndex;
@@ -1203,10 +1271,12 @@ DEBUGEnd(debug_state *DebugState)
     UpdateAndRenderImgui();
 }
 
+//#define DebugRecords_Main_Count __COUNTER__
 extern "C" DEBUG_GAME_FRAME_END(DEBUGGameFrameEnd)
 {
     
     //GlobalDebugTable->RecordCount[0] = DebugRecords_Main_Count;
+    GlobalDebugTable->RecordCount[TRANSLATION_UNIT_INDEX] = __COUNTER__;
     //GlobalDebugTable->RecordCount[1] = DebugRecords_Optimized_Count;
     
     ++GlobalDebugTable->CurrentEventArrayIndex;
@@ -1239,7 +1309,7 @@ extern "C" DEBUG_GAME_FRAME_END(DEBUGGameFrameEnd)
         if(!DebugState->Paused)
         {
             
-            if(DebugState->FrameCount >= MAX_DEBUG_EVENT_ARRAY_COUNT*4)
+            if(DebugState->FrameCount >= MAX_DEBUG_EVENT_ARRAY_COUNT * 4)
             {
                 RestartCollation(DebugState, GlobalDebugTable->CurrentEventArrayIndex);
             }

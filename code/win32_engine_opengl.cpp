@@ -6,9 +6,11 @@
 #include "win32_engine_renderer.h"
 
 #include "engine_math.h"
+
 #include "engine_renderer.h"
 #include "engine_renderer_opengl.h"
 #include "engine_renderer_opengl.cpp"
+
 
 void Win32ErrorMessageBox(char *Message)
 {

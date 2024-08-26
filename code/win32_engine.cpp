@@ -984,7 +984,6 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                     {
                         EndFrameTime = StartFrameTime;
                         NewInput->dtForFrame = (r32)DeltaFrameTime;
-                        FRAME_MARKER((r32)DeltaFrameTime);
                         
                         if(GetActiveWindow() == Window)
                         {
@@ -1527,13 +1526,6 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                             ImGui::Render();
                             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
                             SwapBuffers(GameMemory.ImGuiHandle.WGL);
-                            
-                            if(GlobalDebugTable)
-                            {
-                                // TODO(casey): Move this to a global variable so that
-                                // there can be timers below this one?
-                                GlobalDebugTable->RecordCount[TRANSLATION_UNIT_INDEX] = __COUNTER__;
-                            }
                         }
                         END_BLOCK(ImGuiRender);
 #endif
@@ -1543,6 +1535,15 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                             game_input *Temp = NewInput;
                             NewInput = OldInput;
                             OldInput = Temp;
+                        }
+                        
+                        r64 SecondsElapsed = Win32GetTime() - StartFrameTime;
+                        FRAME_MARKER((r32)SecondsElapsed);
+                        if(GlobalDebugTable)
+                        {
+                            // TODO(casey): Move this to a global variable so that
+                            // there can be timers below this one?
+                            GlobalDebugTable->RecordCount[TRANSLATION_UNIT_INDEX] = __COUNTER__;
                         }
                     }
                 }

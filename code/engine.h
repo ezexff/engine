@@ -48,6 +48,11 @@ struct game_state
     r32 tSine;
     u32 SampleIndex;
 #endif
+    
+    // NOTE(ezexff): World gen
+    u32 GroundBufferWidth;
+    u32 GroundBufferHeight;
+    r32 TypicalFloorHeight;
 };
 
 struct task_with_memory

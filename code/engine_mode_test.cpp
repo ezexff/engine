@@ -4,6 +4,20 @@ UpdateAndRenderTest(game_memory *Memory)
     game_state *GameState = (game_state *)Memory->PermanentStorage;
     tran_state *TranState = (tran_state *)Memory->TransientStorage;
     
+    renderer_frame *Frame = &Memory->Frame;
+    
+    
+    bitmap_id BitmapID = GetFirstBitmapFrom(TranState->Assets, Asset_DuDvMap);
+    v2 Dim = V2(1000, 1000);
+    v2 Pos = V2((r32)Frame->Dim.x - Dim.x / 2, -Dim.y / 2);
+    
+    PushBitmapOnScreen(Frame, TranState->Assets, BitmapID, Pos, Dim, 1.0f);
+    
+    if(Frame->DrawDebugTextLine)
+    {
+        char *TestString = "The quick brown fox jumps over a lazy dog.";
+        DEBUGTextLine(Frame, TranState->Assets, TestString);
+    }
     /* 
         renderer_frame *Frame = &Memory->Frame;
         

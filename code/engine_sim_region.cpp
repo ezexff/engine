@@ -20,7 +20,7 @@ GetHashFromStorageIndex(sim_region *SimRegion, u32 StorageIndex)
         }
     }
     
-    return (Result);
+    return(Result);
 }
 
 inline sim_entity *
@@ -28,7 +28,7 @@ GetEntityByStorageIndex(sim_region *SimRegion, u32 StorageIndex)
 {
     sim_entity_hash *Entry = GetHashFromStorageIndex(SimRegion, StorageIndex);
     sim_entity *Result = Entry->Ptr;
-    return (Result);
+    return(Result);
 }
 
 inline v3 
@@ -44,7 +44,7 @@ GetSimSpaceP(sim_region *SimRegion, low_entity *Stored)
         Result = Subtract(SimRegion->World, &Stored->P, &SimRegion->Origin);
     }
     
-    return (Result);
+    return(Result);
 }
 
 internal sim_entity *
@@ -121,7 +121,7 @@ EntityOverlapsRectangle(v3 P, sim_entity_collision_volume Volume, rectangle3 Rec
 {
     rectangle3 Grown = AddRadiusTo(Rect, 0.5f * Volume.Dim);
     b32 Result = IsInRectangle(Grown, P + Volume.OffsetP);
-    return (Result);
+    return(Result);
 }
 
 internal sim_entity *
@@ -324,7 +324,7 @@ CanCollide(mode_world *ModeWorld, sim_entity *A, sim_entity *B)
         }
     }
     
-    return (Result);
+    return(Result);
 }
 
 internal b32
@@ -376,7 +376,7 @@ CanOverlap(mode_world *ModeWorld, sim_entity *Mover, sim_entity *Region)
         }
     }
     
-    return (Result);
+    return(Result);
 }
 
 internal void 
@@ -406,7 +406,7 @@ SpeculativeCollide(sim_entity *Mover, sim_entity *Region, v3 TestP)
         Result = (AbsoluteValue(MoverGroundPoint.z - Ground) > StepHeight);
     }
     
-    return (Result);
+    return(Result);
 }
 
 internal b32 
@@ -432,7 +432,7 @@ EntitiesOverlap(sim_entity *Entity, sim_entity *TestEntity, v3 Epsilon = V3(0, 0
         }
     }
     
-    return (Result);
+    return(Result);
 }
 
 struct test_wall

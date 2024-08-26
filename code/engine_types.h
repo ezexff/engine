@@ -352,7 +352,7 @@ operator==(string A, wchar_t *B)
     return (Result);
 }
 
-//~ NOTE(ezexff): Assets
+//~ NOTE(ezexff): Asset
 struct loaded_bitmap
 {
     //v2 AlignPercentage;
@@ -374,6 +374,17 @@ struct loaded_sound
     void *Free;
 };
 
+struct loaded_shader
+{
+    u32 OpenglID;
+    u8 Text[10000];
+};
+
+struct shader_program
+{
+    u32 OpenglID;
+};
+
 enum mesh_flags
 {
     MeshFlag_HasTexCoords = (1 << 0),
@@ -382,7 +393,6 @@ enum mesh_flags
     MeshFlag_HasIndices = (1 << 3),
     MeshFlag_HasMaterial = (1 << 4),
     MeshFlag_HasAnimations = (1 << 5),
-    
 };
 
 struct mesh

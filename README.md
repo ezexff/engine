@@ -19,7 +19,7 @@ Game engine that i wrote when learned low-level programming
 
 ## Engine
 <details>
-<summary>Platform-independent code</summary>
+<summary>Platform-independent code (outdated)</summary>
 
 * ### Types
   * Custom names for C data types (int, float and etc.)
@@ -80,7 +80,7 @@ Game engine that i wrote when learned low-level programming
 </details>
 
 <details>
-<summary>Win32 code</summary>
+<summary>Win32 code (outdated)</summary>
 
 
 * ### Memory
@@ -125,7 +125,7 @@ Game engine that i wrote when learned low-level programming
 </details>
 
 <details>
-<summary>Game code</summary>
+<summary>Game code (outdated)</summary>
 
 * ### Memory
   * ConstArena static storage
@@ -232,7 +232,7 @@ Game engine that i wrote when learned low-level programming
 
 ## Legacy
 <details>
-<summary>Changes</summary>
+<summary>Changes (outdated)</summary>
 
 ```
 2024.03.26
@@ -277,7 +277,7 @@ Game engine that i wrote when learned low-level programming
 </details>
 
 <details>
-<summary>Screenshots</summary>
+<summary>Screenshots (outdated)</summary>
 
 ### 23.03.2024
 <img src="https://i.imgur.com/cGDpNIo.png" alt="5 - 23.03.2024">

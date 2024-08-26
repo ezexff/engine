@@ -1,16 +1,138 @@
+enum frame_effect
+{
+    FrameEffect_Abberation,
+    FrameEffect_Blur,
+    FrameEffect_Emboss,
+    FrameEffect_Grayscale,
+    FrameEffect_Inverse,
+    FrameEffect_Sepia,
+    FrameEffect_Normal,
+    
+    FrameEffect_Count,
+};
+
 struct renderer_camera
 {
     v3 P;
     v3 Angle;
 };
 
+struct renderer_skybox
+{
+    u32 Texture;
+    u32 VAO;
+    u32 VBO;
+    b32 IsTextureParametersInitialized;
+    
+    loaded_bitmap Bitmaps[6];
+};
+
+
+struct point_light_array
+{
+    u32 Count;
+    point_light Point;
+};
+
+struct spot_light_array
+{
+    u32 Count;
+    spot_light Spot;
+};
+
+struct renderer_lighting
+{
+    directional_light DirLight;
+    
+    point_light_array *PointLights;
+    spot_light_array *SpotLights;
+};
+
+struct renderer_shadowmap
+{
+    v2u Dim;
+    m4x4 Proj, View, Model;
+    u32 Texture;
+    u32 FBO;
+    r32 Size;
+    r32 NearPlane, FarPlane;
+    r32 CameraPitch, CameraYaw;
+    v3 CameraP;
+    r32 Bias;
+};
+
+struct renderer_water_reflection
+{
+    v2u Dim;
+    u32 FBO;
+    u32 ColorTexture;
+    u32 DepthRBO;
+    loaded_bitmap *DuDv;
+    loaded_bitmap *NormalMap;
+};
+
+struct renderer_water_refraction
+{
+    v2u Dim;
+    u32 FBO;
+    u32 ColorTexture;
+    u32 DepthTexture;
+};
+
+struct renderer_water
+{
+    r32 WaveSpeed;
+    r32 MoveFactor;
+    r32 Tiling;
+    r32 WaveStrength;
+    r32 ShineDamper;
+    r32 Reflectivity;
+    
+    renderer_water_reflection Reflection;
+    renderer_water_refraction Refraction;
+    
+    // TODO(ezexff): Test
+    //world_position TestWaterP;
+    //v3 TestWaterRelP;
+    //world_position TestSunP;
+};
+
+struct index_array
+{
+    u32 Count;
+    u32 *Indices;
+};
+
+struct renderer_terrain
+{
+    u32 TileCount; // NOTE(ezexff): Tile count per row!!!
+    r32 MaxHeight;
+    
+    // TODO(ezexff): Mb move somewhere else?
+    r32 TileWidth;
+    r32 TileHeight;
+    
+    ground_buffer_array GroundBufferArray;
+    index_array IndexArray;
+    
+    material Material;
+    loaded_bitmap *Bitmap;
+};
+
 struct renderer
 {
+    m4x4 Proj, View, Model;
     r32 FOV;
     v4 ClearColor;
     u32 Flags; // renderer_flags
     
     renderer_camera Camera;
+    
+    renderer_skybox *Skybox;
+    renderer_lighting *Lighting;
+    renderer_shadowmap *ShadowMap;
+    renderer_water *Water;
+    renderer_terrain *Terrain;
 };
 
 enum renderer_flags
@@ -26,7 +148,6 @@ enum renderer_flags
 inline b32 IsSet(renderer *Renderer, u32 Flag)
 {
     b32 Result = Renderer->Flags & Flag;
-    
     return(Result);
 }
 

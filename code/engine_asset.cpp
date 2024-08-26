@@ -757,8 +757,9 @@ AllocateGameAssets(memory_arena *Arena, memory_index Size, tran_state *TranState
     return(Assets);
 }
 
+// TODO(ezexff): Think about how keep shaders on storage (asset file or smth else)
 internal void
-LoadFrameAndSkyboxShaders(memory_arena *ConstArena, renderer_frame *Frame)
+DEBUGLoadShaders(memory_arena *ConstArena, renderer_shaders *Shaders)
 {
     platform_file_group FileGroup = Platform.GetAllFilesOfTypeBegin(PlatformFileType_VertFile);
     u32 FileCount = FileGroup.FileCount;
@@ -772,28 +773,28 @@ LoadFrameAndSkyboxShaders(memory_arena *ConstArena, renderer_frame *Frame)
         
         if(FileHandle->NoErrors)
         {
-            if(FileHandle->Size < ArrayCount(Frame->Vert.Text))
+            if(FileHandle->Size < ArrayCount(Shaders->FrameVert.Text))
             {
                 u8 *Text = 0;
                 if(FileHandle->Name == L"frame.vert")
                 {
-                    Text = Frame->Vert.Text;
+                    Text = Shaders->FrameVert.Text;
                 }
                 else if(FileHandle->Name == L"skybox.vert")
                 {
-                    Text = Frame->SkyboxVert.Text;
+                    Text = Shaders->SkyboxVert.Text;
                 }
-                else if(FileHandle->Name == L"default.vert")
+                else if(FileHandle->Name == L"scene.vert")
                 {
-                    Text = Frame->DefaultVert.Text;
+                    Text = Shaders->SceneVert.Text;
                 }
                 else if(FileHandle->Name == L"shadowmap.vert")
                 {
-                    Text = Frame->ShadowMapVert.Text;
+                    Text = Shaders->ShadowMapVert.Text;
                 }
                 else if(FileHandle->Name == L"water.vert")
                 {
-                    Text = Frame->WaterVert.Text;
+                    Text = Shaders->WaterVert.Text;
                 }
                 else
                 {
@@ -835,28 +836,28 @@ LoadFrameAndSkyboxShaders(memory_arena *ConstArena, renderer_frame *Frame)
         
         if(FileHandle->NoErrors)
         {
-            if(FileHandle->Size < ArrayCount(Frame->Frag.Text))
+            if(FileHandle->Size < ArrayCount(Shaders->FrameFrag.Text))
             {
                 u8 *Text = 0;
                 if(FileHandle->Name == L"frame.frag")
                 {
-                    Text = Frame->Frag.Text;
+                    Text = Shaders->FrameFrag.Text;
                 }
                 else if(FileHandle->Name == L"skybox.frag")
                 {
-                    Text = Frame->SkyboxFrag.Text;
+                    Text = Shaders->SkyboxFrag.Text;
                 }
-                else if(FileHandle->Name == L"default.frag")
+                else if(FileHandle->Name == L"scene.frag")
                 {
-                    Text = Frame->DefaultFrag.Text;
+                    Text = Shaders->SceneFrag.Text;
                 }
                 else if(FileHandle->Name == L"shadowmap.frag")
                 {
-                    Text = Frame->ShadowMapFrag.Text;
+                    Text = Shaders->ShadowMapFrag.Text;
                 }
                 else if(FileHandle->Name == L"water.frag")
                 {
-                    Text = Frame->WaterFrag.Text;
+                    Text = Shaders->WaterFrag.Text;
                 }
                 else
                 {

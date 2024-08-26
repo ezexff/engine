@@ -162,13 +162,13 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         
         // NOTE(ezexff): Screen shader program
         {
-            LoadFrameAndSkyboxShaders(ConstArena, Frame);
+            DEBUGLoadShaders(ConstArena, &Frame->Shaders);
             Frame->CompileShaders = true;
         }
         
         // NOTE(ezexff): Set default frame frag effect
         {
-            Frame->FragEffect = EFFECT_NORMAL;
+            Frame->EffectID = FrameEffect_Normal;
         }
         
         GameState->IsInitialized = true;
@@ -199,7 +199,21 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         // NOTE(ezexff): Init assets
         {
             TranState->Assets = AllocateGameAssets(TranArena, Megabytes(128), TranState);
-            Frame->InitializeSkyboxTexture = true;
+        }
+        
+        // NOTE(ezexff): Load bitmaps
+        {
+            LoadBitmap(TranState->Assets, GetFirstBitmapFrom(TranState->Assets, Asset_Terrain), true);
+            LoadBitmap(TranState->Assets, GetFirstBitmapFrom(TranState->Assets, Asset_DuDvMap), true);
+            LoadBitmap(TranState->Assets, GetFirstBitmapFrom(TranState->Assets, Asset_NormalMap), true);
+            
+            for(u32 Index = 0;
+                Index < 6;
+                ++Index)
+            {
+                bitmap_id ID = {GetFirstAssetFrom(TranState->Assets, Asset_Skybox) + Index};
+                LoadBitmap(TranState->Assets, ID, true);
+            }
         }
         
         // TODO(ezexff): Do test work
@@ -212,7 +226,138 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             Platform.AddEntry(TranState->LowPriorityQueue, TestWork, Work);
         }
         
+        // NOTE(ezexff): Init world gen
+        {
+            GameState->GroundBufferWidth = 8;
+            GameState->GroundBufferHeight = 8;
+            GameState->TypicalFloorHeight = 3.0f;
+        }
         
+        // NOTE(ezexff): Init renderer
+        {
+            Frame->Renderer = PushStruct(&GameState->ConstArena, renderer);
+            renderer *Renderer = (renderer *)Frame->Renderer;
+            Renderer->FOV = 0.1f;
+#define PLAYER_EYE_HEIGHT_FROM_GROUND 1.75f  // TODO(ezexff): Replace
+            Renderer->Camera.P = V3(0, 0, PLAYER_EYE_HEIGHT_FROM_GROUND);
+            Renderer->ClearColor = V4(0.5, 0.5, 0.5, 1);
+            
+            //~ NOTE(ezexff): Skybox
+            Renderer->Skybox = PushStruct(&GameState->ConstArena, renderer_skybox);
+            
+            //~ NOTE(ezexff): Lighting
+            Renderer->Lighting = PushStruct(&GameState->ConstArena, renderer_lighting);
+            renderer_lighting *Lighting = Renderer->Lighting;
+            Lighting->DirLight.Base.Color = V3(1.0f, 1.0f, 1.0f);
+            Lighting->DirLight.Base.AmbientIntensity = 0.1f;
+            Lighting->DirLight.Base.DiffuseIntensity = 1.0f;
+            Lighting->DirLight.WorldDirection = V3(0.0f, 0.0f, -1.0f);
+            
+            //~ NOTE(ezexff): ShadowMap
+            Renderer->ShadowMap = PushStruct(&GameState->ConstArena, renderer_shadowmap);
+            renderer_shadowmap *ShadowMap = Renderer->ShadowMap;
+            ShadowMap->Size = 60.0f;
+            ShadowMap->NearPlane = -50.0f;
+            ShadowMap->FarPlane = 100.0f;
+            ShadowMap->CameraPitch = 60.0f;
+            ShadowMap->CameraYaw = -120.0f;
+            ShadowMap->CameraP = V3(0.0f, 0.0f, 0.0f);
+            ShadowMap->Bias = 0.005f;
+            
+            //~ NOTE(ezexff): Water
+            Renderer->Water = PushStruct(&GameState->ConstArena, renderer_water);
+            renderer_water *Water = Renderer->Water;
+            Water->WaveSpeed = 0.4f;
+            Water->Tiling = 0.5f;
+            Water->WaveStrength = 0.02f;
+            Water->ShineDamper = 20.0f;
+            Water->Reflectivity = 0.6f;
+            
+            //~ NOTE(ezexff): Terrain
+            Renderer->Terrain = PushStruct(&GameState->ConstArena, renderer_terrain);
+            renderer_terrain *Terrain = Renderer->Terrain;
+            Terrain->TileCount = 16;
+            Terrain->MaxHeight = 0.2f;
+            Terrain->GroundBufferArray.Count = 64;
+            
+            Terrain->Material.Ambient = V4(0.0f, 0.0f, 0.0f, 1.0f);
+            Terrain->Material.Diffuse = V4(0.1f, 0.35f, 0.1f, 1.0f);
+            Terrain->Material.Specular = V4(0.45f, 0.55f, 0.45f, 1.0f);
+            Terrain->Material.Emission = V4(0.0f, 0.0f, 0.0f, 1.0f);
+            Terrain->Material.Shininess = 0.25f;
+            
+            {
+                Terrain->TileWidth = (r32)GameState->GroundBufferWidth / Terrain->TileCount;
+                Terrain->TileHeight = (r32)GameState->GroundBufferHeight / Terrain->TileCount;
+                Terrain->IndexArray.Count = (6 * Terrain->TileCount * Terrain->TileCount);
+                Terrain->IndexArray.Indices = PushArray(&GameState->ConstArena, Terrain->IndexArray.Count, u32);
+                
+                // NOTE(ezexff): Create default index array
+                u32 TmpPosCount = 0;
+                u32 TmpIndCount = 0;
+                for(u32 Y = 0;
+                    Y <= Terrain->TileCount;
+                    ++Y)
+                {
+                    for(u32 X = 0;
+                        X <= Terrain->TileCount;
+                        ++X)
+                    {
+                        if((X != Terrain->TileCount) && (Y != Terrain->TileCount))
+                        {
+                            Terrain->IndexArray.Indices[TmpIndCount + 0] = TmpPosCount;
+                            Terrain->IndexArray.Indices[TmpIndCount + 1] = TmpPosCount + 1;
+                            Terrain->IndexArray.Indices[TmpIndCount + 2] = TmpPosCount + Terrain->TileCount + 1;
+                            
+                            Terrain->IndexArray.Indices[TmpIndCount + 3] = TmpPosCount + 1;
+                            Terrain->IndexArray.Indices[TmpIndCount + 4] = TmpPosCount + Terrain->TileCount + 1;
+                            Terrain->IndexArray.Indices[TmpIndCount + 5] = TmpPosCount + Terrain->TileCount + 2;
+                            
+                            TmpIndCount += 6;
+                        }
+                        TmpPosCount++;
+                    }
+                }
+                Assert(TmpIndCount == Terrain->IndexArray.Count);
+                
+                ground_buffer_array *GroundBufferArray = &Terrain->GroundBufferArray;
+                GroundBufferArray->VertexCount = (Terrain->TileCount + 1) * (Terrain->TileCount + 1);
+                GroundBufferArray->Buffers = PushArray(&GameState->ConstArena, GroundBufferArray->Count, ground_buffer);
+                for(u32 GroundBufferIndex = 0;
+                    GroundBufferIndex < GroundBufferArray->Count;
+                    ++GroundBufferIndex)
+                {
+                    ground_buffer *GroundBuffer = GroundBufferArray->Buffers + GroundBufferIndex;
+                    
+                    GroundBuffer->IsInitialized = false;
+                    GroundBuffer->IsFilled = false;
+                    GroundBuffer->P = NullPosition();
+                    GroundBuffer->OffsetP = V3(0, 0, 0);
+                    GroundBuffer->Vertices = PushArray(&GameState->ConstArena, GroundBufferArray->VertexCount, vbo_vertex);
+                    
+                    // NOTE(ezexff): Fill default chunk positions and indices
+                    u32 TmpPosCount2 = 0;
+                    for(u32 Y = 0;
+                        Y <= Terrain->TileCount;
+                        ++Y)
+                    {
+                        for(u32 X = 0;
+                            X <= Terrain->TileCount;
+                            ++X)
+                        {
+                            GroundBuffer->Vertices[TmpPosCount2].Position.x = X * Terrain->TileWidth;
+                            GroundBuffer->Vertices[TmpPosCount2].Position.y = Y * Terrain->TileHeight;
+                            
+                            GroundBuffer->Vertices[TmpPosCount2].TexCoords.x = (r32)X;
+                            GroundBuffer->Vertices[TmpPosCount2].TexCoords.y = (r32)Y;
+                            
+                            TmpPosCount2++;
+                        }
+                    }
+                    Assert(TmpPosCount2 == GroundBufferArray->VertexCount);
+                }
+            }
+        }
         
         TranState->IsInitialized = true;
     }
@@ -228,16 +373,15 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         // TODO(casey): Warn on out-of-range refresh
     }*/
     
+    // NOTE(ezexff): Clear push buffer memory
+    while(Frame->PushBufferSize--)
     {
-        // NOTE(ezexff): Clear push buffer memory
-        while(Frame->PushBufferSize--)
-        {
-            Frame->PushBufferMemory[Frame->PushBufferSize] = 0;
-        }
-        Frame->PushBufferSize = 0;
-        
-        Frame->Renderer = 0;
+        Frame->PushBufferMemory[Frame->PushBufferSize] = 0;
     }
+    Frame->PushBufferSize = 0;
+    Assert(Frame->Renderer);
+    renderer *Renderer = (renderer *)Frame->Renderer;
+    Renderer->Flags = 0;
     
     switch(GameState->GameModeID)
     {
@@ -255,8 +399,6 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         
         InvalidDefaultCase;
     }
-    
-    Assert(Frame->Renderer);
 }
 
 extern "C" GET_SOUND_SAMPLES_FUNC(GetSoundSamples)

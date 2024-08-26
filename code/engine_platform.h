@@ -349,7 +349,7 @@ struct debug_event
 #define MAX_DEBUG_THREAD_COUNT 256
 #define MAX_DEBUG_EVENT_ARRAY_COUNT 8
 #define MAX_DEBUG_TRANSLATION_UNITS 3
-#define MAX_DEBUG_EVENT_COUNT (16*65536)
+#define MAX_DEBUG_EVENT_COUNT (16 * 65536)
 #define MAX_DEBUG_RECORD_COUNT (65536)
 struct debug_table
 {
@@ -585,29 +585,6 @@ struct opengl
     char *GLRendererStr;
     char *GLVersionStr;
 #endif
-    
-#define VERT_POSITION 0
-#define VERT_TEXCOORD 1
-    //#define VERT_NORMAL    2
-    
-#define EFFECT_ABBERATION 0
-#define EFFECT_BLUR 1
-#define EFFECT_EMBOSS 2
-#define EFFECT_GRAYSCALE 3
-#define EFFECT_INVERSE 4
-#define EFFECT_SEPIA 5
-#define EFFECT_NORMAL 6
-};
-
-struct opengl_shader
-{
-    u32 ID;
-    u8 Text[10000];
-};
-
-struct opengl_program
-{
-    u32 ID;
 };
 
 struct vbo_vertex
@@ -651,7 +628,6 @@ struct spot_light
     r32 Cutoff;
 };
 
-
 struct material
 {
     v4 Ambient;
@@ -682,159 +658,80 @@ struct ground_buffer
     u32 EBO;
     
     v3 OffsetP; // смещение относительно камеры
-    
-    //r32 *PositionsZ;
     vbo_vertex *Vertices;
-    //v3*Positions;
-    //v3 *Normals;
-    //v2 *TexCoords;
+};
+
+struct ground_buffer_array
+{
+    u32 Count;
+    ground_buffer *Buffers;
+    u32 VertexCount;
+};
+
+struct renderer_shaders
+{
+    loaded_shader FrameVert;
+    loaded_shader FrameFrag;
+    
+    loaded_shader SceneVert;
+    loaded_shader SceneFrag;
+    
+    loaded_shader SkyboxVert;
+    loaded_shader SkyboxFrag;
+    
+    loaded_shader ShadowMapVert;
+    loaded_shader ShadowMapFrag;
+    
+    loaded_shader WaterVert;
+    loaded_shader WaterFrag;
+};
+
+struct renderer_programs
+{
+    shader_program Frame;
+    shader_program Scene;
+    shader_program Skybox;
+    shader_program ShadowMap;
+    shader_program Water ;
 };
 
 struct renderer_frame
 {
-    //~ NOTE(ezexff): Frame
-    v2u Dim; // Client window render area
+    v2u Dim; // client window render area
     r32 AspectRatio;
+    b32 CompileShaders;
     
     u8 PushBufferMemory[65536];
     u32 MaxPushBufferSize;
     u8 *PushBufferBase;
     u32 PushBufferSize;
-    //u32 MissingResourceCount;
     
-    void *Renderer;
-    
-    //void *Camera;
-    
-    // NOTE(ezexff): We output rendered scene through ColorTexture and using shaders for on screen effects
+    // NOTE(ezexff): We output rendered scene through ColorTexture and using shaders f or on screen effects
     u32 ColorTexture;
     u32 DepthTexture; // Need for FBO
     u32 FBO;
     u32 VAO;
     u32 VBO;
-    opengl_shader Vert;
-    opengl_shader Frag;
-    opengl_program Program;
-    s32 FragEffect; // NOTE(ezexff): abberation, blur, emboss, grayscale, inverse, sepia, normal
     
-    //~ NOTE(ezexff): Need For recompile shaders
-    b32 CompileShaders; // TODO(ezexff): Mb replace with IsShadersCompiled
+    s32 EffectID; // fragment shader effect - enum frame_effect
     
-    //~ NOTE(ezexff): Skybox
-    //bool DrawSkybox;
-    b32 InitializeSkyboxTexture;
-    u32 SkyboxVAO;
-    u32 SkyboxVBO;
-    loaded_bitmap Skybox[6];
-    u32 SkyboxTexture;
-    opengl_shader SkyboxVert;
-    opengl_shader SkyboxFrag;
-    opengl_program SkyboxProgram;
+    void *Renderer; // pointer to renderer struct object
     
-    // NOTE(ezexff): Default shaders and program
-    opengl_shader DefaultVert;
-    opengl_shader DefaultFrag;
-    opengl_program DefaultProg;
+    //~ TODO(ezexff): Mb move into asset system?
+    renderer_shaders Shaders;
+    renderer_programs Programs;
     
-    //~ NOTE(ezexff): Terrain
-    // TODO(ezexff): Mb move terrain arrays in GameState
-    /* 
-        u32 TerrainVerticesCount;
-        vbo_vertex *TerrainVertices;
-        u32 TerrainIndicesCount;
-        u32 *TerrainIndices;
-         */
-    
-    /*b32 IsTerrainVBOInitialized;
-    u32 TerrainVAO;
-    u32 TerrainVBO;
-    u32 TerrainEBO;*/
+    v3 TestSun2P; // TODO(ezexff): remove (lighting shine)
+    v3 TestSunRelP; // TODO(ezexff):  remove (water shine)
+    v4 CutPlane; // TODO(ezexff): move somewhere else?
     
     // TODO(ezexff): Mb these variable only for debug in imgui?
     //bool DrawTerrain;
     bool IsTerrainInLinePolygonMode;
     bool FixCameraOnTerrain;
     
-    //~ NOTE(ezexff): Light
-    //bool PushBufferWithLight;
-    directional_light DirLight;
-    u32 PointLightsCount;
-    point_light PointLights;
-    u32 SpotLightsCount;
-    spot_light SpotLights;
-    
-    //~ NOTE(ezexff): Shadows
-    u32 ShadowMapFBO;
-    u32 ShadowMap;
-    v2s ShadowMapDim;
-    r32 ShadowMapSize;
-    r32 ShadowMapNearPlane, ShadowMapFarPlane;
-    r32 ShadowMapCameraPitch, ShadowMapCameraYaw;
-    v3 ShadowMapCameraPos; // NOTE(ezexff): Sun for water
-    r32 ShadowMapBias;
-    opengl_shader ShadowMapVert;
-    opengl_shader ShadowMapFrag;
-    opengl_program ShadowMapProg;
-    
     //~ TODO(ezexff): Move into ImGui?
     bool DrawDebugTextLine;
-    
-    //~ NOTE(ezexff): Terrain v2.0
-    u32 GroundBufferCount;
-    ground_buffer *GroundBuffers;
-    
-    u32 TileCount; // NOTE(ezexff): In 1 terrain chunk row
-    r32 TileWidth;
-    r32 TileHeight;
-    
-    u32 ChunkVertexCount;
-    //v2 *ChunkPositionsXY;
-    
-    u32 ChunkIndexCount;
-    u32 *ChunkIndices;
-    
-    r32 MaxTerrainHeight;
-    
-    material TerrainMaterial;
-    loaded_bitmap *TerrainTexture;
-    
-    //~ NOTE(ezexff): Water
-    v4 CutPlane;
-    r32 CameraPitchInverted;
-    
-    r32 WaterWaveSpeed;
-    r32 WaterMoveFactor;
-    r32 WaterTiling;
-    r32 WaterWaveStrength;
-    r32 WaterShineDamper;
-    r32 WaterReflectivity;
-    
-    // Reflection
-    v2s WaterReflectionDim;
-    u32 WaterReflectionFBO;
-    u32 WaterReflectionColorTexture;
-    u32 WaterReflectionDepthRBO;
-    //string WaterDUDVTextureName;
-    loaded_bitmap *WaterDUDVTexture;
-    //string WaterNormalMapName;
-    loaded_bitmap *WaterNormalMapTexture;
-    
-    // Refraction
-    v2s WaterRefractionDim;
-    u32 WaterRefractionFBO;
-    u32 WaterRefractionColorTexture;
-    u32 WaterRefractionDepthTexture;
-    
-    opengl_shader WaterVert;
-    opengl_shader WaterFrag;
-    opengl_program WaterProg;
-    
-    // TODO(ezexff): Test
-    world_position TestWaterP;
-    v3 TestWaterRelP;
-    world_position TestSunP;
-    v3 TestSunRelP;
-    v3 TestSun2P;
     
 #if ENGINE_INTERNAL
     b32 IsOpenglImGuiInitialized;

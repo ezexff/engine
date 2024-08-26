@@ -76,7 +76,7 @@ inline r32 Cos(r32 Angle)
     // NOTE(ezexff): SVML version
     r32 Result = _mm_cvtss_f32(_mm_cos_ps(_mm_set_ss(Angle)));
     //r32 Result = cosf(Angle);
-    return (Result);
+    return(Result);
 }
 
 inline r32 Sin(r32 Angle)
@@ -84,12 +84,12 @@ inline r32 Sin(r32 Angle)
     // NOTE(ezexff): SVML version
     r32 Result = _mm_cvtss_f32(_mm_sin_ps(_mm_set_ss(Angle)));
     //r32 Result = sinf(Angle);
-    return (Result);
+    return(Result);
 }
 
 inline s32 FloorR32ToS32(r32 R32)
 {
     //r32 Result = _mm_cvtss_f32(_mm_svml_floor_ps(_mm_set_ss(R32)));
     s32 Result = (s32)floorf(R32);
-    return (Result);
+    return(Result);
 }

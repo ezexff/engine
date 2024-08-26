@@ -1,45 +1,44 @@
 void
-OpenglCompileShader(opengl *Opengl, GLuint Type, opengl_shader *Shader)
+OpenglCompileShader(GLuint Type, loaded_shader *Shader)
 {
-    if(Shader->ID != 0)
+    if(Shader->OpenglID != 0)
     {
-        Opengl->glDeleteShader(Shader->ID);
+        Opengl->glDeleteShader(Shader->OpenglID);
     }
     
-    Shader->ID = Opengl->glCreateShader(Type);
+    Shader->OpenglID = Opengl->glCreateShader(Type);
     u8 *ShaderText = Shader->Text;
-    Opengl->glShaderSource(Shader->ID, 1, &(GLchar *)ShaderText, NULL);
-    Opengl->glCompileShader(Shader->ID);
+    Opengl->glShaderSource(Shader->OpenglID, 1, &(GLchar *)ShaderText, NULL);
+    Opengl->glCompileShader(Shader->OpenglID);
     
     char *TypeStr = (Type == GL_VERTEX_SHADER) ? "vert" : "frag";
     
     GLint NoErrors;
     GLchar LogInfo[2000];
-    Opengl->glGetShaderiv(Shader->ID, GL_COMPILE_STATUS, &NoErrors);
+    Opengl->glGetShaderiv(Shader->OpenglID, GL_COMPILE_STATUS, &NoErrors);
     if(!NoErrors)
     {
-        Opengl->glGetShaderInfoLog(Shader->ID, 2000, NULL, LogInfo);
-        Opengl->glDeleteShader(Shader->ID);
-        Shader->ID = 0;
+        Opengl->glGetShaderInfoLog(Shader->OpenglID, 2000, NULL, LogInfo);
+        Opengl->glDeleteShader(Shader->OpenglID);
+        Shader->OpenglID = 0;
         //Log->Add("[opengl]: %s shader compilaton error (info below):\n%s", TypeStr, LogInfo);
         InvalidCodePath;
     }
 }
 
 void
-OpenglLinkProgram(opengl *Opengl, opengl_program *Program,
-                  opengl_shader *VertShader, opengl_shader *FragShader)
-{// TODO(ezexff): Поменять порядок параметров - последний должен быть аутпут, т.е. Program
-    if(Program->ID != 0)
+OpenglLinkProgram(loaded_shader *VertShader, loaded_shader *FragShader, shader_program *Program)
+{
+    if(Program->OpenglID != 0)
     {
-        Opengl->glDeleteProgram(Program->ID);
+        Opengl->glDeleteProgram(Program->OpenglID);
     }
     
-    Program->ID = Opengl->glCreateProgram();
+    Program->OpenglID = Opengl->glCreateProgram();
     
-    if(VertShader->ID != 0)
+    if(VertShader->OpenglID != 0)
     {
-        Opengl->glAttachShader(Program->ID, VertShader->ID);
+        Opengl->glAttachShader(Program->OpenglID, VertShader->OpenglID);
     }
     else
     {
@@ -47,9 +46,9 @@ OpenglLinkProgram(opengl *Opengl, opengl_program *Program,
         InvalidCodePath;
     }
     
-    if(FragShader->ID != 0)
+    if(FragShader->OpenglID != 0)
     {
-        Opengl->glAttachShader(Program->ID, FragShader->ID);
+        Opengl->glAttachShader(Program->OpenglID, FragShader->OpenglID);
     }
     else
     {
@@ -57,24 +56,63 @@ OpenglLinkProgram(opengl *Opengl, opengl_program *Program,
         InvalidCodePath;
     }
     
-    Opengl->glLinkProgram(Program->ID);
+    Opengl->glLinkProgram(Program->OpenglID);
     
     GLint NoErrors;
     GLchar LogInfo[2000];
-    Opengl->glGetProgramiv(Program->ID, GL_LINK_STATUS, &NoErrors);
+    Opengl->glGetProgramiv(Program->OpenglID, GL_LINK_STATUS, &NoErrors);
     if(!NoErrors)
     {
-        Opengl->glGetProgramInfoLog(Program->ID, 2000, NULL, LogInfo);
+        Opengl->glGetProgramInfoLog(Program->OpenglID, 2000, NULL, LogInfo);
         //Log->Add("[program error]: program linking error (info below):\n%s", LogInfo);
         InvalidCodePath;
     }
+    else
+    {
+        Log->Add("[opengl] shader program compiled\n");
+    }
 }
 
-/*void
-OpenglFillTerrainVBO(renderer_frame *Frame, u32 PositionsCount, v3 *Positions, u32 IndicesCount, u32 *Indices)
+void
+OpenglInitRendererMatrices(renderer *Renderer, r32 AspectRatio)
 {
-    //sfsfsfs;
-}*/
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glFrustum(-AspectRatio * Renderer->FOV, AspectRatio * Renderer->FOV, -Renderer->FOV, Renderer->FOV, Renderer->FOV * 2, 1000);
+    glGetFloatv(GL_PROJECTION_MATRIX, (r32 *)Renderer->Proj.E);
+    
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    glRotatef(-Renderer->Camera.Angle.x, 1.0f, 0.0f, 0.0f);
+    glRotatef(-Renderer->Camera.Angle.y, 0.0f, 0.0f, 1.0f);
+    glRotatef(-Renderer->Camera.Angle.z, 0.0f, 1.0f, 0.0f);
+    glTranslatef(-Renderer->Camera.P.x, -Renderer->Camera.P.y, -Renderer->Camera.P.z);
+    glGetFloatv(GL_MODELVIEW_MATRIX, (r32 *)Renderer->View.E);
+    
+    Renderer->Model = Identity();
+    Renderer->Model = Transpose(Renderer->Model); // opengl to glsl format
+}
+
+void
+OpenglInitShadowMapMatrices(renderer_shadowmap *ShadowMap)
+{
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(-ShadowMap->Size, ShadowMap->Size, -ShadowMap->Size, ShadowMap->Size,
+            ShadowMap->NearPlane, ShadowMap->FarPlane);
+    glGetFloatv(GL_PROJECTION_MATRIX, (r32 *)ShadowMap->Proj.E);
+    
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    glRotatef(-ShadowMap->CameraPitch, 1.0f, 0.0f, 0.0f);
+    glRotatef(-ShadowMap->CameraYaw, 0.0f, 0.0f, 1.0f);
+    glTranslatef(-ShadowMap->CameraP.x, -ShadowMap->CameraP.y, -ShadowMap->CameraP.z);
+    glGetFloatv(GL_MODELVIEW_MATRIX, (r32 *)ShadowMap->View.E);
+    
+    ShadowMap->Model = Identity();
+    ShadowMap->Model = Transpose(ShadowMap->Model); // opengl to glsl format
+}
+
 void
 OpenglDrawLine(v3 P1, v3 P2, v4 Color, r32 LineWidth)
 {
@@ -386,7 +424,7 @@ OpenglDrawRectOnGround(GLenum Mode, rectangle2 R, r32 Z, v3 Color, r32 LineWidth
 }
 
 void
-OpenglDrawBitmapOnGround(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, r32 Repeat)
+OpenglDrawBitmapOnGround(loaded_bitmap *Bitmap, v2 P, v2 Dim, r32 Repeat)
 {
     if(Bitmap->OpenglID == 0)
     {
@@ -450,9 +488,9 @@ OpenglDrawBitmapOnGround(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, r3
 }
 
 void
-OpenglDrawBitmapOnScreen(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, v3 Color, r32 Repeat)
+OpenglDrawBitmapOnScreen(loaded_bitmap *Bitmap, v2 P, v2 Dim, v3 Color, r32 Repeat)
 {
-    if(Bitmap->OpenglID == 0)
+    if(!Bitmap->OpenglID)
     {
         glGenTextures(1, &Bitmap->OpenglID);
         glBindTexture(GL_TEXTURE_2D, Bitmap->OpenglID);
@@ -540,25 +578,11 @@ OpenglDrawBitmapOnScreen(opengl *Opengl, loaded_bitmap *Bitmap, v2 P, v2 Dim, v3
 }
 
 void
-OpenglInit(renderer_frame *Frame)
+OpenglInitSkybox(renderer_skybox *Skybox)
 {
-    opengl *Opengl = &Frame->Opengl;
-    
-#if ENGINE_INTERNAL
-    // NOTE(ezexff): For ImGuiPreview window
-    glGenTextures(1, &Frame->PreviewTexture);
-#endif
-    
-    // NOTE(ezexff): Init push buffer
-    Frame->MaxPushBufferSize = sizeof(Frame->PushBufferMemory);
-    Frame->PushBufferBase = Frame->PushBufferMemory;
-    
-    // NOTE(ezexff): Init camera
-    //Frame->Camera.P.z = 10.0f;
-    
-    // NOTE(ezexff): Init skybox
+    if(!Skybox->Texture)
     {
-        r32 SkyboxVertices[] = 
+        r32 Vertices[] = 
         {
             -1.0f,  1.0f, -1.0f,
             -1.0f, -1.0f, -1.0f,
@@ -603,19 +627,274 @@ OpenglInit(renderer_frame *Frame)
             1.0f, -1.0f,  1.0f
         };
         
-        glGenTextures(1, &Frame->SkyboxTexture);
+        glGenTextures(1, &Skybox->Texture);
         
-        Opengl->glGenVertexArrays(1, &Frame->SkyboxVAO);
-        Opengl->glGenBuffers(1, &Frame->SkyboxVBO);
+        Opengl->glGenVertexArrays(1, &Skybox->VAO);
+        Opengl->glGenBuffers(1, &Skybox->VBO);
         
-        Opengl->glBindVertexArray(Frame->SkyboxVAO);
-        Opengl->glBindBuffer(GL_ARRAY_BUFFER, Frame->SkyboxVBO);
-        Opengl->glBufferData(GL_ARRAY_BUFFER, sizeof(SkyboxVertices), &SkyboxVertices, GL_STATIC_DRAW);
+        Opengl->glBindVertexArray(Skybox->VAO);
+        Opengl->glBindBuffer(GL_ARRAY_BUFFER, Skybox->VBO);
+        Opengl->glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), &Vertices, GL_STATIC_DRAW);
         Opengl->glEnableVertexAttribArray(0);
         Opengl->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(r32), (void*)0);
     }
     
-    // NOTE(ezexff): Init frame textureas and VAO, VBO, EBO
+    if(Skybox->Texture && !Skybox->IsTextureParametersInitialized)
+    {
+        // TODO(ezexff): Only for testing
+        u32 LoadedBitmapCount = 0;
+        for(u32 Index = 0;
+            Index < 6;
+            Index++)
+        {
+            loaded_bitmap *Bitmap = &Skybox->Bitmaps[Index];
+            if(Bitmap->Memory)
+            {
+                LoadedBitmapCount++;
+            }
+        }
+        
+        if(LoadedBitmapCount == 6)
+        {
+            glBindTexture(GL_TEXTURE_CUBE_MAP, Skybox->Texture);
+            for(u32 Index = 0;
+                Index < 6;
+                Index++)
+            {
+                loaded_bitmap *Bitmap = &Skybox->Bitmaps[Index];
+                if(Bitmap->Memory)
+                {
+                    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);  
+                    
+                    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + Index, 0, GL_RGB, Bitmap->Width, Bitmap->Height, 0, 
+                                 Bitmap->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Bitmap->Memory);
+                }
+            }
+            Skybox->IsTextureParametersInitialized = true;
+        }
+    }
+    
+}
+
+void
+OpenglInitShadowMap(renderer_shadowmap *ShadowMap)
+{
+    if(!ShadowMap->FBO)
+    {
+        u32 ShadowMapSizeMultiplyer = 8;
+        ShadowMap->Dim.x = 1920 * ShadowMapSizeMultiplyer;
+        ShadowMap->Dim.y = 1080 * ShadowMapSizeMultiplyer;
+        
+        Opengl->glGenFramebuffers(1, &ShadowMap->FBO);
+        glGenTextures(1, &ShadowMap->Texture);
+        
+        glBindTexture(GL_TEXTURE_2D, ShadowMap->Texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, ShadowMap->Dim.x, ShadowMap->Dim.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+#if 1
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+#else
+        // TODO(me): test
+#define GL_CLAMP_TO_BORDER 0x812D
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        float BorderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, BorderColor);
+#endif
+        
+        Opengl->glBindFramebuffer(GL_FRAMEBUFFER, ShadowMap->FBO);
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
+        Opengl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, ShadowMap->Texture, 0);
+        if(Opengl->glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        {
+            InvalidCodePath;
+        }
+        Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+}
+
+void
+OpenglInitWater(renderer_water *Water)
+{
+    renderer_water_reflection *Reflection = &Water->Reflection;
+    if(!Reflection->FBO)
+    {
+        u32 ReflectionDivider = 4;
+        Reflection->Dim.x = 1920 / ReflectionDivider;
+        Reflection->Dim.y = 1080 / ReflectionDivider;
+        
+        Opengl->glGenFramebuffers(1, &Reflection->FBO);
+        Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Reflection->FBO);
+        
+        // Create Texture Attachment
+        glGenTextures(1, &Reflection->ColorTexture);
+        glBindTexture(GL_TEXTURE_2D, Reflection->ColorTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Reflection->Dim.x, Reflection->Dim.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        Opengl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Reflection->ColorTexture, 0);
+        if(Opengl->glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        {
+            InvalidCodePath;
+        }
+        
+        // Create Render Buffer Object
+        Opengl->glGenRenderbuffers(1, &Reflection->DepthRBO);
+        Opengl->glBindRenderbuffer(GL_RENDERBUFFER, Reflection->DepthRBO);
+        Opengl->glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, Reflection->Dim.x, Reflection->Dim.y);
+        Opengl->glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        Opengl->glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, Reflection->DepthRBO);
+        if(Opengl->glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        {
+            InvalidCodePath;
+        }
+    }
+    
+    Assert(Reflection->DuDv);
+    loaded_bitmap *DuDv = Reflection->DuDv;
+    if(!DuDv->OpenglID && DuDv->Memory)
+    {
+        glGenTextures(1, &DuDv->OpenglID);
+        glBindTexture(GL_TEXTURE_2D, DuDv->OpenglID);
+        // Texture wrapping or filtering options
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, DuDv->Width, DuDv->Height, 0, DuDv->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, DuDv->Memory);
+        Opengl->glGenerateMipmap(GL_TEXTURE_2D);
+        
+    }
+    
+    Assert(Reflection->NormalMap);
+    loaded_bitmap *NormalMap = Reflection->NormalMap;
+    if(!NormalMap->OpenglID && NormalMap->Memory)
+    {
+        glGenTextures(1, &NormalMap->OpenglID);
+        glBindTexture(GL_TEXTURE_2D, NormalMap->OpenglID);
+        // Texture wrapping or filtering options
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, NormalMap->Width, NormalMap->Height, 0, NormalMap->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, NormalMap->Memory);
+        Opengl->glGenerateMipmap(GL_TEXTURE_2D);
+        
+    }
+    
+    renderer_water_refraction *Refraction = &Water->Refraction;
+    if(!Refraction->FBO)
+    {
+        u32 RefractionDivider = 2;
+        Refraction->Dim.x = 1920 / RefractionDivider;
+        Refraction->Dim.y = 1080 / RefractionDivider;
+        
+        Opengl->glGenFramebuffers(1, &Refraction->FBO);
+        Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Refraction->FBO);
+        
+        // Create Texture Attachment
+        glGenTextures(1, &Refraction->ColorTexture);
+        glBindTexture(GL_TEXTURE_2D, Refraction->ColorTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Refraction->Dim.x, Refraction->Dim.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        Opengl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Refraction->ColorTexture, 0);
+        
+        // Create Depth Texture Attachment
+        glGenTextures(1, &Refraction->DepthTexture);
+        glBindTexture(GL_TEXTURE_2D, Refraction->DepthTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, Refraction->Dim.x, Refraction->Dim.y, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        Opengl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Refraction->DepthTexture, 0);
+        if(Opengl->glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        {
+            InvalidCodePath;
+        }
+    }
+}
+
+void
+OpenglInitTerrain(renderer_terrain *Terrain)
+{
+    Assert(Terrain->Bitmap);
+    if(Terrain->Bitmap)
+    {
+        if(!Terrain->Bitmap->OpenglID && Terrain->Bitmap->Memory)
+        {
+            glGenTextures(1, &Terrain->Bitmap->OpenglID);
+            glBindTexture(GL_TEXTURE_2D, Terrain->Bitmap->OpenglID);
+            // Texture wrapping or filtering options
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Terrain->Bitmap->Width, Terrain->Bitmap->Height, 0, Terrain->Bitmap->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Terrain->Bitmap->Memory);
+            Opengl->glGenerateMipmap(GL_TEXTURE_2D);
+            
+        }
+    }
+}
+
+void
+OpenglCompileShaders(renderer_frame *Frame)
+{
+    renderer *Renderer = (renderer *)Frame->Renderer;
+    renderer_shaders *Shaders = &Frame->Shaders;
+    renderer_programs *Programs = &Frame->Programs;
+    
+    OpenglCompileShader(GL_VERTEX_SHADER, &Shaders->FrameVert);
+    OpenglCompileShader(GL_FRAGMENT_SHADER, &Shaders->FrameFrag);
+    OpenglLinkProgram(&Shaders->FrameVert, &Shaders->FrameFrag, &Programs->Frame);
+    
+    OpenglCompileShader(GL_VERTEX_SHADER, &Shaders->SceneVert);
+    OpenglCompileShader(GL_FRAGMENT_SHADER, &Shaders->SceneFrag);
+    OpenglLinkProgram(&Shaders->SceneVert, &Shaders->SceneFrag, &Programs->Scene);
+    
+    OpenglCompileShader(GL_VERTEX_SHADER, &Shaders->SkyboxVert);
+    OpenglCompileShader(GL_FRAGMENT_SHADER, &Shaders->SkyboxFrag);
+    OpenglLinkProgram(&Shaders->SkyboxVert, &Shaders->SkyboxFrag, &Programs->Skybox);
+    
+    OpenglCompileShader(GL_VERTEX_SHADER, &Shaders->ShadowMapVert);
+    OpenglCompileShader(GL_FRAGMENT_SHADER, &Shaders->ShadowMapFrag);
+    OpenglLinkProgram(&Shaders->ShadowMapVert, &Shaders->ShadowMapFrag, &Programs->ShadowMap);
+    
+    OpenglCompileShader(GL_VERTEX_SHADER, &Shaders->WaterVert);
+    OpenglCompileShader(GL_FRAGMENT_SHADER, &Shaders->WaterFrag);
+    OpenglLinkProgram(&Shaders->WaterVert, &Shaders->WaterFrag, &Programs->Water);
+}
+
+void
+OpenglInit(renderer_frame *Frame)
+{
+    Opengl = &Frame->Opengl;
+    
+#if ENGINE_INTERNAL
+    // NOTE(ezexff): For ImGuiPreview window
+    glGenTextures(1, &Frame->PreviewTexture);
+#endif
+    
+    // NOTE(ezexff): Init push buffer
+    Frame->MaxPushBufferSize = sizeof(Frame->PushBufferMemory);
+    Frame->PushBufferBase = Frame->PushBufferMemory;
+    
+    // NOTE(ezexff): Init camera
+    //Frame->Camera.P.z = 10.0f;
+    
+    // NOTE(ezexff): Init frame textures and VAO, VBO, EBO
     {
         Opengl->glGenFramebuffers(1, &Frame->FBO);
         glGenTextures(1, &Frame->ColorTexture);
@@ -664,121 +943,20 @@ OpenglInit(renderer_frame *Frame)
 #else
         // Positions
         Opengl->glEnableVertexAttribArray(0);
-        Opengl->glVertexAttribPointer(VERT_POSITION, 3, GL_FLOAT, GL_FALSE, sizeof(frame_vertex), (void *)0);
+        Opengl->glVertexAttribPointer(VertexAttributeIndex_Position, 3, GL_FLOAT, GL_FALSE, sizeof(frame_vertex), (void *)0);
         // Texture coords
         Opengl->glEnableVertexAttribArray(1);
-        Opengl->glVertexAttribPointer(VERT_TEXCOORD, 2, GL_FLOAT, GL_FALSE, sizeof(frame_vertex), (void *)offsetof(frame_vertex, TexCoord));
+        Opengl->glVertexAttribPointer(VertexAttributeIndex_TexCoord, 2, GL_FLOAT, GL_FALSE, sizeof(frame_vertex), (void *)offsetof(frame_vertex, TexCoord));
 #endif
         
         Opengl->glBindBuffer(GL_ARRAY_BUFFER, 0);
         Opengl->glBindVertexArray(0);
-    }
-    
-    // NOTE(ezexff): Init shadowmap
-    {
-        u32 ShadowMapSizeMultiplyer = 8;
-        Frame->ShadowMapDim.x = 1920 * ShadowMapSizeMultiplyer;
-        Frame->ShadowMapDim.y = 1080 * ShadowMapSizeMultiplyer;
-        
-        // NOTE(ezexff):  FBO
-        Opengl->glGenFramebuffers(1, &Frame->ShadowMapFBO);
-        glGenTextures(1, &Frame->ShadowMap);
-        
-        // NOTE(ezexff): VBO
-        glBindTexture(GL_TEXTURE_2D, Frame->ShadowMap);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, Frame->ShadowMapDim.x, Frame->ShadowMapDim.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-#if 1
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-#else
-        // TODO(me): test
-#define GL_CLAMP_TO_BORDER 0x812D
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-        float BorderColor[] = {1.0f, 1.0f, 1.0f, 1.0f};
-        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, BorderColor);
-#endif
-        
-        Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Frame->ShadowMapFBO);
-        glDrawBuffer(GL_NONE);
-        glReadBuffer(GL_NONE);
-        Opengl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Frame->ShadowMap, 0);
-        if(Opengl->glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        {
-            InvalidCodePath;
-        }
-        Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    }
-    
-    // NOTE(ezexff): Init water
-    {
-        Frame->WaterReflectionDim.x = 1920 / 4;
-        Frame->WaterReflectionDim.y = 1080 / 4;
-        
-        Frame->WaterRefractionDim.x = 1920 / 2;
-        Frame->WaterRefractionDim.y = 1080 / 2;
-        
-        // NOTE(ezexff): Reflection
-        Opengl->glGenFramebuffers(1, &Frame->WaterReflectionFBO);
-        Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Frame->WaterReflectionFBO);
-        
-        // Create Texture Attachment
-        glGenTextures(1, &Frame->WaterReflectionColorTexture);
-        glBindTexture(GL_TEXTURE_2D, Frame->WaterReflectionColorTexture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (u32)Frame->WaterReflectionDim.x, (u32)Frame->WaterReflectionDim.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        Opengl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Frame->WaterReflectionColorTexture, 0);
-        if(Opengl->glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        {
-            InvalidCodePath;
-        }
-        
-        // Create Render Buffer Object
-        Opengl->glGenRenderbuffers(1, &Frame->WaterReflectionDepthRBO);
-        Opengl->glBindRenderbuffer(GL_RENDERBUFFER, Frame->WaterReflectionDepthRBO);
-        Opengl->glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, (u32)Frame->WaterReflectionDim.x, (u32)Frame->WaterReflectionDim.y);
-        Opengl->glBindRenderbuffer(GL_RENDERBUFFER, 0);
-        Opengl->glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, Frame->WaterReflectionDepthRBO);
-        if(Opengl->glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        {
-            InvalidCodePath;
-        }
-        
-        // NOTE(ezexff): Refraction
-        Opengl->glGenFramebuffers(1, &Frame->WaterRefractionFBO);
-        Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Frame->WaterRefractionFBO);
-        
-        // Create Texture Attachment
-        glGenTextures(1, &Frame->WaterRefractionColorTexture);
-        glBindTexture(GL_TEXTURE_2D, Frame->WaterRefractionColorTexture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (u32)Frame->WaterRefractionDim.x, (u32)Frame->WaterRefractionDim.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        Opengl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Frame->WaterRefractionColorTexture, 0);
-        
-        // Create Depth Texture Attachment
-        glGenTextures(1, &Frame->WaterRefractionDepthTexture);
-        glBindTexture(GL_TEXTURE_2D, Frame->WaterRefractionDepthTexture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, (u32)Frame->WaterRefractionDim.x, (u32)Frame->WaterRefractionDim.y, 0, GL_DEPTH_COMPONENT,
-                     GL_UNSIGNED_BYTE, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        Opengl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Frame->WaterRefractionDepthTexture, 0);
-        if(Opengl->glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        {
-            InvalidCodePath;
-        }
     }
 }
 
 void
 OpenglBeginFrame(renderer_frame *Frame)
 {
-    opengl *Opengl = &Frame->Opengl;
-    
 #if ENGINE_INTERNAL
     if(!Frame->IsOpenglImGuiInitialized)
     {
@@ -914,148 +1092,6 @@ OpenglBeginFrame(renderer_frame *Frame)
     }
 #endif
     
-    // NOTE(ezexff): Textures for skybox
-    if(Frame->InitializeSkyboxTexture)
-    {
-        u32 LoadedIndex = 0;
-        for(u32 Index = 0;
-            Index < ArrayCount(Frame->Skybox);
-            Index++)
-        {
-            loaded_bitmap Bitmap = Frame->Skybox[Index];
-            if(Bitmap.Memory)
-            {
-                LoadedIndex++;
-            }
-        }
-        
-        if(LoadedIndex == ArrayCount(Frame->Skybox))
-        {
-            glBindTexture(GL_TEXTURE_CUBE_MAP, Frame->SkyboxTexture);
-            for(u32 Index = 0;
-                Index < ArrayCount(Frame->Skybox);
-                Index++)
-            {
-                loaded_bitmap Bitmap = Frame->Skybox[Index];
-                if(Bitmap.Memory)
-                {
-                    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-                    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-                    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-                    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);  
-                    
-                    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + Index, 0, GL_RGB, Bitmap.Width, Bitmap.Height, 0, 
-                                 Bitmap.BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Bitmap.Memory);
-                }
-            }
-            Frame->InitializeSkyboxTexture = false;
-        }
-    }
-    
-    // NOTE(ezexff): Init textures
-    {
-        if(Frame->TerrainTexture)
-        {
-            if(!Frame->TerrainTexture->OpenglID && Frame->TerrainTexture->Memory)
-            {
-                glGenTextures(1, &Frame->TerrainTexture->OpenglID);
-                glBindTexture(GL_TEXTURE_2D, Frame->TerrainTexture->OpenglID);
-                // Texture wrapping or filtering options
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-                
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Frame->TerrainTexture->Width, Frame->TerrainTexture->Height, 0, Frame->TerrainTexture->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Frame->TerrainTexture->Memory);
-                Opengl->glGenerateMipmap(GL_TEXTURE_2D);
-                
-            }
-        }
-        if(Frame->WaterDUDVTexture)
-        {
-            if(!Frame->WaterDUDVTexture->OpenglID && Frame->WaterDUDVTexture->Memory)
-            {
-                glGenTextures(1, &Frame->WaterDUDVTexture->OpenglID);
-                glBindTexture(GL_TEXTURE_2D, Frame->WaterDUDVTexture->OpenglID);
-                // Texture wrapping or filtering options
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-                
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Frame->WaterDUDVTexture->Width, Frame->WaterDUDVTexture->Height, 0, Frame->WaterDUDVTexture->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Frame->WaterDUDVTexture->Memory);
-                Opengl->glGenerateMipmap(GL_TEXTURE_2D);
-                
-            }
-        }
-        if(Frame->WaterNormalMapTexture)
-        {
-            if(!Frame->WaterNormalMapTexture->OpenglID && Frame->WaterNormalMapTexture->Memory)
-            {
-                glGenTextures(1, &Frame->WaterNormalMapTexture->OpenglID);
-                glBindTexture(GL_TEXTURE_2D, Frame->WaterNormalMapTexture->OpenglID);
-                // Texture wrapping or filtering options
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-                
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Frame->WaterNormalMapTexture->Width, Frame->WaterNormalMapTexture->Height, 0, Frame->WaterNormalMapTexture->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Frame->WaterNormalMapTexture->Memory);
-                Opengl->glGenerateMipmap(GL_TEXTURE_2D);
-                
-            }
-        }
-    }
-    
-    // NOTE(ezexff): Compile shaders
-    if(Frame->CompileShaders)
-    {
-        // Frame
-        OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
-        OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->Frag);
-        OpenglLinkProgram(Opengl, &Frame->Program, &Frame->Vert, &Frame->Frag);
-#if ENGINE_INTERNAL
-        Log->Add("[opengl] frame shader program compiled\n");
-#endif
-        
-        // Default
-        OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->DefaultVert);
-        OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->DefaultFrag);
-        OpenglLinkProgram(Opengl, &Frame->DefaultProg, &Frame->DefaultVert, &Frame->DefaultFrag);
-#if ENGINE_INTERNAL
-        Log->Add("[opengl] default shader program compiled\n");
-#endif
-        // Skybox
-        OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->SkyboxVert);
-        OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->SkyboxFrag);
-        OpenglLinkProgram(Opengl, &Frame->SkyboxProgram, &Frame->SkyboxVert, &Frame->SkyboxFrag);
-#if ENGINE_INTERNAL
-        Log->Add("[opengl] skybox shader program compiled\n");
-#endif
-        
-        // ShadowMap
-        OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->ShadowMapVert);
-        OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->ShadowMapFrag);
-        OpenglLinkProgram(Opengl, &Frame->ShadowMapProg, &Frame->ShadowMapVert, &Frame->ShadowMapFrag);
-#if ENGINE_INTERNAL
-        Log->Add("[opengl] shadowmap shader program compiled\n");
-#endif
-        
-        // Water
-        OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->WaterVert);
-        OpenglCompileShader(Opengl, GL_FRAGMENT_SHADER, &Frame->WaterFrag);
-        OpenglLinkProgram(Opengl, &Frame->WaterProg, &Frame->WaterVert, &Frame->WaterFrag);
-#if ENGINE_INTERNAL
-        Log->Add("[opengl] water shader program compiled\n");
-#endif
-        
-        Frame->CompileShaders = false;
-    }
-    
     // NOTE(ezexff): Init terrain VBO
     /* 
         if(!Frame->IsTerrainVBOInitialized)
@@ -1070,79 +1106,47 @@ OpenglBeginFrame(renderer_frame *Frame)
 }
 
 void
-ShadowMapUniforms(renderer_frame *Frame, u32 ShaderProgramID)
+DefaultUniforms(renderer_frame *Frame, u32 ShaderProgramID)
 {
-    opengl *Opengl = &Frame->Opengl;
     renderer *Renderer = (renderer *)Frame->Renderer;
+    renderer_lighting *Lighting = Renderer->Lighting;
     renderer_camera *Camera = &Renderer->Camera;
     
-    // NOTE(ezexff): Send shadow matrices and parameters into shader
     // Proj
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(-Frame->ShadowMapSize, Frame->ShadowMapSize, -Frame->ShadowMapSize, Frame->ShadowMapSize,
-            Frame->ShadowMapNearPlane, Frame->ShadowMapFarPlane);
-    r32 MatProjShadows[16];
-    glGetFloatv(GL_PROJECTION_MATRIX, MatProjShadows);
-    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, MatProjShadows);
+    glFrustum(-Frame->AspectRatio * Renderer->FOV, Frame->AspectRatio * Renderer->FOV, -Renderer->FOV, Renderer->FOV, Renderer->FOV * 2, 1000);
+    r32 MatProj[16];
+    glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
+    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, MatProj);
     
     // View
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    glRotatef(-Frame->ShadowMapCameraPitch, 1.0f, 0.0f, 0.0f);
-    glRotatef(-Frame->ShadowMapCameraYaw, 0.0f, 0.0f, 1.0f);
-    glTranslatef(-Frame->ShadowMapCameraPos.x, -Frame->ShadowMapCameraPos.y, -Frame->ShadowMapCameraPos.z);
-    r32 MatViewShadows[16];
-    glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
-    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, MatViewShadows);
+    glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
+    glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
+    glRotatef(-Camera->Angle.z, 0.0f, 1.0f, 0.0f);
+    glTranslatef(-Camera->P.x, -Camera->P.y, -Camera->P.z);
+    //glTranslatef(-Frame->WorldOrigin.x, -Frame->WorldOrigin.y, -Frame->CameraZ);
+    r32 MatView[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
+    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, MatView);
     
     // Model
     m4x4 MatModel = Identity();
     //MatModel = Translate(Frame->WorldOrigin);
     MatModel = Transpose(MatModel); // opengl to glsl format
     Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
-}
-
-void
-DefaultUniforms(renderer_frame *Frame, u32 ShaderProgramID)
-{
-    opengl *Opengl = &Frame->Opengl;
-    renderer *Renderer = (renderer *)Frame->Renderer;
-    renderer_camera *Camera = &Renderer->Camera;
     
-    // NOTE(ezexff): Send transform matrices into shader
+    if(IsSet(Renderer, RendererFlag_Shadows))
     {
+        renderer_shadowmap *ShadowMap = Renderer->ShadowMap;
+        
         // Proj
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
-        glFrustum(-Frame->AspectRatio * Renderer->FOV, Frame->AspectRatio * Renderer->FOV, -Renderer->FOV, Renderer->FOV, Renderer->FOV * 2, 1000);
-        r32 MatProj[16];
-        glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, MatProj);
-        
-        // View
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-        glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
-        glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
-        glRotatef(-Camera->Angle.z, 0.0f, 1.0f, 0.0f);
-        glTranslatef(-Camera->P.x, -Camera->P.y, -Camera->P.z);
-        //glTranslatef(-Frame->WorldOrigin.x, -Frame->WorldOrigin.y, -Frame->CameraZ);
-        r32 MatView[16];
-        glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, MatView);
-        
-        // Model
-        m4x4 MatModel = Identity();
-        //MatModel = Translate(Frame->WorldOrigin);
-        MatModel = Transpose(MatModel); // opengl to glsl format
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
-        
-        // Proj ShadowMap
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glOrtho(-Frame->ShadowMapSize, Frame->ShadowMapSize, -Frame->ShadowMapSize, Frame->ShadowMapSize,
-                Frame->ShadowMapNearPlane, Frame->ShadowMapFarPlane);
+        glOrtho(-ShadowMap->Size, ShadowMap->Size, -ShadowMap->Size, ShadowMap->Size, 
+                ShadowMap->NearPlane, ShadowMap->FarPlane);
         r32 MatProjShadows[16]; 
         glGetFloatv(GL_PROJECTION_MATRIX, MatProjShadows);
         Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProjShadowMap"), 1, GL_FALSE, MatProjShadows);
@@ -1150,31 +1154,54 @@ DefaultUniforms(renderer_frame *Frame, u32 ShaderProgramID)
         // View ShadowMap
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
-        glRotatef(-Frame->ShadowMapCameraPitch, 1.0f, 0.0f, 0.0f);
-        glRotatef(-Frame->ShadowMapCameraYaw, 0.0f, 0.0f, 1.0f);
-        glTranslatef(-Frame->ShadowMapCameraPos.x, -Frame->ShadowMapCameraPos.y, -Frame->ShadowMapCameraPos.z);
+        glRotatef(-ShadowMap->CameraPitch, 1.0f, 0.0f, 0.0f);
+        glRotatef(-ShadowMap->CameraYaw, 0.0f, 0.0f, 1.0f);
+        glTranslatef(-ShadowMap->CameraP.x, -ShadowMap->CameraP.y, -ShadowMap->CameraP.z);
         r32 MatViewShadows[16];
         glGetFloatv(GL_MODELVIEW_MATRIX, MatViewShadows);
         Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uViewShadowMap"), 1, GL_FALSE, MatViewShadows);
+        
+        Opengl->glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, ShadowMap->Texture);
+        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uShadowMap"), 1);
+        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uBias"), ShadowMap->Bias);
     }
     
-    // NOTE(ezexff): Send camera pos into shader for light calc
+    
+    if(IsSet(Renderer, RendererFlag_Lighting))
     {
+        // NOTE(ezexff): Send camera pos into shader for light calc
         // TODO(ezexff): Позиция солнца должна быть рассчитана относительно позиции в мировом пространстве
         //Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uCameraLocalP"), 1, SunP.E);
         //Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uCameraLocalP"), 1, Frame->WorldOrigin.E);
         Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uCameraLocalP"), 1, Frame->TestSun2P.E);
+        
+        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.Color"), 1, Lighting->DirLight.Base.Color.E);
+        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.AmbientIntensity"), Lighting->DirLight.Base.AmbientIntensity);
+        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.DiffuseIntensity"), Lighting->DirLight.Base.DiffuseIntensity);
+        v3 DirLightDirection = Lighting->DirLight.WorldDirection;
+        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Direction"), 1, DirLightDirection.E);
+        
+        if(IsSet(Renderer, RendererFlag_Terrain))
+        {        
+            renderer_terrain *Terrain = Renderer->Terrain;
+            Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uMaterial.AmbientColor"), 1, Terrain->Material.Ambient.E);
+            Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uMaterial.DiffuseColor"), 1, Terrain->Material.Diffuse.E);
+            Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uMaterial.SpecularColor"), 1, Terrain->Material.Specular.E);
+        }
+        
     }
     
-    // NOTE(ezexff): Send material into shader
+    if(IsSet(Renderer, RendererFlag_Terrain))
     {
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uMaterial.AmbientColor"), 1, Frame->TerrainMaterial.Ambient.E);
-        
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uMaterial.DiffuseColor"), 1, Frame->TerrainMaterial.Diffuse.E);
-        
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uMaterial.SpecularColor"), 1, Frame->TerrainMaterial.Specular.E);
+        if(Renderer->Terrain->Bitmap->OpenglID)
+        {
+            Opengl->glActiveTexture(GL_TEXTURE0 + 0);
+            glBindTexture(GL_TEXTURE_2D, Renderer->Terrain->Bitmap->OpenglID);
+            Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uSampler"), 0);
+            Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uSamplerSpecularExponent"), 0);
+        }
     }
-    
     /* 
         if(Mesh->Material.WithTexture)
         {
@@ -1185,120 +1212,50 @@ DefaultUniforms(renderer_frame *Frame, u32 ShaderProgramID)
             glUniform1i(glGetUniformLocation(ShaderProg, "gSamplerSpecularExponent"), 0);
         }
      */
-    // NOTE(ezexff): Texture
-    {
-        Opengl->glActiveTexture(GL_TEXTURE0 + 0);
-        glBindTexture(GL_TEXTURE_2D, Frame->TerrainTexture->OpenglID);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uSampler"), 0);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uSamplerSpecularExponent"), 0);
-    }
-    
-    // NOTE(ezexff): Send light sources into shader
-    {
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.Color"), 1, Frame->DirLight.Base.Color.E);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.AmbientIntensity"), Frame->DirLight.Base.AmbientIntensity);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.DiffuseIntensity"), Frame->DirLight.Base.DiffuseIntensity);
-        v3 DirLightDirection = Frame->DirLight.WorldDirection;
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Direction"), 1, DirLightDirection.E);
-    }
-    
-    // NOTE(ezexff): Send shadowmap and bias into shader
-    {
-        Opengl->glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, Frame->ShadowMap);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uShadowMap"), 1);
-        
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uBias"), Frame->ShadowMapBias);
-    }
 }
 
 void
-WaterUniforms(renderer_frame *Frame, u32 ShaderProgramID)
+WaterUniforms(renderer_water *Water, u32 ShaderProgramID)
 {
-    opengl *Opengl = &Frame->Opengl;
-    renderer *Renderer = (renderer *)Frame->Renderer;
-    renderer_camera *Camera = &Renderer->Camera;
-    
-    // NOTE(ezexff): Send transform matrices into shader
-    {
-        // Proj
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glFrustum(-Frame->AspectRatio * Renderer->FOV, Frame->AspectRatio * Renderer->FOV, -Renderer->FOV, Renderer->FOV, Renderer->FOV * 2, 1000);
-        r32 MatProj[16];
-        glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, MatProj);
-        
-        // View
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-        glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
-        glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
-        glRotatef(-Camera->Angle.z, 0.0f, 1.0f, 0.0f);
-        glTranslatef(-Camera->P.x, -Camera->P.y, -Camera->P.z);
-        //glTranslatef(-Frame->WorldOrigin.x, -Frame->WorldOrigin.y, -Frame->CameraZ);
-        r32 MatView[16];
-        glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, MatView);
-        
-        // Model
-        m4x4 MatModel = Identity();
-        //MatModel = Translate(Frame->TestWaterRelP);
-        MatModel = Transpose(MatModel); // opengl to glsl format
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
-    }
-    
     // NOTE(ezexff): Vars
-    {
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uCameraP"), 1, Camera->P.E);
-        //v3 SunP = V3(-10, 10, 10);
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uSunP"), 1, Frame->TestSunRelP.E);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uTiling"), Frame->WaterTiling);
-        
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uMoveFactor"), Frame->WaterMoveFactor);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uWaveStrength"), Frame->WaterWaveStrength);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uShineDamper"), Frame->WaterShineDamper);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uReflectivity"), Frame->WaterReflectivity);
-        
-        // glUniform3fv(glGetUniformLocation(ShaderProgramID, "SunPosition"), 1, Render->DirLight.WorldDirection.E);
-        //v3 TestSunPos = V3(-Render->SunPos.x, -Render->SunPos.y, -Render->SunPos.z);
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uLightColor"), 1, Frame->DirLight.Base.Color.E);
-        //v3 RelPlayerP = GetRelPos(World, Player->P, Player->TmpZ);
-        // glUniform3fv(glGetUniformLocation(ShaderProgramID, "CameraPosition"), 1, Player->Position.E);
-    }
+    Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uTiling"), Water->Tiling);
+    
+    Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uMoveFactor"), Water->MoveFactor);
+    Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uWaveStrength"), Water->WaveStrength);
+    Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uShineDamper"), Water->ShineDamper);
+    Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uReflectivity"), Water->Reflectivity);
+    
+    // glUniform3fv(glGetUniformLocation(ShaderProgramID, "SunPosition"), 1, Render->DirLight.WorldDirection.E);
+    //v3 TestSunPos = V3(-Render->SunPos.x, -Render->SunPos.y, -Render->SunPos.z);
+    //v3 RelPlayerP = GetRelPos(World, Player->P, Player->TmpZ);
+    // glUniform3fv(glGetUniformLocation(ShaderProgramID, "CameraPosition"), 1, Player->Position.E);
+    
     // NOTE(ezexff): Textures
-    {
-        Opengl->glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, Frame->WaterReflectionColorTexture);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uReflectionColorTexture"), 0);
-        
-        Opengl->glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, Frame->WaterRefractionColorTexture);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uRefractionColorTexture"), 1);
-        
-        Opengl->glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, Frame->WaterDUDVTexture->OpenglID);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uDUDVTexture"), 2);
-        
-        Opengl->glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, Frame->WaterNormalMapTexture->OpenglID);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uNormalMapTexture"), 3);
-        
-        Opengl->glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, Frame->WaterRefractionDepthTexture);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uRefractionDepthTexture"), 4);
-    }
+    Opengl->glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, Water->Reflection.ColorTexture);
+    Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uReflectionColorTexture"), 0);
+    
+    Opengl->glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, Water->Refraction.ColorTexture);
+    Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uRefractionColorTexture"), 1);
+    
+    Opengl->glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, Water->Reflection.DuDv->OpenglID);
+    Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uDUDVTexture"), 2);
+    
+    Opengl->glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, Water->Reflection.NormalMap->OpenglID);
+    Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uNormalMapTexture"), 3);
+    
+    Opengl->glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, Water->Refraction.DepthTexture);
+    Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uRefractionDepthTexture"), 4);
 }
 
 void
 OpenglDrawWater(renderer_frame *Frame)
 {
     TIMED_FUNCTION();
-    
-    opengl *Opengl = &Frame->Opengl;
-    
-    Opengl->glUseProgram(Frame->WaterProg.ID);
-    WaterUniforms(Frame, Frame->WaterProg.ID);
     
     for(u32 BaseAddress = 0;
         BaseAddress < Frame->PushBufferSize;
@@ -1410,19 +1367,20 @@ OpenglDrawWater(renderer_frame *Frame)
             InvalidDefaultCase;
         }
     }
-    
-    Opengl->glUseProgram(0);
 }
 
 void
 OpenglDrawSkybox(renderer_frame *Frame)
 {
-    opengl *Opengl = &Frame->Opengl;
     renderer *Renderer = (renderer *)Frame->Renderer;
+    renderer_programs *Programs = &Frame->Programs;
     renderer_camera *Camera = &Renderer->Camera;
+    renderer_skybox *Skybox = Renderer->Skybox;
+    
+    u32 ProgID = Programs->Skybox.OpenglID;
     
     glDepthFunc(GL_LEQUAL);
-    Opengl->glUseProgram(Frame->SkyboxProgram.ID);
+    Opengl->glUseProgram(ProgID);
     
     // NOTE(ezexff): Send transform matrices into shader
     {
@@ -1431,7 +1389,7 @@ OpenglDrawSkybox(renderer_frame *Frame)
         glFrustum(-Frame->AspectRatio * Renderer->FOV, Frame->AspectRatio * Renderer->FOV, -Renderer->FOV, Renderer->FOV, Renderer->FOV * 2, 1000);
         r32 MatProj[16];
         glGetFloatv(GL_PROJECTION_MATRIX, MatProj);
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "Proj"), 1, GL_FALSE, MatProj);
+        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ProgID, "Proj"), 1, GL_FALSE, MatProj);
         
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
@@ -1442,25 +1400,25 @@ OpenglDrawSkybox(renderer_frame *Frame)
         glTranslatef(-Camera->P.x, -Camera->P.y, -Camera->P.z);
         r32 MatView[16];
         glGetFloatv(GL_MODELVIEW_MATRIX, MatView);
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "View"), 1, GL_FALSE, MatView);
+        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ProgID, "View"), 1, GL_FALSE, MatView);
         
         m4x4 MatModel = Identity();
         //MatModel = Translate(Camera->P) * XRotation(90) * Scale(200);
         MatModel = XRotation(90) * Scale(200);
         MatModel = Transpose(MatModel); // opengl to glsl format
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(Frame->SkyboxProgram.ID, "Model"), 1, GL_FALSE, (const GLfloat *)&MatModel);
+        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ProgID, "Model"), 1, GL_FALSE, (const GLfloat *)&MatModel);
     }
     
     // NOTE(ezexff): Send texture into shader
     {
         Opengl->glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, Frame->SkyboxTexture);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(Frame->Program.ID, "SkyboxTexture"), 0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, Skybox->Texture);
+        Opengl->glUniform1i(Opengl->glGetUniformLocation(ProgID, "SkyboxTexture"), 0);
     }
     
     // NOTE(ezexff): Draw
     {
-        Opengl->glBindVertexArray(Frame->SkyboxVAO);
+        Opengl->glBindVertexArray(Skybox->VAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         Opengl->glBindVertexArray(0);
     }
@@ -1473,29 +1431,31 @@ void
 OpenglDrawTerrain(renderer_frame *Frame, u32 ShaderProgramID)
 {
     TIMED_FUNCTION();
-    opengl *Opengl = &Frame->Opengl;
     renderer *Renderer = (renderer *)Frame->Renderer;
     renderer_camera *Camera = &Renderer->Camera;
-    
-    // NOTE(ezexff): Terrain
-    if(IsSet(Renderer, RendererFlag_Terrain))
+    renderer_terrain *Terrain = Renderer->Terrain;
+    ground_buffer_array *GroundBufferArray = &Terrain->GroundBufferArray;
+    for(u32 GroundBufferIndex = 0;
+        GroundBufferIndex < GroundBufferArray->Count;
+        ++GroundBufferIndex)
     {
-        // TODO(ezexff): Test only, delete this
-        /*
-        #define GL_ARRAY_BUFFER_BINDING 0x8894
-        #define GL_ELEMENT_ARRAY_BUFFER_BINDING 0x8895
-                glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &Frame->TestDefaultVAO);
-                glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &Frame->TestDefaultEBO);
-*/
+        ground_buffer *GroundBuffer = GroundBufferArray->Buffers + GroundBufferIndex;
         
-        // NOTE(ezexff): Bind VAO
+        if(GroundBuffer->IsFilled)
         {
-            /*Opengl->glBindVertexArray(Frame->TerrainVAO);
-            Opengl->glBindBuffer(GL_ARRAY_BUFFER, Frame->TerrainVBO);
-            Opengl->glBufferData(GL_ARRAY_BUFFER, sizeof(vbo_vertex) * Frame->TerrainVerticesCount, Frame->TerrainVertices, GL_STATIC_DRAW);
+            if(!GroundBuffer->IsInitialized)
+            {
+                Opengl->glGenVertexArrays(1, &GroundBuffer->VAO);
+                Opengl->glGenBuffers(1, &GroundBuffer->VBO);
+                Opengl->glGenBuffers(1, &GroundBuffer->EBO);
+                GroundBuffer->IsInitialized = true;
+            }
+            Opengl->glBindVertexArray(GroundBuffer->VAO);
+            Opengl->glBindBuffer(GL_ARRAY_BUFFER, GroundBuffer->VBO);
+            Opengl->glBufferData(GL_ARRAY_BUFFER, sizeof(vbo_vertex) * GroundBufferArray->VertexCount, GroundBuffer->Vertices, GL_STATIC_DRAW);
             
-            Opengl->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Frame->TerrainEBO);
-            Opengl->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * Frame->TerrainIndicesCount, Frame->TerrainIndices, GL_STATIC_DRAW);
+            Opengl->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GroundBuffer->EBO);
+            Opengl->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * Terrain->IndexArray.Count, Terrain->IndexArray.Indices, GL_STATIC_DRAW);
             
             Opengl->glEnableVertexAttribArray(0);
             Opengl->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vbo_vertex), (void *)0);
@@ -1505,95 +1465,28 @@ OpenglDrawTerrain(renderer_frame *Frame, u32 ShaderProgramID)
             Opengl->glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vbo_vertex), (void *)offsetof(vbo_vertex, TexCoords));
             
             Opengl->glBindBuffer(GL_ARRAY_BUFFER, 0);
-            Opengl->glBindVertexArray(0);*/
-        }
-        
-        // отправка плоскости отсечения в шейдер
-        //glUniform4fv(glGetUniformLocation(ShaderProg, "CutPlane"), 1, Render->CutPlane.E);
-        
-        // отправка позиции камеры (игрока) в шейдер
-        //v3 RelPlayerP = GetRelPos(World, Player->P, Player->TmpZ);
-        //glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, RelPlayerP.E);
-        // glUniform3fv(glGetUniformLocation(ShaderProg, "gCameraWorldPos"), 1, Player->Position.E);
-        
-        /*if(Frame->IsTerrainInLinePolygonMode)
-        {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        }
-        
-        // NOTE(ezexff): Draw
-        {
-            Opengl->glBindVertexArray(Frame->TerrainVAO);
-            // (void *)(sizeof(u32) * BaseIndex
-            //glDrawElementsBaseVertex(GL_TRIANGLES, Frame->TerrainIndicesCount, GL_UNSIGNED_INT, 0);
-            glDrawElements(GL_TRIANGLES, Frame->TerrainIndicesCount, GL_UNSIGNED_INT, 0);
             Opengl->glBindVertexArray(0);
-        }
-        
-        if(Frame->IsTerrainInLinePolygonMode)
-        {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        }*/
-        
-        
-        
-        
-        // TODO(ezexff): Test Terrain v2.0
-        {
-            for(u32 GroundBufferIndex = 0;
-                GroundBufferIndex < Frame->GroundBufferCount;
-                ++GroundBufferIndex)
+            
+            //v3 OffsetP = GroundBuffer->OffsetP;
+            //Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uOffsetP"), 1, OffsetP.E);
+            
+            m4x4 MatModel = Identity();
+            MatModel = Translate(GroundBuffer->OffsetP);
+            MatModel = Transpose(MatModel); // opengl to glsl format
+            Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
+            
+            if(Frame->IsTerrainInLinePolygonMode)
             {
-                ground_buffer *GroundBuffer = Frame->GroundBuffers + GroundBufferIndex;
-                
-                if(GroundBuffer->IsFilled)
-                {
-                    if(!GroundBuffer->IsInitialized)
-                    {
-                        Opengl->glGenVertexArrays(1, &GroundBuffer->VAO);
-                        Opengl->glGenBuffers(1, &GroundBuffer->VBO);
-                        Opengl->glGenBuffers(1, &GroundBuffer->EBO);
-                        GroundBuffer->IsInitialized = true;
-                    }
-                    Opengl->glBindVertexArray(GroundBuffer->VAO);
-                    Opengl->glBindBuffer(GL_ARRAY_BUFFER, GroundBuffer->VBO);
-                    Opengl->glBufferData(GL_ARRAY_BUFFER, sizeof(vbo_vertex) * Frame->ChunkVertexCount, GroundBuffer->Vertices, GL_STATIC_DRAW);
-                    
-                    Opengl->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GroundBuffer->EBO);
-                    Opengl->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * Frame->ChunkIndexCount, Frame->ChunkIndices, GL_STATIC_DRAW);
-                    
-                    Opengl->glEnableVertexAttribArray(0);
-                    Opengl->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vbo_vertex), (void *)0);
-                    Opengl->glEnableVertexAttribArray(1);
-                    Opengl->glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vbo_vertex), (void *)offsetof(vbo_vertex, Normal));
-                    Opengl->glEnableVertexAttribArray(2);
-                    Opengl->glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vbo_vertex), (void *)offsetof(vbo_vertex, TexCoords));
-                    
-                    Opengl->glBindBuffer(GL_ARRAY_BUFFER, 0);
-                    Opengl->glBindVertexArray(0);
-                    
-                    //v3 OffsetP = GroundBuffer->OffsetP;
-                    //Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uOffsetP"), 1, OffsetP.E);
-                    
-                    m4x4 MatModel = Identity();
-                    MatModel = Translate(GroundBuffer->OffsetP);
-                    MatModel = Transpose(MatModel); // opengl to glsl format
-                    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
-                    
-                    if(Frame->IsTerrainInLinePolygonMode)
-                    {
-                        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-                    }
-                    
-                    Opengl->glBindVertexArray(GroundBuffer->VAO);
-                    glDrawElements(GL_TRIANGLES, Frame->ChunkIndexCount, GL_UNSIGNED_INT, 0);
-                    Opengl->glBindVertexArray(0);
-                    
-                    if(Frame->IsTerrainInLinePolygonMode)
-                    {
-                        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-                    }
-                }
+                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            }
+            
+            Opengl->glBindVertexArray(GroundBuffer->VAO);
+            glDrawElements(GL_TRIANGLES, Terrain->IndexArray.Count, GL_UNSIGNED_INT, 0);
+            Opengl->glBindVertexArray(0);
+            
+            if(Frame->IsTerrainInLinePolygonMode)
+            {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             }
         }
     }
@@ -1602,7 +1495,6 @@ OpenglDrawTerrain(renderer_frame *Frame, u32 ShaderProgramID)
 void
 OpenglDrawDebugShapes(renderer_frame *Frame)
 {
-    opengl *Opengl = &Frame->Opengl;
     renderer *Renderer = (renderer *)Frame->Renderer;
     renderer_camera *Camera = &Renderer->Camera;
     
@@ -1662,7 +1554,7 @@ OpenglDrawDebugShapes(renderer_frame *Frame)
             case RendererEntryType_renderer_entry_bitmap_on_ground:
             {
                 renderer_entry_bitmap_on_ground *Entry = (renderer_entry_bitmap_on_ground *)Data;
-                OpenglDrawBitmapOnGround(&Frame->Opengl, Entry->Bitmap, Entry->P, Entry->Dim, Entry->Repeat);
+                OpenglDrawBitmapOnGround(Entry->Bitmap, Entry->P, Entry->Dim, Entry->Repeat);
                 
                 BaseAddress += sizeof(*Entry);
             } break;
@@ -1721,15 +1613,6 @@ OpenglDrawDebugShapes(renderer_frame *Frame)
             {
                 renderer_entry_water *Entry = (renderer_entry_water *)Data;
                 
-                //OpenglDrawRectOnGround(GL_QUADS, {Entry->P.xy, Entry->P.xy + Entry->Dim}, 0.0f, V3(0, 0, 1));
-                
-                /* 
-                                Opengl->glUseProgram(Frame->WaterProg.ID);
-                                WaterUniforms(Frame, Frame->WaterProg.ID);
-                                OpenglDrawWater({Entry->P.xy, Entry->P.xy + Entry->Dim});
-                                Opengl->glUseProgram(0);
-                 */
-                
                 BaseAddress += sizeof(*Entry);
             } break;
             
@@ -1739,140 +1622,255 @@ OpenglDrawDebugShapes(renderer_frame *Frame)
 }
 
 void
-OpenglEndFrame(renderer_frame *Frame)
+OpenglDrawShadowMap(renderer_frame *Frame, u32 ShaderProgramID)
 {
-    opengl *Opengl = &Frame->Opengl;
     renderer *Renderer = (renderer *)Frame->Renderer;
-    renderer_camera *Camera = &Renderer->Camera;
+    renderer_shadowmap *ShadowMap = Renderer->ShadowMap;
     
-    Assert(Opengl);
-    Assert(Renderer);
-    Assert(Camera);
-    Assert(Frame->Dim.x > 0);
-    Assert(Frame->Dim.y > 0);
-    
-    glEnable(GL_DEPTH_TEST);
-    
-    //~NOTE(ezexff): ShadowMap
-    glViewport(0, 0, Frame->ShadowMapDim.x, Frame->ShadowMapDim.y);
-    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Frame->ShadowMapFBO);
+    glViewport(0, 0, ShadowMap->Dim.x, ShadowMap->Dim.y);
+    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, ShadowMap->FBO);
     {
         glClear(GL_DEPTH_BUFFER_BIT);
         glCullFace(GL_FRONT);
         {
-            Opengl->glUseProgram(Frame->ShadowMapProg.ID);
+            Opengl->glUseProgram(ShaderProgramID);
             {
-                ShadowMapUniforms(Frame, Frame->ShadowMapProg.ID);
-                OpenglDrawTerrain(Frame, Frame->ShadowMapProg.ID);
+                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, (r32 *)ShadowMap->Proj.E);
+                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, (r32 *)ShadowMap->View.E);
+                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (r32 *)ShadowMap->Model.E);
+                if(IsSet(Renderer, RendererFlag_Terrain))
+                {
+                    OpenglDrawTerrain(Frame, ShaderProgramID);
+                }
             }
             Opengl->glUseProgram(0);
         }
         glCullFace(GL_BACK);
     }
     Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void
+OpenglDrawWaterReflectionAndRefraction(renderer_frame *Frame)
+{
+    renderer *Renderer = (renderer *)Frame->Renderer;
+    renderer_camera *Camera = &Renderer->Camera;
+    renderer_programs *Programs = &Frame->Programs;
     
-    //~ NOTE(ezexff): Water reflection and refraction
+    //~ NOTE(ezexff): Reflection
+    glEnable(GL_CLIP_DISTANCE0);
+    
+    r32 OldCameraPitch = Camera->Angle.pitch;
+    r32 OldCameraZ = Camera->P.z;
+    r32 WaterZ = 0.0f;
+    r32 ReflectionCameraZ = OldCameraZ;
+    r32 ReflectionCameraOffset = 2 * (ReflectionCameraZ - WaterZ);
+    ReflectionCameraZ -= ReflectionCameraOffset;
+    
+    r32 InvertedCameraPitch = 180 - Camera->Angle.pitch;
+    Camera->Angle.pitch = InvertedCameraPitch;
+    Camera->P.z = ReflectionCameraZ;
+    Frame->CutPlane = V4(0, 0, 1, -WaterZ);
+    glViewport(0, 0, Renderer->Water->Reflection.Dim.x, Renderer->Water->Reflection.Dim.y);
+    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Renderer->Water->Reflection.FBO);
     {
-        r32 WaterZ = 0.0f;
-        
-        // NOTE(ezexff): Reflection
-        glEnable(GL_CLIP_DISTANCE0);
+        glClearColor(Renderer->ClearColor.x, Renderer->ClearColor.y, Renderer->ClearColor.z, Renderer->ClearColor.w);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        Opengl->glUseProgram(Programs->Scene.OpenglID);
         {
-            r32 OldCameraPitch = Camera->Angle.x;
-            r32 OldCameraZ = Camera->P.z;
-            r32 WaterZ = 0.0f;
-            r32 ReflectionCameraZ = OldCameraZ;
-            r32 ReflectionCameraOffset = 2 * (ReflectionCameraZ - WaterZ);
-            ReflectionCameraZ -= ReflectionCameraOffset;
+            Opengl->glUniform4fv(Opengl->glGetUniformLocation(Programs->Scene.OpenglID, "uCutPlane"), 1, Frame->CutPlane.E);
             
-            Camera->Angle.x = Frame->CameraPitchInverted;
-            Camera->P.z = ReflectionCameraZ;
-            Frame->CutPlane = V4(0, 0, 1, -WaterZ);
-            glViewport(0, 0, Frame->WaterReflectionDim.x, Frame->WaterReflectionDim.y);
-            Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Frame->WaterReflectionFBO);
+#if 0
+            m4x4 Proj, View, Model;
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            glOrtho(-ShadowMap->Size, ShadowMap->Size, -ShadowMap->Size, ShadowMap->Size,
+                    ShadowMap->NearPlane, ShadowMap->FarPlane);
+            glGetFloatv(GL_PROJECTION_MATRIX, (r32 *)Proj.E);
+            
+            glMatrixMode(GL_MODELVIEW);
+            glLoadIdentity();
+            glRotatef(-ShadowMap->CameraPitch, 1.0f, 0.0f, 0.0f);
+            glRotatef(-ShadowMap->CameraYaw, 0.0f, 0.0f, 1.0f);
+            glTranslatef(-ShadowMap->CameraP.x, -ShadowMap->CameraP.y, -ShadowMap->CameraP.z);
+            glGetFloatv(GL_MODELVIEW_MATRIX, (r32 *)View.E);
+            
+            Model = Identity();
+            Model = Transpose(>Model); // opengl to glsl format
+            
+            u32 ShaderProgramID = Programs->Scene.OpenglID;
+            Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, (r32 *)Proj.E);
+            Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, (r32 *)View.E);
+            Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (r32 *)Model.E);
+            if(IsSet(Renderer, RendererFlag_Shadows))
             {
-                glClearColor(Renderer->ClearColor.x, Renderer->ClearColor.y, Renderer->ClearColor.z, Renderer->ClearColor.w);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                Opengl->glUseProgram(Frame->DefaultProg.ID);
-                {
-                    Opengl->glUniform4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uCutPlane"), 1, Frame->CutPlane.E);
-                    
-                    DefaultUniforms(Frame, Frame->DefaultProg.ID);
-                    OpenglDrawTerrain(Frame, Frame->DefaultProg.ID);
-                }
-                Opengl->glUseProgram(0);
+                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProjShadowMap"), 1, GL_FALSE, (r32 *)Renderer->ShadowMap->Proj.E);
+                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uViewShadowMap"), 1, GL_FALSE, (r32 *)Renderer->ShadowMap->View.E);
                 
-                // NOTE(ezexff): Skybox
-                if(IsSet(Renderer, RendererFlag_Skybox))
-                {
-                    OpenglDrawSkybox(Frame);
-                }
+                Opengl->glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, Renderer->ShadowMap->Texture);
+                Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uShadowMap"), 1);
+                Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uBias"), Renderer->ShadowMap->Bias);
+                
             }
-            Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            Camera->Angle.x = OldCameraPitch;
-            Camera->P.z = OldCameraZ;
+#else
+            DefaultUniforms(Frame, Programs->Scene.OpenglID);
+#endif
+            if(IsSet(Renderer, RendererFlag_Terrain))
+            {
+                OpenglDrawTerrain(Frame, Programs->Scene.OpenglID);
+            }
+        }
+        Opengl->glUseProgram(0);
+        
+        if(IsSet(Renderer, RendererFlag_Skybox))
+        {
+            OpenglDrawSkybox(Frame);
+        }
+    }
+    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    Camera->Angle.pitch = OldCameraPitch;
+    Camera->P.z = OldCameraZ;
+    
+    
+    //~ NOTE(ezexff): Refraction
+    Frame->CutPlane = V4(0, 0, -1, WaterZ);
+    glViewport(0, 0, Renderer->Water->Refraction.Dim.x, Renderer->Water->Refraction.Dim.y);
+    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Renderer->Water->Refraction.FBO);
+    {
+        glClearColor(Renderer->ClearColor.x, Renderer->ClearColor.y, Renderer->ClearColor.z, Renderer->ClearColor.w);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        Opengl->glUseProgram(Programs->Scene.OpenglID);
+        {
+            Opengl->glUniform4fv(Opengl->glGetUniformLocation(Programs->Scene.OpenglID, "uCutPlane"), 1, Frame->CutPlane.E);
+            
+            DefaultUniforms(Frame, Programs->Scene.OpenglID);
+            if(IsSet(Renderer, RendererFlag_Terrain))
+            {
+                OpenglDrawTerrain(Frame, Programs->Scene.OpenglID);
+            }
+        }
+        Opengl->glUseProgram(0);
+        
+        if(IsSet(Renderer, RendererFlag_Skybox))
+        {
+            OpenglDrawSkybox(Frame);
+        }
+    }
+    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    Frame->CutPlane = V4(0, 0, -1, 100000);
+    
+    glDisable(GL_CLIP_DISTANCE0);
+}
+
+void
+OpenglEndFrame(renderer_frame *Frame)
+{
+    renderer *Renderer = (renderer *)Frame->Renderer;
+    renderer_camera *Camera = &Renderer->Camera;
+    renderer_programs *Programs = &Frame->Programs;
+    
+    Assert(Renderer);
+    Assert(Frame->Dim.x > 0);
+    Assert(Frame->Dim.y > 0);
+    
+    //~ NOTE(ezexff): Init
+    {
+        OpenglInitRendererMatrices(Renderer, Frame->AspectRatio);
+        
+        if(IsSet(Renderer, RendererFlag_Skybox))
+        {
+            OpenglInitSkybox(Renderer->Skybox);
         }
         
-        // NOTE(ezexff): Refraction
+        if(IsSet(Renderer, RendererFlag_Shadows))
         {
-            Frame->CutPlane = V4(0, 0, -1, WaterZ);
-            glViewport(0, 0, Frame->WaterRefractionDim.x, Frame->WaterRefractionDim.y);
-            Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Frame->WaterRefractionFBO);
-            {
-                glClearColor(Renderer->ClearColor.x, Renderer->ClearColor.y, Renderer->ClearColor.z, Renderer->ClearColor.w);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                Opengl->glUseProgram(Frame->DefaultProg.ID);
-                {
-                    Opengl->glUniform4fv(Opengl->glGetUniformLocation(Frame->DefaultProg.ID, "uCutPlane"), 1, Frame->CutPlane.E);
-                    
-                    DefaultUniforms(Frame, Frame->DefaultProg.ID);
-                    OpenglDrawTerrain(Frame, Frame->DefaultProg.ID);
-                }
-                Opengl->glUseProgram(0);
-                
-                // NOTE(ezexff): Skybox
-                if(IsSet(Renderer, RendererFlag_Skybox))
-                {
-                    OpenglDrawSkybox(Frame);
-                }
-            }
-            Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            Frame->CutPlane = V4(0, 0, -1, 100000);
+            OpenglInitShadowMapMatrices(Renderer->ShadowMap);
+            OpenglInitShadowMap(Renderer->ShadowMap);
         }
-        glDisable(GL_CLIP_DISTANCE0);
+        
+        if(IsSet(Renderer, RendererFlag_Water))
+        {
+            OpenglInitWater(Renderer->Water);
+        }
+        
+        if(IsSet(Renderer, RendererFlag_Terrain))
+        {
+            OpenglInitTerrain(Renderer->Terrain);
+        }
+        
+        if(Frame->CompileShaders)
+        {
+            OpenglCompileShaders(Frame);
+            Frame->CompileShaders = false;
+        }
     }
     
-    //~ NOTE(ezexff): Game
+    glEnable(GL_DEPTH_TEST);
+    
+    
+    //~ NOTE(ezexff): Render
+    if(IsSet(Renderer, RendererFlag_Shadows))
+    {
+        OpenglDrawShadowMap(Frame, Programs->ShadowMap.OpenglID);
+    }
+    
+    if(IsSet(Renderer, RendererFlag_Water))
+    {
+        OpenglDrawWaterReflectionAndRefraction(Frame);
+    }
+    
+    // NOTE(ezexff): Scene
     glViewport(0, 0, Frame->Dim.x, Frame->Dim.y);
     Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Frame->FBO);
     {
         glClearColor(Renderer->ClearColor.x, Renderer->ClearColor.y, Renderer->ClearColor.z, Renderer->ClearColor.w);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
-        // NOTE(ezexff): Draw scene with default shader
-        Opengl->glUseProgram(Frame->DefaultProg.ID);
+        // NOTE(ezexff): Draw scene
+        if(IsSet(Renderer, RendererFlag_Lighting))
         {
-            DefaultUniforms(Frame, Frame->DefaultProg.ID);
-            OpenglDrawTerrain(Frame, Frame->DefaultProg.ID);
-            //if(Frame->PushBufferWithLight)
+            Opengl->glUseProgram(Programs->Scene.OpenglID);
             {
-                //OpenglDrawPushBuffer(Frame);
+                DefaultUniforms(Frame, Programs->Scene.OpenglID);
+                if(IsSet(Renderer, RendererFlag_Terrain))
+                {
+                    OpenglDrawTerrain(Frame, Programs->Scene.OpenglID);
+                }
+                //if(Frame->PushBufferWithLight)
+                {
+                    //OpenglDrawPushBuffer(Frame);
+                }
+                // TODO(ezexff): 
             }
-            // TODO(ezexff): 
+            Opengl->glUseProgram(0);
+            
+            if(IsSet(Renderer, RendererFlag_Water))
+            {            
+                Opengl->glUseProgram(Programs->Water.OpenglID);
+                {
+                    u32 ShaderProgramID = Programs->Water.OpenglID;
+                    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, (r32 *)Renderer->Proj.E);
+                    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, (r32 *)Renderer->View.E);
+                    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (r32 *)Renderer->Model.E);
+                    
+                    
+                    Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uSunP"), 1, Frame->TestSunRelP.E);
+                    Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uCameraP"), 1, Camera->P.E);
+                    
+                    if(IsSet(Renderer, RendererFlag_Lighting))
+                    {
+                        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uLightColor"), 1, Renderer->Lighting->DirLight.Base.Color.E);
+                    }
+                }
+            }
+            WaterUniforms(Renderer->Water, Programs->Water.OpenglID);
+            OpenglDrawWater(Frame);
+            Opengl->glUseProgram(0);
         }
-        Opengl->glUseProgram(0);
         
-        OpenglDrawWater(Frame);
         OpenglDrawDebugShapes(Frame);
-        /* 
-                // NOTE(ezexff): Water
-                Opengl->glUseProgram(Frame->WaterProg.ID);
-                WaterUniforms(Frame, Frame->WaterProg.ID);
-                OpenglDrawWater(Frame);
-                Opengl->glUseProgram(0);
-         */
         
-        // NOTE(ezexff): Skybox
         if(IsSet(Renderer, RendererFlag_Skybox))
         {
             OpenglDrawSkybox(Frame);
@@ -1883,13 +1881,13 @@ OpenglEndFrame(renderer_frame *Frame)
     
     //~ NOTE(ezexff): Frame texture
     {
-        Opengl->glUseProgram(Frame->Program.ID);
+        Opengl->glUseProgram(Programs->Frame.OpenglID);
         
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(Frame->Program.ID, "EffectID"), Frame->FragEffect);
+        Opengl->glUniform1i(Opengl->glGetUniformLocation(Programs->Frame.OpenglID, "EffectID"), Frame->EffectID);
         
         Opengl->glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, Frame->ColorTexture);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(Frame->Program.ID, "ColorTexture"), 0);
+        Opengl->glUniform1i(Opengl->glGetUniformLocation(Programs->Frame.OpenglID, "ColorTexture"), 0);
         
         glViewport(0, 0, Frame->Dim.x, Frame->Dim.y);
         
@@ -1981,7 +1979,7 @@ OpenglEndFrame(renderer_frame *Frame)
                 case RendererEntryType_renderer_entry_bitmap_on_screen:
                 {
                     renderer_entry_bitmap_on_screen *Entry = (renderer_entry_bitmap_on_screen *)Data;
-                    OpenglDrawBitmapOnScreen(&Frame->Opengl, Entry->Bitmap, Entry->P, Entry->Dim, 
+                    OpenglDrawBitmapOnScreen(Entry->Bitmap, Entry->P, Entry->Dim, 
                                              V3(0, 1, 0), Entry->Repeat);
                     
                     BaseAddress += sizeof(*Entry);

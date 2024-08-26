@@ -113,79 +113,14 @@ CreateTerrainModel(memory_arena *WorldArena, loaded_model Model)
 }
 
 internal void
-FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Frame,
-                ground_buffer *GroundBuffer,
-                world_position *ChunkP)
+FillGroundChunk(renderer_terrain *Terrain, ground_buffer *GroundBuffer, world_position *ChunkP)
 {
-#if 0
     GroundBuffer->P = *ChunkP;
-    
-    r32 Width = GameState->World->ChunkDimInMeters.x;
-    r32 Height = GameState->World->ChunkDimInMeters.y;
-    
-    single_mesh *Mesh = &GroundBuffer->TerrainModel->Meshes[0];
-    
-    for(int32 ChunkOffsetY = -1; //
-        ChunkOffsetY <= 1;       //
-        ++ChunkOffsetY)
-    {
-        for(int32 ChunkOffsetX = -1; //
-            ChunkOffsetX <= 1;       //
-            ++ChunkOffsetX)
-        {
-            int32 ChunkX = ChunkP->ChunkX + ChunkOffsetX;
-            int32 ChunkY = ChunkP->ChunkY + ChunkOffsetY;
-            int32 ChunkZ = ChunkP->ChunkZ;
-            
-            // TODO(casey): Make random number generation more systemic
-            // TODO(casey): Look into wang hashing or some other spatial seed generation "thing"!
-            random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
-            
-            // v2 Center = V2(ChunkOffsetX * Width + HalfDim.x, ChunkOffsetY * Height + HalfDim.y);
-            v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
-            
-            r32 MaxTerrainHeight = 0.2f;
-            
-            int VertexIndex = 0;
-            for(u32 Y = 0;      //
-                Y < Height + 1; //
-                Y++)
-            {
-                for(u32 X = 0;     //
-                    X < Width + 1; //
-                    X++, VertexIndex++)
-                {
-                    // r32 RandomZ2 = (r32)(rand() % 10) * 0.02f;
-                    
-                    //
-                    {
-                        if((X == 0) || (Y == 0) || (X == Width) || (Y == Height))
-                        {
-                            // if((ChunkOffsetX == 0) && (ChunkOffsetY == 0))
-                            {
-                                // r32 RandomZ1 = RandomUnilateral(&Series) * MaxTerrainHeight;
-                                // Mesh->Positions[VertexIndex] = V3((r32)X, (r32)Y, RandomZ1);
-                            }
-                        }
-                        else
-                        {
-                            r32 RandomZ1 = RandomUnilateral(&Series) * MaxTerrainHeight;
-                            Mesh->Positions[VertexIndex] = V3((r32)X, (r32)Y, RandomZ1);
-                        }
-                    }
-                }
-            }
-        }
-    }
-#else
-    //temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
-    GroundBuffer->P = *ChunkP;
-    GroundBuffer->IsFilled = true;
     if(IsValid(GroundBuffer->P))
     {
-        s32 TileX = GroundBuffer->P.ChunkX * Frame->TileCount;
-        s32 TileY = GroundBuffer->P.ChunkY * Frame->TileCount;
-        s32 TileZ = GroundBuffer->P.ChunkZ * Frame->TileCount;
+        s32 TileX = GroundBuffer->P.ChunkX * Terrain->TileCount;
+        s32 TileY = GroundBuffer->P.ChunkY * Terrain->TileCount;
+        s32 TileZ = GroundBuffer->P.ChunkZ * Terrain->TileCount;
         s32 TileMax = 1000000;
         if((TileX > TileMax) || (TileY > TileMax) || (TileZ > TileMax) ||
            (TileX < -TileMax) || (TileY < -TileMax) || (TileZ < -TileMax))
@@ -195,11 +130,11 @@ FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Fr
         
         u32 TmpPosCount3 = 0;
         for(u32 Y = 0;
-            Y <= Frame->TileCount;
+            Y <= Terrain->TileCount;
             ++Y)
         {
             for(u32 X = 0;
-                X <= Frame->TileCount;
+                X <= Terrain->TileCount;
                 ++X)
             {
                 GroundBuffer->Vertices[TmpPosCount3].Position.z = 0;
@@ -224,9 +159,9 @@ FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Fr
                         X <= HillTileX + HillRadius;
                         ++X)
                     {
-                        s32 TmpIndex = Y * (Frame->TileCount + 1) + X;
+                        s32 TmpIndex = Y * (Terrain->TileCount + 1) + X;
                         Assert(TmpIndex >= 0);
-                        Assert(TmpIndex < (s32)Frame->ChunkVertexCount);
+                        Assert(TmpIndex < (s32)Terrain->GroundBufferArray.VertexCount);
                         r32 T1 = (r32)(HillTileX - X);
                         r32 T2 = (r32)(HillTileY - Y);
                         r32 Length = SquareRoot(Square(T1) + Square(T2));
@@ -251,9 +186,9 @@ FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Fr
                         X <= HillTileX + HillRadius;
                         ++X)
                     {
-                        s32 TmpIndex = Y * (Frame->TileCount + 1) + X;
+                        s32 TmpIndex = Y * (Terrain->TileCount + 1) + X;
                         Assert(TmpIndex >= 0);
-                        Assert(TmpIndex < (s32)Frame->ChunkVertexCount);
+                        Assert(TmpIndex < (s32)Terrain->GroundBufferArray.VertexCount);
                         r32 T1 = (r32)(HillTileX - X);
                         r32 T2 = (r32)(HillTileY - Y);
                         r32 Length = SquareRoot(Square(T1) + Square(T2));
@@ -270,41 +205,40 @@ FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Fr
         // NOTE(ezexff): Calc z
         u32 TmpPosCount = 0;
         for(u32 Y = 0;
-            Y <= Frame->TileCount;
+            Y <= Terrain->TileCount;
             ++Y)
         {
             for(u32 X = 0;
-                X <= Frame->TileCount;
+                X <= Terrain->TileCount;
                 ++X)
             {
                 v3 A = {};
-                A.x = X * Frame->TileWidth;
-                A.y = Y * Frame->TileWidth;
+                A.x = X * Terrain->TileWidth;
+                A.y = Y * Terrain->TileWidth;
                 u32 SeedValueA = 139 * (TileX + X) + 593 * (TileY + Y) + 329 * TileZ;
                 random_series SeriesA = RandomSeed(SeedValueA);
                 r32 AZ = RandomUnilateral(&SeriesA);
-                AZ *= Frame->MaxTerrainHeight;
+                AZ *= Terrain->MaxHeight;
                 A.z = AZ;
                 GroundBuffer->Vertices[TmpPosCount].Position.z += AZ;
                 
-                
                 // NOTE(ezexff): Normal
                 v3 B = {};
-                B.x = (X + 1) * Frame->TileWidth;
+                B.x = (X + 1) * Terrain->TileWidth;
                 B.y = A.y;
                 u32 SeedValueB = 139 * (TileX + (X + 1)) + 593 * (TileY + Y) + 329 * TileZ;
                 random_series SeriesB = RandomSeed(SeedValueB);
                 r32 BZ = RandomUnilateral(&SeriesB);
-                BZ *= Frame->MaxTerrainHeight;
+                BZ *= Terrain->MaxHeight;
                 B.z = BZ;
                 
                 v3 C = {};
                 C.x = A.x;;
-                C.y = (Y + 1) * Frame->TileHeight;
+                C.y = (Y + 1) * Terrain->TileHeight;
                 u32 SeedValueC = 139 * (TileX + X) + 593 * (TileY + (Y + 1)) + 329 * TileZ;
                 random_series SeriesC = RandomSeed(SeedValueC);
                 r32 CZ = RandomUnilateral(&SeriesC);
-                CZ *= Frame->MaxTerrainHeight;
+                CZ *= Terrain->MaxHeight;
                 
                 //Frame->TerrainVertices[CurrentVertex].Normal = CalcNormal(A, B, C);
                 GroundBuffer->Vertices[TmpPosCount].Normal = CalcNormal(A, B, C);
@@ -312,148 +246,9 @@ FillGroundChunk(tran_state *TranState, game_state *GameState, renderer_frame *Fr
                 TmpPosCount++;
             }
         }
+        
+        GroundBuffer->IsFilled = true;
     }
-    
-    //Log->Add("ChunkP = (%d,%d)\n", ChunkP->ChunkX, ChunkP->ChunkY);
-    
-    /*s32 ChunkX = ChunkP->ChunkX;
-    s32 ChunkY = ChunkP->ChunkY;
-    s32 ChunkZ = ChunkP->ChunkZ;*/
-    
-    // TODO(casey): Make random number generation more systemic
-    // TODO(casey): Look into wang hashing or some other spatial seed generation "thing"!
-    
-    /*r32 MaxTerrainHeight = 0.2f;
-    random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
-    GroundBuffer->RandomZ = RandomUnilateral(&Series) * MaxTerrainHeight;*/
-    
-    /*if(ChunkX == 1 && ChunkY == 1)
-    {
-        for(u32 Index = 0;
-            Index < 6;
-            ++Index)
-        {
-            random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ + 222 * Index);
-            r32 RandomZ = RandomUnilateral(&Series) * MaxTerrainHeight;
-            Log->Add("Random[%d] = (%.3f)\n", Index, RandomZ);
-        }
-    }*/
-    
-    /*loaded_texture *Buffer = &GroundBuffer->DrawBuffer;
-    r32 Width = (r32)Buffer->Width;
-    r32 Height = (r32)Buffer->Height;
-    v2 HalfDim = 0.5f * V2(Width, Height);
-    
-    render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4), //
-                                                    0, 0, 0, true);
-    
-    glBindFramebuffer(GL_FRAMEBUFFER, Buffer->FBO);
-    
-    // Create Render Texture Attachment
-    glBindTexture(GL_TEXTURE_2D, Buffer->ID);
-    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Buffer->Width, Buffer->Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Buffer->Width, Buffer->Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Buffer->ID, 0);
-    
-    //  Create Depth Texture Attachment
-    glBindTexture(GL_TEXTURE_2D, Buffer->DepthTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, Buffer->Width, Buffer->Height, 0, GL_DEPTH_COMPONENT,
-                 GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Buffer->DepthTexture, 0);
-    
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    
-    for(int32 ChunkOffsetY = -1; //
-        ChunkOffsetY <= 1;       //
-        ++ChunkOffsetY)
-    {
-        for(int32 ChunkOffsetX = -1; //
-            ChunkOffsetX <= 1;       //
-            ++ChunkOffsetX)
-        {
-            int32 ChunkX = ChunkP->ChunkX + ChunkOffsetX;
-            int32 ChunkY = ChunkP->ChunkY + ChunkOffsetY;
-            int32 ChunkZ = ChunkP->ChunkZ;
-            
-            // TODO(casey): Make random number generation more systemic
-            // TODO(casey): Look into wang hashing or some other spatial seed generation "thing"!
-            random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
-            
-            // v2 Center = V2(ChunkOffsetX * Width + HalfDim.x, ChunkOffsetY * Height + HalfDim.y);
-            v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
-            
-            PushTexture(RenderGroup, V3(Center, 0), V2(Width, Height), GameState->TestTexture1.ID, //
-                        true, 2.0f);
-            
-            for(uint32 GrassIndex = 0; //
-                GrassIndex < 10;       //
-                ++GrassIndex)
-            {
-                // loaded_bitmap *Stamp;
-                v4 Color;
-                v2 Dim;
-                if(RandomChoice(&Series, 2))
-                {
-                    // Stamp = GameState->Grass + RandomChoice(&Series, ArrayCount(GameState->Grass));
-                    Color = V4(1, 0, 0, 1);
-                    Dim = V2(64, 64);
-                }
-                else
-                {
-                    // Stamp = GameState->Stone + RandomChoice(&Series, ArrayCount(GameState->Stone));
-                    Color = V4(1, 1, 0, 1);
-                    Dim = V2(32, 32);
-                }
-                
-                v2 RandomValue = V2(RandomBilateral(&Series), RandomBilateral(&Series));
-                v2 P = Center + Hadamard(HalfDim, RandomValue);
-                
-                PushRect(RenderGroup, V3(P, 0), Dim, Color);
-            }
-        }
-    }*/
-    
-    /*for(int32 ChunkOffsetY = -1; //
-        ChunkOffsetY <= 1;       //
-        ++ChunkOffsetY)
-    {
-        for(int32 ChunkOffsetX = -1; //
-            ChunkOffsetX <= 1        //
-            ;
-            ++ChunkOffsetX)
-        {
-            int32 ChunkX = ChunkP->ChunkX + ChunkOffsetX;
-            int32 ChunkY = ChunkP->ChunkY + ChunkOffsetY;
-            int32 ChunkZ = ChunkP->ChunkZ;
-    
-            // TODO(casey): Make random number generation more systemic
-            // TODO(casey): Look into wang hashing or some other spatial seed generation "thing"!
-            //random_series Series = RandomSeed(139 * ChunkX + 593 * ChunkY + 329 * ChunkZ);
-    
-            v2 Center = V2(ChunkOffsetX * Width, ChunkOffsetY * Height);
-    
-            for(uint32 GrassIndex = 0; GrassIndex < 50; ++GrassIndex)
-            {
-                loaded_bitmap *Stamp = GameState->Tuft + RandomChoice(&Series, ArrayCount(GameState->Tuft));
-    
-                v2 BitmapCenter = 0.5f * V2i(Stamp->Width, Stamp->Height);
-                v2 Offset = {Width * RandomUnilateral(&Series), Height * RandomUnilateral(&Series)};
-                v2 P = Center + Offset - BitmapCenter;
-    
-                PushBitmap(RenderGroup, Stamp, V3(P, 0.0f));
-            }
-        }
-    }*/
-    
-    //RenderGroupToOutput(RenderGroup, Buffer);
-    //EndTemporaryMemory(GroundMemory);
-#endif
 }
 
 // NOTE(ezexff): Collision rules
@@ -764,12 +559,9 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         {
             AddLowEntity(ModeWorld, EntityType_Null, NullPosition()); // Reserve entity slot 0 for the null entity
             
-            // NOTE(ezexff): Terrain
-            {
-                ModeWorld->GroundBufferWidth = 8;
-                ModeWorld->GroundBufferHeight = 8;
-                ModeWorld->TypicalFloorHeight = 3.0f;
-            }
+            ModeWorld->GroundBufferWidth = GameState->GroundBufferWidth;
+            ModeWorld->GroundBufferHeight = GameState->GroundBufferHeight;
+            ModeWorld->TypicalFloorHeight = GameState->TypicalFloorHeight;
             
             v3 WorldChunkDimInMeters = V3((r32)ModeWorld->GroundBufferWidth,
                                           (r32)ModeWorld->GroundBufferHeight,
@@ -877,101 +669,6 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             AddMonstar(ModeWorld, CameraTileX + 3, CameraTileY + 2, CameraTileZ);
             
             AddWater(ModeWorld, 5, 0, 0);
-            
-            // NOTE(ezexff): Init ground buffers
-            {
-                Frame->GroundBufferCount = 64;
-                Frame->TileCount = 16;
-                Frame->MaxTerrainHeight = 0.2f;
-                
-                Frame->TileWidth = (r32)ModeWorld->GroundBufferWidth / Frame->TileCount;
-                Frame->TileHeight = (r32)ModeWorld->GroundBufferHeight / Frame->TileCount;
-                
-                
-                Frame->ChunkVertexCount = (Frame->TileCount + 1) * (Frame->TileCount + 1);
-                //Frame->ChunkPositionsXY = PushArray(TranArena, Frame->ChunkVertexCount, v2);
-                
-                Frame->ChunkIndexCount = (6 * Frame->TileCount * Frame->TileCount);
-                Frame->ChunkIndices = PushArray(&GameState->ConstArena, Frame->ChunkIndexCount, u32);
-                u32 TmpPosCount = 0;
-                u32 TmpIndCount = 0;
-                for(u32 Y = 0;
-                    Y <= Frame->TileCount;
-                    ++Y)
-                {
-                    for(u32 X = 0;
-                        X <= Frame->TileCount;
-                        ++X)
-                    {
-                        if((X != Frame->TileCount) && (Y != Frame->TileCount))
-                        {
-                            Frame->ChunkIndices[TmpIndCount + 0] = TmpPosCount;
-                            Frame->ChunkIndices[TmpIndCount + 1] = TmpPosCount + 1;
-                            Frame->ChunkIndices[TmpIndCount + 2] = TmpPosCount + Frame->TileCount + 1;
-                            
-                            Frame->ChunkIndices[TmpIndCount + 3] = TmpPosCount + 1;
-                            Frame->ChunkIndices[TmpIndCount + 4] = TmpPosCount + Frame->TileCount + 1;
-                            Frame->ChunkIndices[TmpIndCount + 5] = TmpPosCount + Frame->TileCount + 2;
-                            
-                            TmpIndCount += 6;
-                        }
-                        TmpPosCount++;
-                    }
-                }
-                Assert(TmpIndCount == Frame->ChunkIndexCount);
-                
-                Frame->GroundBuffers = PushArray(&GameState->ConstArena, Frame->GroundBufferCount, ground_buffer);
-                for(u32 GroundBufferIndex = 0;
-                    GroundBufferIndex < Frame->GroundBufferCount;
-                    ++GroundBufferIndex)
-                {
-                    ground_buffer *GroundBuffer = Frame->GroundBuffers + GroundBufferIndex;
-                    
-                    GroundBuffer->IsInitialized = false;
-                    GroundBuffer->IsFilled = false;
-                    GroundBuffer->P = NullPosition();
-                    GroundBuffer->OffsetP = V3(0, 0, 0); // смещение относительно камеры для рендера чанка
-                    GroundBuffer->Vertices = PushArray(&GameState->ConstArena, Frame->ChunkVertexCount, vbo_vertex);
-                    
-                    // NOTE(ezexff): Fill default chunk positions and indices
-                    u32 TmpPosCount2 = 0;
-                    for(u32 Y = 0;
-                        Y <= Frame->TileCount;
-                        ++Y)
-                    {
-                        for(u32 X = 0;
-                            X <= Frame->TileCount;
-                            ++X)
-                        {
-                            GroundBuffer->Vertices[TmpPosCount2].Position.x = X * Frame->TileWidth;
-                            GroundBuffer->Vertices[TmpPosCount2].Position.y = Y * Frame->TileHeight;
-                            
-                            GroundBuffer->Vertices[TmpPosCount2].TexCoords.x = (r32)X;
-                            GroundBuffer->Vertices[TmpPosCount2].TexCoords.y = (r32)Y;
-                            
-                            TmpPosCount2++;
-                        }
-                    }
-                    Assert(TmpPosCount2 == Frame->ChunkVertexCount);
-                }
-            }
-            
-        }
-        
-        // NOTE(ezexff): Init renderer
-        {
-            ModeWorld->Renderer = PushStruct(&GameState->ConstArena, renderer);
-            renderer *Renderer = ModeWorld->Renderer;
-            Renderer->FOV = 0.1f;
-#define PLAYER_EYE_HEIGHT_FROM_GROUND 1.75f
-            Renderer->Camera.P = V3(0, 0, PLAYER_EYE_HEIGHT_FROM_GROUND);
-            Renderer->ClearColor = V4(0.5, 0.5, 0.5, 1);
-            AddFlags(Renderer,
-                     RendererFlag_Skybox | 
-                     RendererFlag_Lighting | 
-                     RendererFlag_Shadows |
-                     RendererFlag_Water |
-                     RendererFlag_Terrain);
         }
         
         //~ NOTE(ezexff): Rendering parameters
@@ -979,72 +676,13 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             // NOTE(ezexff): Camera
             ModeWorld->Camera.Angle.pitch = 90.0f;
             ModeWorld->Camera.Angle.yaw = 0.0f;
-            //Frame->WorldOrigin.z = 1.75f;
-            Frame->CameraPitchInverted = 90.0f;
-            
-            // NOTE(ezexff): Terrain
-            //GameState->MaxTerrainHeight = 0.2f;
-            //GameState->TilesPerChunkRow = 16;
-            /*Frame->TerrainMaterial.Ambient = V4(0.2f, 0.2f, 0.2f, 1.0f);
-            Frame->TerrainMaterial.Diffuse = V4(0.8f, 0.8f, 0.8f, 1.0f);
-            Frame->TerrainMaterial.Specular = V4(0.0f, 0.0f, 0.0f, 1.0f);
-            Frame->TerrainMaterial.Emission = V4(0.0f, 0.0f, 0.0f, 1.0f);
-            Frame->TerrainMaterial.Shininess = 0.0f;*/
-            Frame->TerrainMaterial.Ambient = V4(0.0f, 0.0f, 0.0f, 1.0f);
-            Frame->TerrainMaterial.Diffuse = V4(0.1f, 0.35f, 0.1f, 1.0f);
-            Frame->TerrainMaterial.Specular = V4(0.45f, 0.55f, 0.45f, 1.0f);
-            Frame->TerrainMaterial.Emission = V4(0.0f, 0.0f, 0.0f, 1.0f);
-            Frame->TerrainMaterial.Shininess = 0.25f;
-            
-            // NOTE(ezexff): Light
-            //Frame->DirLight.Base.Color = V3(0.5f, 0.5f, 0.5f);
-            Frame->DirLight.Base.Color = V3(1.0f, 1.0f, 1.0f);
-            Frame->DirLight.Base.AmbientIntensity = 0.1f;
-            Frame->DirLight.Base.DiffuseIntensity = 1.0f;
-            //Frame->DirLight.WorldDirection = V3(1.0f, 1.0f, -1.0f);
-            //Frame->DirLight.WorldDirection = V3(1.5f, 0.0f, 3.0f);
-            //Frame->DirLight.WorldDirection = V3(3.0f, 6.0f, -73.5f);
-            //Frame->DirLight.WorldDirection = V3(1.0f, 0.0f, 1.0f);
-            Frame->DirLight.WorldDirection = V3(0.0f, 0.0f, -1.0f);
-            
-            // NOTE(ezexff): Shadows
-            //Frame->ShadowMapDim.x = 1920 * 4;
-            //Frame->ShadowMapDim.y = 1080 * 4;
-            Frame->ShadowMapSize = 60.0f;
-            Frame->ShadowMapNearPlane = -50.0f;
-            Frame->ShadowMapFarPlane = 100.0f;
-            Frame->ShadowMapCameraPitch = 60.0f;
-            Frame->ShadowMapCameraYaw = -120.0f;
-            Frame->ShadowMapCameraPos = V3(0.0f, 0.0f, 0.0f);
-            Frame->ShadowMapBias = 0.005f;
-            
-            // NOTE(ezexff): Water
-            Frame->WaterWaveSpeed = 0.4f;
-            Frame->WaterTiling = 0.5f;
-            Frame->WaterWaveStrength = 0.02f;
-            Frame->WaterShineDamper = 20.0f;
-            Frame->WaterReflectivity = 0.6f;
-            // TODO(ezexff): Test
-            Frame->TestWaterP.ChunkX = 5;
-            Frame->TestSunP.ChunkX = 0;
-            Frame->TestSunP.ChunkY = 0;
-            
-            LoadBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_Terrain), true);
-            LoadBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_DuDvMap), true);
-            LoadBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_NormalMap), true);
-            // TODO(ezexff): Load water textures
-            //Frame->WaterDUDVTextureName = PushString(WorldArena, "NewWaterDUDV.png");
-            //Frame->WaterDUDVTexture = LoadTexture(&Render->WaterDUDVTextureName);
-            //Frame->WaterNormalMapName = PushString(WorldArena, "NewWaterNormalMap.png");
-            //Frame->WaterNormalMap = LoadTexture(&Render->WaterNormalMapName);
         }
         
         ModeWorld->IsInitialized = true;
     }
     
-    //~
-    renderer *Renderer = ModeWorld->Renderer;
-    Frame->Renderer = Renderer;
+    //~ NOTE(ezexff): Pointers
+    renderer *Renderer = (renderer *)Frame->Renderer;
     world *World = ModeWorld->World;
     
     //~ NOTE(ezexff): Keyboard and gamepad inputs
@@ -1179,15 +817,17 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             }
             
             // Camera pitch (inverted)
-            Frame->CameraPitchInverted -= (r32)Input->MouseDelta.y * Sensitivity;
-            if(Frame->CameraPitchInverted < 0)
-            {
-                Frame->CameraPitchInverted = 0;
-            }
-            if(Frame->CameraPitchInverted > 180)
-            {
-                Frame->CameraPitchInverted = 180;
-            }
+            /* 
+                        Frame->CameraPitchInverted -= (r32)Input->MouseDelta.y * Sensitivity;
+                        if(Frame->CameraPitchInverted < 0)
+                        {
+                            Frame->CameraPitchInverted = 0;
+                        }
+                        if(Frame->CameraPitchInverted > 180)
+                        {
+                            Frame->CameraPitchInverted = 180;
+                        }
+             */
         }
     }
     
@@ -1205,59 +845,59 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     
     //~ NOTE(ezexff): Render
     Renderer->Camera.Angle = ModeWorld->Camera.Angle;
+    AddFlags(Renderer,
+             RendererFlag_Skybox | 
+             RendererFlag_Lighting | 
+             RendererFlag_Shadows |
+             RendererFlag_Water |
+             RendererFlag_Terrain);
     
-    Frame->WaterMoveFactor += Frame->WaterWaveSpeed * Input->dtForFrame;
-    if(Frame->WaterMoveFactor >= 1)
+    //~ TODO(ezexff): Mb rework?
+    if(IsSet(Renderer, RendererFlag_Skybox))
     {
-        Frame->WaterMoveFactor = 0;
+        for(u32 Index = 0;
+            Index < 6;
+            Index++)
+        {
+            bitmap_id ID = {GetFirstAssetFrom(Assets, Asset_Skybox) + Index};
+            Renderer->Skybox->Bitmaps[Index] = *GetBitmap(Assets, ID, true);
+        }
     }
-    Frame->TerrainTexture = GetBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_Terrain), true);
-    Frame->WaterDUDVTexture = GetBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_DuDvMap), true);
-    Frame->WaterNormalMapTexture = GetBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_NormalMap), true);
-    // TODO(ezexff): Test
-    world_position WaterChunkCenterP = CenteredChunkPoint(Frame->TestWaterP.ChunkX, Frame->TestWaterP.ChunkY, Frame->TestWaterP.ChunkZ);
-    Frame->TestWaterRelP = Subtract(World, &WaterChunkCenterP, &ModeWorld->Camera.P);
     
-    world_position SunChunkCenterP = CenteredChunkPoint(Frame->TestSunP.ChunkX, Frame->TestSunP.ChunkY, Frame->TestSunP.ChunkZ);
-    Frame->TestSunRelP = Subtract(World, &SunChunkCenterP, &ModeWorld->Camera.P);
-    Frame->TestSunRelP.z = 10.0f;
-    Frame->TestSun2P = V3(-17.0f, 40.0f, 35.0f);
+    if(IsSet(Renderer, RendererFlag_Water))
+    {
+        renderer_water *Water = Renderer->Water;
+        Water->MoveFactor += Water->WaveSpeed * Input->dtForFrame;
+        if(Water->MoveFactor >= 1)
+        {
+            Water->MoveFactor = 0;
+        }
+        Water->Reflection.DuDv = GetBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_DuDvMap), true);
+        Water->Reflection.NormalMap = GetBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_NormalMap), true);
+        
+        // TODO(ezexff): Test
+        /* 
+                world_position WaterChunkCenterP = CenteredChunkPoint(Frame->TestWaterP.ChunkX, Frame->TestWaterP.ChunkY, Frame->TestWaterP.ChunkZ);
+                Frame->TestWaterRelP = Subtract(World, &WaterChunkCenterP, &ModeWorld->Camera.P);
+                 */
+        
+        world_position SunChunkCenterP = CenteredChunkPoint(5, 0, 0);
+        Frame->TestSunRelP = Subtract(World, &SunChunkCenterP, &ModeWorld->Camera.P);
+        Frame->TestSunRelP.z = 10.0f;
+        Frame->TestSun2P = V3(-17.0f, 40.0f, 35.0f);
+        
+    }
     
+    if(IsSet(Renderer, RendererFlag_Terrain))
+    {
+        Renderer->Terrain->Bitmap = GetBitmap(Assets, GetFirstBitmapFrom(Assets, Asset_Terrain), true);
+    }
     
     //fsdfdsf;
     //Frame->WaterDUDVTextureName = PushString(WorldArena, "NewWaterDUDV.png");
     //Frame->WaterDUDVTexture = LoadTexture(&Render->WaterDUDVTextureName);
     //Frame->WaterNormalMapName = PushString(WorldArena, "NewWaterNormalMap.png");
     //Frame->WaterNormalMap = LoadTexture(&Render->WaterNormalMapName);
-    
-    //~ NOTE(ezexff): Load skybox assets
-    asset_type *Type = TranState->Assets->AssetTypes + Asset_Skybox;
-    u32 SkyboxBitmapCount = Type->OnePastLastAssetIndex - Type->FirstAssetIndex;
-    if(SkyboxBitmapCount >= 6)
-    {
-        u32 Index = 0;
-        for(u32 AssetIndex = Type->FirstAssetIndex;
-            AssetIndex < Type->FirstAssetIndex + 6;
-            AssetIndex++)
-        {
-            asset *Asset = TranState->Assets->Assets + AssetIndex;
-            eab_bitmap EABBitmap = Asset->EAB.Bitmap;
-            
-            bitmap_id ID = {};
-            ID.Value = AssetIndex;
-            if(Asset->State == AssetState_Loaded)
-            {
-                loaded_bitmap *Bitmap = GetBitmap(TranState->Assets, ID, true);
-                Frame->Skybox[Index] = *Bitmap;
-            }
-            else if(Asset->State == AssetState_Unloaded)
-            {
-                LoadBitmap(TranState->Assets, ID, true);
-                //Frame->MissingResourceCount++;
-            }
-            Index++;
-        }
-    }
     
 #if ENGINE_INTERNAL
     // NOTE(ezexff): Sim region outlines
@@ -1475,22 +1115,23 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 low_entity *LowEntity = GetLowEntity(ModeWorld, Entity->StorageIndex);
                 world_position WorldEntityP = LowEntity->P;
                 
-                r32 RelTileX = Frame->TileCount * WorldEntityP.ChunkX + 
+                renderer_terrain *Terrain = Renderer->Terrain;
+                r32 RelTileX = Terrain->TileCount * WorldEntityP.ChunkX + 
                 (ModeWorld->GroundBufferWidth) + WorldEntityP.Offset_.x;
-                r32 RelTileY = Frame->TileCount * WorldEntityP.ChunkY +
+                r32 RelTileY = Terrain->TileCount * WorldEntityP.ChunkY +
                 (ModeWorld->GroundBufferHeight) + WorldEntityP.Offset_.y;
                 s32 TileX = FloorR32ToS32(RelTileX);
                 s32 TileY = FloorR32ToS32(RelTileY);
                 s32 TileZ = 0; // TODO(ezexff): Need rework when start using z chunks
                 
                 random_series Series = RandomSeed(139 * (TileX) + 593 * (TileY) + 329 * TileZ);
-                r32 RandomZ00 = RandomUnilateral(&Series) * Frame->MaxTerrainHeight;
+                r32 RandomZ00 = RandomUnilateral(&Series) * Terrain->MaxHeight;
                 Series = RandomSeed(139 * (TileX + 1) + 593 * (TileY) + 329 * TileZ);
-                r32 RandomZ10 = RandomUnilateral(&Series) * Frame->MaxTerrainHeight;
+                r32 RandomZ10 = RandomUnilateral(&Series) * Terrain->MaxHeight;
                 Series = RandomSeed(139 * (TileX) + 593 * (TileY + 1) + 329 * TileZ);
-                r32 RandomZ01 = RandomUnilateral(&Series) * Frame->MaxTerrainHeight;
+                r32 RandomZ01 = RandomUnilateral(&Series) * Terrain->MaxHeight;
                 Series = RandomSeed(139 * (TileX + 1) + 593 * (TileY + 1) + 329 * TileZ);
-                r32 RandomZ11 = RandomUnilateral(&Series) * Frame->MaxTerrainHeight;
+                r32 RandomZ11 = RandomUnilateral(&Series) * Terrain->MaxHeight;
                 
                 r32 BaseOffsetX = RelTileX - TileX;
                 r32 BaseOffsetY = RelTileY - TileY;
@@ -1507,8 +1148,8 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                     r32 HillRadius = 8.0f;
                     if((WorldEntityP.ChunkX == 4) && (WorldEntityP.ChunkY == 0) && (WorldEntityP.ChunkZ == 0))
                     {
-                        s32 ChunkTileX = TileX - WorldEntityP.ChunkX * Frame->TileCount;
-                        s32 ChunkTileY = TileY - WorldEntityP.ChunkY * Frame->TileCount;
+                        s32 ChunkTileX = TileX - WorldEntityP.ChunkX * Terrain->TileCount;
+                        s32 ChunkTileY = TileY - WorldEntityP.ChunkY * Terrain->TileCount;
                         r32 T1 = (r32)(HillTileX - ChunkTileX);
                         r32 T2 = (r32)(HillTileY - ChunkTileY);
                         r32 Length = SquareRoot(Square(T1) + Square(T2));
@@ -1521,8 +1162,8 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                     HillZ = -2;
                     if((WorldEntityP.ChunkX == 5) && (WorldEntityP.ChunkY == 0) && (WorldEntityP.ChunkZ == 0))
                     {
-                        s32 ChunkTileX = TileX - WorldEntityP.ChunkX * Frame->TileCount;
-                        s32 ChunkTileY = TileY - WorldEntityP.ChunkY * Frame->TileCount;
+                        s32 ChunkTileX = TileX - WorldEntityP.ChunkX * Terrain->TileCount;
+                        s32 ChunkTileY = TileY - WorldEntityP.ChunkY * Terrain->TileCount;
                         r32 T1 = (r32)(HillTileX - ChunkTileX);
                         r32 T2 = (r32)(HillTileY - ChunkTileY);
                         r32 Length = SquareRoot(Square(T1) + Square(T2));
@@ -1537,6 +1178,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 // NOTE(ezexff): Terrain z for player camera
                 if(Entity->Type == EntityType_Hero && Frame->FixCameraOnTerrain)
                 {
+#define PLAYER_EYE_HEIGHT_FROM_GROUND 1.75f // TODO(ezexff): Replace
                     Renderer->Camera.P.z = OnTerrainZ + HillHeight + PLAYER_EYE_HEIGHT_FROM_GROUND;
                 }
             }
@@ -1680,10 +1322,10 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 r32 FurthestBufferLengthSq = 0.0f;
                 ground_buffer *FurthestBuffer = 0;
                 for(u32 GroundBufferIndex = 0;
-                    GroundBufferIndex < Frame->GroundBufferCount;
+                    GroundBufferIndex < Renderer->Terrain->GroundBufferArray.Count;
                     ++GroundBufferIndex)
                 {
-                    ground_buffer *GroundBuffer = Frame->GroundBuffers + GroundBufferIndex;
+                    ground_buffer *GroundBuffer = Renderer->Terrain->GroundBufferArray.Buffers + GroundBufferIndex;
                     if(AreInSameChunk(World, &GroundBuffer->P, &ChunkCenterP))
                     {
                         TmpGroundBufferIndex = 0;
@@ -1712,9 +1354,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 if(FurthestBuffer)
                 {
                     //Log->Add("[fillgroundchunk] TmpGroundBufferIndex=%d (%d,%d)\n", TmpGroundBufferIndex, ChunkCenterP.ChunkX, ChunkCenterP.ChunkY);
-                    FillGroundChunk(TranState, GameState, Frame,
-                                    FurthestBuffer,
-                                    &ChunkCenterP);
+                    FillGroundChunk(Renderer->Terrain, FurthestBuffer, &ChunkCenterP);
                 }
             }
         }
@@ -1723,10 +1363,10 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     // NOTE(ezexff): Render Ground Buffers
     {
         for(u32 GroundBufferIndex = 0;
-            GroundBufferIndex < Frame->GroundBufferCount;
+            GroundBufferIndex < Renderer->Terrain->GroundBufferArray.Count;
             ++GroundBufferIndex)
         {
-            ground_buffer *GroundBuffer = Frame->GroundBuffers + GroundBufferIndex;
+            ground_buffer *GroundBuffer = Renderer->Terrain->GroundBufferArray.Buffers + GroundBufferIndex;
             if(IsValid(GroundBuffer->P))
             {
                 GroundBuffer->OffsetP = Subtract(ModeWorld->World, &GroundBuffer->P, &ModeWorld->Camera.P);

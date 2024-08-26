@@ -65,9 +65,8 @@ struct mode_world
     camera Camera;
     u32 CameraFollowingEntityIndex;
     
-    //~ NOTE(ezexff): Renderer
-    renderer *Renderer;
-    r32 PlayerEyeHeight;
+    //~ NOTE(ezexff): Render
+    u32 RendererFlags;
     
     //~
     b32 IsInitialized;
