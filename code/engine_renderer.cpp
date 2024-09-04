@@ -21,6 +21,7 @@ PushRenderElement_(renderer_frame *Frame, u32 Size, renderer_entry_type Type)
     return(Result);
 }
 
+/* 
 void
 Clear(renderer_frame *Frame, v4 Color)
 {
@@ -30,6 +31,7 @@ Clear(renderer_frame *Frame, v4 Color)
         Entry->Color = Color;
     }
 }
+ */
 
 void
 PushRectOnGround(renderer_frame *Frame, v2 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1))

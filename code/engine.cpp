@@ -102,8 +102,8 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
     
 #if ENGINE_INTERNAL
     GlobalDebugTable = Memory->DebugTable;
-    DebugGlobalMemory = Memory;
-    DebugGlobalInput = Input;
+    GlobalDebugMemory = Memory;
+    GlobalDebugInput = Input;
 #endif
     
     Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
@@ -122,11 +122,11 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         // NOTE(ezexff): Init Log App
         {
 #if ENGINE_INTERNAL
-            imgui *ImGuiHandle = &DebugGlobalMemory->ImGuiHandle;
+            imgui *ImGuiHandle = &GlobalDebugMemory->ImGuiHandle;
             ImGui::SetCurrentContext(ImGuiHandle->ContextImGui);
             ImPlot::SetCurrentContext(ImGuiHandle->ContextImPlot);
             ImGui::SetAllocatorFunctions(ImGuiHandle->AllocFunc, ImGuiHandle->FreeFunc, ImGuiHandle->UserData);
-            Log = &DebugGlobalMemory->ImGuiHandle.Log;
+            Log = &GlobalDebugMemory->ImGuiHandle.Log;
             /*Log->Add("[log init]: Hello %d world\n", 123);*/
             
             ImGuiHandle->LogMouseInput = false;

@@ -5,8 +5,8 @@ app_log *Log;
 
 struct frame_vertex
 {
-    v3 Pos;
-    v2 TexCoord;
+    v3 Position;
+    v2 TexCoords;
 };
 
 enum vao_vertex

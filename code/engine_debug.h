@@ -1,114 +1,29 @@
-struct debug_counter_state
+struct debug_frame
 {
-    char *FileName;
-    char *BlockName;
-    
-    u32 LineNumber;
-};
-
-enum debug_variable_type
-{
-    DebugVariableType_Bool32,
-    DebugVariableType_Int32,
-    DebugVariableType_UInt32,
-    DebugVariableType_Real32,
-    DebugVariableType_V2,
-    DebugVariableType_V3,
-    DebugVariableType_V4,
-    
-    DebugVariableType_CounterThreadList,
-    //    DebugVariableType_CounterFunctionList,
-    
-    DebugVariableType_BitmapDisplay,
-    
-    DebugVariableType_VarArray,
-};
-
-struct debug_profile_settings
-{
-    int Placeholder;
-};
-
-struct debug_bitmap_display
-{
-    bitmap_id ID;
-};
-
-struct debug_variable;
-
-struct debug_variable_array
-{
-    u32 Count;
-    debug_variable *Vars;
-};
-
-struct debug_variable
-{
-    debug_variable_type Type;
-    char *Name;
+    // IMPORTANT(casey): This actually gets freed as a set in FreeFrame!
     
     union
     {
-        b32 Bool32;
-        s32 Int32;
-        u32 UInt32;
-        r32 Real32;
-        v2 Vector2;
-        v3 Vector3;
-        v4 Vector4;
-        debug_profile_settings Profile;
-        debug_bitmap_display BitmapDisplay;
-        debug_variable_array VarArray;
+        debug_frame *Next;
+        debug_frame *NextFree;
     };
-};
-
-struct debug_tree
-{
-    v2 UIP;
-    debug_variable *Group;
     
-    debug_tree *Next;
-    debug_tree *Prev;
-};
-
-struct debug_frame_region
-{
-    debug_record *Record;
-    u64 CycleCount;
-    u16 LaneIndex;
-    u16 ColorIndex;
-    r32 MinT;
-    r32 MaxT;
-};
-
-#define MAX_REGIONS_PER_FRAME 2*4096
-struct debug_frame
-{
     u64 BeginClock;
     u64 EndClock;
     r32 WallSecondsElapsed;
     
-    u32 RegionCount;
-    debug_frame_region *Regions;
-};
-
-struct open_debug_block
-{
-    u32 StartingFrameIndex;
-    debug_record *Source;
-    debug_event *OpeningEvent;
-    open_debug_block *Parent;
+    r32 FrameBarScale;
     
-    open_debug_block *NextFree;
+    u32 FrameIndex;
 };
 
-struct debug_thread
+struct debug_block
 {
-    u32 ID;
-    u32 LaneIndex;
-    open_debug_block *FirstOpenBlock;
-    debug_thread *Next;
+    debug_event *OpeningEvent;
+    debug_block *Next;
+    debug_block *Prev;
 };
+
 
 struct debug_state
 {
@@ -116,9 +31,18 @@ struct debug_state
     
     platform_work_queue *HighPriorityQueue;
     
-    memory_arena DebugArena;
     
-    debug_tree TreeSentinel;
+    memory_arena DebugArena;
+    temporary_memory DebugMemory;
+    
+    debug_frame *CollationFrame;
+    
+    u32 FrameCount;
+    
+    //debug_block *ParentDebugBlock;
+    debug_block *CurrentDebugBlock;
+    
+    /*debug_tree TreeSentinel;
     
     debug_record *ScopeToRecord;
     
@@ -129,29 +53,48 @@ struct debug_state
     u32 CollationArrayIndex;
     debug_frame *CollationFrame;
     u32 FrameBarLaneCount;
-    u32 FrameCount;
     r32 FrameBarScale;
     b32 Paused;
     
     debug_frame *Frames;
     debug_thread *FirstThread;
     open_debug_block *FirstFreeBlock;
+ */
 };
 
-struct RollingBuffer
+struct debug_stored_event
 {
-    float Span;
-    ImVector<ImVec2> Data;
-    RollingBuffer()
+    union
     {
-        Span = 10.0f;
-        Data.reserve(2000);
-    }
-    void AddPoint(float x, float y)
+        debug_stored_event *Next;
+        debug_stored_event *NextFree;
+    };
+    
+    u32 FrameIndex;
+    debug_event Event;
+};
+
+struct debug_element
+{
+    char *GUID;
+    debug_element *NextInHash;
+    
+    debug_stored_event *OldestEvent;
+    debug_stored_event *MostRecentEvent;
+};
+
+struct open_debug_block
+{
+    union
     {
-        float xmod = fmodf(x, Span);
-        if (!Data.empty() && xmod < Data.back().x)
-            Data.shrink(0);
-        Data.push_back(ImVec2(xmod, y));
-    }
+        open_debug_block *Parent;
+        open_debug_block *NextFree;
+    };
+    
+    u32 StartingFrameIndex;
+    debug_event *OpeningEvent;
+    //debug_element *Element;
+    
+    // NOTE(casey): Only for data blocks?  Probably!
+    //debug_variable_group *Group;    
 };

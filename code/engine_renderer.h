@@ -42,6 +42,8 @@ struct spot_light_array
 
 struct renderer_lighting
 {
+    v3 TestSunP; // TODO(ezexff): remove (lighting shine)
+    
     directional_light DirLight;
     
     point_light_array *PointLights;
@@ -124,6 +126,7 @@ struct renderer
     m4x4 Proj, View, Model;
     r32 FOV;
     v4 ClearColor;
+    v4 CutPlane;
     u32 Flags; // renderer_flags
     
     renderer_camera Camera;
@@ -176,8 +179,6 @@ inline void FlipFlag(renderer *Renderer, u32 Flag)
 //~ NOTE(ezexff): Push buffer
 enum renderer_entry_type
 {
-    RendererEntryType_renderer_entry_clear,
-    
     RendererEntryType_renderer_entry_rect_on_ground,
     RendererEntryType_renderer_entry_rect_outline_on_ground,
     RendererEntryType_renderer_entry_bitmap_on_ground,
@@ -265,9 +266,3 @@ struct renderer_entry_water
 
 typedef renderer_entry_rect_on_ground renderer_entry_rect_on_screen;
 typedef renderer_entry_bitmap_on_ground renderer_entry_bitmap_on_screen;
-
-struct renderer_water_list
-{
-    renderer_entry_water *Entry;
-    renderer_entry_water *Next;
-};

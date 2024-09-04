@@ -11,7 +11,6 @@
 
 #include "win32_engine_renderer.h"
 
-
 b32 GlobalRunning = false;
 b32 GlobalPause = false;
 b32 GlobalIsFullscreen = false;
@@ -946,8 +945,8 @@ extern "C" void __stdcall WinMainCRTStartup(void)
             ImGuiHandle->ShowDebugCollationWindow = true;
             ImGuiHandle->ShowLogWindow = true;
             GameMemory.DebugTable = GlobalDebugTable;
-            Frame->ImGuiHandle = ImGuiHandle;
             Frame->DebugTable = GlobalDebugTable;
+            Frame->ImGuiHandle = ImGuiHandle;
             
             Log = &ImGuiHandle->Log;
 #endif
@@ -1229,13 +1228,12 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                         }
                         END_BLOCK(AudioUpdate);
                         
-                        // NOTE(ezexff): Debug collation
-                        BEGIN_BLOCK(DebugCollation);
+                        //BEGIN_BLOCK(DebugCollation);
                         {
                             DEBUGGameFrameEnd(&GameMemory, NewInput);
-                            GameMemory.DebugTable->EventArrayIndex_EventIndex = 0;
+                            GlobalDebugTable_.EventArrayIndex_EventIndex = 0;
                         }
-                        END_BLOCK(DebugCollation);
+                        //END_BLOCK(DebugCollation);
                         
                         // NOTE(ezexff): ImGui demo, win32 and renderer windows
                         BEGIN_BLOCK(ImGuiUpdate);
@@ -1539,12 +1537,6 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                         
                         r64 SecondsElapsed = Win32GetTime() - StartFrameTime;
                         FRAME_MARKER((r32)SecondsElapsed);
-                        if(GlobalDebugTable)
-                        {
-                            // TODO(casey): Move this to a global variable so that
-                            // there can be timers below this one?
-                            GlobalDebugTable->RecordCount[TRANSLATION_UNIT_INDEX] = __COUNTER__;
-                        }
                     }
                 }
             }

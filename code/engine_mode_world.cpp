@@ -863,7 +863,10 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             Renderer->Skybox->Bitmaps[Index] = *GetBitmap(Assets, ID, true);
         }
     }
-    
+    if(IsSet(Renderer, RendererFlag_Lighting))
+    {
+        Renderer->Lighting->TestSunP = V3(-17.0f, 40.0f, 35.0f);
+    }
     if(IsSet(Renderer, RendererFlag_Water))
     {
         renderer_water *Water = Renderer->Water;
@@ -884,8 +887,6 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         world_position SunChunkCenterP = CenteredChunkPoint(5, 0, 0);
         Frame->TestSunRelP = Subtract(World, &SunChunkCenterP, &ModeWorld->Camera.P);
         Frame->TestSunRelP.z = 10.0f;
-        Frame->TestSun2P = V3(-17.0f, 40.0f, 35.0f);
-        
     }
     
     if(IsSet(Renderer, RendererFlag_Terrain))

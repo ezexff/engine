@@ -21,6 +21,24 @@ SafeTruncateUInt64(u64 Value) // Need it for safety reading files
 #include "imgui_impl_win32.h"
 #include "implot.h"
 
+struct RollingBuffer
+{
+    float Span;
+    ImVector<ImVec2> Data;
+    RollingBuffer()
+    {
+        Span = 10.0f;
+        Data.reserve(2000);
+    }
+    void AddPoint(float x, float y)
+    {
+        float xmod = fmodf(x, Span);
+        if (!Data.empty() && xmod < Data.back().x)
+            Data.shrink(0);
+        Data.push_back(ImVec2(xmod, y));
+    }
+};
+
 struct app_log
 {
     // Usage:
@@ -196,6 +214,9 @@ struct imgui
     
     // NOTE(ezexff): Log app
     app_log Log;
+    
+    // TODO(ezexff): Test rolling plot
+    RollingBuffer RData[32];
 };
 #endif
 
@@ -307,96 +328,88 @@ inline u32 GetThreadID(void)
 }
 
 #if ENGINE_INTERNAL
-
 struct game_memory;
 struct game_input;
-game_memory *DebugGlobalMemory;
-game_input *DebugGlobalInput;
+struct debug_table;
+game_memory *GlobalDebugMemory;
+game_input *GlobalDebugInput;
+//debug_table *GlobalDebugTable;
+extern debug_table *GlobalDebugTable;
 
-struct debug_record
+struct debug_id
 {
-    char *FileName;
-    char *BlockName;
+    void *Value[2];
+};
+
+enum debug_type
+{
+    DebugType_Unknown,
     
-    u32 LineNumber;
-    u32 Reserved;
+    DebugType_FrameMarker,
+    DebugType_BeginBlock,
+    DebugType_EndBlock,
+    
+    DebugType_CounterThreadList,
+    //    DebugVariableType_CounterFunctionList,
 };
 
-enum debug_event_type
-{
-    DebugEvent_FrameMarker,
-    DebugEvent_BeginBlock,
-    DebugEvent_EndBlock,
-};
-struct threadid_coreindex
-{
-    u16 ThreadID;
-    u16 CoreIndex;
-};
 struct debug_event
 {
     u64 Clock;
+    char *GUID;
+    char *BlockName; // TODO(casey): Should we remove BlockName altogether?
+    u16 ThreadID;
+    u16 CoreIndex;
+    u8 Type;
     union
     {
-        threadid_coreindex TC;
-        r32 SecondsElapsed;
+        debug_id DebugID;
+        debug_event *Value_debug_event;
+        
+        r32 Value_r32;
     };
-    u16 DebugRecordIndex;
-    u8 TranslationUnit;
-    u8 Type;
 };
 
+/* 
 #define MAX_DEBUG_THREAD_COUNT 256
 #define MAX_DEBUG_EVENT_ARRAY_COUNT 8
 #define MAX_DEBUG_TRANSLATION_UNITS 3
 #define MAX_DEBUG_EVENT_COUNT (16 * 65536)
 #define MAX_DEBUG_RECORD_COUNT (65536)
+ */
 struct debug_table
 {
     // TODO(casey): No attempt is currently made to ensure that the final
     // debug records being written to the event array actually complete
-    // their output prior to the swap of the event array index.
-    
+    // their output prior to the swap of the event array index.    
     u32 CurrentEventArrayIndex;
+    // TODO(casey): This could actually be a u32 atomic now, since we
+    // only need 1 bit to store which array we're using...
     u64 volatile EventArrayIndex_EventIndex;
-    u32 EventCount[MAX_DEBUG_EVENT_ARRAY_COUNT];
-    debug_event Events[MAX_DEBUG_EVENT_ARRAY_COUNT][MAX_DEBUG_EVENT_COUNT];
-    
-    u32 RecordCount[MAX_DEBUG_TRANSLATION_UNITS];
-    debug_record Records[MAX_DEBUG_TRANSLATION_UNITS][MAX_DEBUG_RECORD_COUNT];
+    debug_event Events[3][16*65536];
 };
 
-extern debug_table *GlobalDebugTable;
+#define UniqueFileCounterString__(A, B, C) A "(" #B ")." #C
+#define UniqueFileCounterString_(A, B, C) UniqueFileCounterString__(A, B, C)
+#define UniqueFileCounterString() UniqueFileCounterString_(__FILE__, __LINE__, __COUNTER__)
 
-// TODO(casey): I would like to switch away from the translation unit indexing
-// and just go to a more standard one-time hash table because the complexity
-// seems to be causing problems
-#define RecordDebugEventCommon(RecordIndex, EventType) \
+#define RecordDebugEvent(EventType, Block)           \
 u64 ArrayIndex_EventIndex = AtomicAddU64(&GlobalDebugTable->EventArrayIndex_EventIndex, 1); \
 u32 EventIndex = ArrayIndex_EventIndex & 0xFFFFFFFF;            \
-Assert(EventIndex < MAX_DEBUG_EVENT_COUNT);                     \
+Assert(EventIndex < ArrayCount(GlobalDebugTable->Events[0]));   \
 debug_event *Event = GlobalDebugTable->Events[ArrayIndex_EventIndex >> 32] + EventIndex; \
 Event->Clock = __rdtsc();                       \
-Event->DebugRecordIndex = (u16)RecordIndex;                     \
-Event->TranslationUnit = TRANSLATION_UNIT_INDEX;                \
-Event->Type = (u8)EventType;                                    
-
-#define RecordDebugEvent(RecordIndex, EventType)        \
-{                                                   \
-RecordDebugEventCommon(RecordIndex, EventType); \
-Event->TC.CoreIndex = 0;                                           \
-Event->TC.ThreadID = (u16)GetThreadID();           \
-}
+Event->Type = (u8)EventType;                                    \
+Event->CoreIndex = 0;                                           \
+Event->ThreadID = (u16)GetThreadID();                         \
+Event->GUID = UniqueFileCounterString(); \
+Event->BlockName = Block;                              \
 
 #define FRAME_MARKER(SecondsElapsedInit) \
 { \
 int Counter = __COUNTER__; \
-RecordDebugEventCommon(Counter, DebugEvent_FrameMarker); \
-Event->SecondsElapsed = SecondsElapsedInit; \
-debug_record *Record = GlobalDebugTable->Records[TRANSLATION_UNIT_INDEX] + Counter; \
-Record->FileName = __FILE__;                                        \
-Record->LineNumber = __LINE__;                                    \
-Record->BlockName = "Frame Marker";                                   \
+RecordDebugEvent(DebugType_FrameMarker, "Frame Marker"); \
+Event->Value_r32 = SecondsElapsedInit; \
 } 
 
 #define TIMED_BLOCK__(BlockName, Number, ...) timed_block TimedBlock_##Number(__COUNTER__, __FILE__, __LINE__, BlockName, ## __VA_ARGS__)
@@ -405,13 +418,11 @@ Record->BlockName = "Frame Marker";                                   \
 #define TIMED_FUNCTION(...) TIMED_BLOCK_((char *)__FUNCTION__, __LINE__, ## __VA_ARGS__)
 
 #define BEGIN_BLOCK_(Counter, FileNameInit, LineNumberInit, BlockNameInit)          \
-{debug_record *Record = GlobalDebugTable->Records[TRANSLATION_UNIT_INDEX] + Counter; \
-Record->FileName = FileNameInit;                                        \
-Record->LineNumber = LineNumberInit;                                    \
-Record->BlockName = BlockNameInit;                                   \
-RecordDebugEvent(Counter, DebugEvent_BeginBlock);}
+{RecordDebugEvent(DebugType_BeginBlock, BlockNameInit);}
 #define END_BLOCK_(Counter) \
-RecordDebugEvent(Counter, DebugEvent_EndBlock);
+{ \
+RecordDebugEvent(DebugType_EndBlock, "End Block"); \
+}
 
 #define BEGIN_BLOCK(Name) \
 int Counter_##Name = __COUNTER__;                       \
@@ -436,6 +447,7 @@ struct timed_block
         END_BLOCK_(Counter);
     }
 };
+
 #endif
 
 // NOTE(ezexff): Opengl function declarations
@@ -721,9 +733,7 @@ struct renderer_frame
     renderer_shaders Shaders;
     renderer_programs Programs;
     
-    v3 TestSun2P; // TODO(ezexff): remove (lighting shine)
     v3 TestSunRelP; // TODO(ezexff):  remove (water shine)
-    v4 CutPlane; // TODO(ezexff): move somewhere else?
     
     // TODO(ezexff): Mb these variable only for debug in imgui?
     //bool DrawTerrain;
@@ -736,9 +746,8 @@ struct renderer_frame
 #if ENGINE_INTERNAL
     b32 IsOpenglImGuiInitialized;
     loaded_bitmap Preview;
-    u32 PreviewTexture;
     imgui *ImGuiHandle;
-    debug_table *DebugTable;
+    debug_table *DebugTable; // for opengl renderer collation
 #endif
     
     opengl Opengl;

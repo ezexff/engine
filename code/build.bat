@@ -44,10 +44,10 @@ cl /c %DebugCompilerOpts% %DebugIncludes% %ImGuiTrUnits%
 IF /i %BuildType%==Debug (
 del *.pdb >NUL 2>NUL
 echo WAITING FOR PDB > lock.tmp
-cl -DTRANSLATION_UNIT_INDEX=2 %DebugCompilerOpts% %DebugIncludes% %RendererTrUnit% /LD /link %DefaultLinkerOpts% /PDB:win32_engine_opengl_%random%.pdb /EXPORT:Win32LoadRenderer /EXPORT:Win32BeginFrame /EXPORT:Win32EndFrame User32.lib Gdi32.lib opengl32.lib imgui*.obj implot*.obj
-cl -DTRANSLATION_UNIT_INDEX=1 %DebugCompilerOpts% %DebugIncludes% %EngineTrUnit% /Fm%EngineMap% /LD /link %DefaultLinkerOpts% /PDB:engine_%random%.pdb /EXPORT:GetSoundSamples /EXPORT:UpdateAndRender /EXPORT:DEBUGGameFrameEnd imgui*.obj implot*.obj
+cl %DebugCompilerOpts% %DebugIncludes% %RendererTrUnit% /LD /link %DefaultLinkerOpts% /PDB:win32_engine_opengl_%random%.pdb /EXPORT:Win32LoadRenderer /EXPORT:Win32BeginFrame /EXPORT:Win32EndFrame User32.lib Gdi32.lib opengl32.lib imgui*.obj implot*.obj
+cl %DebugCompilerOpts% %DebugIncludes% %EngineTrUnit% /Fm%EngineMap% /LD /link %DefaultLinkerOpts% /PDB:engine_%random%.pdb /EXPORT:GetSoundSamples /EXPORT:UpdateAndRender /EXPORT:DEBUGGameFrameEnd imgui*.obj implot*.obj
 del lock.tmp
-cl -DTRANSLATION_UNIT_INDEX=0 %DebugCompilerOpts% %DebugIncludes% %Win32TrUnit% /Fm%Win32Map% /link %DefaultLinkerOpts% /ENTRY:mainCRTStartup /SUBSYSTEM:WINDOWS User32.lib Gdi32.lib kernel32.lib Ole32.lib imgui*.obj implot*.obj
+cl %DebugCompilerOpts% %DebugIncludes% %Win32TrUnit% /Fm%Win32Map% /link %DefaultLinkerOpts% /ENTRY:mainCRTStartup /SUBSYSTEM:WINDOWS User32.lib Gdi32.lib kernel32.lib Ole32.lib imgui*.obj implot*.obj
 )
 
 IF /i %BuildType%==Release (
