@@ -34,7 +34,7 @@ GetAlignmentOffset(memory_arena *Arena, memory_index Alignment)
         AlignmentOffset = Alignment - (ResultPointer & AlignmentMask);
     }
     
-    return (AlignmentOffset);
+    return(AlignmentOffset);
 }
 
 inline void *
@@ -51,7 +51,7 @@ PushSize_(memory_arena *Arena, memory_index SizeInit, memory_index Alignment = 4
     
     Assert(Size >= SizeInit);
     
-    return (Result);
+    return(Result);
 }
 
 inline void
@@ -93,7 +93,7 @@ BeginTemporaryMemory(memory_arena *Arena)
     
     ++Arena->TempCount;
     
-    return (Result);
+    return(Result);
 }
 
 inline void 

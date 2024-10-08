@@ -876,6 +876,11 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
     {   
         ImGui::Begin("Test", &ImGuiHandle->ShowDebugCollationWindow);
         
+        local bool DrawRollingPlot = false;
+        ImGui::Checkbox("DrawRollingPlot", &DrawRollingPlot);
+        local bool ShowPieChart = false;
+        ImGui::Checkbox("ShowPieChart", &ShowPieChart);
+        
         u32 RegionCount = EventCount / 2;
         r64 *CycleCountArray = PushArray(&DebugState->DebugArena, RegionCount, r64);
         char **BlockNameArray = PushArray(&DebugState->DebugArena, RegionCount, char *);
@@ -885,12 +890,12 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
         local r32 t = 0;
         t += ImGui::GetIO().DeltaTime;
         
-        local r32 History = 15.0f;
+        local r32 History = 5.0f;
         ImGui::SliderFloat("History", &History, 1, 60, "%.1f s");
         
         u32 RegionIndex = 0;
         
-        if(ImPlot::BeginPlot("##Rolling", ImVec2(-1, 700)))
+        if(ImPlot::BeginPlot("##Rolling", ImVec2(-1, 500)))
         {        
             ImPlot::SetupAxisLimits(ImAxis_X1, 0, History, ImGuiCond_Always);
             ImPlot::SetupAxisLimits(ImAxis_Y1, 0, (r64)(30000000.0f));
@@ -932,17 +937,19 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
                 else if(Event->Type == DebugType_EndBlock)
                 {
                     u64 CycleCount = (Event->Clock - DebugState->CurrentDebugBlock->OpeningEvent->Clock);
-                    Log->Add("%s = %lu\n", DebugState->CurrentDebugBlock->OpeningEvent->BlockName, CycleCount);
+                    //Log->Add("%s = %lu\n", DebugState->CurrentDebugBlock->OpeningEvent->BlockName, CycleCount);
                     
                     
-                    
-                    ImGuiHandle->RData[RegionIndex].AddPoint(t, (r32)CycleCount);
-                    ImGuiHandle->RData[RegionIndex].Span = History;
-                    char BlockNameTextBuffer[256];
-                    _snprintf_s(BlockNameTextBuffer, sizeof(BlockNameTextBuffer), "%s", DebugState->CurrentDebugBlock->OpeningEvent->BlockName);
-                    ImPlot::PlotLine(BlockNameTextBuffer, 
-                                     &ImGuiHandle->RData[RegionIndex].Data[0].x, &ImGuiHandle->RData[RegionIndex].Data[0].y, 
-                                     ImGuiHandle->RData[RegionIndex].Data.size(), 0, 0, 2 * sizeof(float));
+                    if(DrawRollingPlot)
+                    {                    
+                        ImGuiHandle->RData[RegionIndex].AddPoint(t, (r32)CycleCount);
+                        ImGuiHandle->RData[RegionIndex].Span = History;
+                        char BlockNameTextBuffer[256];
+                        _snprintf_s(BlockNameTextBuffer, sizeof(BlockNameTextBuffer), "%s", DebugState->CurrentDebugBlock->OpeningEvent->BlockName);
+                        ImPlot::PlotLine(BlockNameTextBuffer, 
+                                         &ImGuiHandle->RData[RegionIndex].Data[0].x, &ImGuiHandle->RData[RegionIndex].Data[0].y, 
+                                         ImGuiHandle->RData[RegionIndex].Data.size(), 0, 0, 2 * sizeof(float));
+                    }
                     
                     
                     
@@ -950,7 +957,7 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
                     BlockNameArray[RegionIndex] = BlockName;
                     CycleCountArray[RegionIndex] = (r64)CycleCount;
                     
-                    
+                    Log->Add("ImGuiHandle->RData[RegionIndex].Data.size() = %d\n", ImGuiHandle->RData[RegionIndex].Data.size());
                     
                     DebugState->CurrentDebugBlock = DebugState->CurrentDebugBlock->Prev;
                     RegionIndex++;
@@ -960,12 +967,16 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
             ImPlot::EndPlot();
         }
         
-        if(ImPlot::BeginPlot("##Pie1", ImVec2(550,550), ImPlotFlags_Equal))
-        {
-            ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoDecorations, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoDecorations);
-            ImPlot::SetupAxesLimits(0, 1, 0, 1);
-            ImPlot::PlotPieChart(BlockNameArray, CycleCountArray, RegionCount, 0.5, 0.5, 0.4, "%.0f", 90, ImPlotPieChartFlags_Normalize);
-            ImPlot::EndPlot();
+        
+        if(ShowPieChart)
+        {        
+            if(ImPlot::BeginPlot("##Pie1", ImVec2(550,550), ImPlotFlags_Equal))
+            {
+                ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoDecorations, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoDecorations);
+                ImPlot::SetupAxesLimits(0, 1, 0, 1);
+                ImPlot::PlotPieChart(BlockNameArray, CycleCountArray, RegionCount, 0.5, 0.5, 0.4, "%.0f", 90, ImPlotPieChartFlags_Normalize);
+                ImPlot::EndPlot();
+            }
         }
         ImGui::End();
     }
@@ -1220,7 +1231,7 @@ extern "C" DEBUG_GAME_FRAME_END(DEBUGGameFrameEnd)
     {
         
         DEBUGBegin(DebugState);
-        CollateDebugRecords(DebugState, EventCount, GlobalDebugTable->Events[EventArrayIndex]);
+        //CollateDebugRecords(DebugState, EventCount, GlobalDebugTable->Events[EventArrayIndex]);
         DEBUGEnd(DebugState);
     }
 }

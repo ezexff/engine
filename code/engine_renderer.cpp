@@ -21,18 +21,6 @@ PushRenderElement_(renderer_frame *Frame, u32 Size, renderer_entry_type Type)
     return(Result);
 }
 
-/* 
-void
-Clear(renderer_frame *Frame, v4 Color)
-{
-    renderer_entry_clear *Entry = PushRenderElement(Frame, renderer_entry_clear);
-    if(Entry)
-    {
-        Entry->Color = Color;
-    }
-}
- */
-
 void
 PushRectOnGround(renderer_frame *Frame, v2 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1))
 {
@@ -180,19 +168,6 @@ PushCubeOutline(renderer_frame *Frame, v3 Offset, v3 Dim, v4 Color = V4(1, 1, 1,
 }
 
 void
-PushTerrainChunk(renderer_frame *Frame, u32 PositionsCount, v3 *Positions, u32 IndicesCount, u32 *Indices)
-{
-    renderer_entry_terrain_chunk *Entry = PushRenderElement(Frame, renderer_entry_terrain_chunk);
-    if(Entry)
-    {
-        Entry->PositionsCount = PositionsCount;
-        Entry->Positions = Positions;
-        Entry->IndicesCount = IndicesCount;
-        Entry->Indices = Indices;
-    }
-}
-
-void
 PushLine(renderer_frame *Frame, v3 P1, v3 P2, v4 Color = V4(0.5f, 0.0f, 0.5f, 1.0f), r32 LineWidth = 1)
 {
     renderer_entry_line *Entry = PushRenderElement(Frame, renderer_entry_line);
@@ -210,9 +185,69 @@ PushWater(renderer_frame *Frame, v3 Offset, v2 Dim)
 {
     v3 P = (Offset - V3(0.5f * Dim, 0));
     
-    renderer_entry_water *Entry = PushRenderElement(Frame, renderer_entry_water);
+    renderer_entry_water *Entry = 0;
+    u32 Size = sizeof(renderer_entry_water);
+    if((Frame->WaterPushBufferSize + Size) < Frame->WaterMaxPushBufferSize)
+    {
+        Entry = (renderer_entry_water *)(Frame->WaterPushBufferBase + Frame->WaterPushBufferSize);
+        Frame->WaterPushBufferSize += Size;
+    }
+    else
+    {
+        InvalidCodePath;
+    }
     if(Entry)
     {
+        Entry->P = P;
+        Entry->Dim = Dim;
+    }
+}
+
+// TODO(ezexff): Test
+#define PushOrthoRenderElement(PushBuffer, type, SortKey) (type *)PushRenderElement_(PushBuffer, sizeof(type), RendererOrthoEntryType_##type, SortKey)
+void *
+PushRenderElement_(renderer_push_buffer *PushBuffer, u32 Size, renderer_ortho_entry_type Type, r32 SortKey)
+{
+    void *Result = 0;
+    
+    Size += sizeof(renderer_entry_header);
+    
+    if((PushBuffer->Size + Size) < sizeof(PushBuffer->Memory))
+    {
+        renderer_entry_header *Header = (renderer_entry_header *)(PushBuffer->Base + PushBuffer->Size);
+        Header->OrthoType = Type;
+        Result = (u8 *)Header + sizeof(*Header);
+        
+        if(PushBuffer->ElementCount < 10)
+        {
+            PushBuffer->SortEntryArray[PushBuffer->ElementCount].Offset = PushBuffer->Size;
+            PushBuffer->SortEntryArray[PushBuffer->ElementCount].SortKey = SortKey;
+        }
+        else
+        {
+            InvalidCodePath;
+        }
+        PushBuffer->ElementCount++;
+        
+        PushBuffer->Size += Size;
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+    
+    return(Result);
+}
+
+void
+PushRectOnScreen(renderer_push_buffer *PushBuffer, v2 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1), r32 SortKey = 0.0f)
+{
+    v2 P = Offset;
+    
+    renderer_ortho_entry_rect *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_rect, SortKey);
+    if(Entry)
+    {
+        Entry->Color = Color;
         Entry->P = P;
         Entry->Dim = Dim;
     }

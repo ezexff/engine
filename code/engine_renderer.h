@@ -27,7 +27,6 @@ struct renderer_skybox
     loaded_bitmap Bitmaps[6];
 };
 
-
 struct point_light_array
 {
     u32 Count;
@@ -121,6 +120,22 @@ struct renderer_terrain
     loaded_bitmap *Bitmap;
 };
 
+struct tile_sort_entry
+{
+    u32 Offset;
+    r32 SortKey;
+};
+
+struct renderer_push_buffer
+{
+    u32 Size;
+    u8 *Base;
+    u8 Memory[65536];
+    
+    u32 ElementCount;
+    tile_sort_entry *SortEntryArray;
+};
+
 struct renderer
 {
     m4x4 Proj, View, Model;
@@ -136,6 +151,8 @@ struct renderer
     renderer_shadowmap *ShadowMap;
     renderer_water *Water;
     renderer_terrain *Terrain;
+    
+    renderer_push_buffer PushBufferUI;
 };
 
 enum renderer_flags
@@ -184,18 +201,51 @@ enum renderer_entry_type
     RendererEntryType_renderer_entry_bitmap_on_ground,
     RendererEntryType_renderer_entry_cube,
     RendererEntryType_renderer_entry_cube_outline,
-    RendererEntryType_renderer_entry_terrain_chunk,
+    //RendererEntryType_renderer_entry_terrain_chunk,
     RendererEntryType_renderer_entry_line,
-    RendererEntryType_renderer_entry_water,
+    //RendererEntryType_renderer_entry_water,
     
     RendererEntryType_renderer_entry_rect_on_screen,
     RendererEntryType_renderer_entry_bitmap_on_screen,
 };
 
+// TODO(ezexff): Test ortho push buffer with sort
+//~
+
+/* 
+enum
+{
+    RendererPushBufferType_Ortho,
+    RendererPushBufferType_Frustum,
+    
+    RendererPushBufferType_Count
+};
+
+PushRect(RendererPushBufferType_Ortho, Pos, Dim, ...);
+ */
+
+struct renderer_ortho_entry_rect
+{
+    v4 Color;
+    v2 P;
+    v2 Dim;
+};
+
+enum renderer_ortho_entry_type
+{
+    RendererOrthoEntryType_renderer_ortho_entry_rect,
+    RendererOrthoEntryType_renderer_ortho_entry_bitmap,
+};
+
 struct renderer_entry_header
 {
-    renderer_entry_type Type;
+    union
+    {
+        renderer_entry_type Type;
+        renderer_ortho_entry_type OrthoType;
+    };
 };
+//~
 
 struct renderer_entry_clear
 {
@@ -249,6 +299,7 @@ struct renderer_entry_line
     r32 LineWidth;
 };
 
+/* 
 struct renderer_entry_terrain_chunk
 {
     u32 PositionsCount;
@@ -256,13 +307,13 @@ struct renderer_entry_terrain_chunk
     u32 IndicesCount;
     u32 *Indices;
 };
+ */
 
-// TODO(ezexff): Complete implementation
+typedef renderer_entry_rect_on_ground renderer_entry_rect_on_screen;
+typedef renderer_entry_bitmap_on_ground renderer_entry_bitmap_on_screen;
+
 struct renderer_entry_water
 {
     v3 P;
     v2 Dim;
 };
-
-typedef renderer_entry_rect_on_ground renderer_entry_rect_on_screen;
-typedef renderer_entry_bitmap_on_ground renderer_entry_bitmap_on_screen;

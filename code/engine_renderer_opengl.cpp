@@ -911,6 +911,10 @@ OpenglInit(renderer_frame *Frame)
     Frame->MaxPushBufferSize = sizeof(Frame->PushBufferMemory);
     Frame->PushBufferBase = Frame->PushBufferMemory;
     
+    // TODO(ezexff): Test water push buffer
+    Frame->WaterMaxPushBufferSize = sizeof(Frame->WaterPushBufferMemory);
+    Frame->WaterPushBufferBase = Frame->WaterPushBufferMemory;
+    
     // NOTE(ezexff): Camera
     //Frame->Camera.P.z = 10.0f;
     
@@ -984,32 +988,15 @@ OpenglBeginFrame(renderer_frame *Frame)
     }
 #endif
     
-    Assert(Frame->Dim.x > 0);
-    Assert(Frame->Dim.y > 0);
-    
-    // NOTE(ezexff): Update FBO texture
-    // Create Render Texture Attachment
-    glBindTexture(GL_TEXTURE_2D, Frame->ColorTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Frame->Dim.x, Frame->Dim.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    
-    // Create Depth Texture Attachment
-    glBindTexture(GL_TEXTURE_2D, Frame->DepthTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, Frame->Dim.x, Frame->Dim.y, 0, GL_DEPTH_COMPONENT,
-                 GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    
-    // Attach textures to FBO
-    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Frame->FBO);
-    Opengl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Frame->ColorTexture, 0);
-    Opengl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Frame->DepthTexture, 0);
-    if(Opengl->glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    while(Frame->PushBufferSize--)
     {
-        InvalidCodePath;
+        Frame->PushBufferMemory[Frame->PushBufferSize] = 0;
+        
+        // TODO(ezexff): Test
+        Frame->WaterPushBufferMemory[Frame->WaterPushBufferSize] = 0;
     }
-    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    Frame->PushBufferSize = 0;
+    Frame->WaterPushBufferSize = 0;
 }
 
 void
@@ -1246,17 +1233,6 @@ OpenglDrawDebugShapes(renderer_frame *Frame)
                 BaseAddress += sizeof(*Entry);
             } break;
             
-            case RendererEntryType_renderer_entry_terrain_chunk:
-            {
-                renderer_entry_terrain_chunk *Entry = (renderer_entry_terrain_chunk *)Data;
-                //OpenglDrawTerrainChunk(Entry->PositionsCount, Entry->Positions,
-                //Entry->IndicesCount, Entry->Indices);
-                //OpenglFillTerrainVBO(Frame, Entry->PositionsCount, Entry->Positions,
-                //Entry->IndicesCount, Entry->Indices);
-                
-                BaseAddress += sizeof(*Entry);
-            } break;
-            
             case RendererEntryType_renderer_entry_line:
             {
                 renderer_entry_line *Entry = (renderer_entry_line *)Data;
@@ -1265,12 +1241,14 @@ OpenglDrawDebugShapes(renderer_frame *Frame)
                 BaseAddress += sizeof(*Entry);
             } break;
             
-            case RendererEntryType_renderer_entry_water:
-            {
-                renderer_entry_water *Entry = (renderer_entry_water *)Data;
-                
-                BaseAddress += sizeof(*Entry);
-            } break;
+            /* 
+                        case RendererEntryType_renderer_entry_water:
+                        {
+                            renderer_entry_water *Entry = (renderer_entry_water *)Data;
+                            
+                            BaseAddress += sizeof(*Entry);
+                        } break;
+             */
             
             InvalidDefaultCase;
         }
@@ -1427,6 +1405,7 @@ OpenglDrawWater(renderer *Renderer, u32 ShaderProgramID, renderer_frame *Frame)
         glBindTexture(GL_TEXTURE_2D, Water->Refraction.DepthTexture);
         Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uRefractionDepthTexture"), 4);
         
+#if 0        
         for(u32 BaseAddress = 0;
             BaseAddress < Frame->PushBufferSize;
             )
@@ -1529,31 +1508,43 @@ OpenglDrawWater(renderer *Renderer, u32 ShaderProgramID, renderer_frame *Frame)
                 InvalidDefaultCase;
             }
         }
+#endif
+        
+        for(u32 BaseAddress = 0;
+            BaseAddress < Frame->WaterPushBufferSize;
+            )
+        {
+            renderer_entry_water *Entry = (renderer_entry_water *)(Frame->WaterPushBufferBase + BaseAddress);
+            
+            rectangle2 R = {Entry->P.xy, Entry->P.xy + Entry->Dim};
+            r32 z = 0;
+            r32 VertPositions[] = 
+            {
+                // ground
+                R.Min.x, R.Min.y, z, // 0
+                R.Max.x, R.Min.y, z, // 1
+                R.Max.x, R.Max.y, z, // 2
+                R.Min.x, R.Max.y, z, // 3
+            };
+            
+            glEnableClientState(GL_VERTEX_ARRAY);
+            
+            glVertexPointer(3, GL_FLOAT, 0, VertPositions);
+            glDrawArrays(GL_QUADS, 0, 4);
+            
+            glDisableClientState(GL_VERTEX_ARRAY);
+            
+            BaseAddress += sizeof(*Entry);
+        }
+        
+        
         Opengl->glUseProgram(0);
     }
 }
 
 void
-OpenglEndFrame(renderer_frame *Frame)
+OpenglInitBitmapPreview(renderer_frame *Frame)
 {
-    renderer *Renderer = (renderer *)Frame->Renderer;
-    renderer_camera *Camera = &Renderer->Camera;
-    renderer_programs *Programs = &Frame->Programs;
-    
-    Assert(Renderer);
-    
-    //~ NOTE(ezexff): Init
-    OpenglInitRendererMatrices(Renderer, Frame->AspectRatio);
-    OpenglInitSkybox(Renderer);
-    if(IsSet(Renderer, RendererFlag_Lighting))
-    {
-        // TODO(ezexff): ???
-    }
-    OpenglInitShadowMap(Renderer);
-    OpenglInitWater(Renderer);
-    OpenglInitTerrain(Renderer);
-    // NOTE(ezexff): Texture for preview window
-#if ENGINE_INTERNAL
     loaded_bitmap *Preview = &Frame->Preview;
     if(!Preview->OpenglID)
     {
@@ -1573,6 +1564,89 @@ OpenglEndFrame(renderer_frame *Frame)
                      Preview->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Preview->Memory);
         //Opengl->glGenerateMipmap(GL_TEXTURE_2D);
     }
+}
+
+void
+OpenglInitFrameFBO(renderer_frame *Frame)
+{
+    Assert(Frame->Dim.x > 0);
+    Assert(Frame->Dim.y > 0);
+    
+    // NOTE(ezexff): Update FBO texture
+    // Create Render Texture Attachment
+    glBindTexture(GL_TEXTURE_2D, Frame->ColorTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Frame->Dim.x, Frame->Dim.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    // Create Depth Texture Attachment
+    glBindTexture(GL_TEXTURE_2D, Frame->DepthTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, Frame->Dim.x, Frame->Dim.y, 0, GL_DEPTH_COMPONENT,
+                 GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    // Attach textures to FBO
+    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Frame->FBO);
+    Opengl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Frame->ColorTexture, 0);
+    Opengl->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Frame->DepthTexture, 0);
+    if(Opengl->glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        InvalidCodePath;
+    }
+    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+internal void
+SortPushBufferEntries(renderer_push_buffer *PushBuffer)
+{
+    u32 Count = PushBuffer->ElementCount;
+    tile_sort_entry *SortEntryArray = PushBuffer->SortEntryArray;
+    
+    for(u32 Outer = 0;
+        Outer < Count;
+        ++Outer)
+    {
+        for(u32 Inner = 0;
+            Inner < (Count - 1);
+            ++Inner)
+        {
+            tile_sort_entry *EntryA = SortEntryArray + Inner;
+            tile_sort_entry *EntryB = EntryA + 1;
+            
+            if(EntryA->SortKey > EntryB->SortKey)
+            {
+                tile_sort_entry Swap = *EntryB;
+                *EntryB = *EntryA;
+                *EntryA = Swap;
+            }
+        }
+    }
+}
+
+void
+OpenglEndFrame(renderer_frame *Frame)
+{
+    renderer *Renderer = (renderer *)Frame->Renderer;
+    renderer_camera *Camera = &Renderer->Camera;
+    renderer_programs *Programs = &Frame->Programs;
+    
+    Assert(Renderer);
+    
+    //~ NOTE(ezexff): Init 
+    OpenglInitFrameFBO(Frame);
+    OpenglInitRendererMatrices(Renderer, Frame->AspectRatio);
+    OpenglInitSkybox(Renderer);
+    if(IsSet(Renderer, RendererFlag_Lighting))
+    {
+        // TODO(ezexff): ???
+    }
+    OpenglInitShadowMap(Renderer);
+    OpenglInitWater(Renderer);
+    OpenglInitTerrain(Renderer);
+    // NOTE(ezexff): Texture for preview window
+#if ENGINE_INTERNAL
+    OpenglInitBitmapPreview(Frame);
 #endif
     
     OpenglCompileShaders(Frame);
@@ -1627,6 +1701,72 @@ OpenglEndFrame(renderer_frame *Frame)
     s32 ScreenCenterY = (Frame->Dim.y + 1) / 2;
     glTranslatef(0, (r32)ScreenCenterY, 0);
     glScalef(0.5f, 0.5f, 1);
+    
+    
+    
+    
+    renderer_push_buffer *PushBufferUI = &Renderer->PushBufferUI;
+    SortPushBufferEntries(PushBufferUI);
+    
+    tile_sort_entry *SortEntryArray = PushBufferUI->SortEntryArray;
+    tile_sort_entry *SortEntry = SortEntryArray;
+    for(u32 SortEntryIndex = 0;
+        SortEntryIndex < PushBufferUI->ElementCount;
+        ++SortEntryIndex, ++SortEntry)
+    {
+        renderer_entry_header *Header = (renderer_entry_header *)
+        (PushBufferUI->Base + SortEntry->Offset);
+        
+        void *Data = (u8 *)Header + sizeof(*Header);
+        
+        switch(Header->Type)
+        {
+            case RendererOrthoEntryType_renderer_ortho_entry_rect:
+            {
+                renderer_ortho_entry_rect *Entry = (renderer_ortho_entry_rect *)Data;
+                OpenglDrawRectOnScreen({Entry->P, Entry->P + Entry->Dim}, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+                
+                //BaseAddress += sizeof(*Entry);
+            } break;
+            
+            /* 
+                        case RendererOrthoEntryType_renderer_ortho_entry_bitmap:
+                        {
+                            //renderer_entry_rect_outline_on_ground *Entry = (renderer_entry_rect_outline_on_ground *)Data;
+                            
+                            BaseAddress += sizeof(*Entry);
+                        } break;
+             */
+            
+            InvalidDefaultCase;
+        }
+    }
+    
+    /*     
+        for(u32 BaseAddress = 0;
+            BaseAddress < PushBufferUI->Size;
+            )
+        {
+            renderer_entry_header *Header = (renderer_entry_header *)
+            (PushBufferUI->Base + BaseAddress);
+            BaseAddress += sizeof(*Header);
+            
+            void *Data = (u8 *)Header + sizeof(*Header);
+            switch(Header->Type)
+            {
+                case RendererOrthoEntryType_renderer_ortho_entry_rect:
+                {
+                    renderer_ortho_entry_rect *Entry = (renderer_ortho_entry_rect *)Data;
+                    OpenglDrawRectOnScreen({Entry->P, Entry->P + Entry->Dim}, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
+                
+                InvalidDefaultCase;
+            }
+        }
+         */
+    
     
     for(u32 BaseAddress = 0;
         BaseAddress < Frame->PushBufferSize;
@@ -1691,13 +1831,6 @@ OpenglEndFrame(renderer_frame *Frame)
                 BaseAddress += sizeof(*Entry);
             } break;
             
-            case RendererEntryType_renderer_entry_terrain_chunk:
-            {
-                renderer_entry_terrain_chunk *Entry = (renderer_entry_terrain_chunk *)Data;
-                
-                BaseAddress += sizeof(*Entry);
-            } break;
-            
             case RendererEntryType_renderer_entry_line:
             {
                 renderer_entry_line *Entry = (renderer_entry_line *)Data;
@@ -1705,18 +1838,29 @@ OpenglEndFrame(renderer_frame *Frame)
                 BaseAddress += sizeof(*Entry);
             } break;
             
-            case RendererEntryType_renderer_entry_water:
-            {
-                renderer_entry_water *Entry = (renderer_entry_water *)Data;
-                
-                BaseAddress += sizeof(*Entry);
-            } break;
+            /* 
+                        case RendererEntryType_renderer_entry_water:
+                        {
+                            renderer_entry_water *Entry = (renderer_entry_water *)Data;
+                            
+                            BaseAddress += sizeof(*Entry);
+                        } break;
+             */
             
             InvalidDefaultCase;
         }
     }
     
     glDisable(GL_BLEND);
+    
+    Renderer->Flags = 0;
+    
+    while(PushBufferUI->Size--)
+    {
+        PushBufferUI->Memory[PushBufferUI->Size] = 0;
+    }
+    Renderer->PushBufferUI.Size = 0;
+    Renderer->PushBufferUI.ElementCount = 0;
     
     /*
     // NOTE(ezexff): Draw Player Crosshair

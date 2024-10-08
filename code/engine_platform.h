@@ -13,211 +13,38 @@ SafeTruncateUInt64(u64 Value) // Need it for safety reading files
     return(Result);
 }
 
-//~ NOTE(ezexff): ImGui
+// NOTE(ezexff): Multithreading
+#define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
+#define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
+inline u32 AtomicCompareExchangeUInt32(u32 volatile *Value, u32 New, u32 Expected)
+{
+    u32 Result = _InterlockedCompareExchange((long *)Value, New, Expected);
+    
+    return(Result);
+}
+inline u64 AtomicExchangeU64(u64 volatile *Value, u64 New)
+{
+    u64 Result = _InterlockedExchange64((__int64 volatile *)Value, New);
+    
+    return(Result);
+}
+inline u64 AtomicAddU64(u64 volatile *Value, u64 Addend)
+{
+    // NOTE(casey): Returns the original value _prior_ to adding
+    u64 Result = _InterlockedExchangeAdd64((__int64 volatile *)Value, Addend);
+    
+    return(Result);
+}    
+inline u32 GetThreadID(void)
+{
+    u8 *ThreadLocalStorage = (u8 *)__readgsqword(0x30);
+    u32 ThreadID = *(u32 *)(ThreadLocalStorage + 0x48);
+    
+    return(ThreadID);
+}
+
 #if ENGINE_INTERNAL
-#include <stdio.h>
-#include "imgui.h"
-#include "imgui_impl_opengl3.h"
-#include "imgui_impl_win32.h"
-#include "implot.h"
-
-struct RollingBuffer
-{
-    float Span;
-    ImVector<ImVec2> Data;
-    RollingBuffer()
-    {
-        Span = 10.0f;
-        Data.reserve(2000);
-    }
-    void AddPoint(float x, float y)
-    {
-        float xmod = fmodf(x, Span);
-        if (!Data.empty() && xmod < Data.back().x)
-            Data.shrink(0);
-        Data.push_back(ImVec2(xmod, y));
-    }
-};
-
-struct app_log
-{
-    // Usage:
-    // app_log Log;
-    // Log.Add("Hello %d world\n", 123);
-    // Log.Draw("title");
-    ImGuiTextBuffer Buf;
-    ImGuiTextFilter Filter;
-    ImVector<int> LineOffsets; // Index to lines offset. We maintain this with Add() calls.
-    bool AutoScroll;           // Keep scrolling if already at the bottom.
-    
-    app_log()
-    {
-        AutoScroll = true;
-        Clear();
-    }
-    
-    void Clear()
-    {
-        Buf.clear();
-        LineOffsets.clear();
-        LineOffsets.push_back(0);
-    }
-    
-    void Add(const char *fmt, ...) IM_FMTARGS(2)
-    {
-        int old_size = Buf.size();
-        va_list args;
-        va_start(args, fmt);
-        Buf.appendfv(fmt, args);
-        va_end(args);
-        for(int new_size = Buf.size(); old_size < new_size; old_size++)
-            if(Buf[old_size] == '\n')
-            LineOffsets.push_back(old_size + 1);
-    }
-    
-    void Draw(const char *title, bool *p_open = NULL)
-    {
-        if(!ImGui::Begin(title, p_open))
-        {
-            ImGui::End();
-            return;
-        }
-        
-        // Options menu
-        if(ImGui::BeginPopup("Options"))
-        {
-            ImGui::Checkbox("Auto-scroll", &AutoScroll);
-            ImGui::EndPopup();
-        }
-        
-        // Main window
-        if(ImGui::Button("Options"))
-            ImGui::OpenPopup("Options");
-        ImGui::SameLine();
-        bool clear = ImGui::Button("Clear");
-        ImGui::SameLine();
-        bool copy = ImGui::Button("Copy");
-        ImGui::SameLine();
-        Filter.Draw("Filter", -100.0f);
-        
-        ImGui::Separator();
-        ImGui::BeginChild("scrolling", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
-        
-        if(clear)
-            Clear();
-        if(copy)
-            ImGui::LogToClipboard();
-        
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-        const char *buf = Buf.begin();
-        const char *buf_end = Buf.end();
-        if(Filter.IsActive())
-        {
-            // In this example we don't use the clipper when Filter is enabled.
-            // This is because we don't have a random access on the result on our filter.
-            // A real application processing logs with ten of thousands of entries may want to store the result of
-            // search/filter.. especially if the filtering function is not trivial (e.g. reg-exp).
-            for(int line_no = 0; line_no < LineOffsets.Size; line_no++)
-            {
-                const char *line_start = buf + LineOffsets[line_no];
-                const char *line_end =
-                (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
-                if(Filter.PassFilter(line_start, line_end))
-                    ImGui::TextUnformatted(line_start, line_end);
-            }
-        }
-        else
-        {
-            // The simplest and easy way to display the entire buffer:
-            //   ImGui::TextUnformatted(buf_begin, buf_end);
-            // And it'll just work. TextUnformatted() has specialization for large blob of text and will
-            // fast-forward to skip non-visible lines. Here we instead demonstrate using the clipper to only process
-            // lines that are within the visible area. If you have tens of thousands of items and their processing
-            // cost is non-negligible, coarse clipping them on your side is recommended. Using ImGuiListClipper
-            // requires
-            // - A) random access into your data
-            // - B) items all being the  same height,
-            // both of which we can handle since we an array pointing to the beginning of each line of text.
-            // When using the filter (in the block of code above) we don't have random access into the data to
-            // display anymore, which is why we don't use the clipper. Storing or skimming through the search result
-            // would make it possible (and would be recommended if you want to search through tens of thousands of
-            // entries).
-            ImGuiListClipper clipper;
-            clipper.Begin(LineOffsets.Size);
-            while(clipper.Step())
-            {
-                for(int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++)
-                {
-                    const char *line_start = buf + LineOffsets[line_no];
-                    const char *line_end =
-                    (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
-                    ImGui::TextUnformatted(line_start, line_end);
-                }
-            }
-            clipper.End();
-        }
-        ImGui::PopStyleVar();
-        
-        if(AutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
-            ImGui::SetScrollHereY(1.0f);
-        
-        ImGui::EndChild();
-        ImGui::End();
-    }
-};
-
-
-struct imgui
-{
-    ImGuiContext *ContextImGui;
-    ImPlotContext *ContextImPlot;
-    ImGuiIO *IO;
-    
-    ImGuiMemAllocFunc AllocFunc;
-    ImGuiMemFreeFunc FreeFunc;
-    void *UserData;
-    
-    HDC WGL; // NOTE(ezexff): Need for render imgui
-    
-    // NOTE(ezexff): ImGui all windows visibility
-    bool ShowImGuiWindows;
-    
-    // NOTE(ezexff): ImGui single window visibility
-    bool ShowImGuiDemoWindow;
-    bool ShowImPlotDemoWindow;
-    bool ShowWin32Window;
-    bool ShowGameWindow;
-    bool ShowDebugCollationWindow;
-    bool ShowLogWindow;
-    bool ShowFrameShadersEditorWindow;
-    bool ShowBitmapPreviewWindow;
-    bool ShowSimRegionWindow;
-    
-    // NOTE(ezexff): Sim Region borders
-    bool DrawCameraBounds;
-    bool DrawSimBounds;
-    bool DrawSimRegionBounds;
-    bool DrawSimRegionUpdatableBounds;
-    
-    // NOTE(ezexff): Ground
-    bool DrawGroundBufferBounds;
-    
-    // NOTE(ezexff): Sim Region entities
-    bool DrawSpaceBounds;
-    
-    // NOTE(ezexff): Log audio
-    bool LogAudio;
-    
-    // NOTE(ezexff): Log inputs
-    bool LogMouseInput;
-    bool LogKeyboardInput;
-    
-    // NOTE(ezexff): Log app
-    app_log Log;
-    
-    // TODO(ezexff): Test rolling plot
-    RollingBuffer RData[32];
-};
+#include "engine_debug_interface.h"
 #endif
 
 //~ NOTE(ezexff): Audio
@@ -296,159 +123,6 @@ struct platform_api
     platform_allocate_memory *AllocateMemory;
     platform_deallocate_memory *DeallocateMemory;
 };
-
-//~ TODO(ezexff): Debug collation test
-#define CompletePreviousReadsBeforeFutureReads _ReadBarrier()
-#define CompletePreviousWritesBeforeFutureWrites _WriteBarrier()
-inline u32 AtomicCompareExchangeUInt32(u32 volatile *Value, u32 New, u32 Expected)
-{
-    u32 Result = _InterlockedCompareExchange((long *)Value, New, Expected);
-    
-    return(Result);
-}
-inline u64 AtomicExchangeU64(u64 volatile *Value, u64 New)
-{
-    u64 Result = _InterlockedExchange64((__int64 volatile *)Value, New);
-    
-    return(Result);
-}
-inline u64 AtomicAddU64(u64 volatile *Value, u64 Addend)
-{
-    // NOTE(casey): Returns the original value _prior_ to adding
-    u64 Result = _InterlockedExchangeAdd64((__int64 volatile *)Value, Addend);
-    
-    return(Result);
-}    
-inline u32 GetThreadID(void)
-{
-    u8 *ThreadLocalStorage = (u8 *)__readgsqword(0x30);
-    u32 ThreadID = *(u32 *)(ThreadLocalStorage + 0x48);
-    
-    return(ThreadID);
-}
-
-#if ENGINE_INTERNAL
-struct game_memory;
-struct game_input;
-struct debug_table;
-game_memory *GlobalDebugMemory;
-game_input *GlobalDebugInput;
-//debug_table *GlobalDebugTable;
-extern debug_table *GlobalDebugTable;
-
-struct debug_id
-{
-    void *Value[2];
-};
-
-enum debug_type
-{
-    DebugType_Unknown,
-    
-    DebugType_FrameMarker,
-    DebugType_BeginBlock,
-    DebugType_EndBlock,
-    
-    DebugType_CounterThreadList,
-    //    DebugVariableType_CounterFunctionList,
-};
-
-struct debug_event
-{
-    u64 Clock;
-    char *GUID;
-    char *BlockName; // TODO(casey): Should we remove BlockName altogether?
-    u16 ThreadID;
-    u16 CoreIndex;
-    u8 Type;
-    union
-    {
-        debug_id DebugID;
-        debug_event *Value_debug_event;
-        
-        r32 Value_r32;
-    };
-};
-
-/* 
-#define MAX_DEBUG_THREAD_COUNT 256
-#define MAX_DEBUG_EVENT_ARRAY_COUNT 8
-#define MAX_DEBUG_TRANSLATION_UNITS 3
-#define MAX_DEBUG_EVENT_COUNT (16 * 65536)
-#define MAX_DEBUG_RECORD_COUNT (65536)
- */
-struct debug_table
-{
-    // TODO(casey): No attempt is currently made to ensure that the final
-    // debug records being written to the event array actually complete
-    // their output prior to the swap of the event array index.    
-    u32 CurrentEventArrayIndex;
-    // TODO(casey): This could actually be a u32 atomic now, since we
-    // only need 1 bit to store which array we're using...
-    u64 volatile EventArrayIndex_EventIndex;
-    debug_event Events[3][16*65536];
-};
-
-#define UniqueFileCounterString__(A, B, C) A "(" #B ")." #C
-#define UniqueFileCounterString_(A, B, C) UniqueFileCounterString__(A, B, C)
-#define UniqueFileCounterString() UniqueFileCounterString_(__FILE__, __LINE__, __COUNTER__)
-
-#define RecordDebugEvent(EventType, Block)           \
-u64 ArrayIndex_EventIndex = AtomicAddU64(&GlobalDebugTable->EventArrayIndex_EventIndex, 1); \
-u32 EventIndex = ArrayIndex_EventIndex & 0xFFFFFFFF;            \
-Assert(EventIndex < ArrayCount(GlobalDebugTable->Events[0]));   \
-debug_event *Event = GlobalDebugTable->Events[ArrayIndex_EventIndex >> 32] + EventIndex; \
-Event->Clock = __rdtsc();                       \
-Event->Type = (u8)EventType;                                    \
-Event->CoreIndex = 0;                                           \
-Event->ThreadID = (u16)GetThreadID();                         \
-Event->GUID = UniqueFileCounterString(); \
-Event->BlockName = Block;                              \
-
-#define FRAME_MARKER(SecondsElapsedInit) \
-{ \
-int Counter = __COUNTER__; \
-RecordDebugEvent(DebugType_FrameMarker, "Frame Marker"); \
-Event->Value_r32 = SecondsElapsedInit; \
-} 
-
-#define TIMED_BLOCK__(BlockName, Number, ...) timed_block TimedBlock_##Number(__COUNTER__, __FILE__, __LINE__, BlockName, ## __VA_ARGS__)
-#define TIMED_BLOCK_(BlockName, Number, ...) TIMED_BLOCK__(BlockName, Number, ## __VA_ARGS__)
-#define TIMED_BLOCK(BlockName, ...) TIMED_BLOCK_(#BlockName, __LINE__, ## __VA_ARGS__)
-#define TIMED_FUNCTION(...) TIMED_BLOCK_((char *)__FUNCTION__, __LINE__, ## __VA_ARGS__)
-
-#define BEGIN_BLOCK_(Counter, FileNameInit, LineNumberInit, BlockNameInit)          \
-{RecordDebugEvent(DebugType_BeginBlock, BlockNameInit);}
-#define END_BLOCK_(Counter) \
-{ \
-RecordDebugEvent(DebugType_EndBlock, "End Block"); \
-}
-
-#define BEGIN_BLOCK(Name) \
-int Counter_##Name = __COUNTER__;                       \
-BEGIN_BLOCK_(Counter_##Name, __FILE__, __LINE__, #Name);
-
-#define END_BLOCK(Name) \
-END_BLOCK_(Counter_##Name);
-
-struct timed_block
-{
-    int Counter;
-    
-    timed_block(int CounterInit, char *FileName, int LineNumber, char *BlockName, u32 HitCountInit = 1)
-    {
-        // TODO(casey): Record the hit count value here?
-        Counter = CounterInit;
-        BEGIN_BLOCK_(Counter, FileName, LineNumber, BlockName);
-    }
-    
-    ~timed_block()
-    {
-        END_BLOCK_(Counter);
-    }
-};
-
-#endif
 
 // NOTE(ezexff): Opengl function declarations
 typedef char GLchar;
@@ -742,6 +416,12 @@ struct renderer_frame
     
     //~ TODO(ezexff): Move into ImGui?
     bool DrawDebugTextLine;
+    
+    // TODO(ezexff): Test
+    u8 WaterPushBufferMemory[1024];
+    u32 WaterMaxPushBufferSize;
+    u8 *WaterPushBufferBase;
+    u32 WaterPushBufferSize;
     
 #if ENGINE_INTERNAL
     b32 IsOpenglImGuiInitialized;

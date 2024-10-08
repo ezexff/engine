@@ -77,6 +77,37 @@ DEBUGTextLine(renderer_frame *Frame, game_assets *Assets, char *String)
     }
 }
 
+internal void
+TestBubbleSort(void)
+{
+    u32 Array[10] = 
+    {
+        0, 5, 2, 4, 1, 
+        6, 9, 2, 4, 5
+    };
+    u32 Count = ArrayCount(Array);
+    
+    for(u32 Outer = 0;
+        Outer < Count;
+        ++Outer)
+    {
+        for(u32 Inner = 0;
+            Inner < Count - 1;
+            ++Inner)
+        {
+            u32 A = Array[Inner];
+            u32 B = Array[Inner + 1];
+            if(A > B)
+            {
+                Array[Inner] = B;
+                Array[Inner + 1] = A;
+            }
+        }
+    }
+    
+    u32 CheckResult = 321321;
+}
+
 #include "engine_mode_test.cpp"
 #include "engine_mode_world.cpp"
 
@@ -136,7 +167,8 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         
         // NOTE(ezexff): Set current game mode
         {
-            GameState->GameModeID = GameMode_World;
+            //GameState->GameModeID = GameMode_World;
+            GameState->GameModeID = GameMode_Test;
         }
         
         // NOTE(ezexff): Init sound mixer
@@ -226,6 +258,9 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             Platform.AddEntry(TranState->LowPriorityQueue, TestWork, Work);
         }
         
+        // TODO(ezexff): Test sort
+        TestBubbleSort();
+        
         // NOTE(ezexff): Init world gen
         {
             GameState->GroundBufferWidth = 8;
@@ -241,6 +276,9 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
 #define PLAYER_EYE_HEIGHT_FROM_GROUND 1.75f  // TODO(ezexff): Replace
             Renderer->Camera.P = V3(0, 0, PLAYER_EYE_HEIGHT_FROM_GROUND);
             Renderer->ClearColor = V4(0.5, 0.5, 0.5, 1);
+            
+            //~ NOTE(ezexff): Push buffers
+            Renderer->PushBufferUI.Base = Renderer->PushBufferUI.Memory;
             
             //~ NOTE(ezexff): Skybox
             Renderer->Skybox = PushStruct(&GameState->ConstArena, renderer_skybox);
@@ -372,16 +410,6 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         Input->dtForFrame = 0.001f;
         // TODO(casey): Warn on out-of-range refresh
     }*/
-    
-    // NOTE(ezexff): Clear push buffer memory
-    while(Frame->PushBufferSize--)
-    {
-        Frame->PushBufferMemory[Frame->PushBufferSize] = 0;
-    }
-    Frame->PushBufferSize = 0;
-    Assert(Frame->Renderer);
-    renderer *Renderer = (renderer *)Frame->Renderer;
-    Renderer->Flags = 0;
     
     switch(GameState->GameModeID)
     {
