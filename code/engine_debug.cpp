@@ -939,7 +939,6 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
                     u64 CycleCount = (Event->Clock - DebugState->CurrentDebugBlock->OpeningEvent->Clock);
                     //Log->Add("%s = %lu\n", DebugState->CurrentDebugBlock->OpeningEvent->BlockName, CycleCount);
                     
-                    
                     if(DrawRollingPlot)
                     {                    
                         ImGuiHandle->RData[RegionIndex].AddPoint(t, (r32)CycleCount);

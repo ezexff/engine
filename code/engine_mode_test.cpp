@@ -8,12 +8,12 @@ UpdateAndRenderTest(game_memory *Memory)
     
     renderer *Renderer = (renderer *)Frame->Renderer;
     
-    Renderer->PushBufferUI.SortEntryArray = PushArray(&TranState->TranArena, 10, tile_sort_entry);
-    
     v2 Dim1 = V2(1000, 1000);
     v2 Pos1 = V2((r32)Frame->Dim.x - Dim1.x / 2, -Dim1.y / 2);
-    PushRectOnScreen(&Renderer->PushBufferUI, Pos1, V2(300, 300), V4(0, 0, 1, 1), 3);
     PushRectOnScreen(&Renderer->PushBufferUI, Pos1, V2(500, 500), V4(0, 1, 0, 1), 2);
+    PushRectOnScreen(&Renderer->PushBufferUI, Pos1, V2(250, 250), V4(0.5, 0, 0.5, 1), 5);
+    PushRectOnScreen(&Renderer->PushBufferUI, Pos1, V2(100, 100), V4(0, 0, 1, 1), 10);
+    PushRectOnScreen(&Renderer->PushBufferUI, Pos1, V2(450, 450), V4(0, 0.5, 0.5, 1), 4);
     PushRectOnScreen(&Renderer->PushBufferUI, Pos1, Dim1, V4(1, 0, 0, 1), 1);
     
     /* 

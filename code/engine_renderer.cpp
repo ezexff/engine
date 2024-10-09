@@ -218,16 +218,16 @@ PushRenderElement_(renderer_push_buffer *PushBuffer, u32 Size, renderer_ortho_en
         Header->OrthoType = Type;
         Result = (u8 *)Header + sizeof(*Header);
         
-        if(PushBuffer->ElementCount < 10)
+        if(PushBuffer->ElementCount < PushBuffer->ElementCountMax)
         {
             PushBuffer->SortEntryArray[PushBuffer->ElementCount].Offset = PushBuffer->Size;
             PushBuffer->SortEntryArray[PushBuffer->ElementCount].SortKey = SortKey;
+            PushBuffer->ElementCount++;
         }
         else
         {
             InvalidCodePath;
         }
-        PushBuffer->ElementCount++;
         
         PushBuffer->Size += Size;
     }

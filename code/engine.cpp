@@ -279,6 +279,8 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             
             //~ NOTE(ezexff): Push buffers
             Renderer->PushBufferUI.Base = Renderer->PushBufferUI.Memory;
+            Renderer->PushBufferUI.ElementCountMax = sizeof(Renderer->PushBufferUI.Memory) / 8; // min element size is 8 bytes (header + value)
+            Renderer->PushBufferUI.SortEntryArray = PushArray(&TranState->TranArena, Renderer->PushBufferUI.ElementCountMax, tile_sort_entry);
             
             //~ NOTE(ezexff): Skybox
             Renderer->Skybox = PushStruct(&GameState->ConstArena, renderer_skybox);

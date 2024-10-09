@@ -133,6 +133,7 @@ struct renderer_push_buffer
     u8 Memory[65536];
     
     u32 ElementCount;
+    u32 ElementCountMax;
     tile_sort_entry *SortEntryArray;
 };
 
