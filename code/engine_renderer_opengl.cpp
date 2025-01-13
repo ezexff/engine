@@ -1607,6 +1607,7 @@ SortPushBufferEntries(renderer_push_buffer *PushBuffer)
         Outer < Count;
         ++Outer)
     {
+        b32 ListIsSorted = true;
         for(u32 Inner = 0;
             Inner < (Count - 1);
             ++Inner)
@@ -1619,7 +1620,13 @@ SortPushBufferEntries(renderer_push_buffer *PushBuffer)
                 tile_sort_entry Swap = *EntryB;
                 *EntryB = *EntryA;
                 *EntryA = Swap;
+                ListIsSorted = false;
             }
+        }
+        
+        if(ListIsSorted)
+        {
+            break;
         }
     }
 }

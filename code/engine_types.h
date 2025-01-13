@@ -69,6 +69,8 @@ typedef double r64;
 #define U64Max ((u64)-1)
 #define F32Max FLT_MAX
 #define F32Min -FLT_MAX
+#define F64Max DBL_MAX
+#define F64Min -DBL_MAX
 
 #if !defined(internal)
 #define internal static
@@ -353,6 +355,54 @@ operator==(string A, wchar_t *B)
     }
     
     return (Result);
+}
+
+inline b32
+StringsAreEqual(char *A, char *B)
+{
+    b32 Result = (A == B);
+    
+    if(A && B)
+    {
+        while(*A && *B && (*A == *B))
+        {
+            ++A;
+            ++B;
+        }
+        
+        Result = ((*A == 0) && (*B == 0));
+    }
+    
+    return(Result);
+}
+
+inline b32
+StringsAreEqual(umm ALength, char *A, char *B)
+{
+    b32 Result = false;
+    
+    if(B)
+    {
+        char *At = B;
+        for(umm Index = 0;
+            Index < ALength;
+            ++Index, ++At)
+        {
+            if((*At == 0) ||
+               (A[Index] != *At))
+            {
+                return(false);
+            }        
+        }
+        
+        Result = (*At == 0);
+    }
+    else
+    {
+        Result = (ALength == 0);
+    }
+    
+    return(Result);
 }
 
 //~ NOTE(ezexff): Asset

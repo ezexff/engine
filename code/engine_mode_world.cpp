@@ -1300,6 +1300,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     
     // NOTE(ezexff): Fill ground buffer
 #if 1
+    BEGIN_BLOCK("FillGroundBuffer");
     world_position MinChunkP = MapIntoChunkSpace(World, ModeWorld->Camera.P, GetMinCorner(CameraBoundsInMeters));
     world_position MaxChunkP = MapIntoChunkSpace(World, ModeWorld->Camera.P, GetMaxCorner(CameraBoundsInMeters));
     
@@ -1360,8 +1361,10 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             }
         }
     }
+    END_BLOCK();
     
     // NOTE(ezexff): Render Ground Buffers
+    BEGIN_BLOCK("RenderGroundBuffers");
     {
         for(u32 GroundBufferIndex = 0;
             GroundBufferIndex < Renderer->Terrain->GroundBufferArray.Count;
@@ -1405,6 +1408,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         }
     }
 #endif
+    END_BLOCK();
     
 #if 0
     // NOTE(ezexff): Render ground buffers

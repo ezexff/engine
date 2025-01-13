@@ -444,10 +444,12 @@ struct game_memory
     
 #if ENGINE_INTERNAL
     imgui ImGuiHandle;
-    debug_table *DebugTable;
+    struct debug_table *DebugTable;
     
     u64 DebugStorageSize;
     void *DebugStorage; // NOTE(ezexff): REQUIRED to be cleared to zero at startup
+    
+    b32 Paused;
     //struct debug_state *DebugState;
     //struct memory_arena *ConstArena;
 #endif

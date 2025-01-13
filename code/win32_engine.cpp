@@ -786,6 +786,8 @@ int main(int, char**)
 extern "C" void __stdcall WinMainCRTStartup(void)
 #endif
 {
+    DEBUGSetEventRecording(true);
+    
     HINSTANCE Instance = GetModuleHandle(0);
     
     // NOTE(ezexff): Init thread queues
@@ -1019,14 +1021,14 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                         }
                         
                         // NOTE(ezexff): BEGIN FRAME
-                        BEGIN_BLOCK(BeginFrame);
+                        BEGIN_BLOCK("BeginFrame");
                         {
                             BeginFrame(Frame);
                         }
-                        END_BLOCK(BeginFrame);
+                        END_BLOCK();
                         
                         // NOTE(ezexff): Input processing
-                        BEGIN_BLOCK(InputProcessing);
+                        BEGIN_BLOCK("InputProcessing");
                         {
                             // NOTE(ezexff): Load prev frame keyboard buttons state
                             game_controller_input *OldKeyboardController = GetController(OldInput, 0);
@@ -1147,10 +1149,10 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                 }
                             }
                         }
-                        END_BLOCK(InputProcessing);
+                        END_BLOCK();
                         
                         // NOTE(ezexff): Init audio update
-                        BEGIN_BLOCK(InitAudioUpdate);
+                        BEGIN_BLOCK("InitAudioUpdate");
                         int SamplesToWrite = 0;
                         UINT32 SoundPaddingSize = 0;
                         {
@@ -1208,35 +1210,35 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                         SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
                         SoundBuffer.SampleCount = SamplesToWrite;
                         SoundBuffer.Samples = Samples;
-                        END_BLOCK(InitAudioUpdate);
+                        END_BLOCK();
                         
                         
                         // NOTE(ezexff): Game update
-                        BEGIN_BLOCK(GameUpdate);
+                        BEGIN_BLOCK("GameUpdate");
                         if(!GlobalPause)
                         {
                             UpdateAndRender(&GameMemory, NewInput);
                         }
-                        END_BLOCK(GameUpdate);
+                        END_BLOCK();
                         
                         // NOTE(ezexff): Audio update
-                        BEGIN_BLOCK(AudioUpdate);
+                        BEGIN_BLOCK("AudioUpdate");
                         if(!GlobalPause)
                         {
                             GetSoundSamples(&GameMemory, &SoundBuffer);
                             Win32FillSoundBuffer(&SoundOutput, SamplesToWrite, &SoundBuffer);
                         }
-                        END_BLOCK(AudioUpdate);
+                        END_BLOCK();
                         
-                        //BEGIN_BLOCK(DebugCollation);
+                        BEGIN_BLOCK("DebugCollation");
                         {
+                            GameMemory.Paused = GlobalPause;
                             DEBUGGameFrameEnd(&GameMemory, NewInput);
-                            GlobalDebugTable_.EventArrayIndex_EventIndex = 0;
                         }
-                        //END_BLOCK(DebugCollation);
+                        END_BLOCK();
                         
                         // NOTE(ezexff): ImGui demo, win32 and renderer windows
-                        BEGIN_BLOCK(ImGuiUpdate);
+                        BEGIN_BLOCK("ImGuiUpdate");
                         {
 #if ENGINE_INTERNAL
                             if(ImGuiHandle->ShowImGuiWindows)
@@ -1509,23 +1511,23 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                             }
 #endif
                         }
-                        END_BLOCK(ImGuiUpdate);
+                        END_BLOCK();
                         
                         // NOTE(ezexff): END FRAME
-                        BEGIN_BLOCK(EndFrame);
+                        BEGIN_BLOCK("EndFrame");
                         {
                             EndFrame(Frame);
                         }
-                        END_BLOCK(EndFrame);
+                        END_BLOCK();
 #if ENGINE_INTERNAL
                         // NOTE(ezexff): ImGui end frame
-                        BEGIN_BLOCK(ImGuiRender);
+                        BEGIN_BLOCK("ImGuiRender");
                         {
                             ImGui::Render();
                             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
                             SwapBuffers(GameMemory.ImGuiHandle.WGL);
                         }
-                        END_BLOCK(ImGuiRender);
+                        END_BLOCK();
 #endif
                         
                         // NOTE(ezexff): Save input state for next after flip frame

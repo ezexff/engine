@@ -35,8 +35,8 @@ OutputPlayingSounds(audio_state *AudioState,
     Assert((SoundBuffer->SampleCount & 3) == 0);
     u32 ChunkCount = SoundBuffer->SampleCount / 4;
     
-    __m128 *RealChannel0 = PushArray(TempArena, ChunkCount, __m128, 16);
-    __m128 *RealChannel1 = PushArray(TempArena, ChunkCount, __m128, 16);
+    __m128 *RealChannel0 = PushArray(TempArena, ChunkCount, __m128, AlignNoClear(16));
+    __m128 *RealChannel1 = PushArray(TempArena, ChunkCount, __m128, AlignNoClear(16));
     
     r32 SecondsPerSample = 1.0f / (r32)SoundBuffer->SamplesPerSecond;
 #define AudioStateOutputChannelCount 2

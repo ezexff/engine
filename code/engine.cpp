@@ -91,6 +91,7 @@ TestBubbleSort(void)
         Outer < Count;
         ++Outer)
     {
+        b32 ListIsSorted = true;
         for(u32 Inner = 0;
             Inner < Count - 1;
             ++Inner)
@@ -101,7 +102,13 @@ TestBubbleSort(void)
             {
                 Array[Inner] = B;
                 Array[Inner + 1] = A;
+                ListIsSorted = false;
             }
+        }
+        
+        if(ListIsSorted)
+        {
+            break;
         }
     }
     
@@ -126,6 +133,7 @@ internal PLATFORM_WORK_QUEUE_CALLBACK(TestWork)
     EndTaskWithMemory(Work->Task);
 }
 
+debug_table *GlobalDebugTable;
 extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
 {
     renderer_frame *Frame = &Memory->Frame;
@@ -168,7 +176,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         // NOTE(ezexff): Set current game mode
         {
             //GameState->GameModeID = GameMode_World;
-            GameState->GameModeID = GameMode_Test;
+            GameState->GameModeID = GameMode_World;
         }
         
         // NOTE(ezexff): Init sound mixer

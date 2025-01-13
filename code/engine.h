@@ -74,6 +74,8 @@ struct tran_state
     
     game_assets *Assets;
     
+    u32 MainGenerationID;
+    
     // NOTE(ezexff): Terrain
     // NOTE(ezexff): Тиррейн состоит из чанков, а чанки из тайлов
     /*u32 GroundBufferCount;
@@ -126,7 +128,6 @@ EndTaskWithMemory(task_with_memory *Task)
 platform_api Platform;
 
 #if ENGINE_INTERNAL
-debug_table *GlobalDebugTable;
 //game_memory *GlobalDebugMemory;
 app_log *Log;
 #endif

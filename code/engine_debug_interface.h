@@ -223,30 +223,41 @@ enum debug_type
     DebugType_FrameMarker,
     DebugType_BeginBlock,
     DebugType_EndBlock,
-    
-    DebugType_CounterThreadList,
-    //    DebugVariableType_CounterFunctionList,
 };
 
 struct debug_event
 {
     u64 Clock;
     char *GUID;
-    char *BlockName; // TODO(casey): Should we remove BlockName altogether?
     u16 ThreadID;
     u16 CoreIndex;
     u8 Type;
-    union
-    {
-        debug_id DebugID;
-        debug_event *Value_debug_event;
-        
-        r32 Value_r32;
-    };
+    
+    r32 Value_r32;
+    /* 
+        union
+        {
+            debug_id DebugID;
+            debug_event *Value_debug_event;
+            
+            b32 Value_b32;
+            s32 Value_s32;
+            u32 Value_u32;
+            r32 Value_r32;
+            v2 Value_v2;
+            v3 Value_v3;
+            v4 Value_v4;
+            rectangle2 Value_rectangle2;
+            rectangle3 Value_rectangle3;
+            //memory_arena_p Value_memory_arena_p;
+        };
+     */
 };
 
 struct debug_table
 {
+    //debug_event EditEvent;
+    u32 RecordIncrement;
     // TODO(casey): No attempt is currently made to ensure that the final
     // debug records being written to the event array actually complete
     // their output prior to the swap of the event array index.    
@@ -254,15 +265,17 @@ struct debug_table
     // TODO(casey): This could actually be a u32 atomic now, since we
     // only need 1 bit to store which array we're using...
     u64 volatile EventArrayIndex_EventIndex;
-    debug_event Events[3][16*65536];
+    debug_event Events[2][16*65536];
 };
 
-#define UniqueFileCounterString__(A, B, C) A "(" #B ")." #C
-#define UniqueFileCounterString_(A, B, C) UniqueFileCounterString__(A, B, C)
-#define UniqueFileCounterString() UniqueFileCounterString_(__FILE__, __LINE__, __COUNTER__)
+#define UniqueFileCounterString__(A, B, C, D) A "|" #B "|" #C "|" D
+#define UniqueFileCounterString_(A, B, C, D) UniqueFileCounterString__(A, B, C, D)
+#define DEBUG_NAME(Name) UniqueFileCounterString_(__FILE__, __LINE__, __COUNTER__, Name)
 
-#define RecordDebugEvent(EventType, Block)           \
-u64 ArrayIndex_EventIndex = AtomicAddU64(&GlobalDebugTable->EventArrayIndex_EventIndex, 1); \
+#define DEBUGSetEventRecording(Enabled) (GlobalDebugTable->RecordIncrement = (Enabled) ? 1 : 0)
+
+#define RecordDebugEvent(EventType, GUIDInit)           \
+u64 ArrayIndex_EventIndex = AtomicAddU64(&GlobalDebugTable->EventArrayIndex_EventIndex, GlobalDebugTable->RecordIncrement); \
 u32 EventIndex = ArrayIndex_EventIndex & 0xFFFFFFFF;            \
 Assert(EventIndex < ArrayCount(GlobalDebugTable->Events[0]));   \
 debug_event *Event = GlobalDebugTable->Events[ArrayIndex_EventIndex >> 32] + EventIndex; \
@@ -270,48 +283,33 @@ Event->Clock = __rdtsc();                       \
 Event->Type = (u8)EventType;                                    \
 Event->CoreIndex = 0;                                           \
 Event->ThreadID = (u16)GetThreadID();                         \
-Event->GUID = UniqueFileCounterString(); \
-Event->BlockName = Block;                              \
+Event->GUID = GUIDInit;
 
 #define FRAME_MARKER(SecondsElapsedInit) \
-{ \
-int Counter = __COUNTER__; \
-RecordDebugEvent(DebugType_FrameMarker, "Frame Marker"); \
-Event->Value_r32 = SecondsElapsedInit; \
-} 
+{RecordDebugEvent(DebugType_FrameMarker, DEBUG_NAME("Frame Marker")); \
+Event->Value_r32 = SecondsElapsedInit;}  
 
-#define TIMED_BLOCK__(BlockName, Number, ...) timed_block TimedBlock_##Number(__COUNTER__, __FILE__, __LINE__, BlockName, ## __VA_ARGS__)
-#define TIMED_BLOCK_(BlockName, Number, ...) TIMED_BLOCK__(BlockName, Number, ## __VA_ARGS__)
-#define TIMED_BLOCK(BlockName, ...) TIMED_BLOCK_(#BlockName, __LINE__, ## __VA_ARGS__)
-#define TIMED_FUNCTION(...) TIMED_BLOCK_((char *)__FUNCTION__, __LINE__, ## __VA_ARGS__)
+#define TIMED_BLOCK__(GUID, Number, ...) timed_block TimedBlock_##Number(GUID, ## __VA_ARGS__)
+#define TIMED_BLOCK_(GUID, Number, ...) TIMED_BLOCK__(GUID, Number, ## __VA_ARGS__)
+#define TIMED_BLOCK(Name, ...) TIMED_BLOCK_(DEBUG_NAME(Name), __COUNTER__, ## __VA_ARGS__)
+#define TIMED_FUNCTION(...) TIMED_BLOCK_(DEBUG_NAME(__FUNCTION__), ## __VA_ARGS__)
 
-#define BEGIN_BLOCK_(Counter, FileNameInit, LineNumberInit, BlockNameInit)          \
-{RecordDebugEvent(DebugType_BeginBlock, BlockNameInit);}
-#define END_BLOCK_(Counter) \
-{ \
-RecordDebugEvent(DebugType_EndBlock, "End Block"); \
-}
+#define BEGIN_BLOCK_(GUID) {RecordDebugEvent(DebugType_BeginBlock, GUID);}
+#define END_BLOCK_(GUID) {RecordDebugEvent(DebugType_EndBlock, GUID);}
 
-#define BEGIN_BLOCK(Name) \
-int Counter_##Name = __COUNTER__;                       \
-BEGIN_BLOCK_(Counter_##Name, __FILE__, __LINE__, #Name);
-
-#define END_BLOCK(Name) \
-END_BLOCK_(Counter_##Name);
+#define BEGIN_BLOCK(Name) BEGIN_BLOCK_(DEBUG_NAME(Name))
+#define END_BLOCK() END_BLOCK_(DEBUG_NAME("END_BLOCK_"))
 
 struct timed_block
 {
-    int Counter;
-    
-    timed_block(int CounterInit, char *FileName, int LineNumber, char *BlockName, u32 HitCountInit = 1)
+    timed_block(char *GUID, u32 HitCountInit = 1)
     {
+        BEGIN_BLOCK_(GUID);
         // TODO(casey): Record the hit count value here?
-        Counter = CounterInit;
-        BEGIN_BLOCK_(Counter, FileName, LineNumber, BlockName);
     }
     
     ~timed_block()
     {
-        END_BLOCK_(Counter);
+        END_BLOCK();
     }
 };
