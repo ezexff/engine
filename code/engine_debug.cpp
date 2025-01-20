@@ -900,8 +900,21 @@ RenderStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *DebugS
         Stat->Avg = Stat->Sum / Stat->Count;
         Assert(DebugState->TmpBlockCount < ArrayCount(DebugState->BlockStatArray));
         
-        r64 FramePercent = Node->Clock / FrameClock;
-        ImGui::Text("%s %.2f%% avg=%.2f %d\n", ParsedName.Name, FramePercent, (r64)Stat->Avg, Node->Clock);
+        r64 FramePercent = 100 * Node->Clock / FrameClock;
+        if(FramePercent > 5.0f)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
+        }
+        else if((FramePercent <= 5.0f) && (FramePercent > 0.5f))
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 0, 255));
+        }
+        else
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 255));
+        }
+        ImGui::Text("%s %.2f%% ThreadID=%d avg=%.2f min=%.2f max=%.2f clock=%d\n", ParsedName.Name, FramePercent, Node->ThreadID, (r64)Stat->Avg, (r64)Stat->Min, (r64)Stat->Max, Node->Clock);
+        ImGui::PopStyleColor();
         
         DebugState->TmpBlockCount++;
         
@@ -935,6 +948,8 @@ DEBUGInitFrame(debug_state *DebugState)
 internal void
 CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventArray)
 {
+    TIMED_FUNCTION();
+    
     for(u32 EventIndex = 0;
         EventIndex < EventCount;
         ++EventIndex)
@@ -1060,11 +1075,15 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
                                         debug_stored_block *StoredBlock = DebugState->OpenBlockArray[DebugState->OpenBlockIndex];
                      */
                     
-                    debug_stored_block *StoredBlock = DebugState->OpenBlockArray[DebugState->OpenBlockIndex];
-                    if(StoredBlock->ThreadID == Event->ThreadID)
+                    debug_stored_block *OpenStoredBlock = DebugState->OpenBlockArray[DebugState->OpenBlockIndex];
+                    if(OpenStoredBlock->ThreadID == Event->ThreadID)
                     {
-                        StoredBlock->Clock = Event->Clock - StoredBlock->Clock;
-                        DebugState->DebugFrameArray[DebugState->DebugFrameIndex].ClockInCycles += (r64)StoredBlock->Clock;
+                        OpenStoredBlock->Clock = Event->Clock - OpenStoredBlock->Clock;
+                        DebugState->DebugFrameArray[DebugState->DebugFrameIndex].ClockInCycles += (r64)OpenStoredBlock->Clock;
+                    }
+                    else
+                    {
+                        InvalidCodePath;
                     }
                     
                     DebugState->OpenBlockArray[DebugState->OpenBlockIndex] = 0;
@@ -1085,7 +1104,7 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
     
 #if 0    
     if(ImGuiHandle->ShowImGuiWindows)
-    {   
+    {
         ImGui::Begin("Test", &ImGuiHandle->ShowDebugCollationWindow);
         
         local bool DrawRollingPlot = false;
@@ -1241,53 +1260,59 @@ DEBUGStart(debug_state *DebugState, u32 MainGenerationID)
 internal void
 DEBUGEnd(debug_state *DebugState)
 {
+    TIMED_FUNCTION();
+    
     imgui *ImGuiHandle = &GlobalDebugMemory->ImGuiHandle;
     if(ImGuiHandle->ShowImGuiWindows)
     {
-        ImGui::Begin("DebugProfile", &ImGuiHandle->ShowDebugCollationWindow);
-        ImGui::Text("TotalFrameCount = %d\n", DebugState->TotalFrameCount);
-        ImGui::Text("StoredBlockCount = %d\n", DebugState->StoredBlockCount);
-        ImGui::Text("DebugFrameIndex = %d\n", DebugState->DebugFrameIndex);
-        
-        if(ImGui::Button("ResetStat"))
+        if(ImGuiHandle->ShowDebugCollationWindow)
         {
-            for(u32 Index = 0;
-                Index < ArrayCount(DebugState->BlockStatArray);
-                ++Index)
-            {
-                DebugState->BlockStatArray[Index].Min = F64Max;
-                DebugState->BlockStatArray[Index].Max = F64Min;
-                DebugState->BlockStatArray[Index].Sum = 0.0f;
-                DebugState->BlockStatArray[Index].Avg = 0.0f;
-                DebugState->BlockStatArray[Index].Count = 0;
-            }
-        }
-        
-        if(DebugState->TotalFrameCount > 0)
-        {
-            s32 PrevFrameIndex = DebugState->DebugFrameIndex - 1;
+            ImGui::Begin("DebugProfile", &ImGuiHandle->ShowDebugCollationWindow);
+            ImGui::Text("TotalFrameCount = %d\n", DebugState->TotalFrameCount);
+            ImGui::Text("StoredBlockCount = %d\n", DebugState->StoredBlockCount);
+            ImGui::Text("DebugFrameIndex = %d\n", DebugState->DebugFrameIndex);
+            ImGui::Text("OpenBlockIndex = %d\n", DebugState->OpenBlockIndex);
             
-            if(DebugState->DebugFrameIndex == 0)
+            if(ImGui::Button("ResetStat"))
             {
-                PrevFrameIndex = 255;
+                for(u32 Index = 0;
+                    Index < ArrayCount(DebugState->BlockStatArray);
+                    ++Index)
+                {
+                    DebugState->BlockStatArray[Index].Min = F64Max;
+                    DebugState->BlockStatArray[Index].Max = F64Min;
+                    DebugState->BlockStatArray[Index].Sum = 0.0f;
+                    DebugState->BlockStatArray[Index].Avg = 0.0f;
+                    DebugState->BlockStatArray[Index].Count = 0;
+                }
             }
-            /* 
-                        if(PrevFrameIndex <= 0)
-                        {
-                            int TestFoo = 0;
-                        }
-             */
             
-            //if(DebugState->DebugFrameIndex > 0)
-            //CalcStoredBlockTreeStat(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState->BlockStatArray);
-            ImGui::Text("PrevFrameClock = %.3fms", DebugState->DebugFrameArray[PrevFrameIndex].ClockInMs * 1000.0f);
-            ImGui::Text("PrevFrameClock = %.0fcycles", DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
-            ImGui::Spacing();
-            DebugState->TmpBlockCount = 0;
-            RenderStoredBlockTree(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
+            if(DebugState->TotalFrameCount > 0)
+            {
+                s32 PrevFrameIndex = DebugState->DebugFrameIndex - 1;
+                
+                if(DebugState->DebugFrameIndex == 0)
+                {
+                    PrevFrameIndex = 255;
+                }
+                /* 
+                            if(PrevFrameIndex <= 0)
+                            {
+                                int TestFoo = 0;
+                            }
+                 */
+                
+                //if(DebugState->DebugFrameIndex > 0)
+                //CalcStoredBlockTreeStat(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState->BlockStatArray);
+                ImGui::Text("PrevFrameClock = %.3fms", DebugState->DebugFrameArray[PrevFrameIndex].ClockInMs * 1000.0f);
+                ImGui::Text("PrevFrameClock = %.0fcycles", DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
+                ImGui::Spacing();
+                DebugState->TmpBlockCount = 0;
+                RenderStoredBlockTree(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
+            }
+            
+            ImGui::End();
         }
-        
-        ImGui::End();
         
 #if 0
         ImGui::Begin("DebugProfile", &ImGuiHandle->ShowDebugCollationWindow);
@@ -1512,8 +1537,6 @@ ImPlot::EndPlot();
         }
         
         ImGui::End();
-#endif
-#if 0         
         {
             ImGui::Begin("DebugCollation", &ImGuiHandle->ShowDebugCollationWindow);
             
@@ -1685,7 +1708,6 @@ ImPlot::EndPlot();
             }
             
             //EndTemporaryMemory(TempMem);
-            
             
             ImGui::End();
         }

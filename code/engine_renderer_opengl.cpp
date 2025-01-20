@@ -1545,6 +1545,7 @@ OpenglDrawWater(renderer *Renderer, u32 ShaderProgramID, renderer_frame *Frame)
 void
 OpenglInitBitmapPreview(renderer_frame *Frame)
 {
+    TIMED_FUNCTION();
     loaded_bitmap *Preview = &Frame->Preview;
     if(!Preview->OpenglID)
     {
@@ -1569,6 +1570,7 @@ OpenglInitBitmapPreview(renderer_frame *Frame)
 void
 OpenglInitFrameFBO(renderer_frame *Frame)
 {
+    TIMED_FUNCTION();
     Assert(Frame->Dim.x > 0);
     Assert(Frame->Dim.y > 0);
     
@@ -1632,83 +1634,34 @@ SortPushBufferEntries(renderer_push_buffer *PushBuffer)
 }
 
 void
-OpenglEndFrame(renderer_frame *Frame)
+OpenglDrawUI(renderer_frame *Frame)
 {
     renderer *Renderer = (renderer *)Frame->Renderer;
-    renderer_camera *Camera = &Renderer->Camera;
-    renderer_programs *Programs = &Frame->Programs;
-    
-    Assert(Renderer);
-    
-    //~ NOTE(ezexff): Init 
-    OpenglInitFrameFBO(Frame);
-    OpenglInitRendererMatrices(Renderer, Frame->AspectRatio);
-    OpenglInitSkybox(Renderer);
-    if(IsSet(Renderer, RendererFlag_Lighting))
-    {
-        // TODO(ezexff): ???
-    }
-    OpenglInitShadowMap(Renderer);
-    OpenglInitWater(Renderer);
-    OpenglInitTerrain(Renderer);
-    // NOTE(ezexff): Texture for preview window
-#if ENGINE_INTERNAL
-    OpenglInitBitmapPreview(Frame);
-#endif
-    
-    OpenglCompileShaders(Frame);
-    
-    //~ NOTE(ezexff): Draw parts of scene into their FBOs
-    glEnable(GL_DEPTH_TEST);
-    OpenglDrawShadowMap(Renderer, Programs->ShadowMap.OpenglID);
-    OpenglDrawWaterReflectionAndRefraction(Renderer, Frame->AspectRatio, &Frame->Programs);
-    
-    // NOTE(ezexff): Draw scene into one FBO
-    glViewport(0, 0, Frame->Dim.x, Frame->Dim.y);
-    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Frame->FBO);
-    {
-        glClearColor(Renderer->ClearColor.x, Renderer->ClearColor.y, Renderer->ClearColor.z, Renderer->ClearColor.w);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-        OpenglDrawMeshes(Renderer, Programs->Scene.OpenglID);
-        OpenglDrawWater(Renderer, Programs->Water.OpenglID, Frame);
-        OpenglDrawDebugShapes(Frame);
-        OpenglDrawSkybox(Renderer, Programs->Skybox.OpenglID);
-    }
-    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glDisable(GL_DEPTH_TEST);
-    
-    //~ NOTE(ezexff): Draw FBO texture on screen
-    Opengl->glUseProgram(Programs->Frame.OpenglID);
-    {
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(Programs->Frame.OpenglID, "EffectID"), Frame->EffectID);
-        Opengl->glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, Frame->ColorTexture);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(Programs->Frame.OpenglID, "ColorTexture"), 0);
-        
-        glViewport(0, 0, Frame->Dim.x, Frame->Dim.y);
-        Opengl->glBindVertexArray(Frame->VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        Opengl->glBindVertexArray(0);
-    }
-    Opengl->glUseProgram(0);
-    
     //~ NOTE(ezexff): Draw UI
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
+    //glViewport(0, 0, Frame->Dim.x, Frame->Dim.y);
+    
     // NOTE(ezexff): Draw screen push buffer
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(0, (r32)Frame->Dim.x, (r32)Frame->Dim.y, 0, -1, 1);
+    glOrtho(0, (r32)Frame->Dim.x, (r32)Frame->Dim.y, 0, -1.0f, 1.0f);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     
-    // NOTE(ezexff): Center y and scale
-    s32 ScreenCenterY = (Frame->Dim.y + 1) / 2;
-    glTranslatef(0, (r32)ScreenCenterY, 0);
-    glScalef(0.5f, 0.5f, 1);
+    /* 
+        glTranslatef(-(r32)Frame->Dim.x / 2, (r32)Frame->Dim.y / 2, 0.0f);
+        glScalef(1.0f, -1.0f, 1.0f);
+     */
     
+    //glScalef(1.0f, -1.0f, 1.0f);
+    // NOTE(ezexff): Center y and scale
+    /* 
+        s32 ScreenCenterY = (Frame->Dim.y + 1) / 2;
+        glTranslatef(0, (r32)ScreenCenterY, 0);
+        glScalef(0.5f, 0.5f, 1);
+     */
     
     
     
@@ -1731,7 +1684,11 @@ OpenglEndFrame(renderer_frame *Frame)
             case RendererOrthoEntryType_renderer_ortho_entry_rect:
             {
                 renderer_ortho_entry_rect *Entry = (renderer_ortho_entry_rect *)Data;
-                OpenglDrawRectOnScreen({Entry->P, Entry->P + Entry->Dim}, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+                v2 Min = Entry->P;
+                Min.y = Frame->Dim.y - Entry->P.y;
+                v2 Max = Entry->Dim;
+                Max.y = Frame->Dim.y - Entry->Dim.y;
+                OpenglDrawRectOnScreen({Min, Max}, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
                 
                 //BaseAddress += sizeof(*Entry);
             } break;
@@ -1859,15 +1816,86 @@ OpenglEndFrame(renderer_frame *Frame)
     }
     
     glDisable(GL_BLEND);
+}
+
+void
+OpenglEndFrame(renderer_frame *Frame)
+{
+    renderer *Renderer = (renderer *)Frame->Renderer;
+    renderer_camera *Camera = &Renderer->Camera;
+    renderer_programs *Programs = &Frame->Programs;
     
+    Assert(Renderer);
+    
+    //~ NOTE(ezexff): Init 
+    BEGIN_BLOCK("OpenglInitRenderingScene");
+    OpenglInitFrameFBO(Frame);
+    OpenglInitRendererMatrices(Renderer, Frame->AspectRatio);
+    OpenglInitSkybox(Renderer);
+    if(IsSet(Renderer, RendererFlag_Lighting))
+    {
+        // TODO(ezexff): ???
+    }
+    OpenglInitShadowMap(Renderer);
+    OpenglInitWater(Renderer);
+    OpenglInitTerrain(Renderer);
+    // NOTE(ezexff): Texture for preview window
+#if ENGINE_INTERNAL
+    OpenglInitBitmapPreview(Frame);
+#endif
+    
+    OpenglCompileShaders(Frame);
+    END_BLOCK();
+    
+    
+    //~ NOTE(ezexff): Draw parts of scene into their FBOs
+    glEnable(GL_DEPTH_TEST);
+    OpenglDrawShadowMap(Renderer, Programs->ShadowMap.OpenglID);
+    OpenglDrawWaterReflectionAndRefraction(Renderer, Frame->AspectRatio, &Frame->Programs);
+    
+    BEGIN_BLOCK("OpenglDrawScene");
+    glViewport(0, 0, Frame->Dim.x, Frame->Dim.y);
+    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, Frame->FBO);
+    {
+        glClearColor(Renderer->ClearColor.x, Renderer->ClearColor.y, Renderer->ClearColor.z, Renderer->ClearColor.w);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
+        OpenglDrawMeshes(Renderer, Programs->Scene.OpenglID);
+        OpenglDrawWater(Renderer, Programs->Water.OpenglID, Frame);
+        OpenglDrawDebugShapes(Frame);
+        OpenglDrawSkybox(Renderer, Programs->Skybox.OpenglID);
+    }
+    Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_DEPTH_TEST);
+    
+    //~ NOTE(ezexff): Draw FBO texture on screen
+    Opengl->glUseProgram(Programs->Frame.OpenglID);
+    {
+        Opengl->glUniform1i(Opengl->glGetUniformLocation(Programs->Frame.OpenglID, "EffectID"), Frame->EffectID);
+        Opengl->glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, Frame->ColorTexture);
+        Opengl->glUniform1i(Opengl->glGetUniformLocation(Programs->Frame.OpenglID, "ColorTexture"), 0);
+        
+        glViewport(0, 0, Frame->Dim.x, Frame->Dim.y);
+        Opengl->glBindVertexArray(Frame->VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        Opengl->glBindVertexArray(0);
+    }
+    Opengl->glUseProgram(0);
+    END_BLOCK();
+    
+    OpenglDrawUI(Frame);
+    
+    BEGIN_BLOCK("ClearPushBuffer");
     Renderer->Flags = 0;
     
-    while(PushBufferUI->Size--)
+    while(Renderer->PushBufferUI.Size--)
     {
-        PushBufferUI->Memory[PushBufferUI->Size] = 0;
+        Renderer->PushBufferUI.Memory[Renderer->PushBufferUI.Size] = 0;
     }
     Renderer->PushBufferUI.Size = 0;
     Renderer->PushBufferUI.ElementCount = 0;
+    END_BLOCK();
     
     /*
     // NOTE(ezexff): Draw Player Crosshair

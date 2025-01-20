@@ -5,6 +5,7 @@
 #include "imgui_impl_win32.h"
 #include "implot.h"
 
+/* 
 struct RollingBuffer
 {
     float Span;
@@ -22,6 +23,7 @@ struct RollingBuffer
         Data.push_back(ImVec2(xmod, y));
     }
 };
+ */
 
 struct app_log
 {
@@ -198,8 +200,10 @@ struct imgui
     // NOTE(ezexff): Log app
     app_log Log;
     
-    // TODO(ezexff): Test rolling plot
-    RollingBuffer RData[32];
+    /* 
+        // TODO(ezexff): Test rolling plot
+        RollingBuffer RData[32];
+     */
 };
 
 //~ NOTE(ezexff): Debug collation

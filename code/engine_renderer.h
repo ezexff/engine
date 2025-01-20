@@ -158,11 +158,11 @@ struct renderer
 
 enum renderer_flags
 {
-    RendererFlag_Skybox = (1 << 0),
-    RendererFlag_Lighting = (1 << 1),
-    RendererFlag_Shadows = (1 << 2),
-    RendererFlag_Water = (1 << 3),
-    RendererFlag_Terrain = (1 << 4),
+    RendererFlag_Skybox =      (1 << 0),
+    RendererFlag_Lighting =    (1 << 1),
+    RendererFlag_Shadows =     (1 << 2),
+    RendererFlag_Water =       (1 << 3),
+    RendererFlag_Terrain =     (1 << 4),
     RendererFlag_PolygonFill = (1 << 5),
 };
 

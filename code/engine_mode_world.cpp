@@ -686,6 +686,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     world *World = ModeWorld->World;
     
     //~ NOTE(ezexff): Keyboard and gamepad inputs
+    BEGIN_BLOCK("GameInputProcessing");
     for(int ControllerIndex = 0;
         ControllerIndex < ArrayCount(Input->Controllers);
         ++ControllerIndex)
@@ -830,8 +831,9 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
              */
         }
     }
+    END_BLOCK();
     
-    //~ NOTE(ezexff): Sim region
+    BEGIN_BLOCK("BeginSim");
     u32 SimChunksInCamera = 5;
     r32 CameraWidthInMeters = SimChunksInCamera * World->ChunkDimInMeters.x;
     r32 CameraHeightInMeters = SimChunksInCamera * World->ChunkDimInMeters.y;
@@ -842,8 +844,9 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     
     temporary_memory SimMemory = BeginTemporaryMemory(&TranState->TranArena);
     sim_region *SimRegion = BeginSim(ModeWorld, SimBounds, Input->dtForFrame);
+    END_BLOCK();
     
-    //~ NOTE(ezexff): Render
+    BEGIN_BLOCK("InitRenderer");
     Renderer->Camera.Angle = ModeWorld->Camera.Angle;
     AddFlags(Renderer,
              RendererFlag_Skybox | 
@@ -921,8 +924,9 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         }
     }
 #endif
+    END_BLOCK();
     
-    // NOTE(ezexff): Entities
+    BEGIN_BLOCK("SimUpdateEntities");
     for(u32 EntityIndex = 0;
         EntityIndex < SimRegion->EntityCount;
         ++EntityIndex)
@@ -1297,6 +1301,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             }
         }
     }
+    END_BLOCK();
     
     // NOTE(ezexff): Fill ground buffer
 #if 1
@@ -1629,12 +1634,13 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     PushRectOutlineOnGround(Frame, V3(0, 7, 0), V2(5, 5), V4(0, 0, 1, 1), 0.5f);
     PushBitmapOnGround(Frame, Assets, GetFirstBitmapFrom(Assets, Asset_Ground), V3(0, -7, 0), V2(5, 5), 4.0f);*/
     
-    //~ NOTE(ezexff): End frame
-    EndSim(SimRegion, ModeWorld);
+    BEGIN_BLOCK("EndSim")
+        EndSim(SimRegion, ModeWorld);
     EndTemporaryMemory(SimMemory);
     
     CheckArena(&GameState->ConstArena);
     CheckArena(&TranState->TranArena);
+    END_BLOCK();
     
 #if ENGINE_INTERNAL
     {

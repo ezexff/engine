@@ -176,7 +176,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         // NOTE(ezexff): Set current game mode
         {
             //GameState->GameModeID = GameMode_World;
-            GameState->GameModeID = GameMode_World;
+            GameState->GameModeID = GameMode_Test;
         }
         
         // NOTE(ezexff): Init sound mixer
@@ -425,7 +425,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
     {
         case GameMode_Test:
         {
-            UpdateAndRenderTest(Memory);
+            UpdateAndRenderTest(Memory, Input);
             //UpdateAndRenderDebug(GameState, GameState->WorldMode, RenderCommands, Input, GameState->CutScene);
         } break;
         
