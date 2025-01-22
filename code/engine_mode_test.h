@@ -1,42 +1,62 @@
-struct mode_test
+enum ui_node_style_flags
 {
-    b32 IsInitialized;
-    
-    /* 
-        v4 ClearColor;
-        
-        opengl_program FrameProgram;
-        opengl_shader FrameVert;
-        opengl_shader FrameFrag;
-     */
+    UI_NodeStyleFlag_Clickable       = (1 << 0),
+    UI_NodeStyleFlag_ViewScroll      = (1 << 1),
+    UI_NodeStyleFlag_DrawText        = (1 << 2),
+    UI_NodeStyleFlag_DrawBorder      = (1 << 3),
+    UI_NodeStyleFlag_DrawBackground  = (1 << 4),
+    UI_NodeStyleFlag_DrawDropShadow  = (1 << 5),
+    UI_NodeStyleFlag_Clip            = (1 << 6),
+    UI_NodeStyleFlag_HotAnimation    = (1 << 7),
+    UI_NodeStyleFlag_ActiveAnimation = (1 << 8),
 };
 
-enum ui_rect_flags
+enum ui_node_state_flags
 {
-    UI_WidgetFlag_Clickable       = (1 << 0),
-    UI_WidgetFlag_ViewScroll      = (1 << 1),
-    UI_WidgetFlag_DrawText        = (1 << 2),
-    UI_WidgetFlag_DrawBorder      = (1 << 3),
-    UI_WidgetFlag_DrawBackground  = (1 << 4),
-    UI_WidgetFlag_DrawDropShadow  = (1 << 5),
-    UI_WidgetFlag_Clip            = (1 << 6),
-    UI_WidgetFlag_HotAnimation    = (1 << 7),
-    UI_WidgetFlag_ActiveAnimation = (1 << 8),
+    UI_NodeStateFlag_Clicked       = (1 << 0),
+    UI_NodeStateFlag_DoubleClicked = (1 << 1),
+    UI_NodeStateFlag_RightClicked  = (1 << 2),
+    UI_NodeStateFlag_Pressed       = (1 << 3),
+    UI_NodeStateFlag_Released      = (1 << 4),
+    UI_NodeStateFlag_Dragging      = (1 << 5),
+    UI_NodeStateFlag_Hovering      = (1 << 6),
 };
 
-struct ui_rect
+/* 
+#define ui_pressed(s)        !!((s).f&UI_SignalFlag_Pressed)
+#define ui_clicked(s)        !!((s).f&UI_SignalFlag_Clicked)
+#define ui_released(s)       !!((s).f&UI_SignalFlag_Released)
+#define ui_double_clicked(s) !!((s).f&UI_SignalFlag_DoubleClicked)
+#define ui_triple_clicked(s) !!((s).f&UI_SignalFlag_TripleClicked)
+#define ui_middle_clicked(s) !!((s).f&UI_SignalFlag_MiddleClicked)
+#define ui_right_clicked(s)  !!((s).f&UI_SignalFlag_RightClicked)
+#define ui_dragging(s)       !!((s).f&UI_SignalFlag_Dragging)
+#define ui_hovering(s)       !!((s).f&UI_SignalFlag_Hovering)
+#define ui_mouse_over(s)     !!((s).f&UI_SignalFlag_MouseOver)
+#define ui_committed(s)      !!((s).f&UI_SignalFlag_Commit)
+ */
+#define UI_IsClicked(Node) (Node & UI_NodeStateFlag_Clicked)
+#define UI_IsPressed(Node) (Node & UI_NodeStateFlag_Pressed)
+
+struct ui_node_style
+{
+    u32 Flags;
+    v4 BackgroundColor;
+};
+
+struct ui_node
 {
     // per-build links/data
-    ui_rect *First;
-    ui_rect *Last;
-    ui_rect *Next;
-    ui_rect *Prev;
-    ui_rect *Parent;
+    ui_node *First;
+    ui_node *Last;
+    ui_node *Next;
+    ui_node *Prev;
+    ui_node *Parent;
     u32 ChildCount;
     
     // persistent links
-    ui_rect *HashNext;
-    ui_rect *HashPrev;
+    ui_node *HashNext;
+    ui_node *HashPrev;
     
     // key+generation info
     /* 
@@ -45,11 +65,15 @@ struct ui_rect
      */
     
     // per-frame info provided by builders
-    u32 Flags;
+    u32 StateFlags;
+    //u32 StateFlags;
     char *String;
     
-    // TODO(ezexff): ui_palette
-    v4 BackgroundColor;
+    ui_node_style Style;
+    
+    //v2 FixedP;
+    v2 FixedSize;
+    //rectangle2 FixedSizeRect;
     /* 
         string string;
         UI_Size semantic_size[Axis2_COUNT];
@@ -61,44 +85,64 @@ struct ui_rect
         F32 computed_size[Axis2_COUNT];
         Rng2F32 rect;
          */
-    v2 RelPos;
-    rectangle2 Rect;
     
     // persistent data
     r32 hot_t;
     r32 active_t;
 };
 
-struct ui_comm
+enum ui_style_template_name
 {
-    ui_rect *Element;
-    v2 MouseP;
-    v2 DragDelta;
-    b8 Clicked;
-    b8 DoubleClicked;
-    b8 RightClicked;
-    b8 Pressed;
-    b8 Released;
-    b8 Dragging;
-    b8 Hovering;
+    UI_StyleTemplate_Default,
+    UI_StyleTemplate_Button,
+    
+    UI_StyleTemplate_Count,
 };
 
-struct ui_layout
+struct ui_style_template
 {
-    v2 Pos;
-    v2 Dim;
+    v4 BackgroundColor;
+    v4 HoveringColor;
+    v4 ClickedColor;
+    v4 PressedColor;
+    
+    v2 FixedSize;
 };
-
-inline b32 IsSet(ui_rect *Widget, u32 Flag)
-{
-    b32 Result = Widget->Flags & Flag;
-    return(Result);
-}
 
 struct ui_state
 {
-    ui_rect *Root;
-    ui_rect *TooltipRoot;
-    ui_rect *CtxMenuRoot;
-    // TODO(ezexff): 
+    ui_node *Root;
+    
+    u32 SelectedTemplateIndex;
+    ui_style_template StyleTemplateArray[UI_StyleTemplate_Count];
+    /* 
+        ui_node *TooltipRoot;
+        ui_node *ContextMenuRoot;
+     */
+    
+    /* 
+        ui_node *HotWidget;
+        ui_node *LastWidget;
+        ui_node UI_RectSetinel;
+        
+         */
+    
+    temporary_memory FrameMemory;
+    
+    // NOTE(ezexff): Pointers to external services
+    memory_arena *TranArena;
+    renderer_frame *Frame;
+    game_input *Input;
+};
+
+struct mode_test
+{
+    b32 IsInitialized;
+    /* 
+        v4 ClearColor;
+        
+        opengl_program FrameProgram;
+        opengl_shader FrameVert;
+        opengl_shader FrameFrag;
+     */
 };

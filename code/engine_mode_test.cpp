@@ -1,73 +1,110 @@
-temporary_memory UI_TempMemory;
-ui_rect *HotWidget;
-memory_arena *UI_TranArena;
-game_input *UI_Input;
-ui_layout *LastLayout;
-ui_rect *LastWidget;
-ui_rect UI_RectSetinel;
-renderer_push_buffer *UI_PushBuffer;
+ui_state *UI_State;
 
-
-ui_rect *UI_WidgetMake(u32 Flags, char *String)
+/* 
+ui_node *UI_PushParent(ui_node *Node)
 {
-    ui_rect *Result = PushStruct(UI_TranArena, ui_rect);
-    Result->Flags = Flags;
-    Result->String = PushString(UI_TranArena, String);
+    //CurrentParent = Node;
+    return(0);
+}
+
+ui_node *UI_PopParent(void)
+{
+    //CurrentParent = 0;
+    return(0);
+}
+ */
+
+ui_node *UI_AddNode(u32 Flags, char *String)
+{
+    ui_node *NewNode = PushStruct(UI_State->TranArena, ui_node);
+    NewNode->Style.Flags = Flags;
+    NewNode->String = PushString(UI_State->TranArena, String);
     
-    LastWidget = Result;
+    NewNode->Parent = UI_State->Root;
+    if(!UI_State->Root->First)
+    {
+        UI_State->Root->First = NewNode;
+    }
+    else
+    {
+        NewNode->Prev = UI_State->Root->Last;
+        UI_State->Root->Last->Next = NewNode;
+    }
+    
+    UI_State->Root->Last = NewNode;
+    
+    return(NewNode);
+}
+
+inline void AddFlags(ui_node *Node, u32 Flag)
+{
+    Node->StateFlags |= Flag;
+}
+
+inline b32 IsSet(ui_node_style *Style, u32 Flag)
+{
+    b32 Result = Style->Flags & Flag;
     return(Result);
 }
 
-ui_comm UI_CommFromWidget(ui_rect *Element)
+u32 UI_GetNodeState(ui_node *Node)
 {
-    ui_comm Result = {};
+    ui_style_template *Template = &UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex];
+    ui_node_style *Style = &Node->Style;
     
-    Element->Rect = {V2(0, 0), V2(100, 100)};
+    Node->FixedSize = Template->FixedSize;
     
-    if(IsSet(Element, UI_WidgetFlag_DrawBackground))
+    if(IsSet(Style, UI_NodeStyleFlag_DrawBackground))
     {
-        Element->BackgroundColor = V4(0, 0, 0, 1);
+        Style->BackgroundColor = Template->BackgroundColor;
     }
     
-    if(IsSet(Element, UI_WidgetFlag_Clickable))
+    if(IsSet(Style, UI_NodeStyleFlag_Clickable))
     {
-        v2 MouseP = V2((r32)UI_Input->MouseP.x, (r32)UI_Input->MouseP.y);
-        if(IsInRectangle(Element->Rect, MouseP))
+        v2 MouseP = V2((r32)UI_State->Input->MouseP.x, (r32)UI_State->Input->MouseP.y);
+        rectangle2 Rect = {V2(0, 0), Node->FixedSize};
+        if(IsInRectangle(Rect, MouseP))
         {
-            Element->BackgroundColor = V4(0, 0, 1, 1);
-            if(WasPressed(UI_Input->MouseButtons[PlatformMouseButton_Left]))
+            AddFlags(Node, UI_NodeStateFlag_Hovering);
+            //Log->Add("[ui] in button rect\n");
+            
+            Style->BackgroundColor = UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex].HoveringColor;
+            if(WasPressed(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
             {
-                Result.Clicked = true;
+                AddFlags(Node, UI_NodeStateFlag_Clicked);
             }
-            if(IsDown(UI_Input->MouseButtons[PlatformMouseButton_Left]))
+            
+            if(IsDown(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
             {
-                Result.Pressed = true;
+                AddFlags(Node, UI_NodeStateFlag_Pressed);
             }
         }
     }
-    
-    Result.Element = Element;
-    
-    PushRectOnScreen(UI_PushBuffer, Element->Rect.Min, Element->Rect.Max, Element->BackgroundColor, 100);
-    
-    return(Result);
+    return(Node->StateFlags);
 }
 
-ui_comm UI_Button(char *String)
+void UI_UseStyleTemplate(u32 Index)
 {
-    ui_rect *Widget = UI_WidgetMake(UI_WidgetFlag_Clickable|
-                                    UI_WidgetFlag_DrawBorder|
-                                    UI_WidgetFlag_DrawText|
-                                    UI_WidgetFlag_DrawBackground|
-                                    UI_WidgetFlag_HotAnimation|
-                                    UI_WidgetFlag_ActiveAnimation,
-                                    String);
-    ui_comm Comm = UI_CommFromWidget(Widget);
-    return(Comm);
+    Assert(Index < UI_StyleTemplate_Count);
+    UI_State->SelectedTemplateIndex = Index;
+}
+
+u32 UI_Button(char *String)
+{
+    ui_node *Node = UI_AddNode(UI_NodeStyleFlag_Clickable|
+                               UI_NodeStyleFlag_DrawBorder|
+                               UI_NodeStyleFlag_DrawText|
+                               UI_NodeStyleFlag_DrawBackground|
+                               UI_NodeStyleFlag_HotAnimation|
+                               UI_NodeStyleFlag_ActiveAnimation,
+                               String);
+    UI_UseStyleTemplate(UI_StyleTemplate_Button);
+    u32 State = UI_GetNodeState(Node);
+    return(State);
 }
 
 /* 
-void UI_DrawRect(ui_rect *Element)
+void UI_DrawRect(ui_node *Element)
 {
     
 }
@@ -103,6 +140,116 @@ struct ui_state
 }
  */
 
+internal void
+UI_Init(memory_arena *TranArena)
+{
+    UI_State = PushStruct(TranArena, ui_state);
+    
+    // NOTE(ezexff): Style templates
+    for(u32 Index = 0;
+        Index < UI_StyleTemplate_Count;
+        ++Index)
+    {
+        ui_style_template *StyleTemplate = &UI_State->StyleTemplateArray[Index];
+        switch(Index)
+        {
+            case UI_StyleTemplate_Default:
+            {
+                StyleTemplate->BackgroundColor = V4(0.5f, 0, 0.5f, 1);
+                //StyleTemplate.HoveringColor = V4(0, 1, 1, 1);
+                /* 
+                                StyleTemplate.ClickedColor = V4(0, 0, 0, 1);
+                                StyleTemplate.PressedColor = V4(0, 0, 0, 1);
+                 */
+                StyleTemplate->FixedSize = V2(100, 100);
+            } break;
+            
+            case UI_StyleTemplate_Button:
+            {
+                StyleTemplate->BackgroundColor = V4(1, 1, 1, 1);
+                StyleTemplate->HoveringColor = V4(0, 0, 1, 1);
+                /* 
+                                StyleTemplate.ClickedColor = V4(0, 0, 0, 1);
+                                StyleTemplate.PressedColor = V4(0, 0, 0, 1);
+                 */
+                StyleTemplate->FixedSize = V2(70, 50);
+            } break;
+            
+            InvalidDefaultCase;
+        }
+    }
+}
+
+internal void
+UI_BeginFrame(memory_arena *TranArena, renderer_frame *Frame, game_input *Input)
+{
+    // TODO(ezexff): Mb rework (do without engine services)?
+    UI_State->TranArena = TranArena;
+    UI_State->Frame = Frame;
+    UI_State->Input = Input;
+    
+    UI_State->FrameMemory = BeginTemporaryMemory(UI_State->TranArena);
+    
+    // NOTE(ezexff): Root ui_node
+    UI_State->Root = PushStruct(UI_State->TranArena, ui_node);
+    UI_State->Root->First = 0;
+    UI_State->Root->Last = 0;
+    UI_State->Root->Next = 0;
+    UI_State->Root->Prev = 0;
+    UI_State->Root->String = PushString(UI_State->TranArena, "Root");
+    //UI_State->Root->FixedSizeRect = {V2(0, 0), V2((r32)UI_State->Frame->Dim.x, (r32)UI_State->Frame->Dim.y)};
+    UI_State->Root->FixedSize = V2((r32)UI_State->Frame->Dim.x, (r32)UI_State->Frame->Dim.y);
+    UI_State->Root->Style.Flags = UI_NodeStyleFlag_DrawBackground;
+    UI_State->Root->Style.BackgroundColor = V4(0.5f, 0, 0.5f, 1);
+}
+
+internal void
+UI_DrawNodeTree(ui_node *Node)
+{
+    /* 
+        for(ui_node *CurrentNode = Node;
+            CurrentNode != 0;
+            CurrentNode = Node->Next)
+     */
+    ui_node_style *Style = &Node->Style;
+    if(IsSet(Style, UI_NodeStyleFlag_DrawBackground))
+    {
+        renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
+        rectangle2 Rect = {V2(0, 0), Node->FixedSize};
+        PushRectOnScreen(&Renderer->PushBufferUI, Rect.Min, Rect.Max, Style->BackgroundColor, 100);
+    }
+    
+    // NOTE(ezexff): Process childs
+    if(Node->First)
+    {
+        for(ui_node *ChildNode = Node->First;
+            ChildNode != 0;
+            ChildNode = ChildNode->Next)
+        {
+            UI_DrawNodeTree(ChildNode);
+            /* 
+                        ui_node_style *ChildNodeStyle = &ChildNode->Style;
+                        renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
+                        PushRectOnScreen(&Renderer->PushBufferUI, ChildNode->FixedSizeRect.Min, ChildNode->FixedSizeRect.Max, ChildNodeStyle->BackgroundColor, 100);
+             */
+        }
+    }
+}
+
+internal void
+UI_EndFrame()
+{
+    UI_DrawNodeTree(UI_State->Root);
+    /* 
+        UI_State->Root->First = 0;
+        UI_State->Root->Last = 0;
+        UI_State->Root->Next = 0;
+        UI_State->Root->Prev = 0;
+     */
+    
+    EndTemporaryMemory(UI_State->FrameMemory);
+}
+
 void
 UpdateAndRenderTest(game_memory *Memory, game_input *Input)
 {
@@ -112,20 +259,29 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     renderer_frame *Frame = &Memory->Frame;
     renderer *Renderer = (renderer *)Frame->Renderer;
     
-    UI_TranArena = &TranState->TranArena;
-    UI_Input = Input;
-    UI_PushBuffer = &Renderer->PushBufferUI;
-    UI_RectSetinel.Rect = {V2(0, 0), V2((r32)Frame->Dim.x, (r32)Frame->Dim.y)};
-    UI_RectSetinel.BackgroundColor = V4(0, 1, 0, 1);
+    mode_test *ModeTest = &GameState->ModeTest;
+    if(!ModeTest->IsInitialized)
+    {
+        UI_Init(&TranState->TranArena);
+        
+        ModeTest->IsInitialized = true;
+    }
+    /* 
+        UI_RectSetinel.Rect = {V2(0, 0), V2((r32)Frame->Dim.x, (r32)Frame->Dim.y)};
+        UI_RectSetinel.BackgroundColor = V4(0, 1, 0, 1);
+     */
     
+    //ui_node *Node = UI_NodeCreate(UI_NodeStyleFlag_DrawBackground, String);
     //InvalidCodePath;
     // NOTE(ezexff): UI
+    BEGIN_BLOCK("UI_TEST");
     {
-        UI_TempMemory = BeginTemporaryMemory(UI_TranArena);
+        UI_BeginFrame(&TranState->TranArena, Frame, Input);
+        
         
         //ui_layout Layout = UI_MakeLayout(V2(100, 100), V2(200, 200));
         //UI_PushLayout(&Layout);
-        if(UI_Button("Foo").Pressed)
+        if(UI_IsClicked(UI_Button("Foo")))
         {
             Log->Add("[ui] Button was clicked\n");
         }
@@ -140,9 +296,9 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         
         // NOTE(ezexff): Draw
         //UI_DrawLayout(&Renderer->PushBufferUI, Layout);
-        
-        EndTemporaryMemory(UI_TempMemory);
+        UI_EndFrame();
     }
+    END_BLOCK();
     
     /* 
         bitmap_id BitmapID = GetFirstBitmapFrom(TranState->Assets, Asset_DuDvMap);

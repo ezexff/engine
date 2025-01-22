@@ -876,7 +876,7 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
 }
 
 internal void
-RenderStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *DebugState, r64 FrameClock)
+DrawStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *DebugState, r64 FrameClock)
 {
     for(debug_stored_block *Node = InNode;
         Node != 0;
@@ -920,7 +920,7 @@ RenderStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *DebugS
         
         if(Node->FirstChild != 0)
         {
-            RenderStoredBlockTree(Node->FirstChild, Depth + 1, DebugState, FrameClock);
+            DrawStoredBlockTree(Node->FirstChild, Depth + 1, DebugState, FrameClock);
         }
     }
 }
@@ -1308,7 +1308,7 @@ DEBUGEnd(debug_state *DebugState)
                 ImGui::Text("PrevFrameClock = %.0fcycles", DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
                 ImGui::Spacing();
                 DebugState->TmpBlockCount = 0;
-                RenderStoredBlockTree(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
+                DrawStoredBlockTree(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
             }
             
             ImGui::End();

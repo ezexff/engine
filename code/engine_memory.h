@@ -1,3 +1,4 @@
+/* 
 #define DLIST_INSERT(Sentinel, Element)         \
 (Element)->Next = (Sentinel)->Next;         \
 (Element)->Prev = (Sentinel);               \
@@ -18,6 +19,7 @@
 if(Result) {FreeListPointer = (Result)->NextFree;} else {Result = AllocationCode;}
 #define FREELIST_DEALLOCATE(Pointer, FreeListPointer) \
 if(Pointer) {(Pointer)->NextFree = (FreeListPointer); (FreeListPointer) = (Pointer);}
+ */
 
 struct memory_arena
 {
