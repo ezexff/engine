@@ -252,3 +252,28 @@ PushRectOnScreen(renderer_push_buffer *PushBuffer, v2 Offset, v2 Dim, v4 Color =
         Entry->Dim = Dim;
     }
 }
+
+void
+PushBitmapOnScreen(renderer_push_buffer *PushBuffer, game_assets *Assets, bitmap_id ID, v2 Offset, v2 Dim,
+                   r32 SortKey = 0.0f, r32 Repeat = 1)
+{
+    loaded_bitmap *Bitmap = GetBitmap(Assets, ID, true);
+    if(Bitmap)
+    {
+        v2 P = Offset;
+        
+        renderer_ortho_entry_bitmap *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_bitmap, SortKey);
+        if(Entry)
+        {
+            Entry->Bitmap = Bitmap;
+            Entry->P = P;
+            Entry->Dim = Dim;
+            Entry->Repeat = Repeat;
+        }
+    }
+    else
+    {
+        LoadBitmap(Assets, ID, true);
+        //++Frame->MissingResourceCount;
+    }
+}

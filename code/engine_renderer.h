@@ -232,6 +232,14 @@ struct renderer_ortho_entry_rect
     v2 Dim;
 };
 
+struct renderer_ortho_entry_bitmap
+{
+    loaded_bitmap *Bitmap;
+    v2 P;
+    v2 Dim;
+    r32 Repeat;
+};
+
 enum renderer_ortho_entry_type
 {
     RendererOrthoEntryType_renderer_ortho_entry_rect,

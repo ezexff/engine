@@ -1625,11 +1625,13 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
 #endif
     
     // TODO(ezexff): Mb rework text output and add kerning
-    if(Frame->DrawDebugTextLine)
-    {
-        char *TestString = "The quick brown fox jumps over a lazy dog.";
-        DEBUGTextLine(Frame, TranState->Assets, TestString);
-    }
+    /* 
+        if(Frame->DrawDebugTextLine)
+        {
+            char *TestString = "The quick brown fox jumps over a lazy dog.";
+            DEBUGTextLine(Frame, TranState->Assets, TestString);
+        }
+     */
     /*PushRectOnGround(Frame, V3(0, 0, 0), V2(5, 5), V4(0, 1, 0, 1));
     PushRectOutlineOnGround(Frame, V3(0, 7, 0), V2(5, 5), V4(0, 0, 1, 1), 0.5f);
     PushBitmapOnGround(Frame, Assets, GetFirstBitmapFrom(Assets, Asset_Ground), V3(0, -7, 0), V2(5, 5), 4.0f);*/

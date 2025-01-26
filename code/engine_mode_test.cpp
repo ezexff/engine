@@ -1,5 +1,3 @@
-ui_state *UI_State;
-
 /* 
 ui_node *UI_PushParent(ui_node *Node)
 {
@@ -14,26 +12,71 @@ ui_node *UI_PopParent(void)
 }
  */
 
-ui_node *UI_AddNode(u32 Flags, char *String)
+internal void
+DrawLabel(ui_node *Node)
 {
-    ui_node *NewNode = PushStruct(UI_State->TranArena, ui_node);
-    NewNode->Style.Flags = Flags;
-    NewNode->String = PushString(UI_State->TranArena, String);
+    game_assets *Assets = UI_State->Assets;
+    renderer_frame *Frame = UI_State->Frame;
     
-    NewNode->Parent = UI_State->Root;
-    if(!UI_State->Root->First)
+    font_id FontID = GetFirstFontFrom(Assets, Asset_Font);
+    FontID.Value++;
+    loaded_font *Font = PushFont(Frame, Assets, FontID);
+    if(Font)
     {
-        UI_State->Root->First = NewNode;
+        eab_font *FontInfo = GetFontInfo(Assets, FontID);
+        
+        r32 FontScale = FontInfo->Scale;
+        r32 LeftEdge = 0.0f;
+        
+        u32 PrevCodePoint = 0;
+        r32 CharScale = FontScale;
+        v4 Color = V4(1, 1, 1, 1);
+        
+        s32 LeftPadding = 5;
+        s32 AtX = LeftPadding + (s32)Node->Rect.Min.x;
+        r32 HalfRectY = (Node->Rect.Max.y - Node->Rect.Min.y) / 2;
+        s32 AtY = (s32)Node->Rect.Min.y + (s32)(HalfRectY);
+        
+        r32 RectWidth = Node->Rect.Max.x - Node->Rect.Min.x;
+        
+        for(char *At = Node->String;
+            *At;
+            )
+        {
+            u32 CodePoint = *At;
+            s32 Ascent = RoundR32ToS32(FontInfo->Ascent * FontScale);
+            s32 LSB = Font->LSBs[CodePoint];
+            s32 XOffset = s32(Font->GlyphOffsets[CodePoint].x);
+            s32 YOffset = s32(Font->GlyphOffsets[CodePoint].y);
+            
+            if(CodePoint != ' ')
+            {
+                bitmap_id BitmapID = GetBitmapForGlyph(Assets, FontInfo, Font, CodePoint);
+                eab_bitmap *GlyphInfo = GetBitmapInfo(Assets, BitmapID);
+                
+                v2 GlyphDim;
+                GlyphDim.x = (r32)GlyphInfo->Dim[0];
+                GlyphDim.y = (r32)GlyphInfo->Dim[1];
+                v2 Pos = V2(0, 0);
+                Pos.x = (r32)(AtX + XOffset);
+                Pos.y = (r32)AtY + YOffset;
+                //PushBitmapOnScreen(Frame, Assets, BitmapID, Pos, GlyphDim, 1.0f);
+                renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
+                v2 Min = Pos;
+                v2 Max = Pos + GlyphDim;
+                PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Min, Max, 100, 1.0f);
+            }
+            
+            s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * CharScale);
+            AtX += AdvanceX;
+            ++At;
+            
+            if(AtX > RectWidth)
+            {
+                InvalidCodePath;
+            }
+        }
     }
-    else
-    {
-        NewNode->Prev = UI_State->Root->Last;
-        UI_State->Root->Last->Next = NewNode;
-    }
-    
-    UI_State->Root->Last = NewNode;
-    
-    return(NewNode);
 }
 
 inline void AddFlags(ui_node *Node, u32 Flag)
@@ -47,12 +90,57 @@ inline b32 IsSet(ui_node_style *Style, u32 Flag)
     return(Result);
 }
 
+ui_node *UI_AddNode(u32 Flags, char *String)
+{
+    r32 LeftPadding = 0.0f;
+    r32 TopPadding = 0.0f;
+    r32 PaddingY = 2.0f;
+    v2 Min = V2(LeftPadding, TopPadding);
+    v2 Max = UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex].FixedSize;
+    
+    ui_node *NewNode = PushStruct(UI_State->TranArena, ui_node);
+    ui_node_style *Style = &NewNode->Style;
+    Style->Flags = Flags;
+    NewNode->String = PushString(UI_State->TranArena, String);
+    
+    NewNode->Parent = UI_State->Root;
+    if(!UI_State->Root->First)
+    {
+        UI_State->Root->First = NewNode;
+        NewNode->Rect = {Min, UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex].FixedSize};
+        
+        if(IsSet(Style, UI_NodeStyleFlag_DrawText))
+        {
+            //Style->BackgroundColor = Template->BackgroundColor;
+        }
+    }
+    else
+    {
+        NewNode->Prev = UI_State->Root->Last;
+        UI_State->Root->Last->Next = NewNode;
+        
+        if(NewNode->Parent->ChildLayoutAxis == Axis2_Y)
+        {
+            Min.y = NewNode->Prev->Rect.Max.y + PaddingY;
+            Max.y = Min.y + UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex].FixedSize.y;
+            
+            if(Max.y > NewNode->Parent->Rect.Max.y)
+            {
+                InvalidCodePath;
+            }
+        }
+        NewNode->Rect = {Min, Max};
+    }
+    
+    UI_State->Root->Last = NewNode;
+    
+    return(NewNode);
+}
+
 u32 UI_GetNodeState(ui_node *Node)
 {
     ui_style_template *Template = &UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex];
     ui_node_style *Style = &Node->Style;
-    
-    Node->FixedSize = Template->FixedSize;
     
     if(IsSet(Style, UI_NodeStyleFlag_DrawBackground))
     {
@@ -62,8 +150,11 @@ u32 UI_GetNodeState(ui_node *Node)
     if(IsSet(Style, UI_NodeStyleFlag_Clickable))
     {
         v2 MouseP = V2((r32)UI_State->Input->MouseP.x, (r32)UI_State->Input->MouseP.y);
-        rectangle2 Rect = {V2(0, 0), Node->FixedSize};
-        if(IsInRectangle(Rect, MouseP))
+        //rectangle2 Rect = {V2(0, 0), Node->FixedSize};
+        rectangle2 TestRect = Node->Rect;
+        TestRect.Max.y = UI_State->Frame->Dim.y - Node->Rect.Min.y;
+        TestRect.Min.y = UI_State->Frame->Dim.y - Node->Rect.Max.y;
+        if(IsInRectangle(TestRect, MouseP))
         {
             AddFlags(Node, UI_NodeStateFlag_Hovering);
             //Log->Add("[ui] in button rect\n");
@@ -91,6 +182,7 @@ void UI_UseStyleTemplate(u32 Index)
 
 u32 UI_Button(char *String)
 {
+    UI_UseStyleTemplate(UI_StyleTemplate_Button);
     ui_node *Node = UI_AddNode(UI_NodeStyleFlag_Clickable|
                                UI_NodeStyleFlag_DrawBorder|
                                UI_NodeStyleFlag_DrawText|
@@ -98,7 +190,6 @@ u32 UI_Button(char *String)
                                UI_NodeStyleFlag_HotAnimation|
                                UI_NodeStyleFlag_ActiveAnimation,
                                String);
-    UI_UseStyleTemplate(UI_StyleTemplate_Button);
     u32 State = UI_GetNodeState(Node);
     return(State);
 }
@@ -173,6 +264,12 @@ UI_Init(memory_arena *TranArena)
                                 StyleTemplate.PressedColor = V4(0, 0, 0, 1);
                  */
                 StyleTemplate->FixedSize = V2(70, 50);
+                /* 
+                                StyleTemplate->PrefSize[Axis2_X].Type = UI_SizeKind_Pixels;
+                                StyleTemplate->PrefSize[Axis2_X].Value = 50;
+                                StyleTemplate->PrefSize[Axis2_Y].Type = UI_SizeKind_Pixels;
+                                StyleTemplate->PrefSize[Axis2_Y].Value = 70;
+                 */
             } break;
             
             InvalidDefaultCase;
@@ -181,10 +278,11 @@ UI_Init(memory_arena *TranArena)
 }
 
 internal void
-UI_BeginFrame(memory_arena *TranArena, renderer_frame *Frame, game_input *Input)
+UI_BeginFrame(tran_state *TranState, renderer_frame *Frame, game_input *Input)
 {
     // TODO(ezexff): Mb rework (do without engine services)?
-    UI_State->TranArena = TranArena;
+    UI_State->TranArena = &TranState->TranArena;
+    UI_State->Assets = TranState->Assets;
     UI_State->Frame = Frame;
     UI_State->Input = Input;
     
@@ -197,10 +295,11 @@ UI_BeginFrame(memory_arena *TranArena, renderer_frame *Frame, game_input *Input)
     UI_State->Root->Next = 0;
     UI_State->Root->Prev = 0;
     UI_State->Root->String = PushString(UI_State->TranArena, "Root");
-    //UI_State->Root->FixedSizeRect = {V2(0, 0), V2((r32)UI_State->Frame->Dim.x, (r32)UI_State->Frame->Dim.y)};
-    UI_State->Root->FixedSize = V2((r32)UI_State->Frame->Dim.x, (r32)UI_State->Frame->Dim.y);
-    UI_State->Root->Style.Flags = UI_NodeStyleFlag_DrawBackground;
-    UI_State->Root->Style.BackgroundColor = V4(0.5f, 0, 0.5f, 1);
+    //UI_State->Root->Style.Flags = UI_NodeStyleFlag_DrawBackground;
+    //UI_State->Root->Style.BackgroundColor = V4(0.5f, 0, 0.5f, 1);
+    
+    UI_State->Root->Rect = {V2(0, 0), V2((r32)UI_State->Frame->Dim.x, (r32)UI_State->Frame->Dim.y)};
+    UI_State->Root->ChildLayoutAxis = Axis2_Y;
 }
 
 internal void
@@ -212,21 +311,36 @@ UI_DrawNodeTree(ui_node *Node)
             CurrentNode = Node->Next)
      */
     ui_node_style *Style = &Node->Style;
+    renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
     if(IsSet(Style, UI_NodeStyleFlag_DrawBackground))
     {
-        renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
-        rectangle2 Rect = {V2(0, 0), Node->FixedSize};
-        PushRectOnScreen(&Renderer->PushBufferUI, Rect.Min, Rect.Max, Style->BackgroundColor, 100);
+        //rectangle2 Rect = {Node->FixedP, Node->FixedP + Node->FixedSize};
+        PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, Style->BackgroundColor, 100);
+    }
+    
+    if(IsSet(Style, UI_NodeStyleFlag_DrawText))
+    {
+        DrawLabel(Node);
     }
     
     // NOTE(ezexff): Process childs
     if(Node->First)
     {
+        //r32 AdvancedChildY = Node->FixedP.y + Node->InnerSumY;
+        r32 AtX = 0;
+        r32 AtY = 0;
         for(ui_node *ChildNode = Node->First;
             ChildNode != 0;
             ChildNode = ChildNode->Next)
         {
             UI_DrawNodeTree(ChildNode);
+            /* 
+                        if(Node->ChildLayoutAxis == Axis2_Y)
+                        {
+                            AtY -= ChildNode->FixedSize.y;
+                        }
+             */
+            //Node->InnerSumY += ChildNode->FixedSize.y;
             /* 
                         ui_node_style *ChildNodeStyle = &ChildNode->Style;
                         renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
@@ -274,45 +388,40 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     //ui_node *Node = UI_NodeCreate(UI_NodeStyleFlag_DrawBackground, String);
     //InvalidCodePath;
     // NOTE(ezexff): UI
+    
     BEGIN_BLOCK("UI_TEST");
     {
-        UI_BeginFrame(&TranState->TranArena, Frame, Input);
+        UI_BeginFrame(TranState, Frame, Input);
         
-        
-        //ui_layout Layout = UI_MakeLayout(V2(100, 100), V2(200, 200));
-        //UI_PushLayout(&Layout);
         if(UI_IsClicked(UI_Button("Foo")))
         {
-            Log->Add("[ui] Button was clicked\n");
+            Log->Add("[ui] Button Foo was clicked\n");
         }
         
-        /* 
-                if(UI_Button("Foo").Pressed)
-                {
-                    Log->Add("[ui] Button is pressed\n");
-                }
-         */
-        //UI_PopLayout();
+        if(UI_IsClicked(UI_Button("Bar")))
+        {
+            Log->Add("[ui] Button Bar was clicked\n");
+        }
         
-        // NOTE(ezexff): Draw
-        //UI_DrawLayout(&Renderer->PushBufferUI, Layout);
+        if(UI_IsClicked(UI_Button("Baz")))
+        {
+            Log->Add("[ui] Button Baz was clicked\n");
+        }
+        
         UI_EndFrame();
     }
     END_BLOCK();
     
     /* 
-        bitmap_id BitmapID = GetFirstBitmapFrom(TranState->Assets, Asset_DuDvMap);
-        v2 Dim = V2(1000, 1000);
-        v2 Pos = V2((r32)Frame->Dim.x - Dim.x / 2, -Dim.y / 2);
-        
-        PushBitmapOnScreen(Frame, TranState->Assets, BitmapID, Pos, Dim, 1.0f);
-        
-        if(Frame->DrawDebugTextLine)
-        {
-            char *TestString = "The quick brown fox jumps over a lazy dog.";
-            DEBUGTextLine(Frame, TranState->Assets, TestString);
-        }
-     */
+            bitmap_id BitmapID = GetFirstBitmapFrom(TranState->Assets, Asset_DuDvMap);
+            v2 Dim = V2(1000, 1000);
+            v2 Pos = V2((r32)Frame->Dim.x - Dim.x / 2, -Dim.y / 2);
+            
+            PushBitmapOnScreen(Frame, TranState->Assets, BitmapID, Pos, Dim, 1.0f);
+             */
+    
+    char *TestString = "The quick brown fox jumps over a lazy dog.";
+    DEBUGTextLine(Frame, TranState->Assets, TestString, {100, 100});
     
     /* 
         renderer_frame *Frame = &Memory->Frame;

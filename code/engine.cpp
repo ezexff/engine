@@ -10,9 +10,10 @@
 #include "engine_sim_region.cpp"
 
 internal void
-DEBUGTextLine(renderer_frame *Frame, game_assets *Assets, char *String)
+DEBUGTextLine(renderer_frame *Frame, game_assets *Assets, char *String, v2s P)
 {
     font_id FontID = GetFirstFontFrom(Assets, Asset_Font);
+    FontID.Value++;
     loaded_font *Font = PushFont(Frame, Assets, FontID);
     if(Font)
     {
@@ -28,8 +29,8 @@ DEBUGTextLine(renderer_frame *Frame, game_assets *Assets, char *String)
         
         //r32 AtX = LeftEdge;
         //r32 AtY = 0.0f;
-        s32 AtX = 0;
-        s32 AtY = 0;
+        s32 AtX = 0 + P.x;
+        s32 AtY = 0 + P.y;
         
         for(char *At = String;
             *At;

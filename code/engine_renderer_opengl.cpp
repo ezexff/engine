@@ -559,6 +559,106 @@ OpenglDrawBitmapOnScreen(loaded_bitmap *Bitmap, v2 P, v2 Dim, v3 Color, r32 Repe
 }
 
 void
+OpenglDrawBitmapOnScreen(loaded_bitmap *Bitmap, rectangle2 R, v4 Color, r32 Repeat)
+{
+    if(!Bitmap->OpenglID)
+    {
+        glGenTextures(1, &Bitmap->OpenglID);
+        glBindTexture(GL_TEXTURE_2D, Bitmap->OpenglID);
+        
+#if 0
+        // NOTE(ezexff): Ver 1
+        
+        // wrapping
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        
+        // filtering
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        
+        //texture to GPU
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Bitmap->Width, Bitmap->Height, 0,
+                     Bitmap->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Bitmap->Memory);
+        Opengl->glGenerateMipmap(GL_TEXTURE_2D);
+#else
+        // NOTE(ezexff): Ver2
+        /*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);*/
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Bitmap->Width, Bitmap->Height, 0,
+                     Bitmap->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Bitmap->Memory);
+#endif
+    }
+    
+    /* 
+        r32 MinX = P.x;
+        r32 MaxX = P.x + Dim.x;
+        r32 MinY = P.y;
+        r32 MaxY = P.y + Dim.y;
+        r32 VertPositions[] =
+        {
+            // bot
+            MinX, MinY, // 0
+            MaxX, MinY, // 1
+            MaxX, MaxY, // 2
+            MinX, MaxY  // 3
+        };
+         */
+    
+    r32 VertPositions[] = 
+    {
+        R.Min.x, R.Min.y, // 0
+        R.Max.x, R.Min.y, // 1
+        R.Max.x, R.Max.y, // 2
+        R.Min.x, R.Max.y, // 3
+    };
+    
+    r32 TexRectangle[] =
+    {
+        0, 0,           // 0
+        Repeat, 0,      // 1
+        Repeat, Repeat, // 2
+        0, Repeat       // 3
+    };
+    
+    r32 Colors[] =
+    {
+        Color.x, Color.y, Color.z, 
+        Color.x, Color.y, Color.z, 
+        Color.x, Color.y, Color.z, 
+        Color.x, Color.y, Color.z
+    };
+    
+    glEnable(GL_TEXTURE_2D);
+    
+    Opengl->glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, Bitmap->OpenglID);
+    
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    
+    glVertexPointer(2, GL_FLOAT, 0, VertPositions);
+    glTexCoordPointer(2, GL_FLOAT, 0, TexRectangle);
+    glColorPointer(3, GL_FLOAT, 0, Colors);
+    glDrawArrays(GL_QUADS, 0, 4);
+    
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+    
+    glDisable(GL_TEXTURE_2D);
+}
+
+void
 OpenglInitSkybox(renderer *Renderer)
 {
     TIMED_FUNCTION();
@@ -1646,13 +1746,17 @@ OpenglDrawUI(renderer_frame *Frame)
     // NOTE(ezexff): Draw screen push buffer
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(0, (r32)Frame->Dim.x, (r32)Frame->Dim.y, 0, -1.0f, 1.0f);
+    glOrtho(0, (r32)Frame->Dim.x, (r32)Frame->Dim.y, 0, 0.0f, 1.0f);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     
     /* 
         glTranslatef(-(r32)Frame->Dim.x / 2, (r32)Frame->Dim.y / 2, 0.0f);
         glScalef(1.0f, -1.0f, 1.0f);
+     */
+    /* 
+        glScalef(1.0f, -1.0f, 1.0f);
+        glTranslatef(0, -(r32)Frame->Dim.y, 0.0f);
      */
     
     //glScalef(1.0f, -1.0f, 1.0f);
@@ -1662,8 +1766,6 @@ OpenglDrawUI(renderer_frame *Frame)
         glTranslatef(0, (r32)ScreenCenterY, 0);
         glScalef(0.5f, 0.5f, 1);
      */
-    
-    
     
     renderer_push_buffer *PushBufferUI = &Renderer->PushBufferUI;
     SortPushBufferEntries(PushBufferUI);
@@ -1685,11 +1787,36 @@ OpenglDrawUI(renderer_frame *Frame)
             {
                 renderer_ortho_entry_rect *Entry = (renderer_ortho_entry_rect *)Data;
                 v2 Min = Entry->P;
-                Min.y = Frame->Dim.y - Entry->P.y;
                 v2 Max = Entry->Dim;
-                Max.y = Frame->Dim.y - Entry->Dim.y;
+                /* 
+                                Max.y = Frame->Dim.y - Entry->P.y;
+                                Min.y = Frame->Dim.y - Entry->Dim.y;
+                 */
+                
                 OpenglDrawRectOnScreen({Min, Max}, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
                 
+                //BaseAddress += sizeof(*Entry);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_bitmap:
+            {
+                renderer_ortho_entry_bitmap *Entry = (renderer_ortho_entry_bitmap *)Data;
+                /* 
+                                v2 Min = Entry->P;
+                                Min.y = Frame->Dim.y - Entry->P.y;
+                                v2 Max = Entry->Dim;
+                                Max.y = Frame->Dim.y - Entry->Dim.y;
+                                OpenglDrawRectOnScreen({Min, Max}, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+                 */
+                //OpenglDrawBitmapOnScreen(Entry->Bitmap, Entry->P, Entry->Dim,  V3(0, 1, 0), Entry->Repeat);
+                v2 Min = Entry->P;
+                v2 Max = Entry->Dim;
+                /* 
+                                Max.y = Frame->Dim.y - Entry->P.y;
+                                Min.y = Frame->Dim.y - Entry->Dim.y;
+                 */
+                
+                OpenglDrawBitmapOnScreen(Entry->Bitmap, {Min, Max}, V4(0, 1, 0, 1), Entry->Repeat);
                 //BaseAddress += sizeof(*Entry);
             } break;
             
@@ -1732,88 +1859,81 @@ OpenglDrawUI(renderer_frame *Frame)
          */
     
     
-    for(u32 BaseAddress = 0;
-        BaseAddress < Frame->PushBufferSize;
-        )
-    {
-        renderer_entry_header *Header = (renderer_entry_header *)
-        (Frame->PushBufferBase + BaseAddress);
-        BaseAddress += sizeof(*Header);
-        
-        void *Data = (u8 *)Header + sizeof(*Header);
-        switch(Header->Type)
+    /*     
+        for(u32 BaseAddress = 0;
+            BaseAddress < Frame->PushBufferSize;
+            )
         {
-            case RendererEntryType_renderer_entry_rect_on_ground:
+            renderer_entry_header *Header = (renderer_entry_header *)
+            (Frame->PushBufferBase + BaseAddress);
+            BaseAddress += sizeof(*Header);
+            
+            void *Data = (u8 *)Header + sizeof(*Header);
+            switch(Header->Type)
             {
-                renderer_entry_rect_on_ground *Entry = (renderer_entry_rect_on_ground *)Data;
+                case RendererEntryType_renderer_entry_rect_on_ground:
+                {
+                    renderer_entry_rect_on_ground *Entry = (renderer_entry_rect_on_ground *)Data;
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
                 
-                BaseAddress += sizeof(*Entry);
-            } break;
-            
-            case RendererEntryType_renderer_entry_rect_outline_on_ground:
-            {
-                renderer_entry_rect_outline_on_ground *Entry = (renderer_entry_rect_outline_on_ground *)Data;
+                case RendererEntryType_renderer_entry_rect_outline_on_ground:
+                {
+                    renderer_entry_rect_outline_on_ground *Entry = (renderer_entry_rect_outline_on_ground *)Data;
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
                 
-                BaseAddress += sizeof(*Entry);
-            } break;
-            
-            case RendererEntryType_renderer_entry_bitmap_on_ground:
-            {
-                renderer_entry_bitmap_on_ground *Entry = (renderer_entry_bitmap_on_ground *)Data;
+                case RendererEntryType_renderer_entry_bitmap_on_ground:
+                {
+                    renderer_entry_bitmap_on_ground *Entry = (renderer_entry_bitmap_on_ground *)Data;
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
                 
-                BaseAddress += sizeof(*Entry);
-            } break;
-            
-            case RendererEntryType_renderer_entry_cube:
-            {
-                renderer_entry_cube *Entry = (renderer_entry_cube *)Data;
+                case RendererEntryType_renderer_entry_cube:
+                {
+                    renderer_entry_cube *Entry = (renderer_entry_cube *)Data;
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
                 
-                BaseAddress += sizeof(*Entry);
-            } break;
-            
-            case RendererEntryType_renderer_entry_cube_outline:
-            {
-                renderer_entry_cube_outline *Entry = (renderer_entry_cube_outline *)Data;
+                case RendererEntryType_renderer_entry_cube_outline:
+                {
+                    renderer_entry_cube_outline *Entry = (renderer_entry_cube_outline *)Data;
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
                 
-                BaseAddress += sizeof(*Entry);
-            } break;
-            
-            case RendererEntryType_renderer_entry_rect_on_screen:
-            {
-                renderer_entry_rect_on_screen *Entry = (renderer_entry_rect_on_screen *)Data;
-                OpenglDrawRectOnScreen({Entry->P, Entry->P + Entry->Dim}, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+                case RendererEntryType_renderer_entry_rect_on_screen:
+                {
+                    renderer_entry_rect_on_screen *Entry = (renderer_entry_rect_on_screen *)Data;
+                    OpenglDrawRectOnScreen({Entry->P, Entry->P + Entry->Dim}, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
                 
-                BaseAddress += sizeof(*Entry);
-            } break;
-            
-            case RendererEntryType_renderer_entry_bitmap_on_screen:
-            {
-                renderer_entry_bitmap_on_screen *Entry = (renderer_entry_bitmap_on_screen *)Data;
-                OpenglDrawBitmapOnScreen(Entry->Bitmap, Entry->P, Entry->Dim, 
-                                         V3(0, 1, 0), Entry->Repeat);
+                case RendererEntryType_renderer_entry_bitmap_on_screen:
+                {
+                    renderer_entry_bitmap_on_screen *Entry = (renderer_entry_bitmap_on_screen *)Data;
+                    OpenglDrawBitmapOnScreen(Entry->Bitmap, Entry->P, Entry->Dim, 
+                                             V3(0, 1, 0), Entry->Repeat);
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
                 
-                BaseAddress += sizeof(*Entry);
-            } break;
-            
-            case RendererEntryType_renderer_entry_line:
-            {
-                renderer_entry_line *Entry = (renderer_entry_line *)Data;
+                case RendererEntryType_renderer_entry_line:
+                {
+                    renderer_entry_line *Entry = (renderer_entry_line *)Data;
+                    
+                    BaseAddress += sizeof(*Entry);
+                } break;
                 
-                BaseAddress += sizeof(*Entry);
-            } break;
-            
-            /* 
-                        case RendererEntryType_renderer_entry_water:
-                        {
-                            renderer_entry_water *Entry = (renderer_entry_water *)Data;
-                            
-                            BaseAddress += sizeof(*Entry);
-                        } break;
-             */
-            
-            InvalidDefaultCase;
+                InvalidDefaultCase;
+            }
         }
-    }
+     */
     
     glDisable(GL_BLEND);
 }

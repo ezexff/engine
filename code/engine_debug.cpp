@@ -675,6 +675,10 @@ UpdateAndRenderImgui()
             
             if(ImGui::CollapsingHeader("Mode"))
             {
+                if(ImGui::Button("Button1")){};
+                if(ImGui::Button("Button2")){};
+                if(ImGui::Button("Button3")){};
+                
                 ImGui::SeparatorText("Change mode");
                 char *GameModes[] = 
                 {

@@ -44,9 +44,33 @@ struct ui_node_style
     v4 BackgroundColor;
 };
 
+enum ui_size_type
+{
+    UI_SizeKind_Null,
+    UI_SizeKind_Pixels,      // size is computed via a preferred pixel value
+    UI_SizeKind_TextContent, // size is computed via the dimensions of box's rendered string
+    UI_SizeKind_ParentPct,   // size is computed via a well-determined parent or grandparent size
+    UI_SizeKind_ChildrenSum, // size is computed via summing well-determined sizes of children
+};
+
+struct ui_size
+{
+    ui_size_type Type;
+    r32 Value;
+    r32 Strictness;
+};
+
+enum axis2
+{
+    Axis2_Invalid = -1,
+    Axis2_X,
+    Axis2_Y,
+    Axis2_COUNT,
+};
+
 struct ui_node
 {
-    // per-build links/data
+    // NOTE(ezexff): Child per-frame links
     ui_node *First;
     ui_node *Last;
     ui_node *Next;
@@ -71,8 +95,13 @@ struct ui_node
     
     ui_node_style Style;
     
+    // NOTE(ezexff): Size
     //v2 FixedP;
-    v2 FixedSize;
+    //v2 FixedSize;
+    ui_size PrefSize[Axis2_COUNT];
+    axis2 ChildLayoutAxis;
+    //r32 InnerSumY;
+    rectangle2 Rect;
     //rectangle2 FixedSizeRect;
     /* 
         string string;
@@ -133,6 +162,7 @@ struct ui_state
     memory_arena *TranArena;
     renderer_frame *Frame;
     game_input *Input;
+    game_assets *Assets;
 };
 
 struct mode_test
@@ -146,3 +176,5 @@ struct mode_test
         opengl_shader FrameFrag;
      */
 };
+
+ui_state *UI_State;
