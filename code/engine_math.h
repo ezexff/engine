@@ -765,6 +765,16 @@ inline rectangle2 AddRadiusTo(rectangle2 A, v2 Radius)
     return(Result);
 }
 
+inline rectangle2 SubRadiusFrom(rectangle2 A, v2 Radius)
+{
+    rectangle2 Result;
+    
+    Result.Min = A.Min + Radius;
+    Result.Max = A.Max - Radius;
+    
+    return(Result);
+}
+
 inline rectangle2 RectCenterDim(v2 Center, v2 Dim)
 {
     rectangle2 Result = RectCenterHalfDim(Center, 0.5f * Dim);

@@ -225,6 +225,10 @@ union v4
         r32 Ignored5_;
         v2 zw;
     };
+    struct
+    {
+        r32 left, right, top, bottom;
+    };
     r32 E[4];
 };
 
@@ -468,3 +472,13 @@ struct loaded_model
     u32 MeshesCount;
     mesh *Meshes;
 };
+
+inline v4 RGBA(r32 R, r32 G, r32 B, r32 A)
+{
+    v4 Result = {};
+    Result.r = R / 255.f;
+    Result.g = G / 255.f;
+    Result.b = B / 255.f;
+    Result.a = A;
+    return(Result);
+}

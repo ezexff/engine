@@ -12,6 +12,73 @@ ui_node *UI_PopParent(void)
 }
  */
 
+internal v2
+CalcLabelSize(ui_node *Node)
+{
+    v2 Result = {};
+    Result.y = 30;
+    
+    game_assets *Assets = UI_State->Assets;
+    renderer_frame *Frame = UI_State->Frame;
+    
+    font_id FontID = GetFirstFontFrom(Assets, Asset_Font);
+    FontID.Value++;
+    loaded_font *Font = PushFont(Frame, Assets, FontID);
+    if(Font)
+    {
+        eab_font *FontInfo = GetFontInfo(Assets, FontID);
+        
+        r32 FontScale = FontInfo->Scale;
+        r32 CharScale = FontScale;
+        
+        s32 LeftPadding = 5;
+        s32 AtX = LeftPadding + (s32)Node->Rect.Min.x;
+        r32 HalfRectY = (Node->Rect.Max.y - Node->Rect.Min.y) / 2;
+        s32 HalfFontY = 10 / 2;
+        s32 AtY = (s32)Node->Rect.Min.y + (s32)(HalfRectY) + HalfFontY;
+        
+        r32 RectWidth = Node->Rect.Max.x - Node->Rect.Min.x;
+        r32 PrevRectWidth = GetDim(Node->Rect).x;
+        
+        r32 MaxGlyphDimY = F32Min;
+        r32 LastGlyphDimX = 0.0f;
+        for(char *At = Node->String;
+            *At;
+            )
+        {
+            u32 CodePoint = *At;
+            s32 Ascent = RoundR32ToS32(FontInfo->Ascent * FontScale);
+            s32 LSB = Font->LSBs[CodePoint];
+            s32 XOffset = s32(Font->GlyphOffsets[CodePoint].x);
+            s32 YOffset = s32(Font->GlyphOffsets[CodePoint].y);
+            
+            if(CodePoint != ' ')
+            {
+                bitmap_id BitmapID = GetBitmapForGlyph(Assets, FontInfo, Font, CodePoint);
+                eab_bitmap *GlyphInfo = GetBitmapInfo(Assets, BitmapID);
+                
+                v2 GlyphDim;
+                GlyphDim.x = (r32)GlyphInfo->Dim[0];
+                GlyphDim.y = (r32)GlyphInfo->Dim[1];
+                
+                MaxGlyphDimY = Maximum(MaxGlyphDimY, GlyphDim.y);
+                
+                //Result.x += (r32)(AtX + XOffset);
+                //Result.y = Maximum(Result.y, (r32)(AtY + XOffset));
+                LastGlyphDimX = GlyphDim.x;
+            }
+            
+            s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * CharScale);
+            AtX += AdvanceX;
+            ++At;
+        }
+        
+        Result.x = AtX + LastGlyphDimX;
+        
+    }
+    return(Result);
+}
+
 internal void
 DrawLabel(ui_node *Node)
 {
@@ -35,9 +102,12 @@ DrawLabel(ui_node *Node)
         s32 LeftPadding = 5;
         s32 AtX = LeftPadding + (s32)Node->Rect.Min.x;
         r32 HalfRectY = (Node->Rect.Max.y - Node->Rect.Min.y) / 2;
-        s32 AtY = (s32)Node->Rect.Min.y + (s32)(HalfRectY);
+        s32 HalfFontY = 10 / 2;
+        s32 AtY = (s32)Node->Rect.Min.y + (s32)(HalfRectY) + HalfFontY;
         
         r32 RectWidth = Node->Rect.Max.x - Node->Rect.Min.x;
+        r32 PrevRectWidth = GetDim(Node->Rect).x;
+        r32 NewRectWidth = .0f;
         
         for(char *At = Node->String;
             *At;
@@ -64,6 +134,13 @@ DrawLabel(ui_node *Node)
                 renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
                 v2 Min = Pos;
                 v2 Max = Pos + GlyphDim;
+                
+                NewRectWidth += Pos.x;
+                if(NewRectWidth > PrevRectWidth)
+                {
+                    int Test = 0;
+                }
+                
                 PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Min, Max, 100, 1.0f);
             }
             
@@ -90,6 +167,7 @@ inline b32 IsSet(ui_node_style *Style, u32 Flag)
     return(Result);
 }
 
+#if 0
 ui_node *UI_AddNode(u32 Flags, char *String)
 {
     r32 LeftPadding = 0.0f;
@@ -119,12 +197,13 @@ ui_node *UI_AddNode(u32 Flags, char *String)
         NewNode->Prev = UI_State->Root->Last;
         UI_State->Root->Last->Next = NewNode;
         
-        if(NewNode->Parent->ChildLayoutAxis == Axis2_Y)
+        if(NewNode->Parent->LayoutAxis == Axis2_Y)
         {
             Min.y = NewNode->Prev->Rect.Max.y + PaddingY;
             Max.y = Min.y + UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex].FixedSize.y;
             
-            if(Max.y > NewNode->Parent->Rect.Max.y)
+            //if(Max.y > NewNode->Parent->Rect.Max.y)
+            if(!IsInRectangle(NewNode->Parent->Rect, Min) || !IsInRectangle(NewNode->Parent->Rect, Max))
             {
                 InvalidCodePath;
             }
@@ -135,6 +214,107 @@ ui_node *UI_AddNode(u32 Flags, char *String)
     UI_State->Root->Last = NewNode;
     
     return(NewNode);
+}
+#endif
+
+inline ui_style_template
+UI_GetSelectedStyleTemplate()
+{
+    ui_style_template Result = UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex];
+    return(Result);
+}
+
+ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
+{
+    ui_node *Child = PushStruct(UI_State->TranArena, ui_node);
+    Child->Parent = Parent;
+    Child->Style.Flags = Flags;
+    v2 LabelSize = {};
+    if(String)
+    {
+        Child->String = PushString(UI_State->TranArena, String);
+        LabelSize = CalcLabelSize(Child);
+    }
+    
+    Child->Padding = UI_GetSelectedStyleTemplate().Padding;
+    Child->Size[Axis2_X] = UI_GetSelectedStyleTemplate().Size[Axis2_X];
+    Child->Size[Axis2_Y] = UI_GetSelectedStyleTemplate().Size[Axis2_Y];
+    
+    v2 AdvanceAtAxis = {};
+    
+    if(!Parent->First)
+    {
+        Parent->First = Child;
+    }
+    else
+    {
+        Child->Prev = Parent->Last;
+        Parent->Last->Next = Child;
+        
+        if(Parent->LayoutAxis == Axis2_X)
+        {
+            AdvanceAtAxis.x = Child->Prev->Rect.Max.x + Parent->Spacing;
+        }
+        else if(Parent->LayoutAxis == Axis2_Y)
+        {
+            AdvanceAtAxis.y = Child->Prev->Rect.Max.y + Parent->Spacing;
+        }
+    }
+    
+    Child->Rect.Min = Parent->Rect.Min;
+    Child->Rect.Max = Parent->Rect.Min;
+    
+    // NOTE(ezexff): padding min
+    Child->Rect.Min.x += Parent->Padding.left;
+    Child->Rect.Min.y += Parent->Padding.bottom;
+    
+    // NOTE(ezexff): calc size based on parent
+    for(u32 Index = 0;
+        Index < Axis2_Count;
+        ++Index)
+    {
+        switch(Child->Size[Index].Type)
+        {
+            case UI_SizeKind_Pixels:
+            {
+                Child->Rect.Max.E[Index] += Child->Size[Index].Value;
+            } break;
+            
+            case UI_SizeKind_ParentPct:
+            {
+                Child->Rect.Max.E[Index] = Parent->Rect.Max.E[Index] * Child->Size[Index].Value;
+            } break;
+            
+            case UI_SizeKind_TextContent:
+            {
+                Child->Rect.Max.E[Index] = LabelSize.E[Index];
+            } break;
+            
+            InvalidDefaultCase;
+        }
+    }
+    
+    // NOTE(ezexff): padding max
+    Child->Rect.Max.x -= Parent->Padding.right;
+    Child->Rect.Max.y -= Parent->Padding.top;
+    
+    // TODO(ezexff): Is spacing advanced twice?
+    Child->Rect.Min += AdvanceAtAxis;
+    Child->Rect.Max += AdvanceAtAxis;
+    
+    if(!IsInRectangle(Parent->Rect, Child->Rect.Min) || !IsInRectangle(Parent->Rect, Child->Rect.Max))
+    {
+        if((Parent->Rect.Min.x != Child->Rect.Min.x) && (Parent->Rect.Min.y != Child->Rect.Min.y) &&
+           (Parent->Rect.Max.x != Child->Rect.Max.x) && (Parent->Rect.Max.y != Child->Rect.Max.y))
+        {
+            // Child outside parent space
+            InvalidCodePath;
+        }
+    }
+    
+    Parent->Last = Child;
+    
+    return(Child);
 }
 
 u32 UI_GetNodeState(ui_node *Node)
@@ -180,18 +360,53 @@ void UI_UseStyleTemplate(u32 Index)
     UI_State->SelectedTemplateIndex = Index;
 }
 
-u32 UI_Button(char *String)
+internal u32
+UI_Button(char *String)
 {
     UI_UseStyleTemplate(UI_StyleTemplate_Button);
-    ui_node *Node = UI_AddNode(UI_NodeStyleFlag_Clickable|
-                               UI_NodeStyleFlag_DrawBorder|
-                               UI_NodeStyleFlag_DrawText|
-                               UI_NodeStyleFlag_DrawBackground|
-                               UI_NodeStyleFlag_HotAnimation|
-                               UI_NodeStyleFlag_ActiveAnimation,
-                               String);
+    ui_node *Node = UI_AddNodeVer2(UI_State->Root,
+                                   UI_NodeStyleFlag_Clickable|
+                                   UI_NodeStyleFlag_DrawBorder|
+                                   UI_NodeStyleFlag_DrawText|
+                                   UI_NodeStyleFlag_DrawBackground|
+                                   UI_NodeStyleFlag_HotAnimation|
+                                   UI_NodeStyleFlag_ActiveAnimation,
+                                   String);
     u32 State = UI_GetNodeState(Node);
     return(State);
+}
+
+internal void
+UI_Label(char *String)
+{
+    UI_UseStyleTemplate(UI_StyleTemplate_Label);
+    ui_node *Node = UI_AddNodeVer2(UI_State->Root,
+                                   UI_NodeStyleFlag_DrawBorder|
+                                   UI_NodeStyleFlag_DrawText|
+                                   UI_NodeStyleFlag_DrawBackground,
+                                   String);
+}
+
+internal void
+UI_Checkbox(char *String, b32 *Value)
+{
+    UI_UseStyleTemplate(UI_StyleTemplate_Checkbox);
+    ui_node *Node = UI_AddNodeVer2(UI_State->Root,
+                                   UI_NodeStyleFlag_Clickable|
+                                   UI_NodeStyleFlag_DrawBackground,
+                                   String);
+    u32 State = UI_GetNodeState(Node);
+    if(UI_IsClicked(State))
+    {
+        *Value = !*Value;
+    }
+    
+    if(*Value)
+    {
+        UI_UseStyleTemplate(UI_StyleTemplate_CheckboxMark);
+        ui_node *NewNode = UI_AddNodeVer2(Node, UI_NodeStyleFlag_DrawBackground, 0);
+        u32 State2 = UI_GetNodeState(NewNode);
+    }
 }
 
 /* 
@@ -252,7 +467,10 @@ UI_Init(memory_arena *TranArena)
                                 StyleTemplate.ClickedColor = V4(0, 0, 0, 1);
                                 StyleTemplate.PressedColor = V4(0, 0, 0, 1);
                  */
-                StyleTemplate->FixedSize = V2(100, 100);
+                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_X].Value = 100.0f;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_Y].Value = 100.0f;
             } break;
             
             case UI_StyleTemplate_Button:
@@ -263,13 +481,52 @@ UI_Init(memory_arena *TranArena)
                                 StyleTemplate.ClickedColor = V4(0, 0, 0, 1);
                                 StyleTemplate.PressedColor = V4(0, 0, 0, 1);
                  */
-                StyleTemplate->FixedSize = V2(70, 50);
+                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_X].Value = 70.0f;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_Y].Value = 30.0f;
                 /* 
                                 StyleTemplate->PrefSize[Axis2_X].Type = UI_SizeKind_Pixels;
                                 StyleTemplate->PrefSize[Axis2_X].Value = 50;
                                 StyleTemplate->PrefSize[Axis2_Y].Type = UI_SizeKind_Pixels;
                                 StyleTemplate->PrefSize[Axis2_Y].Value = 70;
                  */
+            } break;
+            
+            case UI_StyleTemplate_Label:
+            {
+                StyleTemplate->BackgroundColor = V4(1, 0, 0, 1);
+                StyleTemplate->HoveringColor = V4(0, 1, 0, 1);
+                
+                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_TextContent;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_TextContent;
+            } break;
+            
+            case UI_StyleTemplate_Checkbox:
+            {
+                StyleTemplate->BackgroundColor = V4(.125f, .196f, .298f, 1);
+                StyleTemplate->HoveringColor = V4(.157f, .286f, .443f, 1);
+                
+                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_X].Value = 30.0f;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_Y].Value = 30.0f;
+                
+                StyleTemplate->Padding.left = 5.0f;
+                StyleTemplate->Padding.right = 5.0f;
+                StyleTemplate->Padding.top = 5.0f;
+                StyleTemplate->Padding.bottom = 5.0f;
+            } break;
+            
+            case UI_StyleTemplate_CheckboxMark:
+            {
+                StyleTemplate->BackgroundColor = RGBA(66, 150, 250, 1);
+                
+                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_ParentPct;
+                StyleTemplate->Size[Axis2_X].Value = 1.0f;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ParentPct;
+                StyleTemplate->Size[Axis2_Y].Value = 1.0f;
+                
             } break;
             
             InvalidDefaultCase;
@@ -299,7 +556,9 @@ UI_BeginFrame(tran_state *TranState, renderer_frame *Frame, game_input *Input)
     //UI_State->Root->Style.BackgroundColor = V4(0.5f, 0, 0.5f, 1);
     
     UI_State->Root->Rect = {V2(0, 0), V2((r32)UI_State->Frame->Dim.x, (r32)UI_State->Frame->Dim.y)};
-    UI_State->Root->ChildLayoutAxis = Axis2_Y;
+    UI_State->Root->LayoutAxis = Axis2_Y;
+    UI_State->Root->Spacing = 1.0f;
+    //UI_State->Root->Padding = V4(5, 5, 5, 5);
 }
 
 internal void
@@ -314,7 +573,6 @@ UI_DrawNodeTree(ui_node *Node)
     renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
     if(IsSet(Style, UI_NodeStyleFlag_DrawBackground))
     {
-        //rectangle2 Rect = {Node->FixedP, Node->FixedP + Node->FixedSize};
         PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, Style->BackgroundColor, 100);
     }
     
@@ -393,10 +651,16 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     {
         UI_BeginFrame(TranState, Frame, Input);
         
+        local u32 FooCount = 0;
         if(UI_IsClicked(UI_Button("Foo")))
         {
+            FooCount++;
             Log->Add("[ui] Button Foo was clicked\n");
         }
+        
+        char TextBuffer[256];
+        _snprintf_s(TextBuffer, sizeof(TextBuffer), "%d", FooCount);
+        UI_Label(TextBuffer);
         
         if(UI_IsClicked(UI_Button("Bar")))
         {
@@ -407,6 +671,23 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         {
             Log->Add("[ui] Button Baz was clicked\n");
         }
+        
+        UI_Label("Text1");
+        UI_Label("Text1");
+        UI_Label("Text1");
+        UI_Label("Text1");
+        UI_Label("Text1");
+        UI_Label("Text1");
+        UI_Label("Text1");
+        UI_Label("Text1");
+        UI_Label("Text1");
+        UI_Label("Text1");
+        
+        local b32 Checkbox = false;
+        UI_Checkbox("Test", &Checkbox);
+        _snprintf_s(TextBuffer, sizeof(TextBuffer), "Box=%d", Checkbox);
+        UI_Label(TextBuffer);
+        
         
         UI_EndFrame();
     }

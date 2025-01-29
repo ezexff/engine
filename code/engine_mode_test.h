@@ -47,10 +47,10 @@ struct ui_node_style
 enum ui_size_type
 {
     UI_SizeKind_Null,
-    UI_SizeKind_Pixels,      // size is computed via a preferred pixel value
-    UI_SizeKind_TextContent, // size is computed via the dimensions of box's rendered string
-    UI_SizeKind_ParentPct,   // size is computed via a well-determined parent or grandparent size
-    UI_SizeKind_ChildrenSum, // size is computed via summing well-determined sizes of children
+    UI_SizeKind_Pixels,
+    UI_SizeKind_TextContent,
+    UI_SizeKind_ParentPct,  // percent 0..1
+    UI_SizeKind_ChildrenSum,
 };
 
 struct ui_size
@@ -65,7 +65,8 @@ enum axis2
     Axis2_Invalid = -1,
     Axis2_X,
     Axis2_Y,
-    Axis2_COUNT,
+    
+    Axis2_Count,
 };
 
 struct ui_node
@@ -90,19 +91,16 @@ struct ui_node
     
     // per-frame info provided by builders
     u32 StateFlags;
-    //u32 StateFlags;
     char *String;
-    
     ui_node_style Style;
+    rectangle2 Rect; // calculated rect in screen space coordiantes
     
-    // NOTE(ezexff): Size
-    //v2 FixedP;
-    //v2 FixedSize;
-    ui_size PrefSize[Axis2_COUNT];
-    axis2 ChildLayoutAxis;
-    //r32 InnerSumY;
-    rectangle2 Rect;
-    //rectangle2 FixedSizeRect;
+    // NOTE(ezexff): used in autolayout algorithm (this affect on child elements)
+    axis2 LayoutAxis; // align elements by axis
+    ui_size Size[Axis2_Count];
+    r32 Spacing; // distance between nodes in axis
+    v4 Padding;
+    
     /* 
         string string;
         UI_Size semantic_size[Axis2_COUNT];
@@ -124,6 +122,9 @@ enum ui_style_template_name
 {
     UI_StyleTemplate_Default,
     UI_StyleTemplate_Button,
+    UI_StyleTemplate_Label,
+    UI_StyleTemplate_Checkbox,
+    UI_StyleTemplate_CheckboxMark,
     
     UI_StyleTemplate_Count,
 };
@@ -135,7 +136,8 @@ struct ui_style_template
     v4 ClickedColor;
     v4 PressedColor;
     
-    v2 FixedSize;
+    ui_size Size[Axis2_Count];
+    v4 Padding;
 };
 
 struct ui_state
