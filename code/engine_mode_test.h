@@ -146,6 +146,9 @@ struct ui_state
     
     u32 SelectedTemplateIndex;
     ui_style_template StyleTemplateArray[UI_StyleTemplate_Count];
+    
+    font_id FontID;
+    
     /* 
         ui_node *TooltipRoot;
         ui_node *ContextMenuRoot;
@@ -155,12 +158,11 @@ struct ui_state
         ui_node *HotWidget;
         ui_node *LastWidget;
         ui_node UI_RectSetinel;
-        
          */
     
     temporary_memory FrameMemory;
     
-    // NOTE(ezexff): Pointers to external services
+    // NOTE(ezexff): pointers to external services
     memory_arena *TranArena;
     renderer_frame *Frame;
     game_input *Input;

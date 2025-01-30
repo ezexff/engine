@@ -90,3 +90,17 @@ inline s32 FloorR32ToS32(r32 R32)
     s32 Result = (s32)floorf(R32);
     return(Result);
 }
+
+inline s32
+SignOf(s32 Value)
+{
+    s32 Result = (Value >= 0) ? 1 : -1;
+    return(Result);
+}
+
+inline r32
+SignOf(r32 Value)
+{
+    r32 Result = (Value >= 0) ? 1.0f : -1.0f;
+    return(Result);
+}

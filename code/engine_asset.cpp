@@ -887,3 +887,99 @@ DEBUGLoadShaders(memory_arena *ConstArena, renderer_shaders *Shaders)
     }
     Platform.GetAllFilesOfTypeEnd(&FileGroup);
 }
+
+internal u32
+GetBestMatchAssetFrom(game_assets *Assets, asset_type_id TypeID, 
+                      asset_vector *MatchVector, asset_vector *WeightVector)
+{
+    
+    u32 Result = 0;
+    
+    r32 BestDiff = F32Max;
+    asset_type *Type = Assets->AssetTypes + TypeID;
+    for(u32 AssetIndex = Type->FirstAssetIndex;
+        AssetIndex < Type->OnePastLastAssetIndex;
+        ++AssetIndex)
+    {
+        asset *Asset = Assets->Assets + AssetIndex;
+        
+        r32 TotalWeightedDiff = 0.0f;
+        for(u32 TagIndex = Asset->EAB.FirstTagIndex;
+            TagIndex < Asset->EAB.OnePastLastTagIndex;
+            ++TagIndex)
+        {
+            eab_tag *Tag = Assets->Tags + TagIndex;
+            
+            r32 A = MatchVector->E[Tag->ID];
+            r32 B = Tag->Value;
+            r32 D0 = AbsoluteValue(A - B);
+            r32 D1 = AbsoluteValue((A - Assets->TagRange[Tag->ID] * SignOf(A)) - B);
+            r32 Difference = Minimum(D0, D1);
+            
+            r32 Weighted = WeightVector->E[Tag->ID]*Difference;
+            TotalWeightedDiff += Weighted;
+        }
+        
+        if(BestDiff > TotalWeightedDiff)
+        {
+            BestDiff = TotalWeightedDiff;
+            Result = AssetIndex;
+        }
+    }
+    
+    return(Result);
+}
+
+internal u32
+GetRandomAssetFrom(game_assets *Assets, asset_type_id TypeID, random_series *Series)
+{
+    
+    u32 Result = 0;
+    
+    asset_type *Type = Assets->AssetTypes + TypeID;
+    if(Type->FirstAssetIndex != Type->OnePastLastAssetIndex)
+    {
+        u32 Count = (Type->OnePastLastAssetIndex - Type->FirstAssetIndex);
+        u32 Choice = RandomChoice(Series, Count);
+        Result = Type->FirstAssetIndex + Choice;
+    }
+    
+    return(Result);
+}
+
+inline bitmap_id
+GetBestMatchBitmapFrom(game_assets *Assets, asset_type_id TypeID,
+                       asset_vector *MatchVector, asset_vector *WeightVector)
+{
+    bitmap_id Result = {GetBestMatchAssetFrom(Assets, TypeID, MatchVector, WeightVector)};
+    return(Result);
+}
+
+inline bitmap_id
+GetRandomBitmapFrom(game_assets *Assets, asset_type_id TypeID, random_series *Series)
+{
+    bitmap_id Result = {GetRandomAssetFrom(Assets, TypeID, Series)};
+    return(Result);
+}
+
+inline sound_id
+GetBestMatchSoundFrom(game_assets *Assets, asset_type_id TypeID,
+                      asset_vector *MatchVector, asset_vector *WeightVector)
+{
+    sound_id Result = {GetBestMatchAssetFrom(Assets, TypeID, MatchVector, WeightVector)};
+    return(Result);
+}
+
+inline sound_id
+GetRandomSoundFrom(game_assets *Assets, asset_type_id TypeID, random_series *Series)
+{
+    sound_id Result = {GetRandomAssetFrom(Assets, TypeID, Series)};
+    return(Result);
+}
+
+internal font_id
+GetBestMatchFontFrom(game_assets *Assets, asset_type_id TypeID, asset_vector *MatchVector, asset_vector *WeightVector)
+{
+    font_id Result = {GetBestMatchAssetFrom(Assets, TypeID, MatchVector, WeightVector)};
+    return(Result);
+}

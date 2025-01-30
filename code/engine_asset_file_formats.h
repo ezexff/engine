@@ -155,7 +155,7 @@ struct eab_font
     /*r32 AscenderHeight;
     r32 DescenderHeight;    
     r32 ExternalLeading;*/
-    r32 Scale;
+    r32 Scale; // NOTE(ezexff): scale = pixels / (ascent - descent)
     s32 Ascent, Descent, LineGap;
     s32 KerningTableLength;
     

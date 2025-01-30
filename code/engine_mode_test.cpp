@@ -13,68 +13,28 @@ ui_node *UI_PopParent(void)
  */
 
 internal v2
-CalcLabelSize(ui_node *Node)
+CalcTextSizeInPixels(renderer_frame *Frame, game_assets *Assets, font_id FontID, char *String)
 {
     v2 Result = {};
-    Result.y = 30;
     
-    game_assets *Assets = UI_State->Assets;
-    renderer_frame *Frame = UI_State->Frame;
-    
-    font_id FontID = GetFirstFontFrom(Assets, Asset_Font);
-    FontID.Value++;
     loaded_font *Font = PushFont(Frame, Assets, FontID);
     if(Font)
     {
         eab_font *FontInfo = GetFontInfo(Assets, FontID);
+        Result.y = (FontInfo->Ascent - FontInfo->Descent) * FontInfo->Scale;
         
-        r32 FontScale = FontInfo->Scale;
-        r32 CharScale = FontScale;
-        
-        s32 LeftPadding = 5;
-        s32 AtX = LeftPadding + (s32)Node->Rect.Min.x;
-        r32 HalfRectY = (Node->Rect.Max.y - Node->Rect.Min.y) / 2;
-        s32 HalfFontY = 10 / 2;
-        s32 AtY = (s32)Node->Rect.Min.y + (s32)(HalfRectY) + HalfFontY;
-        
-        r32 RectWidth = Node->Rect.Max.x - Node->Rect.Min.x;
-        r32 PrevRectWidth = GetDim(Node->Rect).x;
-        
-        r32 MaxGlyphDimY = F32Min;
-        r32 LastGlyphDimX = 0.0f;
-        for(char *At = Node->String;
+        s32 AtX = 0;
+        for(char *At = String;
             *At;
             )
         {
             u32 CodePoint = *At;
-            s32 Ascent = RoundR32ToS32(FontInfo->Ascent * FontScale);
-            s32 LSB = Font->LSBs[CodePoint];
-            s32 XOffset = s32(Font->GlyphOffsets[CodePoint].x);
-            s32 YOffset = s32(Font->GlyphOffsets[CodePoint].y);
-            
-            if(CodePoint != ' ')
-            {
-                bitmap_id BitmapID = GetBitmapForGlyph(Assets, FontInfo, Font, CodePoint);
-                eab_bitmap *GlyphInfo = GetBitmapInfo(Assets, BitmapID);
-                
-                v2 GlyphDim;
-                GlyphDim.x = (r32)GlyphInfo->Dim[0];
-                GlyphDim.y = (r32)GlyphInfo->Dim[1];
-                
-                MaxGlyphDimY = Maximum(MaxGlyphDimY, GlyphDim.y);
-                
-                //Result.x += (r32)(AtX + XOffset);
-                //Result.y = Maximum(Result.y, (r32)(AtY + XOffset));
-                LastGlyphDimX = GlyphDim.x;
-            }
-            
-            s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * CharScale);
+            s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * FontInfo->Scale);
             AtX += AdvanceX;
             ++At;
         }
         
-        Result.x = AtX + LastGlyphDimX;
-        
+        Result.x = (r32)AtX;
     }
     return(Result);
 }
@@ -99,7 +59,7 @@ DrawLabel(ui_node *Node)
         r32 CharScale = FontScale;
         v4 Color = V4(1, 1, 1, 1);
         
-        s32 LeftPadding = 5;
+        s32 LeftPadding = 0;
         s32 AtX = LeftPadding + (s32)Node->Rect.Min.x;
         r32 HalfRectY = (Node->Rect.Max.y - Node->Rect.Min.y) / 2;
         s32 HalfFontY = 10 / 2;
@@ -141,7 +101,7 @@ DrawLabel(ui_node *Node)
                     int Test = 0;
                 }
                 
-                PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Min, Max, 100, 1.0f);
+                PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Min, Max, 10000, 1.0f);
             }
             
             s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * CharScale);
@@ -233,7 +193,7 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
     if(String)
     {
         Child->String = PushString(UI_State->TranArena, String);
-        LabelSize = CalcLabelSize(Child);
+        LabelSize = CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, Child->String);
     }
     
     Child->Padding = UI_GetSelectedStyleTemplate().Padding;
@@ -381,9 +341,9 @@ UI_Label(char *String)
 {
     UI_UseStyleTemplate(UI_StyleTemplate_Label);
     ui_node *Node = UI_AddNodeVer2(UI_State->Root,
+                                   //UI_NodeStyleFlag_DrawBackground|
                                    UI_NodeStyleFlag_DrawBorder|
-                                   UI_NodeStyleFlag_DrawText|
-                                   UI_NodeStyleFlag_DrawBackground,
+                                   UI_NodeStyleFlag_DrawText,
                                    String);
 }
 
@@ -451,7 +411,7 @@ UI_Init(memory_arena *TranArena)
 {
     UI_State = PushStruct(TranArena, ui_state);
     
-    // NOTE(ezexff): Style templates
+    // NOTE(ezexff): style templates
     for(u32 Index = 0;
         Index < UI_StyleTemplate_Count;
         ++Index)
@@ -543,6 +503,14 @@ UI_BeginFrame(tran_state *TranState, renderer_frame *Frame, game_input *Input)
     UI_State->Frame = Frame;
     UI_State->Input = Input;
     
+    // NOTE(ezexff): font
+    asset_vector MatchVector = {};
+    asset_vector WeightVector = {};
+    MatchVector.E[Tag_FontType] = (r32)FontType_Debug;
+    WeightVector.E[Tag_FontType] = 1.0f;
+    UI_State->FontID = GetBestMatchFontFrom(UI_State->Assets, Asset_Font, &MatchVector, &WeightVector);
+    
+    // NOTE(ezexff): frame memory
     UI_State->FrameMemory = BeginTemporaryMemory(UI_State->TranArena);
     
     // NOTE(ezexff): Root ui_node
@@ -672,16 +640,16 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             Log->Add("[ui] Button Baz was clicked\n");
         }
         
-        UI_Label("Text1");
-        UI_Label("Text1");
-        UI_Label("Text1");
-        UI_Label("Text1");
-        UI_Label("Text1");
-        UI_Label("Text1");
-        UI_Label("Text1");
-        UI_Label("Text1");
-        UI_Label("Text1");
-        UI_Label("Text1");
+        UI_Label("Text13213");
+        UI_Label("Text1dfgdfgdf");
+        UI_Label("Text1jhg");
+        UI_Label("Text1876jhk");
+        UI_Label("Text1fd");
+        UI_Label("Text1jg");
+        UI_Label("Text1hfgjhgjhgj");
+        UI_Label("Text1fgh");
+        UI_Label("Text1lkjlj");
+        UI_Label("Text1wwWWw");
         
         local b32 Checkbox = false;
         UI_Checkbox("Test", &Checkbox);

@@ -498,10 +498,10 @@ OpenglDrawBitmapOnScreen(loaded_bitmap *Bitmap, v2 P, v2 Dim, v3 Color, r32 Repe
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);*/
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Bitmap->Width, Bitmap->Height, 0,
                      Bitmap->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Bitmap->Memory);
@@ -551,6 +551,8 @@ OpenglDrawBitmapOnScreen(loaded_bitmap *Bitmap, v2 P, v2 Dim, v3 Color, r32 Repe
     glColorPointer(3, GL_FLOAT, 0, Colors);
     glDrawArrays(GL_QUADS, 0, 4);
     
+    //glColor3f(0, 0, 1);
+    
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisableClientState(GL_COLOR_ARRAY);
@@ -592,16 +594,28 @@ OpenglDrawBitmapOnScreen(loaded_bitmap *Bitmap, rectangle2 R, v4 Color, r32 Repe
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
                  */
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        /* 
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+         */
         /* 
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
          */
         
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Bitmap->Width, Bitmap->Height, 0,
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        
+        /*         
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Bitmap->Width, Bitmap->Height, 0,
+                             Bitmap->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Bitmap->Memory);
+                 */
+        
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, Bitmap->Width, Bitmap->Height, 0,
                      Bitmap->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Bitmap->Memory);
 #endif
     }
@@ -639,10 +653,10 @@ OpenglDrawBitmapOnScreen(loaded_bitmap *Bitmap, rectangle2 R, v4 Color, r32 Repe
     
     r32 Colors[] =
     {
-        Color.x, Color.y, Color.z, 
-        Color.x, Color.y, Color.z, 
-        Color.x, Color.y, Color.z, 
-        Color.x, Color.y, Color.z
+        Color.x, Color.y, Color.z, Color.a,
+        Color.x, Color.y, Color.z, Color.a,
+        Color.x, Color.y, Color.z, Color.a,
+        Color.x, Color.y, Color.z, Color.a,
     };
     
     glEnable(GL_TEXTURE_2D);
@@ -656,7 +670,7 @@ OpenglDrawBitmapOnScreen(loaded_bitmap *Bitmap, rectangle2 R, v4 Color, r32 Repe
     
     glVertexPointer(2, GL_FLOAT, 0, VertPositions);
     glTexCoordPointer(2, GL_FLOAT, 0, TexRectangle);
-    glColorPointer(3, GL_FLOAT, 0, Colors);
+    glColorPointer(4, GL_FLOAT, 0, Colors);
     glDrawArrays(GL_QUADS, 0, 4);
     
     glDisableClientState(GL_VERTEX_ARRAY);
@@ -1746,8 +1760,12 @@ OpenglDrawUI(renderer_frame *Frame)
 {
     renderer *Renderer = (renderer *)Frame->Renderer;
     //~ NOTE(ezexff): Draw UI
+    //glDisbale(GL_BLEND);    
+    //glEnable(GL_ALPHA_TEST);
+    //glAlphaFunc(GL_GREATER, 0.99f);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    //glBlendFunc(GL_SRC_ALPHA, GL_ONE);
     
     //glViewport(0, 0, Frame->Dim.x, Frame->Dim.y);
     
