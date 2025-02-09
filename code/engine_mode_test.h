@@ -156,8 +156,6 @@ struct ui_state
     
     font_id FontID;
     
-    b32 TestIsDragging;
-    
     // cache
     ui_node *CacheFirst;
     ui_node *CacheLast;

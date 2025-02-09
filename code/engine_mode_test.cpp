@@ -141,6 +141,12 @@ inline void UI_ClearFlags(ui_node *Node, u32 Flag)
     Node->StateFlags &= ~Flag;
 }
 
+inline b32 UI_IsSet(ui_node *Node, u32 Flag)
+{
+    b32 Result = Node->StateFlags & Flag;
+    return(Result);
+}
+
 inline b32 UI_IsSet(ui_node_style *Style, u32 Flag)
 {
     b32 Result = Style->Flags & Flag;
@@ -391,10 +397,6 @@ u32 UI_GetNodeState(ui_node *Node)
     ui_style_template *Template = &UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex];
     ui_node_style *CachedStyle = &CachedNode->Style;
     
-    UI_ClearFlags(CachedNode,
-                  UI_NodeStateFlag_Hovering|
-                  UI_NodeStateFlag_Pressed);
-    
     if(UI_IsSet(CachedStyle, UI_NodeStyleFlag_DrawBackground))
     {
         CachedStyle->BackgroundColor = Template->BackgroundColor;
@@ -409,27 +411,36 @@ u32 UI_GetNodeState(ui_node *Node)
         if(IsInRectangle(NodeRect, MouseP))
         {
             UI_AddFlags(CachedNode, UI_NodeStateFlag_Hovering);
-            //Log->Add("[ui] in button rect\n");
-            
             CachedStyle->BackgroundColor = Template->HoveringColor;
+            
+            // NOTE(ezexff): set flags based on prev frame
+            if(UI_IsSet(CachedNode, UI_NodeStateFlag_Pressed))
+            {
+                if(IsDown(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
+                {
+                    UI_AddFlags(CachedNode, UI_NodeStateFlag_Dragging);
+                }
+            }
+            
+            // NOTE(ezexff): set input flags
             if(WasPressed(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
             {
                 UI_AddFlags(CachedNode, UI_NodeStateFlag_Pressed);
                 Log->Add("Was pressed = %s\n", Node->String);
-                //AddFlags(Node, UI_NodeStateFlag_Clicked);
+            }
+            else
+            {
+                UI_ClearFlags(CachedNode, UI_NodeStateFlag_Pressed);
             }
             
-            /* 
-                        if(IsDown(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
-                        {
-                            AddFlags(Node, UI_NodeStateFlag_Dragging);
-                            UI_State->TestIsDragging = true;
-                        }
-                        else
-                        {
-                            UI_State->TestIsDragging = false;
-                        }
-             */
+            if(!IsDown(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
+            {
+                UI_ClearFlags(CachedNode, UI_NodeStateFlag_Dragging);
+            }
+        }
+        else
+        {
+            UI_ClearFlags(CachedNode, UI_NodeStateFlag_Hovering);
         }
         
         /* 
@@ -594,15 +605,13 @@ UI_Window(char *String, b32 *Value)
                 *Value = !*Value;
             }
             
-            if(UI_State->TestIsDragging)
+            UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleEmptySpace);
+            u32 TitleEmptySpaceState = UI_GetNodeState(TitleEmptySpace);
+            if(UI_IsDragging(TitleEmptySpaceState))
             {
                 P.x += UI_State->Input->MouseDelta.x;
                 P.y -= UI_State->Input->MouseDelta.y;
             }
-            //Log->Add("[ui] dragging = %d\n", UI_State->TestIsDragging);
-            UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleEmptySpace);
-            u32 TitleEmptySpaceState = UI_GetNodeState(TitleEmptySpace);
-            //if(UI_IsDragging(TitleEmptySpaceState))
         }
     }
     
