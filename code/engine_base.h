@@ -413,14 +413,12 @@ StringsAreEqual(umm ALength, char *A, char *B)
 //~ NOTE(ezexff): Asset
 struct loaded_bitmap
 {
-    //v2 AlignPercentage;
-    //r32 WidthOverHeight;
-    
     s32 Width;
     s32 Height;
     s32 BytesPerPixel;
     void *Memory;
     u32 OpenglID;
+    //InternalFormat;
 };
 
 struct loaded_sound
@@ -482,3 +480,26 @@ inline v4 RGBA(r32 R, r32 G, r32 B, r32 A)
     Result.a = A;
     return(Result);
 }
+
+//~ NOTE(ezexff): Asset
+/*#define DLIST_INSERT(Sentinel, Element)         \
+(Element)->Next = (Sentinel)->Next;         \
+(Element)->Prev = (Sentinel);               \
+(Element)->Next->Prev = (Element);          \
+(Element)->Prev->Next = (Element); 
+#define DLIST_INSERT_AS_LAST(Sentinel, Element)         \
+(Element)->Next = (Sentinel);               \
+(Element)->Prev = (Sentinel)->Prev;         \
+(Element)->Next->Prev = (Element);          \
+(Element)->Prev->Next = (Element); 
+
+#define DLIST_INIT(Sentinel) \
+(Sentinel)->Next = (Sentinel); \
+(Sentinel)->Prev = (Sentinel);
+
+#define FREELIST_ALLOCATE(Result, FreeListPointer, AllocationCode)             \
+(Result) = (FreeListPointer); \
+if(Result) {FreeListPointer = (Result)->NextFree;} else {Result = AllocationCode;}
+#define FREELIST_DEALLOCATE(Pointer, FreeListPointer) \
+if(Pointer) {(Pointer)->NextFree = (FreeListPointer); (FreeListPointer) = (Pointer);}
+ */

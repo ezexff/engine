@@ -35,8 +35,9 @@ enum ui_node_state_flags
 #define ui_mouse_over(s)     !!((s).f&UI_SignalFlag_MouseOver)
 #define ui_committed(s)      !!((s).f&UI_SignalFlag_Commit)
  */
-#define UI_IsClicked(Node) (Node & UI_NodeStateFlag_Clicked)
+//#define UI_IsClicked(Node) (Node & UI_NodeStateFlag_Clicked)
 #define UI_IsPressed(Node) (Node & UI_NodeStateFlag_Pressed)
+#define UI_IsDragging(Node) (Node & UI_NodeStateFlag_Dragging)
 
 struct ui_node_style
 {
@@ -49,7 +50,7 @@ enum ui_size_type
     UI_SizeKind_Null,
     UI_SizeKind_Pixels,
     UI_SizeKind_TextContent,
-    UI_SizeKind_ParentPct,  // percent 0..1
+    UI_SizeKind_ParentPercent,
     UI_SizeKind_ChildrenSum,
 };
 
@@ -71,6 +72,11 @@ enum axis2
 
 struct ui_node
 {
+    // NOTE(ezexff): persistent links
+    ui_node *CacheNext;
+    ui_node *CachePrev;
+    u32 Key;
+    
     // NOTE(ezexff): Child per-frame links
     ui_node *First;
     ui_node *Last;
@@ -78,10 +84,6 @@ struct ui_node
     ui_node *Prev;
     ui_node *Parent;
     u32 ChildCount;
-    
-    // persistent links
-    ui_node *HashNext;
-    ui_node *HashPrev;
     
     // key+generation info
     /* 
@@ -125,6 +127,11 @@ enum ui_style_template_name
     UI_StyleTemplate_Label,
     UI_StyleTemplate_Checkbox,
     UI_StyleTemplate_CheckboxMark,
+    UI_StyleTemplate_Window,
+    UI_StyleTemplate_WindowTitle,
+    UI_StyleTemplate_WindowTitleEmptySpace,
+    UI_StyleTemplate_WindowTitleExitButton,
+    UI_StyleTemplate_WindowBody,
     
     UI_StyleTemplate_Count,
 };
@@ -149,6 +156,22 @@ struct ui_state
     
     font_id FontID;
     
+    b32 TestIsDragging;
+    
+    // cache
+    ui_node *CacheFirst;
+    ui_node *CacheLast;
+    /* 
+        u32 CacheIndex;
+        u32 CacheTableSize;
+        ui_node *CacheTable;
+     */
+    /* 
+        ui_node *CacheTableFirst;
+        ui_node *CacheTableLast;
+     */
+    
+    
     /* 
         ui_node *TooltipRoot;
         ui_node *ContextMenuRoot;
@@ -160,9 +183,14 @@ struct ui_state
         ui_node UI_RectSetinel;
          */
     
+    game_button_state PressKeyHistory[PlatformMouseButton_Count][2];
+    v2s MousePHistory[2];
+    //v3s MouseDeltaHistory[PlatformMouseButton_Count][3];
+    
     temporary_memory FrameMemory;
     
     // NOTE(ezexff): pointers to external services
+    memory_arena *ConstArena;
     memory_arena *TranArena;
     renderer_frame *Frame;
     game_input *Input;

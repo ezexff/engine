@@ -1,4 +1,4 @@
-#include "engine_types.h"
+#include "engine_base.h"
 #include <intrin.h>
 #include "immintrin.h"
 #include "engine_intrinsics.h"
@@ -392,7 +392,7 @@ struct renderer_frame
     u8 *PushBufferBase;
     u32 PushBufferSize;
     
-    // NOTE(ezexff): We output rendered scene through ColorTexture and using shaders f or on screen effects
+    // NOTE(ezexff): We output rendered scene through ColorTexture and using shaders for on screen effects
     u32 ColorTexture;
     u32 DepthTexture; // Need for FBO
     u32 FBO;
