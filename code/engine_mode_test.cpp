@@ -518,6 +518,7 @@ internal void
 UI_Window(char *String, b32 *Value)
 {
     local v2 P = {};
+    local v2 Size = {};
     local b32 IsExpanded = true;
     
     UI_UseStyleTemplate(UI_StyleTemplate_Window);
@@ -527,91 +528,89 @@ UI_Window(char *String, b32 *Value)
                                      "Window");
     Window->LayoutAxis = Axis2_Y;
     Window->Rect.Min = Window->Rect.Min + P;
-    Window->Rect.Max = Window->Rect.Max + P;
+    Window->Rect.Max = Window->Rect.Max + P + Size;
     u32 WindowState = UI_GetNodeState(Window);
     
     // NOTE(ezexff): Title
+    UI_UseStyleTemplate(UI_StyleTemplate_WindowTitle);
+    ui_node *Title = UI_AddNodeVer2(Window,
+                                    UI_NodeStyleFlag_DrawBorder|
+                                    UI_NodeStyleFlag_DrawBackground,
+                                    "Title");
+    u32 TitleState = UI_GetNodeState(Title);
+    Title->LayoutAxis = Axis2_X;
+    
+    // NOTE(ezexff): Title content
     {
-        UI_UseStyleTemplate(UI_StyleTemplate_WindowTitle);
-        ui_node *Title = UI_AddNodeVer2(Window,
-                                        UI_NodeStyleFlag_DrawBorder|
-                                        UI_NodeStyleFlag_DrawBackground,
-                                        "Title");
-        u32 TitleState = UI_GetNodeState(Title);
-        Title->LayoutAxis = Axis2_X;
-        
-        // NOTE(ezexff): Title content
+        // NOTE(ezexff): Expand button
+        char *ExpandString = ">";
+        if(IsExpanded)
         {
-            // NOTE(ezexff): Expand button
-            char *ExpandString = ">";
-            if(IsExpanded)
-            {
-                ExpandString = "v";
-            }
-            UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleExitButton);
-            ui_node *ExpandButton = UI_AddNodeVer2(Title,
-                                                   UI_NodeStyleFlag_Clickable|
-                                                   UI_NodeStyleFlag_DrawBorder|
-                                                   UI_NodeStyleFlag_DrawText|
-                                                   UI_NodeStyleFlag_DrawBackground|
-                                                   UI_NodeStyleFlag_HotAnimation|
-                                                   UI_NodeStyleFlag_ActiveAnimation,
-                                                   ExpandString);
-            u32 ExpandButtonState = UI_GetNodeState(ExpandButton);
-            if(UI_IsPressed(ExpandButtonState))
-            {
-                IsExpanded = !IsExpanded;
-                
-                Log->Add("IsExpanded=%d\n", IsExpanded);
-                Log->Add("ExpandButtonState=%d\n", ExpandButtonState);
-            }
+            ExpandString = "v";
+        }
+        UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleExitButton);
+        ui_node *ExpandButton = UI_AddNodeVer2(Title,
+                                               UI_NodeStyleFlag_Clickable|
+                                               UI_NodeStyleFlag_DrawBorder|
+                                               UI_NodeStyleFlag_DrawText|
+                                               UI_NodeStyleFlag_DrawBackground|
+                                               UI_NodeStyleFlag_HotAnimation|
+                                               UI_NodeStyleFlag_ActiveAnimation,
+                                               ExpandString);
+        u32 ExpandButtonState = UI_GetNodeState(ExpandButton);
+        if(UI_IsPressed(ExpandButtonState))
+        {
+            IsExpanded = !IsExpanded;
             
-            // NOTE(ezexff): Label
-            UI_UseStyleTemplate(UI_StyleTemplate_Label);
-            ui_node *TitleLabel = UI_AddNodeVer2(Title,
-                                                 UI_NodeStyleFlag_DrawBorder|
-                                                 UI_NodeStyleFlag_DrawText,
-                                                 String);
-            
-            // NOTE(ezexff): Empty space
-            UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleEmptySpace);
-            ui_node *TitleEmptySpace = UI_AddNodeVer2(Title,
-                                                      UI_NodeStyleFlag_Clickable|
-                                                      UI_NodeStyleFlag_DrawBorder|
-                                                      UI_NodeStyleFlag_DrawBackground,
-                                                      "Empty space");
-            
-            // NOTE(ezexff): Exit button
-            UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleExitButton);
-            ui_node *ExitButton = UI_AddNodeVer2(Title,
-                                                 UI_NodeStyleFlag_Clickable|
-                                                 UI_NodeStyleFlag_DrawBorder|
-                                                 UI_NodeStyleFlag_DrawText|
-                                                 UI_NodeStyleFlag_DrawBackground|
-                                                 UI_NodeStyleFlag_HotAnimation|
-                                                 UI_NodeStyleFlag_ActiveAnimation,
-                                                 "x");
-            
-            // NOTE(ezexff): Post widgets work
-            r32 ExitButtonWidth = ExitButton->Rect.Max.x - ExitButton->Rect.Min.x;
-            r32 TitleEmptySpaceWidth = Title->Rect.Max.x - TitleLabel->Rect.Max.x - ExitButtonWidth;
-            TitleEmptySpace->Rect.Min.x = TitleLabel->Rect.Max.x;
-            TitleEmptySpace->Rect.Max.x = TitleEmptySpace->Rect.Min.x + TitleEmptySpaceWidth;
-            ExitButton->Rect.Min.x = TitleEmptySpace->Rect.Max.x;
-            ExitButton->Rect.Max.x = ExitButton->Rect.Min.x + ExitButtonWidth;
-            u32 TitleExitState = UI_GetNodeState(ExitButton);
-            if(UI_IsPressed(TitleExitState))
-            {
-                *Value = !*Value;
-            }
-            
-            UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleEmptySpace);
-            u32 TitleEmptySpaceState = UI_GetNodeState(TitleEmptySpace);
-            if(UI_IsDragging(TitleEmptySpaceState))
-            {
-                P.x += UI_State->Input->MouseDelta.x;
-                P.y -= UI_State->Input->MouseDelta.y;
-            }
+            Log->Add("IsExpanded=%d\n", IsExpanded);
+            Log->Add("ExpandButtonState=%d\n", ExpandButtonState);
+        }
+        
+        // NOTE(ezexff): Label
+        UI_UseStyleTemplate(UI_StyleTemplate_Label);
+        ui_node *TitleLabel = UI_AddNodeVer2(Title,
+                                             UI_NodeStyleFlag_DrawBorder|
+                                             UI_NodeStyleFlag_DrawText,
+                                             String);
+        
+        // NOTE(ezexff): Empty space
+        UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleEmptySpace);
+        ui_node *TitleEmptySpace = UI_AddNodeVer2(Title,
+                                                  UI_NodeStyleFlag_Clickable|
+                                                  UI_NodeStyleFlag_DrawBorder|
+                                                  UI_NodeStyleFlag_DrawBackground,
+                                                  "Empty space");
+        
+        // NOTE(ezexff): Exit button
+        UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleExitButton);
+        ui_node *ExitButton = UI_AddNodeVer2(Title,
+                                             UI_NodeStyleFlag_Clickable|
+                                             UI_NodeStyleFlag_DrawBorder|
+                                             UI_NodeStyleFlag_DrawText|
+                                             UI_NodeStyleFlag_DrawBackground|
+                                             UI_NodeStyleFlag_HotAnimation|
+                                             UI_NodeStyleFlag_ActiveAnimation,
+                                             "x");
+        
+        // NOTE(ezexff): Post widgets work
+        r32 ExitButtonWidth = ExitButton->Rect.Max.x - ExitButton->Rect.Min.x;
+        r32 TitleEmptySpaceWidth = Title->Rect.Max.x - TitleLabel->Rect.Max.x - ExitButtonWidth;
+        TitleEmptySpace->Rect.Min.x = TitleLabel->Rect.Max.x;
+        TitleEmptySpace->Rect.Max.x = TitleEmptySpace->Rect.Min.x + TitleEmptySpaceWidth;
+        ExitButton->Rect.Min.x = TitleEmptySpace->Rect.Max.x;
+        ExitButton->Rect.Max.x = ExitButton->Rect.Min.x + ExitButtonWidth;
+        u32 TitleExitState = UI_GetNodeState(ExitButton);
+        if(UI_IsPressed(TitleExitState))
+        {
+            *Value = !*Value;
+        }
+        
+        UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleEmptySpace);
+        u32 TitleEmptySpaceState = UI_GetNodeState(TitleEmptySpace);
+        if(UI_IsDragging(TitleEmptySpaceState))
+        {
+            P.x += UI_State->Input->MouseDelta.x;
+            P.y -= UI_State->Input->MouseDelta.y;
         }
     }
     
@@ -646,6 +645,27 @@ UI_Window(char *String, b32 *Value)
                                              UI_NodeStyleFlag_ActiveAnimation,
                                              TestButtonString);
         u32 State = UI_GetNodeState(TestButton);
+        
+        
+        
+        char *ResizeWindowButtonString = "ResizeWindowButton";
+        UI_UseStyleTemplate(UI_StyleTemplate_WindowResizeButton);
+        ui_node *ResizeWindowButton = UI_AddNodeVer2(Body,
+                                                     UI_NodeStyleFlag_Clickable|
+                                                     UI_NodeStyleFlag_DrawBorder|
+                                                     UI_NodeStyleFlag_DrawBackground|
+                                                     UI_NodeStyleFlag_HotAnimation|
+                                                     UI_NodeStyleFlag_ActiveAnimation,
+                                                     ResizeWindowButtonString);
+        v2 WindowRightBottomCorner = V2(Window->Rect.Max.x, Window->Rect.Max.y + Title->Rect.Max.y - Title->Rect.Min.y);
+        ResizeWindowButton->Rect.Min = V2(WindowRightBottomCorner.x - 10.0f, WindowRightBottomCorner.y - 10.0f);
+        ResizeWindowButton->Rect.Max = WindowRightBottomCorner;
+        u32 ResizeWindowButtonState = UI_GetNodeState(ResizeWindowButton);
+        if(UI_IsDragging(ResizeWindowButtonState))
+        {
+            Size.x += UI_State->Input->MouseDelta.x;
+            Size.y -= UI_State->Input->MouseDelta.y;
+        }
     }
 }
 
@@ -835,8 +855,23 @@ UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
                 //StyleTemplate->HoveringColor = V4(0, 0, 1, 1);
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_ParentPercent;
                 StyleTemplate->Size[Axis2_X].Value = 1.0f;
+#if 1
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ParentPercent;
                 StyleTemplate->Size[Axis2_Y].Value = 1.0f;
+#else
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_Y].Value = 350.0f - 40.0f;
+#endif
+            } break;
+            
+            case UI_StyleTemplate_WindowResizeButton:
+            {
+                StyleTemplate->BackgroundColor = V4(1, 1, 1, 1);
+                StyleTemplate->HoveringColor = V4(0, 0, 1, 1);
+                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_X].Value = 10.0f;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_Y].Value = 10.0f;
             } break;
             
             InvalidDefaultCase;

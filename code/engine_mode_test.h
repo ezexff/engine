@@ -132,6 +132,7 @@ enum ui_style_template_name
     UI_StyleTemplate_WindowTitleEmptySpace,
     UI_StyleTemplate_WindowTitleExitButton,
     UI_StyleTemplate_WindowBody,
+    UI_StyleTemplate_WindowResizeButton,
     
     UI_StyleTemplate_Count,
 };
