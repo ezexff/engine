@@ -254,6 +254,18 @@ PushRectOnScreen(renderer_push_buffer *PushBuffer, v2 Offset, v2 Dim, v4 Color =
 }
 
 void
+PushRectOutlineOnScreen(renderer_push_buffer *PushBuffer, rectangle2 Rect, r32 LineWidth, v4 Color = V4(1, 1, 1, 1), r32 SortKey = 0.0f)
+{
+    renderer_ortho_entry_rect_outline *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_rect_outline, SortKey);
+    if(Entry)
+    {
+        Entry->Rect = Rect;
+        Entry->LineWidth = LineWidth;
+        Entry->Color = Color;
+    }
+}
+
+void
 PushBitmapOnScreen(renderer_push_buffer *PushBuffer, game_assets *Assets, bitmap_id ID, v2 Offset, v2 Dim,
                    r32 SortKey = 0.0f, r32 Repeat = 1)
 {

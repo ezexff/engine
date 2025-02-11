@@ -232,6 +232,13 @@ struct renderer_ortho_entry_rect
     v2 Dim;
 };
 
+struct renderer_ortho_entry_rect_outline
+{
+    rectangle2 Rect;
+    r32 LineWidth;
+    v4 Color;
+};
+
 struct renderer_ortho_entry_bitmap
 {
     loaded_bitmap *Bitmap;
@@ -243,6 +250,7 @@ struct renderer_ortho_entry_bitmap
 enum renderer_ortho_entry_type
 {
     RendererOrthoEntryType_renderer_ortho_entry_rect,
+    RendererOrthoEntryType_renderer_ortho_entry_rect_outline,
     RendererOrthoEntryType_renderer_ortho_entry_bitmap,
 };
 

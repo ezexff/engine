@@ -299,6 +299,16 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
         
         Child->Rect.Min = PrevRectMax;
         Child->Rect.Max = PrevRectMax;
+        
+        // TODO(ezexff): clip?
+        if(Child->Rect.Max.x > Parent->Rect.Max.x)
+        {
+            InvalidCodePath;
+        }
+        if(Child->Rect.Max.y > Parent->Rect.Max.y)
+        {
+            InvalidCodePath;
+        }
     }
     
     Parent->Last = Child;
@@ -410,10 +420,11 @@ u32 UI_GetNodeState(ui_node *Node)
         v2 MouseP = V2((r32)UI_State->Input->MouseP.x, (r32)UI_State->Input->MouseP.y);
         if(IsInRectangle(NodeRect, MouseP))
         {
+            // NOTE(ezexff): start hover
             UI_AddFlags(CachedNode, UI_NodeStateFlag_Hovering);
             CachedStyle->BackgroundColor = Template->HoveringColor;
             
-            // NOTE(ezexff): set flags based on prev frame
+            // NOTE(ezexff): start dragging
             if(UI_IsSet(CachedNode, UI_NodeStateFlag_Pressed))
             {
                 if(IsDown(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
@@ -422,7 +433,7 @@ u32 UI_GetNodeState(ui_node *Node)
                 }
             }
             
-            // NOTE(ezexff): set input flags
+            // NOTE(ezexff): pressed
             if(WasPressed(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
             {
                 UI_AddFlags(CachedNode, UI_NodeStateFlag_Pressed);
@@ -433,6 +444,7 @@ u32 UI_GetNodeState(ui_node *Node)
                 UI_ClearFlags(CachedNode, UI_NodeStateFlag_Pressed);
             }
             
+            // NOTE(ezexff): end dragging
             if(!IsDown(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
             {
                 UI_ClearFlags(CachedNode, UI_NodeStateFlag_Dragging);
@@ -440,7 +452,14 @@ u32 UI_GetNodeState(ui_node *Node)
         }
         else
         {
+            // NOTE(ezexff): end hover
             UI_ClearFlags(CachedNode, UI_NodeStateFlag_Hovering);
+            
+            // NOTE(ezexff): while dragging
+            if(UI_IsSet(CachedNode, UI_NodeStateFlag_Dragging))
+            {
+                CachedStyle->BackgroundColor = Template->HoveringColor;
+            }
         }
         
         /* 
@@ -522,9 +541,9 @@ UI_Window(char *String, b32 *Value)
     local b32 IsExpanded = true;
     
     UI_UseStyleTemplate(UI_StyleTemplate_Window);
-    ui_node *Window = UI_AddNodeVer2(UI_State->Root,
+    ui_node *Window = UI_AddNodeVer2(UI_State->Root, 0,
                                      //UI_NodeStyleFlag_DrawBackground|
-                                     UI_NodeStyleFlag_DrawBorder,
+                                     //UI_NodeStyleFlag_DrawBorder,
                                      "Window");
     Window->LayoutAxis = Axis2_Y;
     Window->Rect.Min = Window->Rect.Min + P;
@@ -948,6 +967,11 @@ UI_DrawNodeTree(ui_node *Node)
         if(UI_IsSet(CachedStyle, UI_NodeStyleFlag_DrawBackground))
         {
             PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, CachedStyle->BackgroundColor, 100);
+        }
+        
+        if(UI_IsSet(CachedStyle, UI_NodeStyleFlag_DrawBorder))
+        {
+            PushRectOutlineOnScreen(&Renderer->PushBufferUI, Node->Rect, 1, V4(1, 0, 0, 1), 100);
         }
         
         if(UI_IsSet(CachedStyle, UI_NodeStyleFlag_DrawText))

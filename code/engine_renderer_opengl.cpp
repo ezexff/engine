@@ -364,6 +364,41 @@ OpenglDrawRectOnScreen(rectangle2 R, v3 Color)
 }
 
 void
+OpenglDrawRectOutlineOnScreen(rectangle2 R, r32 LineWidth, v4 Color)
+{
+    r32 VertPositions[] = 
+    {
+        R.Min.x, R.Min.y, // 0
+        R.Max.x, R.Min.y, // 1
+        R.Max.x, R.Max.y, // 2
+        R.Min.x, R.Max.y, // 3
+    };
+    
+    r32 VertColors[] = {
+        Color.x, Color.y, Color.z, // 0
+        Color.x, Color.y, Color.z, // 1
+        Color.x, Color.y, Color.z, // 2
+        Color.x, Color.y, Color.z, // 3
+    };
+    
+    glLineWidth(LineWidth);
+    glEnable(GL_LINE_SMOOTH);
+    
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
+    
+    glVertexPointer(2, GL_FLOAT, 0, VertPositions);
+    glColorPointer(3, GL_FLOAT, 0, VertColors);
+    glDrawArrays(GL_LINE_LOOP, 0, 4);
+    
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+    
+    glLineWidth(1);
+    glDisable(GL_LINE_SMOOTH);
+}
+
+void
 OpenglDrawRectOnGround(GLenum Mode, rectangle2 R, r32 Z, v3 Color, r32 LineWidth = 1.0f)
 {
     r32 VertPositions[] = {
@@ -1820,6 +1855,14 @@ OpenglDrawUI(renderer_frame *Frame)
                  */
                 
                 OpenglDrawRectOnScreen({Min, Max}, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+                
+                //BaseAddress += sizeof(*Entry);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_rect_outline:
+            {
+                renderer_ortho_entry_rect_outline *Entry = (renderer_ortho_entry_rect_outline *)Data;
+                OpenglDrawRectOutlineOnScreen(Entry->Rect, Entry->LineWidth, Entry->Color);
                 
                 //BaseAddress += sizeof(*Entry);
             } break;
