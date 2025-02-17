@@ -110,6 +110,16 @@ GetArenaSizeRemaining(memory_arena *Arena, arena_push_params Params = DefaultAre
     return(Result);
 }
 
+inline void *
+Copy(memory_index Size, void *SourceInit, void *DestInit)
+{
+    u8 *Source = (u8 *)SourceInit;
+    u8 *Dest = (u8 *)DestInit;
+    while(Size--) {*Dest++ = *Source++;}
+    
+    return(DestInit);
+}
+
 // TODO(casey): Optional "clear" parameter!!!!
 #define PushStruct(Arena, type, ...) (type *)PushSize_(Arena, sizeof(type), ## __VA_ARGS__)
 #define PushArray(Arena, Count, type, ...) (type *)PushSize_(Arena, (Count)*sizeof(type), ## __VA_ARGS__)
@@ -179,6 +189,45 @@ PushString(memory_arena *Arena, char *Source)
     return(Dest);
 }
 
+internal char *
+Concat(memory_arena *Arena, char *A, char *B)
+{
+    char *Result;
+    if(A && B)
+    {
+        u64 ALen = StringLength(A);
+        u64 BLen = StringLength(B);
+        u64 Size = ALen + BLen + 1;
+        //Result = (char *)PushSize_(Arena, Size, NoClear());
+        Result = (char *)PushSize_(Arena, Size, NoClear());
+        u32 CharIndex = 0;
+        for(u32 Index = 0;
+            Index < ALen;
+            ++Index)
+        {
+            Result[CharIndex] = A[Index];
+            CharIndex++;
+        }
+        for(u32 Index = 0;
+            Index < BLen;
+            ++Index)
+        {
+            Result[CharIndex] = B[Index];
+            CharIndex++;
+        }
+        Result[ALen + BLen] = 0;
+    }
+    else if(A)
+    {
+        Result = A;
+    }
+    else
+    {
+        Result = B;
+    }
+    return(Result);
+}
+
 inline char *
 PushAndNullTerminate(memory_arena *Arena, u32 Length, char *Source)
 {
@@ -236,14 +285,4 @@ SubArena(memory_arena *Result, memory_arena *Arena, memory_index Size, arena_pus
     Result->Base = (u8 *)PushSize_(Arena, Size, Params);
     Result->Used = 0;
     Result->TempCount = 0;
-}
-
-inline void *
-Copy(memory_index Size, void *SourceInit, void *DestInit)
-{
-    u8 *Source = (u8 *)SourceInit;
-    u8 *Dest = (u8 *)DestInit;
-    while(Size--) {*Dest++ = *Source++;}
-    
-    return(DestInit);
 }

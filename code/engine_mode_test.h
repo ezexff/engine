@@ -1,3 +1,8 @@
+// NOTE(ezexff): 
+/*
+String after # hashing but not processing and not drawing
+*/
+
 enum ui_node_style_flags
 {
     UI_NodeStyleFlag_Clickable       = (1 << 0),
@@ -9,6 +14,8 @@ enum ui_node_style_flags
     UI_NodeStyleFlag_Clip            = (1 << 6),
     UI_NodeStyleFlag_HotAnimation    = (1 << 7),
     UI_NodeStyleFlag_ActiveAnimation = (1 << 8),
+    
+    UI_NodeStyleFlag_Floating        = (1 << 9),
 };
 
 enum ui_node_state_flags
@@ -100,8 +107,8 @@ struct ui_node
     // NOTE(ezexff): used in autolayout algorithm (this affect on child elements)
     axis2 LayoutAxis; // align elements by axis
     ui_size Size[Axis2_Count];
-    r32 Spacing; // distance between nodes in axis
-    v4 Padding;
+    r32 Spacing; // distance between child nodes in axis
+    r32 Padding;
     
     /* 
         string string;
@@ -145,7 +152,7 @@ struct ui_style_template
     v4 PressedColor;
     
     ui_size Size[Axis2_Count];
-    v4 Padding;
+    r32 Padding;
 };
 
 struct ui_state

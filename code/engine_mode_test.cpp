@@ -30,6 +30,11 @@ UI_CalcTextSizeInPixels(renderer_frame *Frame, game_assets *Assets, font_id Font
 {
     v2 Result = {};
     
+    if(!String)
+    {
+        InvalidCodePath;
+    }
+    
     loaded_font *Font = PushFont(Frame, Assets, FontID);
     if(Font)
     {
@@ -42,6 +47,11 @@ UI_CalcTextSizeInPixels(renderer_frame *Frame, game_assets *Assets, font_id Font
             )
         {
             u32 CodePoint = *At;
+            if(CodePoint == '#')
+            {
+                break;
+            }
+            
             s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * FontInfo->Scale);
             AtX += AdvanceX;
             ++At;
@@ -68,7 +78,6 @@ UI_DrawLabel(ui_node *Node)
         r32 FontScale = FontInfo->Scale;
         r32 LeftEdge = 0.0f;
         
-        u32 PrevCodePoint = 0;
         r32 CharScale = FontScale;
         v4 Color = V4(1, 1, 1, 1);
         
@@ -78,21 +87,25 @@ UI_DrawLabel(ui_node *Node)
         s32 HalfFontY = 10 / 2;
         s32 AtY = (s32)Node->Rect.Min.y + (s32)(HalfRectY) + HalfFontY;
         
-        r32 RectWidth = Node->Rect.Max.x - Node->Rect.Min.x;
-        r32 PrevRectWidth = GetDim(Node->Rect).x;
-        r32 NewRectWidth = .0f;
+        //r32 RectWidth = Node->Rect.Max.x - Node->Rect.Min.x;
+        v2 RectDim = GetDim(Node->Rect);
         
         for(char *At = Node->String;
             *At;
             )
         {
             u32 CodePoint = *At;
+            if(CodePoint == '#')
+            {
+                break;
+            }
+            
             s32 Ascent = RoundR32ToS32(FontInfo->Ascent * FontScale);
             s32 LSB = Font->LSBs[CodePoint];
             s32 XOffset = s32(Font->GlyphOffsets[CodePoint].x);
             s32 YOffset = s32(Font->GlyphOffsets[CodePoint].y);
             
-            if(CodePoint != ' ')
+            //if(CodePoint != ' ')
             {
                 bitmap_id BitmapID = GetBitmapForGlyph(Assets, FontInfo, Font, CodePoint);
                 eab_bitmap *GlyphInfo = GetBitmapInfo(Assets, BitmapID);
@@ -107,10 +120,15 @@ UI_DrawLabel(ui_node *Node)
                 v2 Min = Pos;
                 v2 Max = Pos + GlyphDim;
                 
-                NewRectWidth += Pos.x;
-                if(NewRectWidth > PrevRectWidth)
+                v2 TestMax = Max - Node->Rect.Min;
+                if(TestMax.x > RectDim.x)
                 {
-                    int Test = 0;
+                    break;
+                }
+                
+                if(TestMax.y > RectDim.y)
+                {
+                    break;
                 }
                 
                 renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
@@ -212,11 +230,134 @@ UI_GetSelectedStyleTemplate()
 
 ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
 {
-    if(!String)
+    rectangle2 Rect = {};
+    Rect = {Parent->Rect.Min, Parent->Rect.Min};
+    
+    // NOTE(ezexff): get data from template
+    //r32 Padding = UI_GetSelectedStyleTemplate().Padding;
+    ui_size Size[Axis2_Count] = {};
+    Size[Axis2_X] = UI_GetSelectedStyleTemplate().Size[Axis2_X];
+    Size[Axis2_Y] = UI_GetSelectedStyleTemplate().Size[Axis2_Y];
+    
+    // NOTE(ezexff): calc pos after prev node
+    if(Parent->Last)
     {
-        InvalidCodePath;
+        if(Parent != UI_State->Root) // TODO(ezexff): tmp
+        {
+            if(!(Flags & UI_NodeStyleFlag_Floating))
+            {
+                if(Parent->LayoutAxis == Axis2_X)
+                {
+                    Rect.Min = V2(Parent->Last->Rect.Max.x + Parent->Spacing, Parent->Rect.Min.y);
+                }
+                else if(Parent->LayoutAxis == Axis2_Y)
+                {
+                    Rect.Min = V2(Parent->Rect.Min.x, Parent->Last->Rect.Max.y + Parent->Spacing);
+                }
+                
+                Rect.Max = Rect.Min;
+            }
+        }
     }
     
+    // NOTE(ezexff): calc size
+    v2 LabelSize = UI_CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, String);
+    
+    for(u32 Index = 0;
+        Index < Axis2_Count;
+        ++Index)
+    {
+        switch(Size[Index].Type)
+        {
+            case UI_SizeKind_Pixels:
+            {
+                Rect.Max.E[Index] += Size[Index].Value;
+            } break;
+            
+            case UI_SizeKind_TextContent:
+            {
+                Size[Index].Value = LabelSize.E[Index];
+                Rect.Max.E[Index] += Size[Index].Value;
+            } break;
+            
+            case UI_SizeKind_ParentPercent:
+            {
+                // TODO(ezexff): Mb sub size prev nodes?
+                Rect.Max.E[Index] += Size[Index].Value * (Parent->Rect.Max.E[Index] - Parent->Rect.Min.E[Index]);
+            } break;
+            
+            case UI_SizeKind_ChildrenSum:
+            {
+                // TODO(ezexff): Need test
+                //Parent->Rect.Max.E[Index] += Size[Index].Value;
+            } break;
+            
+            InvalidDefaultCase;
+        }
+        
+        if(Parent->Size[Index].Type == UI_SizeKind_ChildrenSum)
+        {
+            Parent->Rect.Max.E[Index] += Size[Index].Value;
+        }
+    }
+    
+    // TODO(ezexff): tmp test
+    //|| StringsAreEqual(String, "EmptySpace")
+    /* 
+        if(StringsAreEqual(String, "ResizeButton"))
+        {
+            Rect = {Parent->Rect.Min, Parent->Rect.Min};
+        }
+     */
+    if(!IsInRectangle(Parent->Rect, Rect.Min))
+    {
+        return(0);
+        //InvalidCodePath;
+    }
+    
+    // NOTE(ezexff): padding
+    if(Rect.Min.x == Parent->Rect.Min.x)
+    {
+        Rect.Min.x += Parent->Padding;
+        Rect.Max.x += Parent->Padding;
+    }
+    
+    if(Rect.Min.y == Parent->Rect.Min.y)
+    {
+        Rect.Min.y += Parent->Padding;
+        Rect.Max.y += Parent->Padding;
+    }
+    
+    // NOTE(ezexff): clip
+#if 0        
+    if(Rect.Max.x > Parent->Rect.Max.x)
+    {
+        Rect.Max.x = Parent->Rect.Max.x;
+    }
+    if(Rect.Max.y > Parent->Rect.Max.y)
+    {
+        Rect.Max.y = Parent->Rect.Max.y;
+    }
+#else
+    v2 ParentRectMaxWidthPadding = Parent->Rect.Max;
+    ParentRectMaxWidthPadding.x -= Parent->Padding;
+    ParentRectMaxWidthPadding.y -= Parent->Padding;
+    if(Rect.Max.x > ParentRectMaxWidthPadding.x)
+    {
+        Rect.Max.x = ParentRectMaxWidthPadding.x;
+    }
+    if(Rect.Max.y > ParentRectMaxWidthPadding.y)
+    {
+        Rect.Max.y = ParentRectMaxWidthPadding.y;
+    }
+#endif
+    
+    //Rect.Max.x -= Parent->Padding;
+    //Rect.Max.y -= Parent->Padding;
+    //if(GetDim(Rect).x < 2 * Parent->Padding) {InvalidCodePath;}
+    //if(GetDim(Rect).y < 2 * Parent->Padding) {InvalidCodePath;}
+    
+    // NOTE(ezexff): get or create cached node
     ui_node *CachedNode = 0;
     u32 Key = UI_GetHashValue(String);
     
@@ -250,29 +391,38 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
         CachedNode->Style.Flags = Flags;
     }
     
+    // NOTE(ezexff): init per frame node
     ui_node *Child = PushStruct(UI_State->TranArena, ui_node);
-    /* 
-        Child->Key = Key;
-        Child->Style.Flags = CachedNode->Style.Flags;
-     */
-    
-    Child->Padding = UI_GetSelectedStyleTemplate().Padding;
-    Child->Size[Axis2_X] = UI_GetSelectedStyleTemplate().Size[Axis2_X];
-    Child->Size[Axis2_Y] = UI_GetSelectedStyleTemplate().Size[Axis2_Y];
-    
-    v2 LabelSize = {};
-    if(String)
+    Child->String = PushString(UI_State->TranArena, String);
+    Child->Rect = Rect;
+    Child->Parent = Parent;
+    Child->Size[Axis2_X] = Size[Axis2_X];
+    Child->Size[Axis2_Y] = Size[Axis2_Y];
+    if(!Parent->First)
     {
-        Child->String = PushString(UI_State->TranArena, String);
-        LabelSize = UI_CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, Child->String);
+        Parent->First = Child;
     }
+    else
+    {
+        Child->Prev = Parent->Last;
+        Parent->Last->Next = Child;
+    }
+    Parent->Last = Child;
+    
+#if 0    
+    ui_node *Child = PushStruct(UI_State->TranArena, ui_node);
+    Child->Padding = Padding;
+    Child->Size[Axis2_X] = SizeX;
+    Child->Size[Axis2_Y] = SizeY;
+    
+    Child->String = PushString(UI_State->TranArena, String);
     
     Child->Rect.Min = Parent->Rect.Min;
     Child->Rect.Max = Parent->Rect.Min;
     v2 PrevRectMax = {};
     
+    // NOTE(ezexff): add to node per frame links
     Child->Parent = Parent;
-    
     if(!Parent->First)
     {
         Parent->First = Child;
@@ -282,7 +432,7 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
         Child->Prev = Parent->Last;
         Parent->Last->Next = Child;
         
-        // NOTE(ezexff): calc offset on axis
+        // NOTE(ezexff): 
         if(Parent != UI_State->Root)
         {
             if(Parent->LayoutAxis == Axis2_X)
@@ -340,6 +490,7 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
             {
                 Child->Size[Index].Value = LabelSize.E[Index];
                 Child->Rect.Max.E[Index] += Child->Size[Index].Value;
+                //Child->Rect.Max.E[Index] = Child->Rect.Min.E[Index] + Child->Size[Index].Value;
             } break;
             
             case UI_SizeKind_ParentPercent:
@@ -379,12 +530,18 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
             InvalidCodePath;
         }
     }
+#endif
     
     return(Child);
 }
 
 u32 UI_GetNodeState(ui_node *Node)
 {
+    if(!Node)
+    {
+        return(0);
+    }
+    
     ui_node *CachedNode = 0;
     u32 Key = UI_GetHashValue(Node->String);
     
@@ -423,6 +580,7 @@ u32 UI_GetNodeState(ui_node *Node)
             // NOTE(ezexff): start hover
             UI_AddFlags(CachedNode, UI_NodeStateFlag_Hovering);
             CachedStyle->BackgroundColor = Template->HoveringColor;
+            //Log->Add("Hovering = %s %d\n", Node->String, Key);
             
             // NOTE(ezexff): start dragging
             if(UI_IsSet(CachedNode, UI_NodeStateFlag_Pressed))
@@ -437,17 +595,11 @@ u32 UI_GetNodeState(ui_node *Node)
             if(WasPressed(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
             {
                 UI_AddFlags(CachedNode, UI_NodeStateFlag_Pressed);
-                Log->Add("Was pressed = %s\n", Node->String);
+                Log->Add("WasPressed = %s %d\n", Node->String, Key);
             }
             else
             {
                 UI_ClearFlags(CachedNode, UI_NodeStateFlag_Pressed);
-            }
-            
-            // NOTE(ezexff): end dragging
-            if(!IsDown(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
-            {
-                UI_ClearFlags(CachedNode, UI_NodeStateFlag_Dragging);
             }
         }
         else
@@ -460,6 +612,12 @@ u32 UI_GetNodeState(ui_node *Node)
             {
                 CachedStyle->BackgroundColor = Template->HoveringColor;
             }
+        }
+        
+        // NOTE(ezexff): end dragging
+        if(!IsDown(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
+        {
+            UI_ClearFlags(CachedNode, UI_NodeStateFlag_Dragging);
         }
         
         /* 
@@ -536,18 +694,28 @@ UI_Checkbox(char *String, b32 *Value)
 internal void
 UI_Window(char *String, b32 *Value)
 {
+    
+    
+    r32 MinWindowWidth = 100.0f;
+    r32 MinBodyHeight = 20.0f;
     local v2 P = {};
     local v2 Size = {};
     local b32 IsExpanded = true;
     
     UI_UseStyleTemplate(UI_StyleTemplate_Window);
-    ui_node *Window = UI_AddNodeVer2(UI_State->Root, 0,
+    ui_node *Window = UI_AddNodeVer2(UI_State->Root, UI_NodeStyleFlag_Floating,
                                      //UI_NodeStyleFlag_DrawBackground|
                                      //UI_NodeStyleFlag_DrawBorder,
-                                     "Window");
+                                     Concat(UI_State->TranArena, "Window#", String));
     Window->LayoutAxis = Axis2_Y;
     Window->Rect.Min = Window->Rect.Min + P;
-    Window->Rect.Max = Window->Rect.Max + P + Size;
+    Window->Rect.Max = Window->Rect.Max + P;
+    Window->Rect.Max.x = Window->Rect.Max.x + Size.x;
+    r32 WindowWidth = Window->Rect.Max.x - Window->Rect.Min.x;
+    if(WindowWidth < MinWindowWidth)
+    {
+        Window->Rect.Max.x = Window->Rect.Min.x + MinWindowWidth;
+    }
     u32 WindowState = UI_GetNodeState(Window);
     
     // NOTE(ezexff): Title
@@ -555,9 +723,10 @@ UI_Window(char *String, b32 *Value)
     ui_node *Title = UI_AddNodeVer2(Window,
                                     UI_NodeStyleFlag_DrawBorder|
                                     UI_NodeStyleFlag_DrawBackground,
-                                    "Title");
+                                    Concat(UI_State->TranArena, "Title#", String));
     u32 TitleState = UI_GetNodeState(Title);
     Title->LayoutAxis = Axis2_X;
+    Title->Padding = 5.0f;
     
     // NOTE(ezexff): Title content
     {
@@ -575,7 +744,8 @@ UI_Window(char *String, b32 *Value)
                                                UI_NodeStyleFlag_DrawBackground|
                                                UI_NodeStyleFlag_HotAnimation|
                                                UI_NodeStyleFlag_ActiveAnimation,
-                                               ExpandString);
+                                               Concat(UI_State->TranArena, 
+                                                      Concat(UI_State->TranArena, ExpandString, "#"), String));
         u32 ExpandButtonState = UI_GetNodeState(ExpandButton);
         if(UI_IsPressed(ExpandButtonState))
         {
@@ -590,15 +760,15 @@ UI_Window(char *String, b32 *Value)
         ui_node *TitleLabel = UI_AddNodeVer2(Title,
                                              UI_NodeStyleFlag_DrawBorder|
                                              UI_NodeStyleFlag_DrawText,
-                                             String);
-        
+                                             Concat(UI_State->TranArena, 
+                                                    Concat(UI_State->TranArena, String, "#"), String));
         // NOTE(ezexff): Empty space
         UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleEmptySpace);
         ui_node *TitleEmptySpace = UI_AddNodeVer2(Title,
                                                   UI_NodeStyleFlag_Clickable|
                                                   UI_NodeStyleFlag_DrawBorder|
                                                   UI_NodeStyleFlag_DrawBackground,
-                                                  "Empty space");
+                                                  Concat(UI_State->TranArena, "EmptySpace#", String));
         
         // NOTE(ezexff): Exit button
         UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleExitButton);
@@ -609,7 +779,7 @@ UI_Window(char *String, b32 *Value)
                                              UI_NodeStyleFlag_DrawBackground|
                                              UI_NodeStyleFlag_HotAnimation|
                                              UI_NodeStyleFlag_ActiveAnimation,
-                                             "x");
+                                             Concat(UI_State->TranArena, "x#", String));
         
         // NOTE(ezexff): Post widgets work
         r32 ExitButtonWidth = ExitButton->Rect.Max.x - ExitButton->Rect.Min.x;
@@ -640,18 +810,27 @@ UI_Window(char *String, b32 *Value)
         ui_node *Body = UI_AddNodeVer2(Window,
                                        UI_NodeStyleFlag_DrawBorder|
                                        UI_NodeStyleFlag_DrawBackground,
-                                       "WindowBody");
-        u32 BodyState = UI_GetNodeState(Body);
+                                       Concat(UI_State->TranArena, "WindowBody#", String));
+        Body->Rect.Max.y = Body->Rect.Max.y + Size.y;
+        r32 BodyHeight = Body->Rect.Max.y - Body->Rect.Min.y;
+        if(BodyHeight < MinBodyHeight)
+        {
+            Body->Rect.Max.y = Body->Rect.Min.y + MinBodyHeight;
+        }
+        Body->Spacing = 5.0f;
+        Body->Padding = 5.0f;
         Body->LayoutAxis = Axis2_Y;
+        u32 BodyState = UI_GetNodeState(Body);
         
         // NOTE(ezexff):
-        char *TestLabelString = "fkdshjfiusdfls43gfd";
+        char *TestLabelString = "fkdshjfiusdfls43gfd#5435435";
         UI_UseStyleTemplate(UI_StyleTemplate_Label);
         ui_node *TestLabel = UI_AddNodeVer2(Body,
                                             //UI_NodeStyleFlag_DrawBackground|
                                             UI_NodeStyleFlag_DrawBorder|
                                             UI_NodeStyleFlag_DrawText,
-                                            TestLabelString);
+                                            Concat(UI_State->TranArena, 
+                                                   Concat(UI_State->TranArena, TestLabelString, "#"), String));
         
         char *TestButtonString = "Btn1";
         UI_UseStyleTemplate(UI_StyleTemplate_Button);
@@ -662,28 +841,54 @@ UI_Window(char *String, b32 *Value)
                                              UI_NodeStyleFlag_DrawBackground|
                                              UI_NodeStyleFlag_HotAnimation|
                                              UI_NodeStyleFlag_ActiveAnimation,
-                                             TestButtonString);
+                                             Concat(UI_State->TranArena, 
+                                                    Concat(UI_State->TranArena, TestButtonString, "#"), String));
         u32 State = UI_GetNodeState(TestButton);
         
+        char *TestButtonString2 = "Btn2";
+        UI_UseStyleTemplate(UI_StyleTemplate_Button);
+        ui_node *TestButton2 = UI_AddNodeVer2(Body,
+                                              UI_NodeStyleFlag_Clickable|
+                                              UI_NodeStyleFlag_DrawBorder|
+                                              UI_NodeStyleFlag_DrawText|
+                                              UI_NodeStyleFlag_DrawBackground|
+                                              UI_NodeStyleFlag_HotAnimation|
+                                              UI_NodeStyleFlag_ActiveAnimation,
+                                              Concat(UI_State->TranArena, 
+                                                     Concat(UI_State->TranArena, TestButtonString2, "#"), String));
+        u32 State2 = UI_GetNodeState(TestButton2);
         
         
-        char *ResizeWindowButtonString = "ResizeWindowButton";
+        
         UI_UseStyleTemplate(UI_StyleTemplate_WindowResizeButton);
-        ui_node *ResizeWindowButton = UI_AddNodeVer2(Body,
-                                                     UI_NodeStyleFlag_Clickable|
-                                                     UI_NodeStyleFlag_DrawBorder|
-                                                     UI_NodeStyleFlag_DrawBackground|
-                                                     UI_NodeStyleFlag_HotAnimation|
-                                                     UI_NodeStyleFlag_ActiveAnimation,
-                                                     ResizeWindowButtonString);
-        v2 WindowRightBottomCorner = V2(Window->Rect.Max.x, Window->Rect.Max.y + Title->Rect.Max.y - Title->Rect.Min.y);
-        ResizeWindowButton->Rect.Min = V2(WindowRightBottomCorner.x - 10.0f, WindowRightBottomCorner.y - 10.0f);
-        ResizeWindowButton->Rect.Max = WindowRightBottomCorner;
-        u32 ResizeWindowButtonState = UI_GetNodeState(ResizeWindowButton);
-        if(UI_IsDragging(ResizeWindowButtonState))
+        ui_node *ResizeButton = UI_AddNodeVer2(Body,
+                                               UI_NodeStyleFlag_Floating|
+                                               UI_NodeStyleFlag_Clickable|
+                                               UI_NodeStyleFlag_DrawBorder|
+                                               UI_NodeStyleFlag_DrawBackground|
+                                               UI_NodeStyleFlag_HotAnimation|
+                                               UI_NodeStyleFlag_ActiveAnimation,
+                                               Concat(UI_State->TranArena, "ResizeButton#", String));
+        //v2 WindowRightBottomCorner = V2(Window->Rect.Max.x, Window->Rect.Max.y + Title->Rect.Max.y - Title->Rect.Min.y);
+        v2 BodyRightBottomCorner = V2(Body->Rect.Max.x, Body->Rect.Max.y);
+        ResizeButton->Rect.Min = V2(BodyRightBottomCorner.x - 10.0f, BodyRightBottomCorner.y - 10.0f);
+        ResizeButton->Rect.Max = BodyRightBottomCorner;
+        u32 ResizeButtonState = UI_GetNodeState(ResizeButton);
+        if(UI_IsDragging(ResizeButtonState))
         {
-            Size.x += UI_State->Input->MouseDelta.x;
-            Size.y -= UI_State->Input->MouseDelta.y;
+            v2 NewSize = {};
+            NewSize.x += UI_State->Input->MouseDelta.x;
+            NewSize.y -= UI_State->Input->MouseDelta.y;
+            
+            v2 NewWindowDim = GetDim(Window->Rect) + NewSize;
+            if(NewWindowDim.x > MinWindowWidth)
+            {
+                Size.x += NewSize.x;
+            }
+            if(NewWindowDim.x > MinBodyHeight)
+            {
+                Size.y += NewSize.y;
+            }
         }
     }
 }
@@ -806,10 +1011,13 @@ UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
                 StyleTemplate->Size[Axis2_Y].Value = 30.0f;
                 
-                StyleTemplate->Padding.left = 5.0f;
-                StyleTemplate->Padding.right = 5.0f;
-                StyleTemplate->Padding.top = 5.0f;
-                StyleTemplate->Padding.bottom = 5.0f;
+                StyleTemplate->Padding = 5.0f;
+                /* 
+                                StyleTemplate->Padding.left = 5.0f;
+                                StyleTemplate->Padding.right = 5.0f;
+                                StyleTemplate->Padding.top = 5.0f;
+                                StyleTemplate->Padding.bottom = 5.0f;
+                 */
             } break;
             
             case UI_StyleTemplate_CheckboxMark:
@@ -830,9 +1038,9 @@ UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
                 //StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_ChildrenSum;
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
                 StyleTemplate->Size[Axis2_X].Value = 400.0f;
-                //StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ChildrenSum;
-                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_Y].Value = 350.0f;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ChildrenSum;
+                //StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
+                //StyleTemplate->Size[Axis2_Y].Value = 350.0f;
                 
             } break;
             
@@ -843,7 +1051,7 @@ UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_ParentPercent;
                 StyleTemplate->Size[Axis2_X].Value = 1.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_Y].Value = 40.0f;
+                StyleTemplate->Size[Axis2_Y].Value = 30.0f;
                 
             } break;
             
@@ -852,7 +1060,7 @@ UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
                 StyleTemplate->BackgroundColor = RGBA(10, 10, 10, 1);
                 StyleTemplate->HoveringColor = V4(1, 0, 0, 1);
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_X].Value = 150.0f;
+                StyleTemplate->Size[Axis2_X].Value = 0.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ParentPercent;
                 StyleTemplate->Size[Axis2_Y].Value = 1.0f;
             } break;
@@ -874,12 +1082,12 @@ UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
                 //StyleTemplate->HoveringColor = V4(0, 0, 1, 1);
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_ParentPercent;
                 StyleTemplate->Size[Axis2_X].Value = 1.0f;
-#if 1
+#if 0
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ParentPercent;
                 StyleTemplate->Size[Axis2_Y].Value = 1.0f;
 #else
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_Y].Value = 350.0f - 40.0f;
+                StyleTemplate->Size[Axis2_Y].Value = 350.0f;
 #endif
             } break;
             
