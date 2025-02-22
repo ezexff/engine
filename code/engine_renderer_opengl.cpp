@@ -335,7 +335,7 @@ OpenglDrawCubeOutline(v3 P, v3 Dim, v3 Color, r32 LineWidth)
 }
 
 void
-OpenglDrawRectOnScreen(rectangle2 R, v3 Color)
+OpenglDrawRectOnScreen(rectangle2 R, v4 Color)
 {
     r32 VertPositions[] = 
     {
@@ -346,17 +346,17 @@ OpenglDrawRectOnScreen(rectangle2 R, v3 Color)
     };
     
     r32 VertColors[] = {
-        Color.x, Color.y, Color.z, // 0
-        Color.x, Color.y, Color.z, // 1
-        Color.x, Color.y, Color.z, // 2
-        Color.x, Color.y, Color.z, // 3
+        Color.x, Color.y, Color.z, Color.a, // 0
+        Color.x, Color.y, Color.z, Color.a, // 1
+        Color.x, Color.y, Color.z, Color.a, // 2
+        Color.x, Color.y, Color.z, Color.a, // 3
     };
     
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
     
     glVertexPointer(2, GL_FLOAT, 0, VertPositions);
-    glColorPointer(3, GL_FLOAT, 0, VertColors);
+    glColorPointer(4, GL_FLOAT, 0, VertColors);
     glDrawArrays(GL_QUADS, 0, 4);
     
     glDisableClientState(GL_VERTEX_ARRAY);
@@ -1854,7 +1854,7 @@ OpenglDrawUI(renderer_frame *Frame)
                                 Min.y = Frame->Dim.y - Entry->Dim.y;
                  */
                 
-                OpenglDrawRectOnScreen({Min, Max}, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
+                OpenglDrawRectOnScreen({Min, Max}, Entry->Color);
                 
                 //BaseAddress += sizeof(*Entry);
             } break;
