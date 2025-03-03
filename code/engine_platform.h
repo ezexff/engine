@@ -527,8 +527,8 @@ struct game_input
     game_controller_input Controllers[5];
     
     game_button_state MouseButtons[PlatformMouseButton_Count];
-    v2s MouseP;
-    v3s MouseDelta; // x and y - pos delta, z - scroll delta
+    v2 MouseP;
+    v3 dMouseP; // x and y - pos delta, z - scroll delta
     b32 CenteringMouseCursor;
 };
 

@@ -194,8 +194,8 @@ UI_TestWindow(char *String, b32 *Value)
         u32 TitleEmptySpaceState = UI_GetNodeState(TitleEmptySpace);
         if(UI_IsDragging(TitleEmptySpaceState))
         {
-            P.x += UI_State->Input->MouseDelta.x;
-            P.y -= UI_State->Input->MouseDelta.y;
+            P.x += UI_State->Input->dMouseP.x;
+            P.y -= UI_State->Input->dMouseP.y;
         }
     }
     
@@ -296,8 +296,8 @@ UI_TestWindow(char *String, b32 *Value)
         if(UI_IsDragging(ResizeButtonState))
         {
             v2 NewSize = {};
-            NewSize.x += UI_State->Input->MouseDelta.x;
-            NewSize.y -= UI_State->Input->MouseDelta.y;
+            NewSize.x += UI_State->Input->dMouseP.x;
+            NewSize.y -= UI_State->Input->dMouseP.y;
             
             v2 NewWindowDim = GetDim(Window->Rect) + NewSize;
             if(NewWindowDim.x > MinWindowWidth)
@@ -445,6 +445,8 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             }
             UI_EndWindow();
         }
+        
+        
         
         UI_EndFrame();
     }

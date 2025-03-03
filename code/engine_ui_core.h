@@ -131,6 +131,8 @@ struct ui_style_template
     
     ui_size Size[Axis2_Count];
     r32 Padding;
+    
+    v2 OffsetP;
 };
 
 struct ui_state
@@ -146,8 +148,12 @@ struct ui_state
     ui_node *OpenWindow;
     ui_node *OpenWindowBody;
     
+    ui_node *Interaction;
+    ui_node *HotInteraction;
+    ui_node *NextHotInteraction;
+    
     game_button_state PressKeyHistory[PlatformMouseButton_Count][2];
-    v2s MousePHistory[2];
+    v2 MousePHistory[2];
     //v3s MouseDeltaHistory[PlatformMouseButton_Count][3];
     
     font_id FontID;

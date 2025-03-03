@@ -1,3 +1,69 @@
+internal void
+UI_BeginInteract()
+{
+    
+}
+
+internal void
+UI_EndInteract()
+{
+    
+}
+
+internal void
+UI_Interact()
+{
+    if(UI_State->Interaction)
+    {
+        // NOTE(ezexff): mouse move interaction
+        // TODO(ezexff): 
+        v3 Test = UI_State->Input->dMouseP;
+        
+        // NOTE(ezexff): click interaction
+        for(u32 TransitionIndex = UI_State->Input->MouseButtons[PlatformMouseButton_Left].HalfTransitionCount;
+            TransitionIndex > 1;
+            --TransitionIndex)
+        {
+            UI_BeginInteract();
+            UI_EndInteract();
+            Log->Add("Interact (1) = %s\n", UI_State->Interaction->String);
+        }
+        
+        if(!UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
+        {
+            Log->Add("Interact (left released) = %s\n", UI_State->Interaction->String);
+            UI_EndInteract();
+            UI_State->Interaction = 0; // end mouse click
+        }
+    }
+    else
+    {
+        UI_State->HotInteraction = UI_State->NextHotInteraction;
+        
+        for(u32 TransitionIndex = UI_State->Input->MouseButtons[PlatformMouseButton_Left].HalfTransitionCount;
+            TransitionIndex > 1;
+            --TransitionIndex)
+        {
+            UI_BeginInteract();
+            UI_EndInteract();
+            Log->Add("Interact (2) = %s\n", UI_State->Interaction->String);
+        }
+        
+        if(UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
+        {
+            Log->Add("Interact (left clicked) = %s\n", UI_State->HotInteraction->String);
+            UI_State->Interaction = UI_State->HotInteraction; // begin mouse click
+            UI_BeginInteract();
+            
+            // TODO(ezexff): test
+            if(UI_State->Interaction == UI_State->Root)
+            {
+                int Foo = 0;
+            }
+        }
+    }
+}
+
 inline u32
 UI_GetHashValue(char *String)
 {
@@ -10,6 +76,27 @@ UI_GetHashValue(char *String)
         Result = 65599 * Result + *Scan;
     }
     return(Result);
+}
+
+inline ui_node *
+UI_GetCachedNode(char *String)
+{
+    if(!String){InvalidCodePath;}
+    
+    ui_node *CachedNode = 0;
+    u32 Key = UI_GetHashValue(String);
+    for(ui_node *Search = UI_State->CacheFirst;
+        Search != 0;
+        Search = Search->CacheNext)
+    {
+        if(Search->Key == Key)
+        {
+            CachedNode = Search;
+            break;
+        }
+    }
+    
+    return(CachedNode);
 }
 
 internal v2
@@ -156,6 +243,7 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
     ui_size Size[Axis2_Count] = {};
     Size[Axis2_X] = UI_GetSelectedStyleTemplate().Size[Axis2_X];
     Size[Axis2_Y] = UI_GetSelectedStyleTemplate().Size[Axis2_Y];
+    v2 OffsetP = UI_GetSelectedStyleTemplate().OffsetP;
     
     // NOTE(ezexff): calc pos after prev node
     if(Parent->Last)
@@ -247,16 +335,6 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
     }
     
     // NOTE(ezexff): clip
-#if 0        
-    if(Rect.Max.x > Parent->Rect.Max.x)
-    {
-        Rect.Max.x = Parent->Rect.Max.x;
-    }
-    if(Rect.Max.y > Parent->Rect.Max.y)
-    {
-        Rect.Max.y = Parent->Rect.Max.y;
-    }
-#else
     v2 ParentRectMaxWidthPadding = Parent->Rect.Max;
     ParentRectMaxWidthPadding.x -= Parent->Padding;
     ParentRectMaxWidthPadding.y -= Parent->Padding;
@@ -268,28 +346,9 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
     {
         Rect.Max.y = ParentRectMaxWidthPadding.y;
     }
-#endif
-    
-    //Rect.Max.x -= Parent->Padding;
-    //Rect.Max.y -= Parent->Padding;
-    //if(GetDim(Rect).x < 2 * Parent->Padding) {InvalidCodePath;}
-    //if(GetDim(Rect).y < 2 * Parent->Padding) {InvalidCodePath;}
     
     // NOTE(ezexff): get or create cached node
-    ui_node *CachedNode = 0;
-    u32 Key = UI_GetHashValue(String);
-    
-    for(ui_node *Search = UI_State->CacheFirst;
-        Search != 0;
-        Search = Search->CacheNext)
-    {
-        if(Search->Key == Key)
-        {
-            CachedNode = Search;
-            break;
-        }
-    }
-    
+    ui_node *CachedNode = UI_GetCachedNode(String);
     if(!CachedNode)
     {
         CachedNode = PushStruct(UI_State->ConstArena, ui_node);
@@ -305,8 +364,9 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
         
         UI_State->CacheLast = CachedNode;
         
-        CachedNode->Key = Key;
+        CachedNode->Key = UI_GetHashValue(String);;
         CachedNode->Flags = Flags;
+        CachedNode->OffsetP = OffsetP;
     }
     
     // NOTE(ezexff): offset
@@ -461,30 +521,10 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
 
 u32 UI_GetNodeState(ui_node *Node)
 {
-    if(!Node)
-    {
-        //return(0);
-        InvalidCodePath;
-    }
+    if(!Node){InvalidCodePath;}
     
-    ui_node *CachedNode = 0;
-    u32 Key = UI_GetHashValue(Node->String);
-    
-    for(ui_node *Search = UI_State->CacheFirst;
-        Search != 0;
-        Search = Search->CacheNext)
-    {
-        if(Search->Key == Key)
-        {
-            CachedNode = Search;
-            break;
-        }
-    }
-    
-    if(!CachedNode)
-    {
-        InvalidCodePath;
-    }
+    ui_node *CachedNode = UI_GetCachedNode(Node->String);
+    if(!CachedNode){InvalidCodePath;}
     
     ui_style_template *Template = &UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex];
     
@@ -668,6 +708,8 @@ UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
                 StyleTemplate->Size[Axis2_X].Value = 400.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ChildrenSum;
+                
+                StyleTemplate->OffsetP = V2(200, 100);
                 //StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
                 //StyleTemplate->Size[Axis2_Y].Value = 350.0f;
                 
@@ -773,33 +815,36 @@ UI_BeginFrame(game_state *GameState, tran_state *TranState, renderer_frame *Fram
     
     // NOTE(ezexff): keys history
     //UI_State->PressKeyHistory[PlatformMouseButton_Count][0] = UI_State->PressKeyHistory[PlatformMouseButton_Count][1];
-    UI_State->PressKeyHistory[PlatformMouseButton_Count][0] = UI_State->PressKeyHistory[PlatformMouseButton_Count][1];
-    UI_State->PressKeyHistory[PlatformMouseButton_Count][1] = UI_State->Input->MouseButtons[PlatformMouseButton_Count];
+    //UI_State->PressKeyHistory[PlatformMouseButton_Count][0] = UI_State->PressKeyHistory[PlatformMouseButton_Count][1];
+    //UI_State->PressKeyHistory[PlatformMouseButton_Count][1] = UI_State->Input->MouseButtons[PlatformMouseButton_Count];
     
     //UI_State->MousePHistory[0] = UI_State->MousePHistory[1];
-    UI_State->MousePHistory[0] = UI_State->MousePHistory[1];
-    UI_State->MousePHistory[1] = UI_State->Input->MouseP;
+    //UI_State->MousePHistory[0] = UI_State->MousePHistory[1];
+    //UI_State->MousePHistory[1] = UI_State->Input->MouseP;
 }
 
 internal void
 UI_DrawNodeTree(ui_node *Node)
 {
-    ui_node *CachedNode = 0;
-    u32 Key = UI_GetHashValue(Node->String);
-    
-    for(ui_node *Search = UI_State->CacheFirst;
-        Search != 0;
-        Search = Search->CacheNext)
+    // TODO(ezexff): Test interaction
+    rectangle2 NodeRect = Node->Rect;
+    NodeRect.Max.y = UI_State->Frame->Dim.y - Node->Rect.Min.y;
+    NodeRect.Min.y = UI_State->Frame->Dim.y - Node->Rect.Max.y;
+    v2 MouseP = V2((r32)UI_State->Input->MouseP.x, (r32)UI_State->Input->MouseP.y);
+    if(IsInRectangle(NodeRect, MouseP))
     {
-        if(Search->Key == Key)
+        if(UI_State->Frame->Dim.x == 0 || UI_State->Frame->Dim.y == 0)
         {
-            CachedNode = Search;
-            break;
+            Log->Add("FrameDim = 0\n");
         }
+        UI_State->NextHotInteraction = Node;
     }
     
     if(Node != UI_State->Root)
     {
+        ui_node *CachedNode = UI_GetCachedNode(Node->String);
+        if(!CachedNode){InvalidCodePath;}
+        
         renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
         if(CachedNode->Flags & UI_NodeFlag_DrawBackground)
         {
@@ -853,6 +898,7 @@ UI_EndFrame()
     }
     
     UI_DrawNodeTree(UI_State->Root);
+    UI_Interact();
     /* 
         UI_State->Root->First = 0;
         UI_State->Root->Last = 0;

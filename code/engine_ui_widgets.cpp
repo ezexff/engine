@@ -81,22 +81,8 @@ UI_BeginWindow(char *String, b32 *Value)
          */
         u32 WindowState = UI_GetNodeState(Window);
         
-        
-        ui_node *CachedNode = 0;
-        u32 Key = UI_GetHashValue(WindowString);
-        
-        for(ui_node *Search = UI_State->CacheFirst;
-            Search != 0;
-            Search = Search->CacheNext)
-        {
-            if(Search->Key == Key)
-            {
-                CachedNode = Search;
-                break;
-            }
-        }
-        
-        
+        ui_node *CachedWindow = UI_GetCachedNode(WindowString);
+        if(!CachedWindow){InvalidCodePath;}
         
         // NOTE(ezexff): Title
         UI_UseStyleTemplate(UI_StyleTemplate_WindowTitle);
@@ -129,15 +115,7 @@ UI_BeginWindow(char *String, b32 *Value)
             u32 ExpandButtonState = UI_GetNodeState(ExpandButton);
             if(UI_IsPressed(ExpandButtonState))
             {
-                if(CachedNode)
-                {
-                    CachedNode->Flags = CachedNode->Flags ^ UI_NodeFlag_Expanded;
-                }
-                else
-                {
-                    InvalidCodePath;
-                }
-                int Foo = 0;
+                CachedWindow->Flags = CachedWindow->Flags ^ UI_NodeFlag_Expanded;
             }
             
             // NOTE(ezexff): Label
@@ -168,7 +146,7 @@ UI_BeginWindow(char *String, b32 *Value)
             
             // NOTE(ezexff): Post widgets work
             r32 ExitButtonWidth = ExitButton->Rect.Max.x - ExitButton->Rect.Min.x;
-            r32 TitleEmptySpaceWidth = Title->Rect.Max.x - TitleLabel->Rect.Max.x - ExitButtonWidth;
+            r32 TitleEmptySpaceWidth = Title->Rect.Max.x - TitleLabel->Rect.Max.x - ExitButtonWidth - Title->Padding;
             TitleEmptySpace->Rect.Min.x = TitleLabel->Rect.Max.x;
             TitleEmptySpace->Rect.Max.x = TitleEmptySpace->Rect.Min.x + TitleEmptySpaceWidth;
             ExitButton->Rect.Min.x = TitleEmptySpace->Rect.Max.x;
@@ -183,8 +161,8 @@ UI_BeginWindow(char *String, b32 *Value)
             u32 TitleEmptySpaceState = UI_GetNodeState(TitleEmptySpace);
             if(UI_IsDragging(TitleEmptySpaceState))
             {
-                CachedNode->OffsetP.x += UI_State->Input->MouseDelta.x;
-                CachedNode->OffsetP.y -= UI_State->Input->MouseDelta.y;
+                CachedWindow->OffsetP.x += UI_State->Input->dMouseP.x;
+                CachedWindow->OffsetP.y -= UI_State->Input->dMouseP.y;
             }
         }
         

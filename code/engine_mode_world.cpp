@@ -760,9 +760,9 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     // NOTE(ezexff): Mouse
     {
         // NOTE(ezexff): Camera z
-        if(Input->MouseDelta.z != 0)
+        if(Input->dMouseP.z != 0)
         {
-            Renderer->Camera.P.z -= Input->MouseDelta.z;
+            Renderer->Camera.P.z -= Input->dMouseP.z;
         }
         
         // NOTE(ezexff): Keys
@@ -796,7 +796,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             r32 Sensitivity = 0.03;
             
             // Horizontal (camera yaw)
-            ModeWorld->Camera.Angle.yaw -= (r32)Input->MouseDelta.x * Sensitivity;
+            ModeWorld->Camera.Angle.yaw -= (r32)Input->dMouseP.x * Sensitivity;
             if(ModeWorld->Camera.Angle.yaw < -180)
             {
                 ModeWorld->Camera.Angle.yaw += 360;
@@ -807,7 +807,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             }
             
             // Vertical (camera pitch)
-            ModeWorld->Camera.Angle.pitch += (r32)Input->MouseDelta.y * Sensitivity;
+            ModeWorld->Camera.Angle.pitch += (r32)Input->dMouseP.y * Sensitivity;
             if(ModeWorld->Camera.Angle.pitch < 0)
             {
                 ModeWorld->Camera.Angle.pitch = 0;

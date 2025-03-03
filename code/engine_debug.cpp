@@ -298,16 +298,16 @@ UpdateAndRenderImgui()
             {
                 ImGui::SeparatorText("Mouse");
                 ImGui::BulletText("CursorPos = %d %d", Input->MouseP.x, Input->MouseP.y);
-                ImGui::BulletText("CursorDelta = %d %d", Input->MouseDelta.x, Input->MouseDelta.y);
-                ImGui::BulletText("ScrollDelta = %d", Input->MouseDelta.z);
+                ImGui::BulletText("CursorDelta = %d %d", Input->dMouseP.x, Input->dMouseP.y);
+                ImGui::BulletText("ScrollDelta = %d", Input->dMouseP.z);
                 
                 ImGui::Checkbox("Log mouse keys", &ImGuiHandle->LogMouseInput);
                 
                 if(ImGuiHandle->LogMouseInput)
                 {
-                    if(Input->MouseDelta.z != 0)
+                    if(Input->dMouseP.z != 0)
                     {
-                        Log->Add("[engineinput] Scroll delta = %d\n", Input->MouseDelta.z);
+                        Log->Add("[engineinput] Scroll delta = %d\n", Input->dMouseP.z);
                     }
                     
                     if(WasPressed(Input->MouseButtons[PlatformMouseButton_Left]))

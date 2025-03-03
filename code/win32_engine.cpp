@@ -197,7 +197,7 @@ Win32ProcessPendingMessages(game_controller_input *KeyboardController, game_inpu
             
             case WM_MOUSEWHEEL:
             {
-                Input->MouseDelta.z = GET_WHEEL_DELTA_WPARAM(Message.wParam) / WHEEL_DELTA;
+                Input->dMouseP.z = (r32)(GET_WHEEL_DELTA_WPARAM(Message.wParam) / WHEEL_DELTA);
             } break;
             
             default:
@@ -1045,7 +1045,7 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                             
 #if ENGINE_INTERNAL
                             // NOTE(ezexff): Win32 inputs with ImGui works only when ImGui windows is unselected
-                            NewInput->MouseDelta.z = 0;
+                            NewInput->dMouseP.z = 0;
                             if(ImGuiHandle->IO->WantCaptureKeyboard)
                             {
                                 ImGuiProcessPendingMessages(Window);
@@ -1074,8 +1074,8 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                     
                                     NewInput->MouseP.x = 0;
                                     NewInput->MouseP.y = 0;
-                                    NewInput->MouseDelta.x = 0;
-                                    NewInput->MouseDelta.y = 0;
+                                    NewInput->dMouseP.x = 0;
+                                    NewInput->dMouseP.y = 0;
                                     
                                     IsCenteringMouseCursorInitialized = true;
                                 }
@@ -1083,11 +1083,11 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                 POINT MouseP;
                                 GetCursorPos(&MouseP);
                                 ScreenToClient(Window, &MouseP);
-                                NewInput->MouseP.x = (s32)MouseP.x;
-                                NewInput->MouseP.y = (s32)((Frame->Dim.y - 1) - MouseP.y);
+                                NewInput->MouseP.x = (r32)MouseP.x;
+                                NewInput->MouseP.y = (r32)((Frame->Dim.y - 1) - MouseP.y);
                                 
-                                NewInput->MouseDelta.x = NewInput->MouseP.x - OldInput->MouseP.x;
-                                NewInput->MouseDelta.y = NewInput->MouseP.y - OldInput->MouseP.y;
+                                NewInput->dMouseP.x = NewInput->MouseP.x - OldInput->MouseP.x;
+                                NewInput->dMouseP.y = NewInput->MouseP.y - OldInput->MouseP.y;
                                 
 #if ENGINE_INTERNAL
                                 if(!ImGuiHandle->ShowImGuiWindows)
@@ -1109,30 +1109,32 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                         MouseP;
                                         GetCursorPos(&MouseP);
                                         ScreenToClient(Window, &MouseP);
-                                        NewInput->MouseP.x = (s32)MouseP.x;
-                                        NewInput->MouseP.y = (s32)((Frame->Dim.y - 1) - MouseP.y);
+                                        NewInput->MouseP.x = (r32)MouseP.x;
+                                        NewInput->MouseP.y = (r32)((Frame->Dim.y - 1) - MouseP.y);
                                     }
                                 }
-                                
+                            }
 #if 0
-                                if(NewInput->MouseDelta.x != 0 || NewInput->MouseDelta.y != 0)
-                                {
-                                    Log->Add("[win32input] mouse delta = %d %d\n",
-                                             NewInput->MouseDelta.x, NewInput->MouseDelta.y);
-                                    
-                                    IsCenteringMouseCursorInitialized = true;
-                                }
-#endif
+                            if(NewInput->MouseDelta.x != 0 || NewInput->MouseDelta.y != 0)
+                            {
+                                Log->Add("[win32input] mouse delta = %d %d\n",
+                                         NewInput->MouseDelta.x, NewInput->MouseDelta.y);
                                 
-                                // NOTE(ezexff): Mouse buttons
-                                DWORD WinButtonID[PlatformMouseButton_Count] =
-                                {
-                                    VK_LBUTTON,
-                                    VK_MBUTTON,
-                                    VK_RBUTTON,
-                                    VK_XBUTTON1,
-                                    VK_XBUTTON2,
-                                };
+                                IsCenteringMouseCursorInitialized = true;
+                            }
+#endif
+                            
+                            // NOTE(ezexff): Mouse buttons
+                            DWORD WinButtonID[PlatformMouseButton_Count] =
+                            {
+                                VK_LBUTTON,
+                                VK_MBUTTON,
+                                VK_RBUTTON,
+                                VK_XBUTTON1,
+                                VK_XBUTTON2,
+                            };
+                            if(GlobalIsWindowActive)
+                            {
                                 for(u32 ButtonIndex = 0;
                                     ButtonIndex < PlatformMouseButton_Count;
                                     ++ButtonIndex)
@@ -1146,6 +1148,16 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                     // младший бит числа размером 16 бит = 1 это 1
                                     Win32ProcessKeyboardMessage(&NewInput->MouseButtons[ButtonIndex],
                                                                 GetKeyState(WinButtonID[ButtonIndex]) & (1 << 15));
+                                }
+                            }
+                            else
+                            {
+                                for(u32 ButtonIndex = 0;
+                                    ButtonIndex < PlatformMouseButton_Count;
+                                    ++ButtonIndex)
+                                {
+                                    NewInput->MouseButtons[ButtonIndex].EndedDown = false;
+                                    NewInput->MouseButtons[ButtonIndex].HalfTransitionCount = 0;
                                 }
                             }
                         }
