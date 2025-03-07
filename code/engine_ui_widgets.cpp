@@ -27,7 +27,7 @@ UI_Label(char *String)
     {
         UI_UseStyleTemplate(UI_StyleTemplate_Label);
         ui_node *Node = UI_AddNodeVer2(Parent,
-                                       UI_NodeFlag_DrawBackground|
+                                       //UI_NodeFlag_DrawBackground|
                                        UI_NodeFlag_DrawBorder|
                                        UI_NodeFlag_DrawText,
                                        String);
@@ -87,12 +87,19 @@ UI_BeginWindow(char *String, b32 *Value)
         // NOTE(ezexff): Title
         UI_UseStyleTemplate(UI_StyleTemplate_WindowTitle);
         ui_node *Title = UI_AddNodeVer2(Window,
+                                        UI_NodeFlag_Clickable|
                                         UI_NodeFlag_DrawBorder|
                                         UI_NodeFlag_DrawBackground,
                                         Concat(UI_State->TranArena, "Title#", String));
         u32 TitleState = UI_GetNodeState(Title);
         Title->LayoutAxis = Axis2_X;
         Title->Padding = 5.0f;
+        Title->InteractionType = UI_Interaction_Move;
+        if(UI_IsDragging(TitleState))
+        {
+            CachedWindow->OffsetP.x += UI_State->Input->dMouseP.x;
+            CachedWindow->OffsetP.y -= UI_State->Input->dMouseP.y;
+        }
         
         // NOTE(ezexff): Title content
         {
@@ -121,7 +128,7 @@ UI_BeginWindow(char *String, b32 *Value)
             // NOTE(ezexff): Label
             UI_UseStyleTemplate(UI_StyleTemplate_Label);
             ui_node *TitleLabel = UI_AddNodeVer2(Title,
-                                                 UI_NodeFlag_DrawBackground|
+                                                 //UI_NodeFlag_DrawBackground|
                                                  UI_NodeFlag_DrawBorder|
                                                  UI_NodeFlag_DrawText,
                                                  Concat(UI_State->TranArena, 
@@ -129,11 +136,10 @@ UI_BeginWindow(char *String, b32 *Value)
             // NOTE(ezexff): Empty space
             //UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleEmptySpace);
             ui_node *TitleEmptySpace = UI_AddNodeVer2(Title,
-                                                      UI_NodeFlag_Clickable|
-                                                      UI_NodeFlag_DrawBorder|
-                                                      UI_NodeFlag_DrawBackground,
+                                                      //UI_NodeFlag_Clickable|
+                                                      UI_NodeFlag_DrawBorder,
+                                                      //UI_NodeFlag_DrawBackground,
                                                       Concat(UI_State->TranArena, "EmptySpace#", String));
-            TitleEmptySpace->InteractionType = UI_Interaction_Move;
             //TitleEmptySpace->StyleTemplateIndex = UI_StyleTemplate_WindowTitleEmptySpace;
             
             
@@ -161,13 +167,15 @@ UI_BeginWindow(char *String, b32 *Value)
                 *Value = !*Value;
             }
             
-            UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleEmptySpace);
-            u32 TitleEmptySpaceState = UI_GetNodeState(TitleEmptySpace);
-            if(UI_IsDragging(TitleEmptySpaceState))
-            {
-                CachedWindow->OffsetP.x += UI_State->Input->dMouseP.x;
-                CachedWindow->OffsetP.y -= UI_State->Input->dMouseP.y;
-            }
+            /* 
+                        UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleEmptySpace);
+                        u32 TitleEmptySpaceState = UI_GetNodeState(TitleEmptySpace);
+                        if(UI_IsDragging(TitleEmptySpaceState))
+                        {
+                            CachedWindow->OffsetP.x += UI_State->Input->dMouseP.x;
+                            CachedWindow->OffsetP.y -= UI_State->Input->dMouseP.y;
+                        }
+             */
         }
         
         if(WindowState & UI_NodeFlag_Expanded)

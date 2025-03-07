@@ -141,26 +141,29 @@ UI_Interact()
         // NOTE(ezexff): hover
         if(UI_State->HotInteraction)
         {
-            Log->Add("Interact (hover) = %s\n", UI_State->HotInteraction->String);
             ui_node *CachedNode = UI_GetCachedNode(UI_State->HotInteraction->String);
             if(!CachedNode){InvalidCodePath;}
-            CachedNode->Flags |= UI_NodeFlag_Hovering;
+            if(CachedNode->Flags & UI_NodeFlag_Clickable)
+            {
+                Log->Add("Interact (hover) = %s\n", UI_State->HotInteraction->String);
+                CachedNode->Flags |= UI_NodeFlag_Hovering;
+            }
             //CachedNode->BackgroundColor = UI_State->StyleTemplateArray[UI_State->HotInteraction->StyleTemplateIndex].HoveringColor;
-        }
-        
-        // NOTE(ezexff): click interaction
-        for(u32 TransitionIndex = UI_State->Input->MouseButtons[PlatformMouseButton_Left].HalfTransitionCount;
-            TransitionIndex > 1;
-            --TransitionIndex)
-        {
-            Log->Add("Interact (2) = %s\n", UI_State->HotInteraction->String);
-            //UI_BeginInteract();
-            //UI_EndInteract();
-        }
-        
-        if(UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
-        {
-            UI_BeginInteract();
+            
+            // NOTE(ezexff): click interaction
+            for(u32 TransitionIndex = UI_State->Input->MouseButtons[PlatformMouseButton_Left].HalfTransitionCount;
+                TransitionIndex > 1;
+                --TransitionIndex)
+            {
+                Log->Add("Interact (2) = %s\n", UI_State->HotInteraction->String);
+                //UI_BeginInteract();
+                //UI_EndInteract();
+            }
+            
+            if(UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
+            {
+                UI_BeginInteract();
+            }
         }
     }
 }
@@ -907,7 +910,7 @@ UI_BeginFrame(game_state *GameState, tran_state *TranState, renderer_frame *Fram
         UI_State->CacheLast = CachedNode;
         
         CachedNode->Key = UI_GetHashValue("Root");
-        CachedNode->Flags = 0;
+        CachedNode->Flags = UI_NodeFlag_Clickable;
     }
 }
 
@@ -915,6 +918,8 @@ internal void
 UI_DrawNodeTree(ui_node *Node)
 {
     // TODO(ezexff): Test interaction
+    ui_node *CachedNode = UI_GetCachedNode(Node->String);
+    if(!CachedNode){InvalidCodePath;}
     rectangle2 NodeRect = Node->Rect;
     NodeRect.Max.y = UI_State->Frame->Dim.y - Node->Rect.Min.y;
     NodeRect.Min.y = UI_State->Frame->Dim.y - Node->Rect.Max.y;
@@ -925,14 +930,19 @@ UI_DrawNodeTree(ui_node *Node)
         {
             Log->Add("FrameDim = 0\n");
         }
-        UI_State->NextHotInteraction = Node;
+        
+        if(CachedNode->Flags & UI_NodeFlag_Clickable)
+        {
+            UI_State->NextHotInteraction = Node;
+        }
+        else
+        {
+            //UI_State->NextHotInteraction = 0;
+        }
     }
     
     if(Node != UI_State->Root)
     {
-        ui_node *CachedNode = UI_GetCachedNode(Node->String);
-        if(!CachedNode){InvalidCodePath;}
-        
         renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
         if(CachedNode->Flags & UI_NodeFlag_DrawBackground)
         {
