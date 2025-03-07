@@ -88,6 +88,9 @@ struct ui_node
     r32 Spacing; // distance between child nodes in axis
     r32 Padding;
     
+    u32 InteractionType;
+    u32 StyleTemplateIndex;
+    
     /* 
         string string;
         UI_Size semantic_size[Axis2_COUNT];
@@ -165,6 +168,29 @@ struct ui_state
     renderer_frame *Frame;
     game_input *Input;
     game_assets *Assets;
+};
+
+enum ui_interaction_type
+{
+    UI_Interaction_None,
+    
+    UI_Interaction_NOP,
+    
+    UI_Interaction_AutoModifyVariable,
+    
+    UI_Interaction_ToggleValue,
+    UI_Interaction_DragValue,
+    UI_Interaction_TearValue,
+    
+    UI_Interaction_Resize,
+    UI_Interaction_Move,
+    
+    UI_Interaction_Select,
+    
+    UI_Interaction_ToggleExpansion,
+    
+    UI_Interaction_SetUInt32,
+    UI_Interaction_SetPointer,
 };
 
 ui_state *UI_State;

@@ -27,7 +27,7 @@ UI_Label(char *String)
     {
         UI_UseStyleTemplate(UI_StyleTemplate_Label);
         ui_node *Node = UI_AddNodeVer2(Parent,
-                                       //UI_NodeFlag_DrawBackground|
+                                       UI_NodeFlag_DrawBackground|
                                        UI_NodeFlag_DrawBorder|
                                        UI_NodeFlag_DrawText,
                                        String);
@@ -121,17 +121,21 @@ UI_BeginWindow(char *String, b32 *Value)
             // NOTE(ezexff): Label
             UI_UseStyleTemplate(UI_StyleTemplate_Label);
             ui_node *TitleLabel = UI_AddNodeVer2(Title,
+                                                 UI_NodeFlag_DrawBackground|
                                                  UI_NodeFlag_DrawBorder|
                                                  UI_NodeFlag_DrawText,
                                                  Concat(UI_State->TranArena, 
                                                         Concat(UI_State->TranArena, String, "#"), String));
             // NOTE(ezexff): Empty space
-            UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleEmptySpace);
+            //UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleEmptySpace);
             ui_node *TitleEmptySpace = UI_AddNodeVer2(Title,
                                                       UI_NodeFlag_Clickable|
                                                       UI_NodeFlag_DrawBorder|
                                                       UI_NodeFlag_DrawBackground,
                                                       Concat(UI_State->TranArena, "EmptySpace#", String));
+            TitleEmptySpace->InteractionType = UI_Interaction_Move;
+            //TitleEmptySpace->StyleTemplateIndex = UI_StyleTemplate_WindowTitleEmptySpace;
+            
             
             // NOTE(ezexff): Exit button
             UI_UseStyleTemplate(UI_StyleTemplate_WindowTitleExitButton);
@@ -170,9 +174,11 @@ UI_BeginWindow(char *String, b32 *Value)
         {
             UI_UseStyleTemplate(UI_StyleTemplate_WindowBody);
             ui_node *Body = UI_AddNodeVer2(Window,
+                                           UI_NodeFlag_Clickable|
                                            UI_NodeFlag_DrawBorder|
                                            UI_NodeFlag_DrawBackground,
                                            Concat(UI_State->TranArena, "WindowBody#", String));
+            Body->InteractionType = UI_Interaction_Move;
             /* 
                         Body->Rect.Max.y = Body->Rect.Max.y + Size.y;
                         r32 BodyHeight = Body->Rect.Max.y - Body->Rect.Min.y;
@@ -185,6 +191,11 @@ UI_BeginWindow(char *String, b32 *Value)
             Body->Padding = 5.0f;
             Body->LayoutAxis = Axis2_Y;
             u32 BodyState = UI_GetNodeState(Body);
+            if(UI_IsDragging(BodyState))
+            {
+                CachedWindow->OffsetP.x += UI_State->Input->dMouseP.x;
+                CachedWindow->OffsetP.y -= UI_State->Input->dMouseP.y;
+            }
             UI_State->OpenWindowBody = Body;
         }
         

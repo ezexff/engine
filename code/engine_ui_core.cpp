@@ -1,69 +1,3 @@
-internal void
-UI_BeginInteract()
-{
-    
-}
-
-internal void
-UI_EndInteract()
-{
-    
-}
-
-internal void
-UI_Interact()
-{
-    if(UI_State->Interaction)
-    {
-        // NOTE(ezexff): mouse move interaction
-        // TODO(ezexff): 
-        v3 Test = UI_State->Input->dMouseP;
-        
-        // NOTE(ezexff): click interaction
-        for(u32 TransitionIndex = UI_State->Input->MouseButtons[PlatformMouseButton_Left].HalfTransitionCount;
-            TransitionIndex > 1;
-            --TransitionIndex)
-        {
-            UI_BeginInteract();
-            UI_EndInteract();
-            Log->Add("Interact (1) = %s\n", UI_State->Interaction->String);
-        }
-        
-        if(!UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
-        {
-            Log->Add("Interact (left released) = %s\n", UI_State->Interaction->String);
-            UI_EndInteract();
-            UI_State->Interaction = 0; // end mouse click
-        }
-    }
-    else
-    {
-        UI_State->HotInteraction = UI_State->NextHotInteraction;
-        
-        for(u32 TransitionIndex = UI_State->Input->MouseButtons[PlatformMouseButton_Left].HalfTransitionCount;
-            TransitionIndex > 1;
-            --TransitionIndex)
-        {
-            UI_BeginInteract();
-            UI_EndInteract();
-            Log->Add("Interact (2) = %s\n", UI_State->Interaction->String);
-        }
-        
-        if(UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
-        {
-            Log->Add("Interact (left clicked) = %s\n", UI_State->HotInteraction->String);
-            UI_State->Interaction = UI_State->HotInteraction; // begin mouse click
-            UI_BeginInteract();
-            
-            // TODO(ezexff): test
-            if(UI_State->Interaction == UI_State->Root)
-            {
-                int Foo = 0;
-            }
-        }
-    }
-}
-
 inline u32
 UI_GetHashValue(char *String)
 {
@@ -97,6 +31,138 @@ UI_GetCachedNode(char *String)
     }
     
     return(CachedNode);
+}
+
+internal void
+UI_BeginInteract()
+{
+    ui_node *CachedNode = UI_GetCachedNode(UI_State->HotInteraction->String);
+    if(!CachedNode){InvalidCodePath;}
+    
+    if(CachedNode->Flags & UI_NodeFlag_Clickable)
+    {
+        Log->Add("Interact (left clicked) = %s\n", UI_State->HotInteraction->String);
+        
+        CachedNode->Flags |= UI_NodeFlag_Pressed;
+        
+        UI_State->Interaction = UI_State->HotInteraction;
+    }
+}
+
+internal void
+UI_EndInteract()
+{
+    ui_node *CachedNode = UI_GetCachedNode(UI_State->Interaction->String);
+    if(!CachedNode){InvalidCodePath;}
+    
+    Log->Add("Interact (left released) = %s\n", UI_State->Interaction->String);
+    
+    CachedNode->Flags |= UI_NodeFlag_Released;
+    
+    UI_State->Interaction = 0;
+}
+
+internal void
+UI_Interact()
+{
+    if(UI_State->Interaction)
+    {
+        // NOTE(ezexff): button pressed and mouse move interaction
+        ui_node *CachedNode = UI_GetCachedNode(UI_State->Interaction->String);
+        if(!CachedNode){InvalidCodePath;}
+        CachedNode->Flags |= UI_NodeFlag_Dragging;
+        
+#if 0        
+        switch(UI_State->Interaction->InteractionType)
+        {
+            /* 
+                        case DebugInteraction_DragValue:
+                        {
+                            debug_event *Event = DebugState->Interaction.Element ? 
+                                &DebugState->Interaction.Element->Frames[FrameOrdinal].MostRecentEvent->Event : 0;
+                            switch(Event->Type)
+                            {
+                                case DebugType_r32:
+                                {
+                                    Event->Value_r32 += 0.1f*dMouseP.y;
+                                } break;
+                            }
+                            DEBUGMarkEditedEvent(DebugState, Event);
+                        } break;
+             */
+            
+            /* 
+                        case DebugInteraction_Resize:
+                        {
+                            *P += V2(dMouseP.x, -dMouseP.y);
+                            P->x = Maximum(P->x, 10.0f);
+                            P->y = Maximum(P->y, 10.0f);
+                        } break;
+             */
+            
+            case UI_Interaction_Move:
+            {
+                //*P += V2(dMouseP.x, dMouseP.y);
+                Log->Add("UI_Interaction_Move = %s\n", UI_State->Interaction->String);
+                //CachedNode->OffsetP += V2(dMouseP.x, -dMouseP.y);
+                CachedNode->OffsetP.x += UI_State->Input->dMouseP.x;
+                CachedNode->OffsetP.y -= UI_State->Input->dMouseP.y;
+            } break;
+            
+            default:
+            {
+                //*P += V2(dMouseP.x, dMouseP.y);
+                Log->Add("no interaction = %s\n", UI_State->Interaction->String);
+            } break;
+        }
+#endif
+        
+        // NOTE(ezexff): click interaction
+        for(u32 TransitionIndex = UI_State->Input->MouseButtons[PlatformMouseButton_Left].HalfTransitionCount;
+            TransitionIndex > 1;
+            --TransitionIndex)
+        {
+            Log->Add("Interact (1) = %s\n", UI_State->Interaction->String);
+            //UI_BeginInteract();
+            //UI_EndInteract();
+        }
+        
+        if(!UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
+        {
+            CachedNode->Flags &= ~UI_NodeFlag_Dragging;
+            UI_EndInteract();
+            //UI_State->Interaction = 0;
+        }
+    }
+    else
+    {
+        UI_State->HotInteraction = UI_State->NextHotInteraction;
+        
+        // NOTE(ezexff): hover
+        if(UI_State->HotInteraction)
+        {
+            Log->Add("Interact (hover) = %s\n", UI_State->HotInteraction->String);
+            ui_node *CachedNode = UI_GetCachedNode(UI_State->HotInteraction->String);
+            if(!CachedNode){InvalidCodePath;}
+            CachedNode->Flags |= UI_NodeFlag_Hovering;
+            //CachedNode->BackgroundColor = UI_State->StyleTemplateArray[UI_State->HotInteraction->StyleTemplateIndex].HoveringColor;
+        }
+        
+        // NOTE(ezexff): click interaction
+        for(u32 TransitionIndex = UI_State->Input->MouseButtons[PlatformMouseButton_Left].HalfTransitionCount;
+            TransitionIndex > 1;
+            --TransitionIndex)
+        {
+            Log->Add("Interact (2) = %s\n", UI_State->HotInteraction->String);
+            //UI_BeginInteract();
+            //UI_EndInteract();
+        }
+        
+        if(UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
+        {
+            UI_BeginInteract();
+        }
+    }
 }
 
 internal v2
@@ -364,7 +430,7 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
         
         UI_State->CacheLast = CachedNode;
         
-        CachedNode->Key = UI_GetHashValue(String);;
+        CachedNode->Key = UI_GetHashValue(String);
         CachedNode->Flags = Flags;
         CachedNode->OffsetP = OffsetP;
     }
@@ -526,6 +592,7 @@ u32 UI_GetNodeState(ui_node *Node)
     ui_node *CachedNode = UI_GetCachedNode(Node->String);
     if(!CachedNode){InvalidCodePath;}
     
+#if 0    
     ui_style_template *Template = &UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex];
     
     if(CachedNode->Flags & UI_NodeFlag_DrawBackground)
@@ -595,8 +662,9 @@ u32 UI_GetNodeState(ui_node *Node)
          */
     }
     
+#endif
     Node->Flags = CachedNode->Flags;
-    return(CachedNode->Flags);
+    return(Node->Flags);
 }
 
 void UI_UseStyleTemplate(u32 Index)
@@ -609,7 +677,6 @@ internal void
 UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
 {
     UI_State = PushStruct(TranArena, ui_state);
-    
     //UI_State->TestIsDragging = false;
     
     /* 
@@ -821,6 +888,27 @@ UI_BeginFrame(game_state *GameState, tran_state *TranState, renderer_frame *Fram
     //UI_State->MousePHistory[0] = UI_State->MousePHistory[1];
     //UI_State->MousePHistory[0] = UI_State->MousePHistory[1];
     //UI_State->MousePHistory[1] = UI_State->Input->MouseP;
+    
+    // NOTE(ezexff): Root cached node
+    ui_node *CachedNode = UI_GetCachedNode("Root");
+    if(!CachedNode)
+    {
+        CachedNode = PushStruct(UI_State->ConstArena, ui_node);
+        if(!UI_State->CacheFirst)
+        {
+            UI_State->CacheFirst = CachedNode;
+        }
+        else
+        {
+            CachedNode->CachePrev = UI_State->CacheLast;
+            UI_State->CacheLast->CacheNext = CachedNode; 
+        }
+        
+        UI_State->CacheLast = CachedNode;
+        
+        CachedNode->Key = UI_GetHashValue("Root");
+        CachedNode->Flags = 0;
+    }
 }
 
 internal void
@@ -848,7 +936,20 @@ UI_DrawNodeTree(ui_node *Node)
         renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
         if(CachedNode->Flags & UI_NodeFlag_DrawBackground)
         {
-            PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, CachedNode->BackgroundColor, 100);
+            //PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, CachedNode->BackgroundColor, 100);
+            if(CachedNode->Flags & UI_NodeFlag_Hovering)
+            {
+                PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, V4(0, 0, 1, 1), 100);
+            }
+            else
+            {
+                PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, V4(1, 1, 1, 1), 100);
+            }
+        }
+        
+        if(CachedNode->Flags & UI_NodeFlag_DrawText)
+        {
+            UI_DrawLabel(Node);
         }
         
         if(CachedNode->Flags & UI_NodeFlag_DrawBorder)
@@ -856,10 +957,10 @@ UI_DrawNodeTree(ui_node *Node)
             PushRectOutlineOnScreen(&Renderer->PushBufferUI, Node->Rect, 1, V4(1, 0, 0, 1), 100);
         }
         
-        if(CachedNode->Flags & UI_NodeFlag_DrawText)
-        {
-            UI_DrawLabel(Node);
-        }
+        // TODO(ezexff): Test per frame clear flags
+        CachedNode->Flags &= ~UI_NodeFlag_Pressed;
+        CachedNode->Flags &= ~UI_NodeFlag_Hovering;
+        //CachedNode->BackgroundColor = UI_State->StyleTemplateArray[Node->StyleTemplateIndex].BackgroundColor;
     }
     
     // NOTE(ezexff): Process childs
