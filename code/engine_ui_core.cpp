@@ -842,6 +842,16 @@ UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
                 StyleTemplate->Size[Axis2_Y].Value = 10.0f;
             } break;
             
+            case UI_StyleTemplate_WindowScrollBar:
+            {
+                StyleTemplate->BackgroundColor = V4(1, 1, 1, 1);
+                StyleTemplate->HoveringColor = V4(0, 0, 1, 1);
+                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_X].Value = 10.0f;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_Y].Value = 10.0f;
+            } break;
+            
             InvalidDefaultCase;
         }
     }
@@ -953,7 +963,7 @@ UI_DrawNodeTree(ui_node *Node)
             }
             else
             {
-                PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, V4(1, 1, 1, 1), 100);
+                PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, V4(0, 0, 0, 1), 100);
             }
         }
         

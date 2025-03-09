@@ -204,6 +204,73 @@ UI_BeginWindow(char *String, b32 *Value)
                 CachedWindow->OffsetP.x += UI_State->Input->dMouseP.x;
                 CachedWindow->OffsetP.y -= UI_State->Input->dMouseP.y;
             }
+            
+            //if(UI_State->OpenWindow && UI_State->OpenWindowBody)
+            {
+                ui_node *CachedWindow = UI_GetCachedNode(Window->String);
+                if(!CachedWindow){InvalidCodePath;}
+                
+                ui_node *CachedBody = UI_GetCachedNode(Body->String);
+                if(!CachedBody){InvalidCodePath;}
+                
+                // NOTE(ezexff): window resize button
+                UI_UseStyleTemplate(UI_StyleTemplate_WindowResizeButton);
+                ui_node *ResizeButton = UI_AddNodeVer2(Window,
+                                                       UI_NodeFlag_Floating|
+                                                       UI_NodeFlag_Clickable|
+                                                       UI_NodeFlag_DrawBorder|
+                                                       UI_NodeFlag_DrawBackground,
+                                                       Concat(UI_State->TranArena, "ResizeButton#", Window->String));
+                //v2 WindowRightBottomCorner = V2(Window->Rect.Max.x, Window->Rect.Max.y + Title->Rect.Max.y - Title->Rect.Min.y);
+                v2 BodyRightBottomCorner = V2(Body->Rect.Max.x, Body->Rect.Max.y);
+                ResizeButton->Rect.Min = V2(BodyRightBottomCorner.x - 10.0f, BodyRightBottomCorner.y - 10.0f);
+                ResizeButton->Rect.Max = BodyRightBottomCorner;
+                u32 ResizeButtonState = UI_GetNodeState(ResizeButton);
+                ResizeButton->InteractionType = UI_Interaction_Move;
+                if(UI_IsDragging(ResizeButtonState))
+                {
+                    v2 NewSize = {};
+                    NewSize.x += UI_State->Input->dMouseP.x;
+                    NewSize.y -= UI_State->Input->dMouseP.y;
+                    
+                    v2 NewWindowDim = GetDim(Window->Rect) + NewSize;
+                    r32 MinWindowWidth = 100;
+                    r32 MinBodyHeight = 100;
+                    if(NewWindowDim.x > MinWindowWidth)
+                    {
+                        CachedWindow->OffsetSize.x += NewSize.x;
+                    }
+                    if(NewWindowDim.x > MinBodyHeight)
+                    {
+                        CachedBody->OffsetSize.y += NewSize.y;
+                    }
+                }
+                
+                // NOTE(ezexff): vertical scroll bar
+                UI_UseStyleTemplate(UI_StyleTemplate_WindowScrollBar);
+                ui_node *VerticalScrollBar = UI_AddNodeVer2(Window,
+                                                            UI_NodeFlag_Floating|
+                                                            UI_NodeFlag_Clickable|
+                                                            UI_NodeFlag_DrawBorder|
+                                                            UI_NodeFlag_DrawBackground,
+                                                            Concat(UI_State->TranArena, "VerticalScrollBar#", Window->String));
+                VerticalScrollBar->Rect.Min = V2(Body->Rect.Max.x - 10.0f, Body->Rect.Min.y);
+                VerticalScrollBar->Rect.Max = V2(Body->Rect.Max.x, Body->Rect.Max.y - 10.0f);
+                u32 VerticalScrollBarState = UI_GetNodeState(VerticalScrollBar);
+                
+                // NOTE(ezexff): horizontal scroll bar
+                UI_UseStyleTemplate(UI_StyleTemplate_WindowScrollBar);
+                ui_node *HorizontalScrollBar = UI_AddNodeVer2(Window,
+                                                              UI_NodeFlag_Floating|
+                                                              UI_NodeFlag_Clickable|
+                                                              UI_NodeFlag_DrawBorder|
+                                                              UI_NodeFlag_DrawBackground,
+                                                              Concat(UI_State->TranArena, "HorizontalScrollBar#", Window->String));
+                HorizontalScrollBar->Rect.Min = V2(Body->Rect.Min.x, Body->Rect.Max.y - 10.0f);
+                HorizontalScrollBar->Rect.Max = V2(Body->Rect.Max.x - 10.0f, Body->Rect.Max.y);
+                u32 HorizontalScrollBarState = UI_GetNodeState(HorizontalScrollBar);
+            }
+            
             UI_State->OpenWindowBody = Body;
         }
         
@@ -218,46 +285,8 @@ UI_BeginWindow(char *String, b32 *Value)
 internal void
 UI_EndWindow()
 {
-    if(UI_State->OpenWindow)
-    {
-        /* 
-                UI_UseStyleTemplate(UI_StyleTemplate_WindowResizeButton);
-                ui_node *ResizeButton = UI_AddNodeVer2(Body,
-                                                       UI_NodeFlag_Floating|
-                                                       UI_NodeFlag_Clickable|
-                                                       UI_NodeFlag_DrawBorder|
-                                                       UI_NodeFlag_DrawBackground|
-                                                       UI_NodeFlag_HotAnimation|
-                                                       UI_NodeFlag_ActiveAnimation,
-                                                       Concat(UI_State->TranArena, "ResizeButton#", String));
-                //v2 WindowRightBottomCorner = V2(Window->Rect.Max.x, Window->Rect.Max.y + Title->Rect.Max.y - Title->Rect.Min.y);
-                v2 BodyRightBottomCorner = V2(Body->Rect.Max.x, Body->Rect.Max.y);
-                ResizeButton->Rect.Min = V2(BodyRightBottomCorner.x - 10.0f, BodyRightBottomCorner.y - 10.0f);
-                ResizeButton->Rect.Max = BodyRightBottomCorner;
-                u32 ResizeButtonState = UI_GetNodeState(ResizeButton);
-                if(UI_IsDragging(ResizeButtonState))
-                {
-                    v2 NewSize = {};
-                    NewSize.x += UI_State->Input->MouseDelta.x;
-                    NewSize.y -= UI_State->Input->MouseDelta.y;
-                    
-                    v2 NewWindowDim = GetDim(Window->Rect) + NewSize;
-                    if(NewWindowDim.x > MinWindowWidth)
-                    {
-                        Size.x += NewSize.x;
-                    }
-                    if(NewWindowDim.x > MinBodyHeight)
-                    {
-                        Size.y += NewSize.y;
-                    }
-                }
-         */
-        
-        UI_State->OpenWindow = 0;
-        UI_State->OpenWindowBody = 0;
-    }
-    else
-    {
-        InvalidCodePath;
-    }
+    if(!UI_State->OpenWindow){InvalidCodePath;}
+    
+    UI_State->OpenWindow = 0;
+    UI_State->OpenWindowBody = 0;
 }

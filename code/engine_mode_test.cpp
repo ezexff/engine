@@ -442,6 +442,13 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
                 {
                     Log->Add("action when Btn12345 was pressed\n");
                 }
+                
+                if(UI_State->HotInteraction)
+                {
+                    char HotInteractionString[128];
+                    _snprintf_s(HotInteractionString, sizeof(HotInteractionString), "HotInteractionString = %s", UI_State->HotInteraction->String);
+                    UI_Label(HotInteractionString);
+                }
             }
             UI_EndWindow();
         }

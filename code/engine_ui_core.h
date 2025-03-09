@@ -15,17 +15,17 @@ enum ui_node_flags
     UI_NodeFlag_HotAnimation    = (1 << 7),
     UI_NodeFlag_ActiveAnimation = (1 << 8),
     
-    UI_NodeFlag_Floating        = (1 << 9),
+    UI_NodeFlag_Floating        = (1 << 9),  // NOTE(ezexff): without autolayout
     
-    UI_NodeFlag_Clicked         = (1 << 10),
+    UI_NodeFlag_Clicked         = (1 << 10), // TODO(ezexff): node was previously pressed & user released, in bounds???
     UI_NodeFlag_DoubleClicked   = (1 << 11),
     UI_NodeFlag_RightClicked    = (1 << 12),
-    UI_NodeFlag_Pressed         = (1 << 13),
-    UI_NodeFlag_Released        = (1 << 14),
-    UI_NodeFlag_Dragging        = (1 << 15),
-    UI_NodeFlag_Hovering        = (1 << 16),
+    UI_NodeFlag_Pressed         = (1 << 13), // TODO(ezexff): mouse press -> node was pressed while hovering
+    UI_NodeFlag_Released        = (1 << 14), // TODO(ezexff): released -> node was previously pressed & user released, in or out of bounds
+    UI_NodeFlag_Dragging        = (1 << 15), // TODO(ezexff): node was previously pressed, user is still holding button
+    UI_NodeFlag_Hovering        = (1 << 16), 
     
-    UI_NodeFlag_Expanded        = (1 << 17),
+    UI_NodeFlag_Expanded        = (1 << 17), // NOTE(ezexff): show window body
 };
 
 #define UI_IsPressed(Node) (Node & UI_NodeFlag_Pressed)
@@ -121,6 +121,7 @@ enum ui_style_template_name
     UI_StyleTemplate_WindowTitleExitButton,
     UI_StyleTemplate_WindowBody,
     UI_StyleTemplate_WindowResizeButton,
+    UI_StyleTemplate_WindowScrollBar,
     
     UI_StyleTemplate_Count,
 };
