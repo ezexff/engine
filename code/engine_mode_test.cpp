@@ -448,6 +448,14 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
                     char HotInteractionString[128];
                     _snprintf_s(HotInteractionString, sizeof(HotInteractionString), "HotInteractionString = %s", UI_State->HotInteraction->String);
                     UI_Label(HotInteractionString);
+                    
+                    char HotInteractionRect[128];
+                    _snprintf_s(HotInteractionRect, sizeof(HotInteractionRect), "HotInteractionRect = min(%.1f, %.1f) max(%.1f, %.1f)",
+                                UI_State->HotInteraction->Rect.Min.x,
+                                UI_State->HotInteraction->Rect.Min.y,
+                                UI_State->HotInteraction->Rect.Max.x,
+                                UI_State->HotInteraction->Rect.Max.y);
+                    UI_Label(HotInteractionRect);
                 }
             }
             UI_EndWindow();

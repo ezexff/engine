@@ -145,7 +145,7 @@ UI_Interact()
             if(!CachedNode){InvalidCodePath;}
             if(CachedNode->Flags & UI_NodeFlag_Clickable)
             {
-                Log->Add("Interact (hover) = %s\n", UI_State->HotInteraction->String);
+                //Log->Add("Interact (hover) = %s\n", UI_State->HotInteraction->String);
                 CachedNode->Flags |= UI_NodeFlag_Hovering;
             }
             //CachedNode->BackgroundColor = UI_State->StyleTemplateArray[UI_State->HotInteraction->StyleTemplateIndex].HoveringColor;
@@ -249,6 +249,11 @@ UI_DrawLabel(ui_node *Node)
             s32 XOffset = s32(Font->GlyphOffsets[CodePoint].x);
             s32 YOffset = s32(Font->GlyphOffsets[CodePoint].y);
             
+            if(Node->StartTextOffsetX != 0)
+            {
+                int Foo = 0;
+            }
+            
             //if(CodePoint != ' ')
             {
                 bitmap_id BitmapID = GetBitmapForGlyph(Assets, FontInfo, Font, CodePoint);
@@ -293,12 +298,224 @@ UI_DrawLabel(ui_node *Node)
     }
 }
 
-
 inline ui_style_template
 UI_GetSelectedStyleTemplate()
 {
     ui_style_template Result = UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex];
     return(Result);
+}
+
+ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char *String, u32 InteractionType = 0)
+{
+    if(!Parent){InvalidCodePath;}
+    
+    /* 
+        v2 P = {};
+        v2 Dim = {};
+     */
+    rectangle2 Rect = {};
+    Rect.Min = Parent->Rect.Min;
+    //P = Parent->P;
+    
+    ui_style_template Template = UI_State->StyleTemplateArray[StyleTemplateIndex];
+    ui_size Size[Axis2_Count] = {};
+    Size[Axis2_X] = Template.Size[Axis2_X];
+    Size[Axis2_Y] = Template.Size[Axis2_Y];
+    
+    // NOTE(ezexff): calc pos after prev node
+    if(Parent->Last)
+    {
+        if(Parent != UI_State->Root) // TODO(ezexff): tmp
+        {
+            if(!(Flags & UI_NodeFlag_Floating))
+            {
+                if(Parent->LayoutAxis == Axis2_X)
+                {
+                    //P.x = Parent->Last->P.x + Parent->Last->Dim.x + Parent->Spacing;
+                    r32 ParentPX = Parent->Last->Rect.Min.x;
+                    r32 ParentDimX = Parent->Last->Rect.Max.x - Parent->Last->Rect.Min.x;
+                    Rect.Min.x = ParentPX + ParentDimX + Parent->Spacing;
+                }
+                else if(Parent->LayoutAxis == Axis2_Y)
+                {
+                    //P.y = Parent->Last->P.y + Parent->Last->Dim.y + Parent->Spacing;
+                    r32 ParentPY = Parent->Last->Rect.Min.y;
+                    r32 ParentDimY = Parent->Last->Rect.Max.y - Parent->Last->Rect.Min.y;
+                    Rect.Min.y = ParentPY + ParentDimY + Parent->Spacing;
+                }
+            }
+        }
+    }
+    
+    // NOTE(ezexff): calc size
+    v2 LabelSize = UI_CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, String);
+    
+    for(u32 Index = 0;
+        Index < Axis2_Count;
+        ++Index)
+    {
+        switch(Size[Index].Type)
+        {
+            case UI_SizeKind_Pixels:
+            {
+                //Dim.E[Index] = Size[Index].Value;
+                Rect.Max.E[Index] = Rect.Min.E[Index] + Size[Index].Value;
+            } break;
+            
+            case UI_SizeKind_TextContent:
+            {
+                //Dim.E[Index] = LabelSize.E[Index];
+                Rect.Max.E[Index] = Rect.Min.E[Index] + LabelSize.E[Index];
+            } break;
+            
+            case UI_SizeKind_ParentPercent:
+            {
+                //Dim.E[Index] = Size[Index].Value * (Parent->Rect.Max.E[Index] - Parent->Rect.Min.E[Index]);
+                Rect.Max.E[Index] = Rect.Min.E[Index] + Size[Index].Value * (Parent->Rect.Max.E[Index] - Parent->Rect.Min.E[Index]);
+            } break;
+            
+            case UI_SizeKind_ChildrenSum:
+            {
+                // TODO(ezexff): Need test
+                //Parent->Rect.Max.E[Index] += Size[Index].Value;
+            } break;
+            
+            InvalidDefaultCase;
+        }
+        
+        if(Parent->Size[Index].Type == UI_SizeKind_ChildrenSum)
+        {
+            //Parent->Rect.Max.E[Index] += Dim.E[Index];
+            Parent->Rect.Max.E[Index] += Rect.Max.E[Index] - Rect.Min.E[Index];
+        }
+    }
+    
+    // NOTE(ezexff): view rect in window
+    ui_node *Child = 0;
+    if((Parent == UI_State->Root) || UI_State->OpenWindow)
+    {
+        /* 
+                if(P.y == Parent->P.y){P.y += Parent->Padding;}
+                if(P.x == Parent->P.x){P.x += Parent->Padding;}
+         */
+        
+        /* 
+                // NOTE(ezexff): padding
+                if(Rect.Min.x == Parent->Rect.Min.x)
+                {
+                    Rect.Min.x += Parent->Padding;
+                    Rect.Max.x += Parent->Padding;
+                }
+                
+                if(Rect.Min.y == Parent->Rect.Min.y)
+                {
+                    Rect.Min.y += Parent->Padding;
+                    Rect.Max.y += Parent->Padding;
+                }
+         */
+        
+        //Rect = {P, P + Dim};
+        
+        r32 StartTextOffsetX = 0.0f;
+        rectangle2 ViewRect = {};
+        
+        if(UI_State->OpenWindow)
+        {
+            ViewRect = UI_State->OpenWindow->Rect;
+        }
+        
+        if(UI_State->OpenWindowBody)
+        {
+            ViewRect = {UI_State->OpenWindow->Rect.Min + UI_State->OpenWindowBody->ViewP, UI_State->OpenWindow->Rect.Max + UI_State->OpenWindowBody->ViewP};
+            
+            Rect = {Rect.Min + UI_State->OpenWindowBody->ViewP, Rect.Max + UI_State->OpenWindowBody->ViewP};
+            /* 
+                        Rect.Min += UI_State->OpenWindowBody->ViewP;
+                        Rect.Max += UI_State->OpenWindowBody->ViewP;
+             */
+            
+            renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
+            PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
+        }
+        
+        if((Parent == UI_State->Root) || RectanglesIntersect(ViewRect, Rect))
+        {
+            
+            if(RectanglesIntersect(ViewRect, Rect))
+            {
+                if(Rect.Min.x < UI_State->OpenWindow->Rect.Min.x)
+                {
+                    StartTextOffsetX = UI_State->OpenWindow->Rect.Min.x - Rect.Min.x;
+                    Rect.Min.x = UI_State->OpenWindow->Rect.Min.x;
+                }
+                if(Rect.Max.x > UI_State->OpenWindow->Rect.Max.x){Rect.Max.x = UI_State->OpenWindow->Rect.Max.x;}
+                
+                /* 
+                                if(Rect.Min.x < ViewRect.Min.x){Rect.Min.x = ViewRect.Min.x;}
+                                if(Rect.Max.x > ViewRect.Max.x){Rect.Max.x = ViewRect.Max.x;}
+                 */
+                /* 
+                                                                if(Rect.Min.y < ViewRect.Min.y){Rect.Min.y = ViewRect.Min.y;}
+                                                                if(Rect.Max.y > ViewRect.Max.y){Rect.Max.y = ViewRect.Max.y;}
+                 */
+            }
+            
+            // NOTE(ezexff): get or create cached node
+            ui_node *CachedNode = UI_GetCachedNode(String);
+            if(!CachedNode)
+            {
+                CachedNode = PushStruct(UI_State->ConstArena, ui_node);
+                if(!UI_State->CacheFirst)
+                {
+                    UI_State->CacheFirst = CachedNode;
+                }
+                else
+                {
+                    CachedNode->CachePrev = UI_State->CacheLast;
+                    UI_State->CacheLast->CacheNext = CachedNode; 
+                }
+                
+                UI_State->CacheLast = CachedNode;
+                
+                CachedNode->Key = UI_GetHashValue(String);
+                CachedNode->Flags = Flags;
+                //CachedNode->P = P;
+                //CachedNode->Dim = Dim;
+                CachedNode->StartTextOffsetX = StartTextOffsetX;
+                CachedNode->Rect = Rect;
+            }
+            
+            // NOTE(ezexff): static offset
+            Rect.Min += CachedNode->OffsetP;
+            Rect.Max += CachedNode->OffsetP;
+            Rect.Max += CachedNode->OffsetSize;
+            
+            // NOTE(ezexff): init per frame node
+            Child = PushStruct(UI_State->TranArena, ui_node);
+            Child->String = PushString(UI_State->TranArena, String);
+            //Child->P = P;
+            //Child->Dim = Dim;
+            Child->Rect = Rect;
+            Child->StartTextOffsetX = StartTextOffsetX;
+            Child->Parent = Parent;
+            Child->Size[Axis2_X] = Size[Axis2_X];
+            Child->Size[Axis2_Y] = Size[Axis2_Y];
+            Child->ViewP = CachedNode->ViewP;
+            if(!Parent->First)
+            {
+                Parent->First = Child;
+            }
+            else
+            {
+                Child->Prev = Parent->Last;
+                Parent->Last->Next = Child;
+            }
+            Parent->Last = Child;
+            Parent->ChildCount++;
+        }
+    }
+    
+    return(Child);
 }
 
 ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
@@ -438,7 +655,7 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
         CachedNode->OffsetP = OffsetP;
     }
     
-    // NOTE(ezexff): offset
+    // NOTE(ezexff): static offset
     Rect.Min += CachedNode->OffsetP;
     Rect.Max += CachedNode->OffsetP;
     Rect.Max += CachedNode->OffsetSize;
@@ -801,7 +1018,7 @@ UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
                 StyleTemplate->BackgroundColor = RGBA(10, 10, 10, 1);
                 StyleTemplate->HoveringColor = V4(1, 0, 0, 1);
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_X].Value = 0.0f;
+                StyleTemplate->Size[Axis2_X].Value = 10.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ParentPercent;
                 StyleTemplate->Size[Axis2_Y].Value = 1.0f;
             } break;

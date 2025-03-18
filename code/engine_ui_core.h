@@ -78,13 +78,22 @@ struct ui_node
     v4 BackgroundColor;
     
     // per-frame info provided by builders
-    rectangle2 Rect; // calculated rect in screen space coordiantes
     v2 OffsetP;
     v2 OffsetSize;
     
+    // TODO(ezexff): new positioning
+    /* 
+        v2 P;
+        v2 Dim;
+     */
+    r32 StartTextOffsetX;
+    ui_size Size[Axis2_Count];
+    rectangle2 Rect; // calculated rect in screen space coordiantes
+    v2 ViewP; // TODO(ezexff): temp for scrollbars in windows only
+    
+    
     // NOTE(ezexff): used in autolayout algorithm (this affect on child elements)
     axis2 LayoutAxis; // align elements by axis
-    ui_size Size[Axis2_Count];
     r32 Spacing; // distance between child nodes in axis
     r32 Padding;
     
@@ -92,16 +101,16 @@ struct ui_node
     u32 StyleTemplateIndex;
     
     /* 
-        string string;
-        UI_Size semantic_size[Axis2_COUNT];
-     */
+    string string;
+    UI_Size semantic_size[Axis2_COUNT];
+ */
     
     // computed every frame
     /* 
-        F32 computed_rel_position[Axis2_COUNT];
-        F32 computed_size[Axis2_COUNT];
-        Rng2F32 rect;
-         */
+    F32 computed_rel_position[Axis2_COUNT];
+    F32 computed_size[Axis2_COUNT];
+    Rng2F32 rect;
+     */
     
     // persistent data
     r32 hot_t;
