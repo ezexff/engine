@@ -242,9 +242,11 @@ struct renderer_ortho_entry_rect_outline
 struct renderer_ortho_entry_bitmap
 {
     loaded_bitmap *Bitmap;
-    v2 P;
-    v2 Dim;
-    r32 Repeat;
+    rectangle2 Rect;
+    //v2 P;
+    //v2 Dim;
+    //r32 Repeat;
+    r32 TexCoords[8];
 };
 
 enum renderer_ortho_entry_type
@@ -326,8 +328,17 @@ struct renderer_entry_terrain_chunk
 };
  */
 
+/* 
+struct renderer_entry_bitmap_on_screen
+{
+    loaded_bitmap *Bitmap;
+    v2 P;
+    v2 Dim;
+    r32 TexCoords[8]; // uv's of rect
+};
+ */
+
 typedef renderer_entry_rect_on_ground renderer_entry_rect_on_screen;
-typedef renderer_entry_bitmap_on_ground renderer_entry_bitmap_on_screen;
 
 struct renderer_entry_water
 {

@@ -86,7 +86,7 @@ struct ui_node
         v2 P;
         v2 Dim;
      */
-    r32 StartTextOffsetX;
+    v2 StartTextOffset;
     ui_size Size[Axis2_Count];
     rectangle2 Rect; // calculated rect in screen space coordiantes
     v2 ViewP; // TODO(ezexff): temp for scrollbars in windows only

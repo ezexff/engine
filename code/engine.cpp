@@ -9,6 +9,7 @@
 #include "engine_world.cpp"
 #include "engine_sim_region.cpp"
 
+/* 
 internal void
 DEBUGTextLine(renderer_frame *Frame, game_assets *Assets, char *String, v2s P)
 {
@@ -63,7 +64,14 @@ DEBUGTextLine(renderer_frame *Frame, game_assets *Assets, char *String, v2s P)
                 v2 Pos = V2(0, 0);
                 Pos.x = (r32)(AtX + XOffset);
                 Pos.y = (r32)AtY + YOffset;
-                PushBitmapOnScreen(Frame, Assets, BitmapID, Pos, GlyphDim, 1.0f);
+                r32 TexCoords[8] = 
+                {
+                    0, 0,
+                    1, 0,
+                    1, 1,
+                    0, 1,
+                };
+                PushBitmapOnScreen(Frame, Assets, BitmapID, Pos, GlyphDim, TexCoords);
             }
             
             s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * CharScale);
@@ -77,6 +85,7 @@ DEBUGTextLine(renderer_frame *Frame, game_assets *Assets, char *String, v2s P)
         }
     }
 }
+ */
 
 internal void
 TestBubbleSort(void)

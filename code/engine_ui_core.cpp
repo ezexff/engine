@@ -225,10 +225,11 @@ UI_DrawLabel(ui_node *Node)
         r32 CharScale = FontScale;
         v4 Color = V4(1, 1, 1, 1);
         
-        s32 LeftPadding = 0;
-        s32 AtX = LeftPadding + (s32)Node->Rect.Min.x;
+        //s32 LeftPadding = 0;
+        s32 AtX = (s32)Node->Rect.Min.x;
         r32 HalfRectY = (Node->Rect.Max.y - Node->Rect.Min.y) / 2;
         s32 HalfFontY = 10 / 2;
+        //s32 AtY = (s32)Node->Rect.Min.y + (s32)(HalfRectY) + HalfFontY;
         s32 AtY = (s32)Node->Rect.Min.y + (s32)(HalfRectY) + HalfFontY;
         
         //r32 RectWidth = Node->Rect.Max.x - Node->Rect.Min.x;
@@ -249,11 +250,6 @@ UI_DrawLabel(ui_node *Node)
             s32 XOffset = s32(Font->GlyphOffsets[CodePoint].x);
             s32 YOffset = s32(Font->GlyphOffsets[CodePoint].y);
             
-            if(Node->StartTextOffsetX != 0)
-            {
-                int Foo = 0;
-            }
-            
             //if(CodePoint != ' ')
             {
                 bitmap_id BitmapID = GetBitmapForGlyph(Assets, FontInfo, Font, CodePoint);
@@ -263,25 +259,82 @@ UI_DrawLabel(ui_node *Node)
                 GlyphDim.x = (r32)GlyphInfo->Dim[0];
                 GlyphDim.y = (r32)GlyphInfo->Dim[1];
                 v2 Pos = V2(0, 0);
-                Pos.x = (r32)(AtX + XOffset);
-                Pos.y = (r32)AtY + YOffset;
+                Pos.x = (r32)(AtX + XOffset - Node->StartTextOffset.x);
+                Pos.y = (r32)(AtY + YOffset - Node->StartTextOffset.y);
                 //PushBitmapOnScreen(Frame, Assets, BitmapID, Pos, GlyphDim, 1.0f);
-                v2 Min = Pos;
-                v2 Max = Pos + GlyphDim;
+                rectangle2 Rect = {Pos, Pos + GlyphDim};
                 
-                v2 TestMax = Max - Node->Rect.Min;
-                if(TestMax.x > RectDim.x)
+                // NOTE(ezexff): skip glyph that outside node->rect
+                if(((Rect.Max.x > Node->Rect.Min.x) && (Rect.Min.x < Node->Rect.Max.x)) &&
+                   ((Rect.Max.y > Node->Rect.Min.y) && (Rect.Min.y < Node->Rect.Max.y)))
                 {
-                    break;
+                    // NOTE(ezexff): clip when glyph on node->rect border
+                    r32 MinClipX = 0;
+                    r32 MinClipUVX = 0;
+                    if(Rect.Min.x < Node->Rect.Min.x)
+                    {
+                        MinClipX = Node->Rect.Min.x - Rect.Min.x;
+                        MinClipUVX = MinClipX / GlyphDim.x;
+                    }
+                    r32 MaxClipX = 0;
+                    r32 MaxClipUVX = 1;
+                    if(Rect.Max.x > Node->Rect.Max.x)
+                    {
+                        MaxClipX = Rect.Max.x - Node->Rect.Max.x;
+                        MaxClipUVX = 1 - MaxClipX / GlyphDim.x;
+                    }
+                    
+                    Rect.Min.x += MinClipX;
+                    Rect.Max.x -= MaxClipX;
+                    
+                    r32 MinClipY = 0;
+                    r32 MinClipUVY = 0;
+                    if(Rect.Min.y < Node->Rect.Min.y)
+                    {
+                        MinClipY = Node->Rect.Min.y - Rect.Min.y;
+                        MinClipUVY = MinClipY / GlyphDim.y;
+                    }
+                    r32 MaxClipY = 0;
+                    r32 MaxClipUVY = 1;
+                    if(Rect.Max.y > Node->Rect.Max.y)
+                    {
+                        MaxClipY = Rect.Max.y - Node->Rect.Max.y;
+                        MaxClipUVY = 1 - MaxClipY / GlyphDim.y;
+                    }
+                    
+                    Rect.Min.y += MinClipY;
+                    Rect.Max.y -= MaxClipY;
+                    
+                    r32 TexCoords[8] = 
+                    {MinClipUVX, MinClipUVY,
+                        MaxClipUVX, MinClipUVY,
+                        MaxClipUVX, MaxClipUVY,
+                        MinClipUVX, MaxClipUVY,
+                    };
+                    /* 
+                                        r32 TexCoords[8] = 
+                                        {MinClipUVX,0,
+                                            MaxClipUVX,0,
+                                            MaxClipUVX,1,
+                                            MinClipUVX,1
+                                        };
+                     */
+                    renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
+                    PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Rect, 10000, TexCoords);
                 }
                 
-                if(TestMax.y > RectDim.y)
-                {
-                    break;
-                }
-                
-                renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
-                PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Min, Max, 10000, 1.0f);
+                /* 
+                                v2 TestMax = Max - Node->Rect.Min;
+                                if(TestMax.x > RectDim.x)
+                                {
+                                    break;
+                                }
+                                
+                                if(TestMax.y > RectDim.y)
+                                {
+                                    break;
+                                }
+                 */
             }
             
             s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * CharScale);
@@ -289,11 +342,11 @@ UI_DrawLabel(ui_node *Node)
             ++At;
             
             /* 
-                        if(AtX > RectWidth)
-                        {
-                            InvalidCodePath;
-                        }
-             */
+            if(AtX > RectWidth)
+            {
+                InvalidCodePath;
+            }
+ */
         }
     }
 }
@@ -310,9 +363,9 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
     if(!Parent){InvalidCodePath;}
     
     /* 
-        v2 P = {};
-        v2 Dim = {};
-     */
+    v2 P = {};
+    v2 Dim = {};
+ */
     rectangle2 Rect = {};
     Rect.Min = Parent->Rect.Min;
     //P = Parent->P;
@@ -332,16 +385,26 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
                 if(Parent->LayoutAxis == Axis2_X)
                 {
                     //P.x = Parent->Last->P.x + Parent->Last->Dim.x + Parent->Spacing;
-                    r32 ParentPX = Parent->Last->Rect.Min.x;
-                    r32 ParentDimX = Parent->Last->Rect.Max.x - Parent->Last->Rect.Min.x;
-                    Rect.Min.x = ParentPX + ParentDimX + Parent->Spacing;
+                    //r32 ParentPX = Parent->Last->Rect.Min.x;
+                    //r32 ParentDimX = Parent->Last->Rect.Max.x - Parent->Last->Rect.Min.x;
+                    //Rect.Min.x = ParentPX + ParentDimX + Parent->Spacing;
+                    Rect.Min.x = Parent->Last->Rect.Max.x;
+                    if(UI_State->OpenWindowBody)
+                    {
+                        Rect.Min.x -= UI_State->OpenWindowBody->ViewP.x;
+                    }
                 }
                 else if(Parent->LayoutAxis == Axis2_Y)
                 {
                     //P.y = Parent->Last->P.y + Parent->Last->Dim.y + Parent->Spacing;
-                    r32 ParentPY = Parent->Last->Rect.Min.y;
-                    r32 ParentDimY = Parent->Last->Rect.Max.y - Parent->Last->Rect.Min.y;
-                    Rect.Min.y = ParentPY + ParentDimY + Parent->Spacing;
+                    //r32 PrevNodeP = Parent->Last->Rect.Min.y;
+                    //r32 PrevNodeHeight = Parent->Last->Rect.Max.y - Parent->Last->Rect.Min.y;
+                    //Rect.Min.y = PrevNodeP + PrevNodeHeight + Parent->Spacing;
+                    Rect.Min.y = Parent->Last->Rect.Max.y;
+                    if(UI_State->OpenWindowBody)
+                    {
+                        Rect.Min.y -= UI_State->OpenWindowBody->ViewP.y;
+                    }
                 }
             }
         }
@@ -383,7 +446,7 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
             InvalidDefaultCase;
         }
         
-        if(Parent->Size[Index].Type == UI_SizeKind_ChildrenSum)
+        if((Parent->Size[Index].Type == UI_SizeKind_ChildrenSum) && !(Flags & UI_NodeFlag_Floating))
         {
             //Parent->Rect.Max.E[Index] += Dim.E[Index];
             Parent->Rect.Max.E[Index] += Rect.Max.E[Index] - Rect.Min.E[Index];
@@ -395,28 +458,28 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
     if((Parent == UI_State->Root) || UI_State->OpenWindow)
     {
         /* 
-                if(P.y == Parent->P.y){P.y += Parent->Padding;}
-                if(P.x == Parent->P.x){P.x += Parent->Padding;}
-         */
+            if(P.y == Parent->P.y){P.y += Parent->Padding;}
+            if(P.x == Parent->P.x){P.x += Parent->Padding;}
+     */
         
         /* 
-                // NOTE(ezexff): padding
-                if(Rect.Min.x == Parent->Rect.Min.x)
-                {
-                    Rect.Min.x += Parent->Padding;
-                    Rect.Max.x += Parent->Padding;
-                }
-                
-                if(Rect.Min.y == Parent->Rect.Min.y)
-                {
-                    Rect.Min.y += Parent->Padding;
-                    Rect.Max.y += Parent->Padding;
-                }
-         */
+        // NOTE(ezexff): padding
+        if(Rect.Min.x == Parent->Rect.Min.x)
+        {
+            Rect.Min.x += Parent->Padding;
+            Rect.Max.x += Parent->Padding;
+        }
+        
+        if(Rect.Min.y == Parent->Rect.Min.y)
+        {
+            Rect.Min.y += Parent->Padding;
+            Rect.Max.y += Parent->Padding;
+        }
+ */
         
         //Rect = {P, P + Dim};
         
-        r32 StartTextOffsetX = 0.0f;
+        v2 StartTextOffset = {};
         rectangle2 ViewRect = {};
         
         if(UI_State->OpenWindow)
@@ -426,13 +489,19 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
         
         if(UI_State->OpenWindowBody)
         {
-            ViewRect = {UI_State->OpenWindow->Rect.Min + UI_State->OpenWindowBody->ViewP, UI_State->OpenWindow->Rect.Max + UI_State->OpenWindowBody->ViewP};
+            ViewRect = {UI_State->OpenWindowBody->Rect.Min + UI_State->OpenWindowBody->ViewP, UI_State->OpenWindowBody->Rect.Max + UI_State->OpenWindowBody->ViewP};
             
-            Rect = {Rect.Min + UI_State->OpenWindowBody->ViewP, Rect.Max + UI_State->OpenWindowBody->ViewP};
+            //if(!Parent->Last)
+            {
+                //if((!(Parent->LayoutAxis == Axis2_Invalid)))
+                {
+                    Rect = {Rect.Min + UI_State->OpenWindowBody->ViewP, Rect.Max + UI_State->OpenWindowBody->ViewP};
+                }
+            }
             /* 
-                        Rect.Min += UI_State->OpenWindowBody->ViewP;
-                        Rect.Max += UI_State->OpenWindowBody->ViewP;
-             */
+    Rect.Min += UI_State->OpenWindowBody->ViewP;
+    Rect.Max += UI_State->OpenWindowBody->ViewP;
+*/
             
             renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
             PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
@@ -443,21 +512,31 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
             
             if(RectanglesIntersect(ViewRect, Rect))
             {
-                if(Rect.Min.x < UI_State->OpenWindow->Rect.Min.x)
+                if(UI_State->OpenWindowBody)
                 {
-                    StartTextOffsetX = UI_State->OpenWindow->Rect.Min.x - Rect.Min.x;
-                    Rect.Min.x = UI_State->OpenWindow->Rect.Min.x;
+                    if(Rect.Min.x < UI_State->OpenWindow->Rect.Min.x)
+                    {
+                        StartTextOffset.x = UI_State->OpenWindow->Rect.Min.x - Rect.Min.x;
+                        Rect.Min.x = UI_State->OpenWindow->Rect.Min.x;
+                    }
+                    if(Rect.Max.x > UI_State->OpenWindow->Rect.Max.x){Rect.Max.x = UI_State->OpenWindow->Rect.Max.x;}
+                    
+                    if(Rect.Min.y < UI_State->OpenWindowBody->Rect.Min.y)
+                    {
+                        StartTextOffset.y = UI_State->OpenWindowBody->Rect.Min.y - Rect.Min.y;
+                        Rect.Min.y = UI_State->OpenWindowBody->Rect.Min.y;
+                    }
+                    if(Rect.Max.y > UI_State->OpenWindowBody->Rect.Max.y){Rect.Max.y = UI_State->OpenWindowBody->Rect.Max.y;}
                 }
-                if(Rect.Max.x > UI_State->OpenWindow->Rect.Max.x){Rect.Max.x = UI_State->OpenWindow->Rect.Max.x;}
                 
                 /* 
-                                if(Rect.Min.x < ViewRect.Min.x){Rect.Min.x = ViewRect.Min.x;}
-                                if(Rect.Max.x > ViewRect.Max.x){Rect.Max.x = ViewRect.Max.x;}
-                 */
+                if(Rect.Min.x < ViewRect.Min.x){Rect.Min.x = ViewRect.Min.x;}
+                if(Rect.Max.x > ViewRect.Max.x){Rect.Max.x = ViewRect.Max.x;}
+ */
                 /* 
-                                                                if(Rect.Min.y < ViewRect.Min.y){Rect.Min.y = ViewRect.Min.y;}
-                                                                if(Rect.Max.y > ViewRect.Max.y){Rect.Max.y = ViewRect.Max.y;}
-                 */
+                                if(Rect.Min.y < ViewRect.Min.y){Rect.Min.y = ViewRect.Min.y;}
+                                if(Rect.Max.y > ViewRect.Max.y){Rect.Max.y = ViewRect.Max.y;}
+                */
             }
             
             // NOTE(ezexff): get or create cached node
@@ -481,7 +560,7 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
                 CachedNode->Flags = Flags;
                 //CachedNode->P = P;
                 //CachedNode->Dim = Dim;
-                CachedNode->StartTextOffsetX = StartTextOffsetX;
+                CachedNode->StartTextOffset = StartTextOffset;
                 CachedNode->Rect = Rect;
             }
             
@@ -492,11 +571,12 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
             
             // NOTE(ezexff): init per frame node
             Child = PushStruct(UI_State->TranArena, ui_node);
+            Child->LayoutAxis = Axis2_Invalid;
             Child->String = PushString(UI_State->TranArena, String);
             //Child->P = P;
             //Child->Dim = Dim;
             Child->Rect = Rect;
-            Child->StartTextOffsetX = StartTextOffsetX;
+            Child->StartTextOffset = StartTextOffset;
             Child->Parent = Parent;
             Child->Size[Axis2_X] = Size[Axis2_X];
             Child->Size[Axis2_Y] = Size[Axis2_Y];
@@ -596,11 +676,11 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
     // TODO(ezexff): tmp test
     //|| StringsAreEqual(String, "EmptySpace")
     /* 
-        if(StringsAreEqual(String, "ResizeButton"))
-        {
-            Rect = {Parent->Rect.Min, Parent->Rect.Min};
-        }
-     */
+    if(StringsAreEqual(String, "ResizeButton"))
+    {
+        Rect = {Parent->Rect.Min, Parent->Rect.Min};
+    }
+ */
     if(!IsInRectangle(Parent->Rect, Rect.Min))
     {
         return(0);
@@ -740,9 +820,9 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
     
     // NOTE(ezexff): padding min
     /* 
-        Child->Rect.Min.x += Parent->Padding.left;
-        Child->Rect.Min.y += Parent->Padding.bottom;
-     */
+    Child->Rect.Min.x += Parent->Padding.left;
+    Child->Rect.Min.y += Parent->Padding.bottom;
+ */
     
     // NOTE(ezexff): calc size
     for(u32 Index = 0;
@@ -783,9 +863,9 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
     
     // NOTE(ezexff): padding max
     /* 
-        Child->Rect.Max.x -= Parent->Padding.right;
-        Child->Rect.Max.y -= Parent->Padding.top;
-     */
+    Child->Rect.Max.x -= Parent->Padding.right;
+    Child->Rect.Max.y -= Parent->Padding.top;
+ */
     
     // TODO(ezexff): Is spacing advanced twice?
     //Child->Rect.Min += PrevRectMax;
@@ -870,16 +950,16 @@ u32 UI_GetNodeState(ui_node *Node)
         }
         
         /* 
-                game_button_state PrevFrameMouseButtonLeftState = UI_State->PressKeyHistory[PlatformMouseButton_Left][0];
-                v2 PrevFrameMouseP = V2((r32)UI_State->MousePHistory[0].x ,(r32)UI_State->MousePHistory[0].y);
-                if(WasPressed(PrevFrameMouseButtonLeftState) && IsInRectangle(NodeRect, PrevFrameMouseP))
-                {
-                    if(IsDown(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
-                    {
-                        UI_State->TestIsDragging = true;
-                    }
-                }
-         */
+        game_button_state PrevFrameMouseButtonLeftState = UI_State->PressKeyHistory[PlatformMouseButton_Left][0];
+        v2 PrevFrameMouseP = V2((r32)UI_State->MousePHistory[0].x ,(r32)UI_State->MousePHistory[0].y);
+        if(WasPressed(PrevFrameMouseButtonLeftState) && IsInRectangle(NodeRect, PrevFrameMouseP))
+        {
+            if(IsDown(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
+            {
+                UI_State->TestIsDragging = true;
+            }
+        }
+ */
     }
     
 #endif
@@ -900,10 +980,10 @@ UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
     //UI_State->TestIsDragging = false;
     
     /* 
-        UI_State->CacheTableSize = 4096;
-        UI_State->CacheIndex = 0;
-        UI_State->CacheTable = PushArray(ConstArena, UI_State->CacheTableSize, ui_node);
-     */
+    UI_State->CacheTableSize = 4096;
+    UI_State->CacheIndex = 0;
+    UI_State->CacheTable = PushArray(ConstArena, UI_State->CacheTableSize, ui_node);
+ */
     
     
     // NOTE(ezexff): style templates
@@ -919,9 +999,9 @@ UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
                 StyleTemplate->BackgroundColor = V4(0.5f, 0, 0.5f, 1);
                 //StyleTemplate.HoveringColor = V4(0, 1, 1, 1);
                 /* 
-                                StyleTemplate.ClickedColor = V4(0, 0, 0, 1);
-                                StyleTemplate.PressedColor = V4(0, 0, 0, 1);
-                 */
+                StyleTemplate.ClickedColor = V4(0, 0, 0, 1);
+                StyleTemplate.PressedColor = V4(0, 0, 0, 1);
+ */
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
                 StyleTemplate->Size[Axis2_X].Value = 100.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
@@ -933,19 +1013,19 @@ UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
                 StyleTemplate->BackgroundColor = V4(1, 1, 1, 1);
                 StyleTemplate->HoveringColor = V4(0, 0, 1, 1);
                 /* 
-                                StyleTemplate.ClickedColor = V4(0, 0, 0, 1);
-                                StyleTemplate.PressedColor = V4(0, 0, 0, 1);
-                 */
+StyleTemplate.ClickedColor = V4(0, 0, 0, 1);
+StyleTemplate.PressedColor = V4(0, 0, 0, 1);
+*/
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
                 StyleTemplate->Size[Axis2_X].Value = 70.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
                 StyleTemplate->Size[Axis2_Y].Value = 30.0f;
                 /* 
-                                StyleTemplate->PrefSize[Axis2_X].Type = UI_SizeKind_Pixels;
-                                StyleTemplate->PrefSize[Axis2_X].Value = 50;
-                                StyleTemplate->PrefSize[Axis2_Y].Type = UI_SizeKind_Pixels;
-                                StyleTemplate->PrefSize[Axis2_Y].Value = 70;
-                 */
+            StyleTemplate->PrefSize[Axis2_X].Type = UI_SizeKind_Pixels;
+            StyleTemplate->PrefSize[Axis2_X].Value = 50;
+            StyleTemplate->PrefSize[Axis2_Y].Type = UI_SizeKind_Pixels;
+            StyleTemplate->PrefSize[Axis2_Y].Value = 70;
+*/
             } break;
             
             case UI_StyleTemplate_Label:
@@ -969,11 +1049,11 @@ UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
                 
                 StyleTemplate->Padding = 5.0f;
                 /* 
-                                StyleTemplate->Padding.left = 5.0f;
-                                StyleTemplate->Padding.right = 5.0f;
-                                StyleTemplate->Padding.top = 5.0f;
-                                StyleTemplate->Padding.bottom = 5.0f;
-                 */
+            StyleTemplate->Padding.left = 5.0f;
+            StyleTemplate->Padding.right = 5.0f;
+            StyleTemplate->Padding.top = 5.0f;
+            StyleTemplate->Padding.bottom = 5.0f;
+*/
             } break;
             
             case UI_StyleTemplate_CheckboxMark:
@@ -1212,17 +1292,17 @@ UI_DrawNodeTree(ui_node *Node)
         {
             UI_DrawNodeTree(ChildNode);
             /* 
-                        if(Node->ChildLayoutAxis == Axis2_Y)
-                        {
-                            AtY -= ChildNode->FixedSize.y;
-                        }
-             */
+if(Node->ChildLayoutAxis == Axis2_Y)
+{
+AtY -= ChildNode->FixedSize.y;
+}
+*/
             //Node->InnerSumY += ChildNode->FixedSize.y;
             /* 
-                        ui_node_style *ChildNodeStyle = &ChildNode->Style;
-                        renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
-                        PushRectOnScreen(&Renderer->PushBufferUI, ChildNode->FixedSizeRect.Min, ChildNode->FixedSizeRect.Max, ChildNodeStyle->BackgroundColor, 100);
-             */
+            ui_node_style *ChildNodeStyle = &ChildNode->Style;
+            renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
+            PushRectOnScreen(&Renderer->PushBufferUI, ChildNode->FixedSizeRect.Min, ChildNode->FixedSizeRect.Max, ChildNodeStyle->BackgroundColor, 100);
+ */
         }
     }
 }
@@ -1238,11 +1318,11 @@ UI_EndFrame()
     UI_DrawNodeTree(UI_State->Root);
     UI_Interact();
     /* 
-        UI_State->Root->First = 0;
-        UI_State->Root->Last = 0;
-        UI_State->Root->Next = 0;
-        UI_State->Root->Prev = 0;
-     */
+    UI_State->Root->First = 0;
+    UI_State->Root->Last = 0;
+    UI_State->Root->Next = 0;
+    UI_State->Root->Prev = 0;
+ */
     
     EndTemporaryMemory(UI_State->FrameMemory);
 }

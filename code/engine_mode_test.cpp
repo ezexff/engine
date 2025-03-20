@@ -475,8 +475,10 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             PushBitmapOnScreen(Frame, TranState->Assets, BitmapID, Pos, Dim, 1.0f);
              */
     
-    char *TestString = "The quick brown fox jumps over a lazy dog.";
-    DEBUGTextLine(Frame, TranState->Assets, TestString, {100, 100});
+    /* 
+        char *TestString = "The quick brown fox jumps over a lazy dog.";
+        DEBUGTextLine(Frame, TranState->Assets, TestString, {100, 100});
+     */
     
     /* 
         renderer_frame *Frame = &Memory->Frame;

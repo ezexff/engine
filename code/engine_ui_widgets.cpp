@@ -70,7 +70,10 @@ UI_BeginWindow(char *String, b32 *Value)
     {
         //UI_UseStyleTemplate(UI_StyleTemplate_Window);
         char *WindowString = Concat(UI_State->TranArena, "Window#", String);
-        ui_node *Window = UI_AddNodeVer3(UI_State->Root, UI_NodeFlag_Floating, UI_StyleTemplate_Window, WindowString);
+        ui_node *Window = UI_AddNodeVer3(UI_State->Root,
+                                         UI_NodeFlag_DrawBackground|
+                                         UI_NodeFlag_Floating,
+                                         UI_StyleTemplate_Window, WindowString);
         Window->LayoutAxis = Axis2_Y;
         UI_State->OpenWindow = Window;
         /* 
@@ -253,7 +256,9 @@ UI_BeginWindow(char *String, b32 *Value)
                     }
                     if(NewWindowDim.x > MinBodyHeight)
                     {
-                        CachedBody->OffsetSize.y += NewSize.y;
+                        //CachedBody->OffsetSize.y += NewSize.y;
+                        UI_State->StyleTemplateArray[UI_StyleTemplate_WindowBody].Size[Axis2_Y].Value += NewSize.y;
+                        //CachedWindow->OffsetSize.y += NewSize.y;
                     }
                 }
                 
@@ -288,30 +293,36 @@ UI_BeginWindow(char *String, b32 *Value)
                 
                 if(UI_IsDragging(HorizontalScrollBarState))
                 {
-                    CachedBody1->ViewP.x+= UI_State->Input->dMouseP.x;
-                    //NewSize.y -= UI_State->Input->dMouseP.y;
+                    CachedBody1->ViewP.x += UI_State->Input->dMouseP.x;
+                }
+                
+                if(UI_IsDragging(VerticalScrollBarState))
+                {
+                    CachedBody1->ViewP.y -= UI_State->Input->dMouseP.y;
                 }
             }
             
             UI_State->OpenWindowBody = Body;
             
             // TODO(ezexff): test buttons
-            {
-                ui_node *CachedBody = UI_GetCachedNode(Body->String);
-                if(!CachedBody){InvalidCodePath;}
-                
-                if(UI_IsPressed(UI_Button("HBar+")))
-                {
-                    CachedBody->ViewP.x += 10;
-                    Log->Add("HorBar+ action\n");
-                }
-                
-                if(UI_IsPressed(UI_Button("HBar-")))
-                {
-                    CachedBody->ViewP.x -= 10;
-                    Log->Add("HorBar- action\n");
-                }
-            }
+            /* 
+                        {
+                            ui_node *CachedBody = UI_GetCachedNode(Body->String);
+                            if(!CachedBody){InvalidCodePath;}
+                            
+                            if(UI_IsPressed(UI_Button("HBar+")))
+                            {
+                                CachedBody->ViewP.x += 10;
+                                Log->Add("HorBar+ action\n");
+                            }
+                            
+                            if(UI_IsPressed(UI_Button("HBar-")))
+                            {
+                                CachedBody->ViewP.x -= 10;
+                                Log->Add("HorBar- action\n");
+                            }
+                        }
+             */
         }
     }
     else

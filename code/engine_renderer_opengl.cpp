@@ -596,7 +596,7 @@ OpenglDrawBitmapOnScreen(loaded_bitmap *Bitmap, v2 P, v2 Dim, v3 Color, r32 Repe
 }
 
 void
-OpenglDrawBitmapOnScreen(loaded_bitmap *Bitmap, rectangle2 R, v4 Color, r32 Repeat)
+OpenglDrawBitmapOnScreen(loaded_bitmap *Bitmap, rectangle2 R, v4 Color, r32 *TexCoords)
 {
     if(!Bitmap->OpenglID)
     {
@@ -678,13 +678,15 @@ OpenglDrawBitmapOnScreen(loaded_bitmap *Bitmap, rectangle2 R, v4 Color, r32 Repe
         R.Min.x, R.Max.y, // 3
     };
     
-    r32 TexRectangle[] =
-    {
-        0, 0,           // 0
-        Repeat, 0,      // 1
-        Repeat, Repeat, // 2
-        0, Repeat       // 3
-    };
+    /* 
+        r32 TexRectangle[] =
+        {
+            0, 0,           // 0
+            Repeat, 0,      // 1
+            Repeat, Repeat, // 2
+            0, Repeat       // 3
+        };
+     */
     
     r32 Colors[] =
     {
@@ -704,7 +706,7 @@ OpenglDrawBitmapOnScreen(loaded_bitmap *Bitmap, rectangle2 R, v4 Color, r32 Repe
     glEnableClientState(GL_COLOR_ARRAY);
     
     glVertexPointer(2, GL_FLOAT, 0, VertPositions);
-    glTexCoordPointer(2, GL_FLOAT, 0, TexRectangle);
+    glTexCoordPointer(2, GL_FLOAT, 0, TexCoords);
     glColorPointer(4, GL_FLOAT, 0, Colors);
     glDrawArrays(GL_QUADS, 0, 4);
     
@@ -1385,9 +1387,10 @@ OpenglDrawDebugShapes(renderer_frame *Frame)
             
             case RendererEntryType_renderer_entry_bitmap_on_screen:
             {
-                renderer_entry_bitmap_on_screen *Entry = (renderer_entry_bitmap_on_screen *)Data;
+                //renderer_entry_bitmap_on_screen *Entry = (renderer_entry_bitmap_on_screen *)Data;
+                InvalidCodePath;
                 
-                BaseAddress += sizeof(*Entry);
+                //BaseAddress += sizeof(*Entry);
             } break;
             
             case RendererEntryType_renderer_entry_line:
@@ -1878,14 +1881,14 @@ OpenglDrawUI(renderer_frame *Frame)
                                 OpenglDrawRectOnScreen({Min, Max}, V3(Entry->Color.x, Entry->Color.y, Entry->Color.z));
                  */
                 //OpenglDrawBitmapOnScreen(Entry->Bitmap, Entry->P, Entry->Dim,  V3(0, 1, 0), Entry->Repeat);
-                v2 Min = Entry->P;
-                v2 Max = Entry->Dim;
+                //v2 Min = Entry->P;
+                //v2 Max = Entry->Dim;
                 /* 
                                 Max.y = Frame->Dim.y - Entry->P.y;
                                 Min.y = Frame->Dim.y - Entry->Dim.y;
                  */
                 
-                OpenglDrawBitmapOnScreen(Entry->Bitmap, {Min, Max}, V4(0, 1, 0, 1), Entry->Repeat);
+                OpenglDrawBitmapOnScreen(Entry->Bitmap, Entry->Rect, V4(0, 1, 0, 1), Entry->TexCoords);
                 //BaseAddress += sizeof(*Entry);
             } break;
             

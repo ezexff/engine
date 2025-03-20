@@ -93,8 +93,10 @@ PushBitmapOnGround(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 
     }
 }
 
+/* 
 void
-PushBitmapOnScreen(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 Offset, v2 Dim, r32 Repeat = 1)
+PushBitmapOnScreen(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 Offset, v2 Dim, 
+                   r32 TexCoords[8])
 {
     loaded_bitmap *Bitmap = GetBitmap(Assets, ID, true);
     if(Bitmap)
@@ -107,7 +109,15 @@ PushBitmapOnScreen(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 
             Entry->Bitmap = Bitmap;
             Entry->P = P;
             Entry->Dim = Dim;
-            Entry->Repeat = Repeat;
+            //Entry->Repeat = Repeat;
+            Entry->TexCoords[0] = TexCoords[0];
+            Entry->TexCoords[1] = TexCoords[1];
+            Entry->TexCoords[2] = TexCoords[2];
+            Entry->TexCoords[3] = TexCoords[3];
+            Entry->TexCoords[4] = TexCoords[4];
+            Entry->TexCoords[5] = TexCoords[5];
+            Entry->TexCoords[6] = TexCoords[6];
+            Entry->TexCoords[7] = TexCoords[7];
         }
     }
     else
@@ -116,6 +126,7 @@ PushBitmapOnScreen(renderer_frame *Frame, game_assets *Assets, bitmap_id ID, v2 
         //++Frame->MissingResourceCount;
     }
 }
+ */
 
 // TODO(ezexff): Need rework!
 inline loaded_font *
@@ -265,22 +276,33 @@ PushRectOutlineOnScreen(renderer_push_buffer *PushBuffer, rectangle2 Rect, r32 L
     }
 }
 
+r32 DefaultTexCoords[8] = {0,0, 1,0, 1,1, 0,1};
+
 void
-PushBitmapOnScreen(renderer_push_buffer *PushBuffer, game_assets *Assets, bitmap_id ID, v2 Offset, v2 Dim,
-                   r32 SortKey = 0.0f, r32 Repeat = 1)
+PushBitmapOnScreen(renderer_push_buffer *PushBuffer, game_assets *Assets, bitmap_id ID, rectangle2 Rect,
+                   r32 SortKey = 0.0f, r32 *TexCoords = DefaultTexCoords)
 {
     loaded_bitmap *Bitmap = GetBitmap(Assets, ID, true);
     if(Bitmap)
     {
-        v2 P = Offset;
-        
         renderer_ortho_entry_bitmap *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_bitmap, SortKey);
         if(Entry)
         {
             Entry->Bitmap = Bitmap;
-            Entry->P = P;
-            Entry->Dim = Dim;
-            Entry->Repeat = Repeat;
+            Entry->Rect = Rect;
+            /* 
+                        Entry->P = P;
+                        Entry->Dim = Dim;
+             */
+            Entry->TexCoords[0] = TexCoords[0];
+            Entry->TexCoords[1] = TexCoords[1];
+            Entry->TexCoords[2] = TexCoords[2];
+            Entry->TexCoords[3] = TexCoords[3];
+            Entry->TexCoords[4] = TexCoords[4];
+            Entry->TexCoords[5] = TexCoords[5];
+            Entry->TexCoords[6] = TexCoords[6];
+            Entry->TexCoords[7] = TexCoords[7];
+            //Entry->Repeat = Repeat;
         }
     }
     else
