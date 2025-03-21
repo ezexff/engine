@@ -261,45 +261,6 @@ UI_BeginWindow(char *String, b32 *Value)
                         //CachedWindow->OffsetSize.y += NewSize.y;
                     }
                 }
-                
-                // NOTE(ezexff): vertical scroll bar
-                //UI_UseStyleTemplate(UI_StyleTemplate_WindowScrollBar);
-                ui_node *VerticalScrollBar = UI_AddNodeVer3(Window,
-                                                            UI_NodeFlag_Floating|
-                                                            UI_NodeFlag_Clickable|
-                                                            UI_NodeFlag_DrawBorder|
-                                                            UI_NodeFlag_DrawBackground,
-                                                            UI_StyleTemplate_WindowScrollBar,
-                                                            Concat(UI_State->TranArena, "VerticalScrollBar#", Window->String));
-                VerticalScrollBar->Rect.Min = V2(Body->Rect.Max.x - 10.0f, Body->Rect.Min.y);
-                VerticalScrollBar->Rect.Max = V2(Body->Rect.Max.x, Body->Rect.Max.y - 10.0f);
-                u32 VerticalScrollBarState = UI_GetNodeState(VerticalScrollBar);
-                
-                // NOTE(ezexff): horizontal scroll bar
-                //UI_UseStyleTemplate(UI_StyleTemplate_WindowScrollBar);
-                ui_node *HorizontalScrollBar = UI_AddNodeVer3(Window,
-                                                              UI_NodeFlag_Floating|
-                                                              UI_NodeFlag_Clickable|
-                                                              UI_NodeFlag_DrawBorder|
-                                                              UI_NodeFlag_DrawBackground,
-                                                              UI_StyleTemplate_WindowScrollBar,
-                                                              Concat(UI_State->TranArena, "HorizontalScrollBar#", Window->String));
-                HorizontalScrollBar->Rect.Min = V2(Body->Rect.Min.x, Body->Rect.Max.y - 10.0f);
-                HorizontalScrollBar->Rect.Max = V2(Body->Rect.Max.x - 10.0f, Body->Rect.Max.y);
-                u32 HorizontalScrollBarState = UI_GetNodeState(HorizontalScrollBar);
-                
-                ui_node *CachedBody1 = UI_GetCachedNode(Body->String);
-                if(!CachedBody1){InvalidCodePath;}
-                
-                if(UI_IsDragging(HorizontalScrollBarState))
-                {
-                    CachedBody1->ViewP.x += UI_State->Input->dMouseP.x;
-                }
-                
-                if(UI_IsDragging(VerticalScrollBarState))
-                {
-                    CachedBody1->ViewP.y -= UI_State->Input->dMouseP.y;
-                }
             }
             
             UI_State->OpenWindowBody = Body;
@@ -335,6 +296,69 @@ internal void
 UI_EndWindow()
 {
     if(!UI_State->OpenWindow){InvalidCodePath;}
+    
+    if(UI_State->OpenWindowBody)
+    {
+        ui_node *Window = UI_State->OpenWindow;
+        ui_node *Body = UI_State->OpenWindowBody;
+        ui_node *CachedBody1 = UI_GetCachedNode(Body->String);
+        if(!CachedBody1){InvalidCodePath;}
+        
+        // NOTE(ezexff): horizontal scroll bar
+        v2 BodyDim = Body->Rect.Max - Body->Rect.Min;
+        if(Body->MaxChildNodeDim.x > BodyDim.x)
+        {
+            ui_node *HorizontalScrollBar = UI_AddNodeVer3(Body,
+                                                          UI_NodeFlag_Floating|
+                                                          UI_NodeFlag_Clickable|
+                                                          UI_NodeFlag_DrawBorder|
+                                                          UI_NodeFlag_DrawBackground,
+                                                          UI_StyleTemplate_WindowScrollBar,
+                                                          Concat(UI_State->TranArena, "HorizontalScrollBar#", Window->String));
+            HorizontalScrollBar->Rect.Min = V2(Body->Rect.Min.x, Body->Rect.Max.y - 10.0f);
+            HorizontalScrollBar->Rect.Max = V2(Body->Rect.Max.x - 10.0f, Body->Rect.Max.y);
+            u32 HorizontalScrollBarState = UI_GetNodeState(HorizontalScrollBar);
+            
+            if(UI_IsDragging(HorizontalScrollBarState))
+            {
+                //if(CachedBody1->ViewP.x < Body->MaxChildNodeDim.x)
+                r32 NewViewPX = CachedBody1->ViewP.x - UI_State->Input->dMouseP.x;
+                // NewViewPX < Body->MaxChildNodeDim.x)
+                r32 BodyDimX = Body->Rect.Max.x - Body->Rect.Min.x;
+                //r32 TestMaxX = (-1)*(Body->MaxChildNodeDim.x + CachedBody1->ViewP.x);
+                r32 TestMaxX = (-1)*(Body->MaxChildNodeDim.x - BodyDimX);
+                // && (NewViewPX > TestMaxX)
+                if(NewViewPX < 0)
+                {
+                    if(NewViewPX > TestMaxX)
+                    {
+                        CachedBody1->ViewP.x = NewViewPX;
+                    }
+                    //CachedBody1->ViewP.x += UI_State->Input->dMouseP.x;
+                }
+            }
+        }
+        
+        // NOTE(ezexff): vertical scroll bar
+        if(UI_State->OpenWindowBody->MaxChildNodeDim.y > UI_State->OpenWindowBody->Rect.Max.y)
+        {
+            ui_node *VerticalScrollBar = UI_AddNodeVer3(Body,
+                                                        UI_NodeFlag_Floating|
+                                                        UI_NodeFlag_Clickable|
+                                                        UI_NodeFlag_DrawBorder|
+                                                        UI_NodeFlag_DrawBackground,
+                                                        UI_StyleTemplate_WindowScrollBar,
+                                                        Concat(UI_State->TranArena, "VerticalScrollBar#", Window->String));
+            VerticalScrollBar->Rect.Min = V2(Body->Rect.Max.x - 10.0f, Body->Rect.Min.y);
+            VerticalScrollBar->Rect.Max = V2(Body->Rect.Max.x, Body->Rect.Max.y - 10.0f);
+            u32 VerticalScrollBarState = UI_GetNodeState(VerticalScrollBar);
+            
+            if(UI_IsDragging(VerticalScrollBarState))
+            {
+                CachedBody1->ViewP.y -= UI_State->Input->dMouseP.y;
+            }
+        }
+    }
     
     UI_State->OpenWindow = 0;
     UI_State->OpenWindowBody = 0;
