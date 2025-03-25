@@ -44,8 +44,9 @@ UI_BeginInteract()
         Log->Add("Interact (left clicked) = %s\n", UI_State->HotInteraction->String);
         
         CachedNode->Flags |= UI_NodeFlag_Pressed;
-        
+        if(!UI_State->HotInteraction->Key && (UI_State->HotInteraction != UI_State->Root)){InvalidCodePath;}
         UI_State->Interaction = UI_State->HotInteraction;
+        UI_State->HotInteraction = 0;
     }
 }
 
@@ -67,6 +68,7 @@ UI_Interact()
 {
     if(UI_State->Interaction)
     {
+        if(!UI_State->Interaction->Key && (UI_State->Interaction != UI_State->Root)){InvalidCodePath;}
         // NOTE(ezexff): button pressed and mouse move interaction
         ui_node *CachedNode = UI_GetCachedNode(UI_State->Interaction->String);
         if(!CachedNode){InvalidCodePath;}
@@ -137,15 +139,17 @@ UI_Interact()
     else
     {
         UI_State->HotInteraction = UI_State->NextHotInteraction;
+        UI_State->NextHotInteraction = 0;
         
         // NOTE(ezexff): hover
         if(UI_State->HotInteraction)
         {
+            if(!UI_State->HotInteraction->Key && (UI_State->HotInteraction != UI_State->Root)){InvalidCodePath;}
             ui_node *CachedNode = UI_GetCachedNode(UI_State->HotInteraction->String);
             if(!CachedNode){InvalidCodePath;}
             if(CachedNode->Flags & UI_NodeFlag_Clickable)
             {
-                //Log->Add("Interact (hover) = %s\n", UI_State->HotInteraction->String);
+                Log->Add("Interact (hover) = %s\n", UI_State->HotInteraction->String);
                 CachedNode->Flags |= UI_NodeFlag_Hovering;
             }
             //CachedNode->BackgroundColor = UI_State->StyleTemplateArray[UI_State->HotInteraction->StyleTemplateIndex].HoveringColor;
@@ -364,7 +368,7 @@ UI_GetSelectedStyleTemplate()
 ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char *String, u32 InteractionType = 0)
 {
     if(!Parent){InvalidCodePath;}
-    
+    if(!String){InvalidCodePath;}
     /* 
     v2 P = {};
     v2 Dim = {};
@@ -511,12 +515,9 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
             PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
         }
         
-        if((Parent == UI_State->Root) || RectanglesIntersect(ViewRect, Rect))
-            //if((Parent == UI_State->Root) || RectanglesIntersect(UI_State->OpenWindow->Rect, Rect))
+        //if((Parent == UI_State->Root) || RectanglesIntersect(ViewRect, Rect))
         {
-            
-            //if(UI_State->OpenWindow)
-            if(RectanglesIntersect(ViewRect, Rect))
+            //if(RectanglesIntersect(ViewRect, Rect))
             {
                 //if(RectanglesIntersect(UI_State->OpenWindow->Rect, Rect))
                 if(UI_State->OpenWindowBody)
@@ -547,14 +548,6 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
                     if(Rect.Max.y < UI_State->OpenWindowBody->Rect.Min.y){Rect.Max.y = UI_State->OpenWindowBody->Rect.Min.y;}
                     if(Rect.Min.y > UI_State->OpenWindowBody->Rect.Max.y){Rect.Min.y = UI_State->OpenWindowBody->Rect.Max.y;}
                 }
-                /* 
-                if(Rect.Min.x < ViewRect.Min.x){Rect.Min.x = ViewRect.Min.x;}
-                if(Rect.Max.x > ViewRect.Max.x){Rect.Max.x = ViewRect.Max.x;}
- */
-                /* 
-                                if(Rect.Min.y < ViewRect.Min.y){Rect.Min.y = ViewRect.Min.y;}
-                                if(Rect.Max.y > ViewRect.Max.y){Rect.Max.y = ViewRect.Max.y;}
-                */
             }
             
             // NOTE(ezexff): get or create cached node
@@ -591,6 +584,7 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
             Child = PushStruct(UI_State->TranArena, ui_node);
             Child->LayoutAxis = Axis2_Invalid;
             Child->String = PushString(UI_State->TranArena, String);
+            Child->Key = CachedNode->Key;
             //Child->P = P;
             //Child->Dim = Dim;
             Child->Rect = Rect;
@@ -1165,8 +1159,8 @@ StyleTemplate.PressedColor = V4(0, 0, 0, 1);
             {
                 StyleTemplate->BackgroundColor = V4(1, 1, 1, 1);
                 StyleTemplate->HoveringColor = V4(0, 0, 1, 1);
-                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_X].Value = 10.0f;
+                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_ParentPercent;
+                StyleTemplate->Size[Axis2_X].Value = 1.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
                 StyleTemplate->Size[Axis2_Y].Value = 10.0f;
             } break;
@@ -1249,6 +1243,7 @@ UI_DrawNodeTree(ui_node *Node)
     // TODO(ezexff): Test interaction
     ui_node *CachedNode = UI_GetCachedNode(Node->String);
     if(!CachedNode){InvalidCodePath;}
+    if(!CachedNode->Key){InvalidCodePath;}
     rectangle2 NodeRect = Node->Rect;
     NodeRect.Max.y = UI_State->Frame->Dim.y - Node->Rect.Min.y;
     NodeRect.Min.y = UI_State->Frame->Dim.y - Node->Rect.Max.y;
@@ -1262,6 +1257,7 @@ UI_DrawNodeTree(ui_node *Node)
         
         if(CachedNode->Flags & UI_NodeFlag_Clickable)
         {
+            if(!Node->Key && (Node != UI_State->Root)){InvalidCodePath;}
             UI_State->NextHotInteraction = Node;
         }
         else

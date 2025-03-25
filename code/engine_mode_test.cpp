@@ -443,6 +443,8 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
                     Log->Add("action when Btn12345 was pressed\n");
                 }
                 
+                UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
+                
                 if(UI_State->HotInteraction)
                 {
                     char HotInteractionString[128];
