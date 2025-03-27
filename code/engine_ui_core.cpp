@@ -149,7 +149,7 @@ UI_Interact()
             if(!CachedNode){InvalidCodePath;}
             if(CachedNode->Flags & UI_NodeFlag_Clickable)
             {
-                Log->Add("Interact (hover) = %s\n", UI_State->HotInteraction->String);
+                //Log->Add("Interact (hover) = %s\n", UI_State->HotInteraction->String);
                 CachedNode->Flags |= UI_NodeFlag_Hovering;
             }
             //CachedNode->BackgroundColor = UI_State->StyleTemplateArray[UI_State->HotInteraction->StyleTemplateIndex].HoveringColor;
@@ -495,7 +495,7 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
         }
         
         renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
-        if(UI_State->OpenWindowBody)
+        if(UI_State->OpenWindowBody && !(Flags & UI_NodeFlag_Floating))
         {
             ViewRect = {UI_State->OpenWindowBody->Rect.Min + UI_State->OpenWindowBody->ViewP, UI_State->OpenWindowBody->Rect.Max + UI_State->OpenWindowBody->ViewP};
             
@@ -520,33 +520,33 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
             //if(RectanglesIntersect(ViewRect, Rect))
             {
                 //if(RectanglesIntersect(UI_State->OpenWindow->Rect, Rect))
-                if(UI_State->OpenWindowBody)
+                if(UI_State->OpenWindowBody && !(Flags & UI_NodeFlag_Floating))
                 {
                     // NOTE(ezexff): content size
-                    
-                    
-                    UI_State->OpenWindowBody->MaxChildNodeDim.x = Maximum(UI_State->OpenWindowBody->MaxChildNodeDim.x, Rect.Max.x - Rect.Min.x);
-                    UI_State->OpenWindowBody->MaxChildNodeDim.y = Maximum(UI_State->OpenWindowBody->MaxChildNodeDim.y, Rect.Max.y - Rect.Min.y);
-                    
-                    // NOTE(ezexff): clip x
-                    if(Rect.Min.x < UI_State->OpenWindow->Rect.Min.x)
                     {
-                        StartTextOffset.x = UI_State->OpenWindow->Rect.Min.x - Rect.Min.x;
-                        Rect.Min.x = UI_State->OpenWindow->Rect.Min.x;
+                        UI_State->OpenWindowBody->MaxChildNodeDim.x = Maximum(UI_State->OpenWindowBody->MaxChildNodeDim.x, Rect.Max.x - Rect.Min.x);
+                        UI_State->OpenWindowBody->MaxChildNodeDim.y = Maximum(UI_State->OpenWindowBody->MaxChildNodeDim.y, Rect.Max.y - Rect.Min.y);
+                        
+                        // NOTE(ezexff): clip x
+                        if(Rect.Min.x < UI_State->OpenWindow->Rect.Min.x)
+                        {
+                            StartTextOffset.x = UI_State->OpenWindow->Rect.Min.x - Rect.Min.x;
+                            Rect.Min.x = UI_State->OpenWindow->Rect.Min.x;
+                        }
+                        if(Rect.Max.x > UI_State->OpenWindow->Rect.Max.x){Rect.Max.x = UI_State->OpenWindow->Rect.Max.x;}
+                        if(Rect.Max.x < UI_State->OpenWindow->Rect.Min.x){Rect.Max.x = UI_State->OpenWindow->Rect.Min.x;}
+                        if(Rect.Min.x > UI_State->OpenWindow->Rect.Max.x){Rect.Min.x = UI_State->OpenWindow->Rect.Max.x;}
+                        
+                        // NOTE(ezexff): clip y
+                        if(Rect.Min.y < UI_State->OpenWindowBody->Rect.Min.y)
+                        {
+                            StartTextOffset.y = UI_State->OpenWindowBody->Rect.Min.y - Rect.Min.y;
+                            Rect.Min.y = UI_State->OpenWindowBody->Rect.Min.y;
+                        }
+                        if(Rect.Max.y > UI_State->OpenWindowBody->Rect.Max.y){Rect.Max.y = UI_State->OpenWindowBody->Rect.Max.y;}
+                        if(Rect.Max.y < UI_State->OpenWindowBody->Rect.Min.y){Rect.Max.y = UI_State->OpenWindowBody->Rect.Min.y;}
+                        if(Rect.Min.y > UI_State->OpenWindowBody->Rect.Max.y){Rect.Min.y = UI_State->OpenWindowBody->Rect.Max.y;}
                     }
-                    if(Rect.Max.x > UI_State->OpenWindow->Rect.Max.x){Rect.Max.x = UI_State->OpenWindow->Rect.Max.x;}
-                    if(Rect.Max.x < UI_State->OpenWindow->Rect.Min.x){Rect.Max.x = UI_State->OpenWindow->Rect.Min.x;}
-                    if(Rect.Min.x > UI_State->OpenWindow->Rect.Max.x){Rect.Min.x = UI_State->OpenWindow->Rect.Max.x;}
-                    
-                    // NOTE(ezexff): clip y
-                    if(Rect.Min.y < UI_State->OpenWindowBody->Rect.Min.y)
-                    {
-                        StartTextOffset.y = UI_State->OpenWindowBody->Rect.Min.y - Rect.Min.y;
-                        Rect.Min.y = UI_State->OpenWindowBody->Rect.Min.y;
-                    }
-                    if(Rect.Max.y > UI_State->OpenWindowBody->Rect.Max.y){Rect.Max.y = UI_State->OpenWindowBody->Rect.Max.y;}
-                    if(Rect.Max.y < UI_State->OpenWindowBody->Rect.Min.y){Rect.Max.y = UI_State->OpenWindowBody->Rect.Min.y;}
-                    if(Rect.Min.y > UI_State->OpenWindowBody->Rect.Max.y){Rect.Min.y = UI_State->OpenWindowBody->Rect.Max.y;}
                 }
             }
             
@@ -1159,10 +1159,16 @@ StyleTemplate.PressedColor = V4(0, 0, 0, 1);
             {
                 StyleTemplate->BackgroundColor = V4(1, 1, 1, 1);
                 StyleTemplate->HoveringColor = V4(0, 0, 1, 1);
-                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_ParentPercent;
-                StyleTemplate->Size[Axis2_X].Value = 1.0f;
+                /* 
+                                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_ParentPercent;
+                                StyleTemplate->Size[Axis2_X].Value = 1.0f;
+                                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
+                                StyleTemplate->Size[Axis2_Y].Value = 10.0f;
+                                 */
+                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_X].Value = 0.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_Y].Value = 10.0f;
+                StyleTemplate->Size[Axis2_Y].Value = 0.0f;
             } break;
             
             InvalidDefaultCase;
