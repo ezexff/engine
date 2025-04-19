@@ -49,8 +49,11 @@ UI_BeginInteract()
             //CachedNode->PressMouseP = UI_State->Input->MouseP;
             CachedNode->PressMouseP.x = UI_State->Input->MouseP.x - UI_State->HotInteraction->Rect.Min.x;
             //r32 TestY = UI_State->HotInteraction->Rect.Min.y - UI_State->Input->MouseP.y;
+            
+            UI_State->HotInteraction->Cache->LastFrameTouchedIndex = UI_State->FrameCount;
+            Log->Add("%s %llu\n", UI_State->HotInteraction->String, UI_State->HotInteraction->Cache->LastFrameTouchedIndex);
         }
-        if(!UI_State->HotInteraction->Key && (UI_State->HotInteraction != UI_State->Root)){InvalidCodePath;}
+        if(!UI_State->HotInteraction->Key){InvalidCodePath;}
         UI_State->Interaction = UI_State->HotInteraction;
         UI_State->HotInteraction = 0;
     }
@@ -75,7 +78,7 @@ UI_Interact()
 {
     if(UI_State->Interaction)
     {
-        if(!UI_State->Interaction->Key && (UI_State->Interaction != UI_State->Root)){InvalidCodePath;}
+        if(!UI_State->Interaction->Key){InvalidCodePath;}
         // NOTE(ezexff): button pressed and mouse move interaction
         ui_node *CachedNode = UI_GetCachedNode(UI_State->Interaction->String);
         if(!CachedNode){InvalidCodePath;}
@@ -153,7 +156,7 @@ UI_Interact()
         // NOTE(ezexff): hover
         if(UI_State->HotInteraction)
         {
-            if(!UI_State->HotInteraction->Key && (UI_State->HotInteraction != UI_State->Root)){InvalidCodePath;}
+            if(!UI_State->HotInteraction->Key){InvalidCodePath;}
             ui_node *CachedNode = UI_GetCachedNode(UI_State->HotInteraction->String);
             if(!CachedNode){InvalidCodePath;}
             if(CachedNode->Flags & UI_NodeFlag_Clickable)
@@ -374,6 +377,7 @@ UI_GetSelectedStyleTemplate()
     return(Result);
 }
 
+#if 0
 ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char *String, u32 InteractionType = 0)
 {
     if(!Parent){InvalidCodePath;}
@@ -620,7 +624,9 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
     
     return(Child);
 }
+#endif
 
+#if 0
 ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
 {
     if(!Parent){InvalidCodePath;}
@@ -908,6 +914,15 @@ ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
     return(Child);
 }
 
+#endif
+
+u32 UI_GetNodeState(ui_node *Node)
+{
+    u32 Result = Node->Cache->Flags;
+    return(Result);
+}
+
+#if 0
 u32 UI_GetNodeState(ui_node *Node)
 {
     //if(!Node){InvalidCodePath;}
@@ -993,6 +1008,7 @@ u32 UI_GetNodeState(ui_node *Node)
     Node->Flags = CachedNode->Flags;
     return(Node->Flags);
 }
+#endif
 
 void UI_UseStyleTemplate(u32 Index)
 {
@@ -1096,19 +1112,37 @@ StyleTemplate.PressedColor = V4(0, 0, 0, 1);
                 
             } break;
             
-            case UI_StyleTemplate_Window:
+            case UI_StyleTemplate_Window1:
             {
-                //StyleTemplate->BackgroundColor = RGBA(22, 22, 22, 1);
-                
-                //StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_ChildrenSum;
+                StyleTemplate->BackgroundColor = V4(0, 1, 1, 1);
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
                 StyleTemplate->Size[Axis2_X].Value = 400.0f;
-                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ChildrenSum;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_Y].Value = 400.0f;
+                //StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ChildrenSum;
                 
-                StyleTemplate->OffsetP = V2(200, 100);
+                //StyleTemplate->OffsetP = V2(200, 100);
                 //StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
                 //StyleTemplate->Size[Axis2_Y].Value = 350.0f;
                 
+            } break;
+            
+            case UI_StyleTemplate_Window2:
+            {
+                StyleTemplate->BackgroundColor = V4(0, 1, 0, 1);
+                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_X].Value = 400.0f;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_Y].Value = 400.0f;
+            } break;
+            
+            case UI_StyleTemplate_Window3:
+            {
+                StyleTemplate->BackgroundColor = V4(1, 0, 0, 1);
+                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_X].Value = 400.0f;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
+                StyleTemplate->Size[Axis2_Y].Value = 400.0f;
             } break;
             
             case UI_StyleTemplate_WindowTitle:
@@ -1211,19 +1245,21 @@ UI_BeginFrame(game_state *GameState, tran_state *TranState, renderer_frame *Fram
     UI_State->FrameMemory = BeginTemporaryMemory(UI_State->TranArena);
     
     // NOTE(ezexff): Root ui_node
-    UI_State->Root = PushStruct(UI_State->TranArena, ui_node);
-    UI_State->Root->First = 0;
-    UI_State->Root->Last = 0;
-    UI_State->Root->Next = 0;
-    UI_State->Root->Prev = 0;
-    UI_State->Root->String = PushString(UI_State->TranArena, "Root");
-    //UI_State->Root->Style.Flags = UI_NodeStyleFlag_DrawBackground;
-    //UI_State->Root->Style.BackgroundColor = V4(0.5f, 0, 0.5f, 1);
-    
-    UI_State->Root->Rect = {V2(0, 0), V2((r32)UI_State->Frame->Dim.x, (r32)UI_State->Frame->Dim.y)};
-    UI_State->Root->LayoutAxis = Axis2_Y;
-    UI_State->Root->Spacing = 1.0f;
-    //UI_State->Root->Padding = V4(5, 5, 5, 5);
+    /* 
+        UI_State->Root = PushStruct(UI_State->TranArena, ui_node);
+        UI_State->Root->First = 0;
+        UI_State->Root->Last = 0;
+        UI_State->Root->Next = 0;
+        UI_State->Root->Prev = 0;
+        UI_State->Root->String = PushString(UI_State->TranArena, "Root");
+        //UI_State->Root->Style.Flags = UI_NodeStyleFlag_DrawBackground;
+        //UI_State->Root->Style.BackgroundColor = V4(0.5f, 0, 0.5f, 1);
+        
+        UI_State->Root->Rect = {V2(0, 0), V2((r32)UI_State->Frame->Dim.x, (r32)UI_State->Frame->Dim.y)};
+        UI_State->Root->LayoutAxis = Axis2_Y;
+        UI_State->Root->Spacing = 1.0f;
+        //UI_State->Root->Padding = V4(5, 5, 5, 5);
+         */
     
     // NOTE(ezexff): keys history
     //UI_State->PressKeyHistory[PlatformMouseButton_Count][0] = UI_State->PressKeyHistory[PlatformMouseButton_Count][1];
@@ -1235,34 +1271,33 @@ UI_BeginFrame(game_state *GameState, tran_state *TranState, renderer_frame *Fram
     //UI_State->MousePHistory[1] = UI_State->Input->MouseP;
     
     // NOTE(ezexff): Root cached node
-    ui_node *CachedNode = UI_GetCachedNode("Root");
-    if(!CachedNode)
-    {
-        CachedNode = PushStruct(UI_State->ConstArena, ui_node);
-        if(!UI_State->CacheFirst)
+    /* 
+        ui_node *CachedNode = UI_GetCachedNode("Root");
+        if(!CachedNode)
         {
-            UI_State->CacheFirst = CachedNode;
+            CachedNode = PushStruct(UI_State->ConstArena, ui_node);
+            if(!UI_State->CacheFirst)
+            {
+                UI_State->CacheFirst = CachedNode;
+            }
+            else
+            {
+                CachedNode->CachePrev = UI_State->CacheLast;
+                UI_State->CacheLast->CacheNext = CachedNode; 
+            }
+            
+            UI_State->CacheLast = CachedNode;
+            
+            CachedNode->Key = UI_GetHashValue("Root");
+            CachedNode->Flags = UI_NodeFlag_Clickable;
         }
-        else
-        {
-            CachedNode->CachePrev = UI_State->CacheLast;
-            UI_State->CacheLast->CacheNext = CachedNode; 
-        }
-        
-        UI_State->CacheLast = CachedNode;
-        
-        CachedNode->Key = UI_GetHashValue("Root");
-        CachedNode->Flags = UI_NodeFlag_Clickable;
-    }
+     */
 }
 
 internal void
 UI_DrawNodeTree(ui_node *Node)
 {
     // TODO(ezexff): Test interaction
-    ui_node *CachedNode = UI_GetCachedNode(Node->String);
-    if(!CachedNode){InvalidCodePath;}
-    if(!CachedNode->Key){InvalidCodePath;}
     rectangle2 NodeRect = Node->Rect;
     NodeRect.Max.y = UI_State->Frame->Dim.y - Node->Rect.Min.y;
     NodeRect.Min.y = UI_State->Frame->Dim.y - Node->Rect.Max.y;
@@ -1274,9 +1309,9 @@ UI_DrawNodeTree(ui_node *Node)
             Log->Add("FrameDim = 0\n");
         }
         
-        if(CachedNode->Flags & UI_NodeFlag_Clickable)
+        if(Node->Cache->Flags & UI_NodeFlag_Clickable)
         {
-            if(!Node->Key && (Node != UI_State->Root)){InvalidCodePath;}
+            if(!Node->Key){InvalidCodePath;}
             UI_State->NextHotInteraction = Node;
         }
         else
@@ -1285,47 +1320,50 @@ UI_DrawNodeTree(ui_node *Node)
         }
         
         //if(Node != UI_State->Root)
-        {
-            if(CachedNode->Flags & UI_NodeFlag_Pressed)
-            {
-                // TODO(ezexff): mb move in other place?
-                CachedNode->LastTouchedFrame = UI_State->FrameCount;
-                Log->Add("%s %llu\n", Node->String, CachedNode->LastTouchedFrame);
-            }
-        }
+        /* 
+                {
+                    if(Node->Cache->Flags & UI_NodeFlag_Pressed)
+                    {
+                        // TODO(ezexff): mb move in other place?
+                        Node->Cache->LastFrameTouchedIndex = UI_State->FrameCount;
+                        Log->Add("%s %llu\n", Node->String, Node->Cache->LastFrameTouchedIndex);
+                    }
+                }
+         */
     }
     
-    if(Node != UI_State->Root)
+    //if(Node != UI_State->Root)
     {
         renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
-        if(CachedNode->Flags & UI_NodeFlag_DrawBackground)
+        if(Node->Cache->Flags & UI_NodeFlag_DrawBackground)
         {
-            //PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, CachedNode->BackgroundColor, 100);
-            if(CachedNode->Flags & UI_NodeFlag_Hovering)
+            //PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, Node->Cache->BackgroundColor, 100);
+            if(Node->Cache->Flags & UI_NodeFlag_Hovering)
             {
                 PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, V4(0, 0, 1, 1), 100);
             }
             else
             {
-                PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, V4(0, 0, 0, 1), 100);
+                //PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, V4(0, 0, 0, 1), 100);
+                PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, Node->Cache->BackgroundColor, 100);
             }
         }
         
-        if(CachedNode->Flags & UI_NodeFlag_DrawText)
+        if(Node->Cache->Flags & UI_NodeFlag_DrawText)
         {
             UI_DrawLabel(Node);
         }
         
-        if(CachedNode->Flags & UI_NodeFlag_DrawBorder)
+        if(Node->Cache->Flags & UI_NodeFlag_DrawBorder)
         {
             PushRectOutlineOnScreen(&Renderer->PushBufferUI, Node->Rect, 1, V4(1, 0, 0, 1), 100);
         }
-        //CachedNode->BackgroundColor = UI_State->StyleTemplateArray[Node->StyleTemplateIndex].BackgroundColor;
+        //Node->Cache->BackgroundColor = UI_State->StyleTemplateArray[Node->StyleTemplateIndex].BackgroundColor;
     }
     
     // TODO(ezexff): Test per frame clear flags
-    CachedNode->Flags &= ~UI_NodeFlag_Pressed;
-    CachedNode->Flags &= ~UI_NodeFlag_Hovering;
+    Node->Cache->Flags &= ~UI_NodeFlag_Pressed;
+    Node->Cache->Flags &= ~UI_NodeFlag_Hovering;
     
     // NOTE(ezexff): Process childs
     if(Node->First)
@@ -1354,25 +1392,84 @@ AtY -= ChildNode->FixedSize.y;
     }
 }
 
+struct ui_node_sort_entry
+{
+    ui_node *Node;
+};
+
 internal void
 UI_EndFrame()
 {
-    if(UI_State->OpenWindow)
+    //if(UI_State->OpenWindow)
     {
-        InvalidCodePath;
+        //InvalidCodePath;
     }
     
-    UI_DrawNodeTree(UI_State->Root);
+    //UI_DrawNodeTree(UI_State->Root);
     UI_Interact();
+    
+    // NOTE(ezexff): sort windows by last frame touch
+    Assert(UI_State->WindowCount > 0);
+    u32 Count = UI_State->WindowCount;
+    ui_node_sort_entry *SortWindowArray = PushArray(UI_State->TranArena, Count, ui_node_sort_entry);
+    u32 SortIndex = 0;
+    for(ui_node *Node = UI_State->WindowArray.First;
+        Node != 0;
+        Node = Node->Next)
+    {
+        ui_node_sort_entry *ArrayLink = SortWindowArray + SortIndex;
+        ArrayLink->Node = Node;
+        SortIndex++;
+    }
+    
+    for(u32 Outer = 0;
+        Outer < Count;
+        ++Outer)
+    {
+        b32 ListIsSorted = true;
+        for(u32 Inner = 0;
+            Inner < (Count - 1);
+            ++Inner)
+        {
+            ui_node_sort_entry *EntryA = SortWindowArray + Inner;
+            ui_node_sort_entry *EntryB = EntryA + 1;
+            
+            if(EntryA->Node->Cache->LastFrameTouchedIndex > EntryB->Node->Cache->LastFrameTouchedIndex)
+            {
+                ui_node *Swap = EntryB->Node;
+                EntryB->Node = EntryA->Node;
+                EntryA->Node = Swap;
+                ListIsSorted = false;
+            }
+        }
+        
+        if(ListIsSorted)
+        {
+            break;
+        }
+    }
+    
+    // NOTE(ezexff): draw windows
     /* 
-    UI_State->Root->First = 0;
-    UI_State->Root->Last = 0;
-    UI_State->Root->Next = 0;
-    UI_State->Root->Prev = 0;
- */
+        for(ui_node *Node = UI_State->WindowArray.First;
+            Node != 0;
+            Node = Node->Next)
+         */
+    for(u32 Index = 0;
+        Index < Count;
+        ++Index)
+    {
+        ui_node_sort_entry *ArrayLink = SortWindowArray + Index;
+        UI_DrawNodeTree(ArrayLink->Node);
+    }
+    
     
     EndTemporaryMemory(UI_State->FrameMemory);
     
+    
+    // NOTE(ezexff): clear per build vars
     UI_State->NodeCount = 0;
+    UI_State->WindowCount = 0;
+    
     UI_State->FrameCount++;
 }

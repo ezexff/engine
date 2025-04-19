@@ -1,3 +1,108 @@
+ui_node *
+UI_CreateWidgetNode(ui_widget_link *WidgetArray, u32 StyleTemplateIndex, u32 Flags, char *String)
+{
+    if(!String){InvalidCodePath;}
+    
+    rectangle2 Rect = {};
+    ui_style_template Template = UI_State->StyleTemplateArray[StyleTemplateIndex];
+    ui_size Size[Axis2_Count] = {};
+    Size[Axis2_X] = Template.Size[Axis2_X];
+    Size[Axis2_Y] = Template.Size[Axis2_Y];
+    
+    // NOTE(ezexff): calc size
+    //v2 LabelSize = UI_CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, String);
+    
+    for(u32 Index = 0;
+        Index < Axis2_Count;
+        ++Index)
+    {
+        switch(Size[Index].Type)
+        {
+            case UI_SizeKind_Pixels:
+            {
+                Rect.Max.E[Index] = Rect.Min.E[Index] + Size[Index].Value;
+            } break;
+            
+            case UI_SizeKind_TextContent:
+            {
+                InvalidCodePath;
+                //Rect.Max.E[Index] = Rect.Min.E[Index] + LabelSize.E[Index];
+            } break;
+            
+            case UI_SizeKind_ParentPercent:
+            {
+                InvalidCodePath;
+                //Rect.Max.E[Index] = Rect.Min.E[Index] + Size[Index].Value * (Parent->Rect.Max.E[Index] - Parent->Rect.Min.E[Index]);
+            } break;
+            
+            case UI_SizeKind_ChildrenSum:
+            {
+            } break;
+            
+            InvalidDefaultCase;
+        }
+        
+        /* 
+                if((Parent->Size[Index].Type == UI_SizeKind_ChildrenSum) && !(Flags & UI_NodeFlag_Floating))
+                {
+                    Parent->Rect.Max.E[Index] += Rect.Max.E[Index] - Rect.Min.E[Index];
+                }
+         */
+    }
+    
+    // NOTE(ezexff): get or create cache
+    ui_node *CachedNode = UI_GetCachedNode(String);
+    if(!CachedNode)
+    {
+        CachedNode = PushStruct(UI_State->ConstArena, ui_node);
+        if(!UI_State->CacheFirst)
+        {
+            UI_State->CacheFirst = CachedNode;
+        }
+        else
+        {
+            CachedNode->CachePrev = UI_State->CacheLast;
+            UI_State->CacheLast->CacheNext = CachedNode; 
+        }
+        
+        UI_State->CacheLast = CachedNode;
+        
+        CachedNode->Key = UI_GetHashValue(String);
+        CachedNode->Flags = Flags;
+        CachedNode->BackgroundColor = Template.BackgroundColor;
+    }
+    
+    // NOTE(ezexff): persist P and Size
+    Rect.Min += CachedNode->P;
+    Rect.Max += CachedNode->P;
+    Rect.Max += CachedNode->Size;
+    
+    // NOTE(ezexff): new widget
+    ui_node *Widget = PushStruct(UI_State->TranArena, ui_node);
+    Widget->Cache = CachedNode;
+    Widget->LayoutAxis = Axis2_Y;
+    Widget->String = PushString(UI_State->TranArena, String);
+    Widget->Key = CachedNode->Key;
+    Widget->Rect = Rect;
+    
+    if(!WidgetArray->First)
+    {
+        WidgetArray->First = Widget;
+    }
+    else
+    {
+        Widget->Prev = WidgetArray->Last;
+        WidgetArray->Last->Next = Widget;
+    }
+    WidgetArray->Last = Widget;
+    //Parent->ChildCount++;
+    
+    UI_State->NodeCount++;
+    
+    return(Widget);
+}
+
+/* 
 internal u32
 UI_Button(char *String)
 {
@@ -62,18 +167,36 @@ UI_Checkbox(char *String, b32 *Value)
         }
     }
 }
+ */
 
 internal void
-UI_BeginWindow(char *String, b32 *Value)
+UI_BeginWindow(char *String, b32 *Value, u32 StyleTemplateIndex)
 {
-    if(!UI_State->OpenWindow)
+    char *WindowString = Concat(UI_State->TranArena, "UI_Window#", String);
+    ui_node *Window = UI_CreateWidgetNode(&UI_State->WindowArray,
+                                          StyleTemplateIndex,
+                                          UI_NodeFlag_DrawBackground|UI_NodeFlag_Floating|UI_NodeFlag_Clickable,
+                                          WindowString);
+    u32 WindowState = UI_GetNodeState(Window);
+    if(UI_IsDragging(WindowState))
+    {
+        Window->Cache->P.x += UI_State->Input->dMouseP.x;
+        Window->Cache->P.y -= UI_State->Input->dMouseP.y;
+    }
+    
+    UI_State->WindowCount++;
+    
+    //Window->InteractionType = UI_Interaction_Move;
+    
+    //if(!UI_State->OpenWindow)
+#if 0
     {
         //UI_UseStyleTemplate(UI_StyleTemplate_Window);
-        char *WindowString = Concat(UI_State->TranArena, "Window#", String);
         ui_node *Window = UI_AddNodeVer3(UI_State->Root,
                                          UI_NodeFlag_DrawBackground|
                                          UI_NodeFlag_Floating,
-                                         UI_StyleTemplate_Window, WindowString);
+                                         UI_StyleTemplate_Window,
+                                         WindowString);
         Window->LayoutAxis = Axis2_Y;
         UI_State->OpenWindow = Window;
         /* 
@@ -246,11 +369,14 @@ UI_BeginWindow(char *String, b32 *Value)
     {
         InvalidCodePath;
     }
+    
+#endif
 }
 
 internal void
 UI_EndWindow()
 {
+#if 0
     if(!UI_State->OpenWindow){InvalidCodePath;}
     
     if(UI_State->OpenWindowBody)
@@ -553,4 +679,6 @@ UI_EndWindow()
     
     UI_State->OpenWindow = 0;
     UI_State->OpenWindowBody = 0;
+    
+#endif
 }

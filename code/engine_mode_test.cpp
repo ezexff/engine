@@ -89,6 +89,7 @@ ui_node *UI_AddNode(u32 Flags, char *String)
 }
 #endif
 
+/* 
 internal void
 UI_TestWindow(char *String, b32 *Value)
 {
@@ -311,6 +312,7 @@ UI_TestWindow(char *String, b32 *Value)
         }
     }
 }
+ */
 
 /* 
 internal void
@@ -426,52 +428,72 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         {
             //UI_TestWindow("Debug", &IsWindowVisible);
             
-            UI_BeginWindow("DebugTest", &IsWindowVisible);
+            UI_BeginWindow("DebugTest", &IsWindowVisible, UI_StyleTemplate_Window1);
             {
-                char FrameCountString[32];
-                _snprintf_s(FrameCountString, sizeof(FrameCountString), "FrameCount = %llu", UI_State->FrameCount);
-                UI_Label(FrameCountString);
-                
-                char NodeCountString[32];
-                _snprintf_s(NodeCountString, sizeof(NodeCountString), "NodeCount = %llu", UI_State->NodeCount);
-                UI_Label(NodeCountString);
-                
-                char FpsString[16];
-                r32 Fps = 1 / UI_State->Input->dtForFrame;
-                _snprintf_s(FpsString, sizeof(FpsString), "FPS = %d", (u32)Fps);
-                UI_Label(FpsString);
-                
-                char MsString[32];
-                r32 Ms = UI_State->Input->dtForFrame * 1000.0f;
-                _snprintf_s(MsString, sizeof(MsString), "MS = %fms/frame", Ms);
-                UI_Label(MsString);
-                
-                if(UI_IsPressed(UI_Button("Btn12345")))
-                {
-                    Log->Add("action when Btn12345 was pressed\n");
-                }
-                
-                UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
-                
-                if(UI_State->HotInteraction)
-                {
-                    char HotInteractionString[128];
-                    _snprintf_s(HotInteractionString, sizeof(HotInteractionString), "HotInteractionString = %s", UI_State->HotInteraction->String);
-                    UI_Label(HotInteractionString);
-                    
-                    char HotInteractionRect[128];
-                    _snprintf_s(HotInteractionRect, sizeof(HotInteractionRect), "HotInteractionRect = min(%.1f, %.1f) max(%.1f, %.1f)",
-                                UI_State->HotInteraction->Rect.Min.x,
-                                UI_State->HotInteraction->Rect.Min.y,
-                                UI_State->HotInteraction->Rect.Max.x,
-                                UI_State->HotInteraction->Rect.Max.y);
-                    UI_Label(HotInteractionRect);
-                }
+                /* 
+                                char FrameCountString[32];
+                                _snprintf_s(FrameCountString, sizeof(FrameCountString), "FrameCount = %llu", UI_State->FrameCount);
+                                UI_Label(FrameCountString);
+                                
+                                char NodeCountString[32];
+                                _snprintf_s(NodeCountString, sizeof(NodeCountString), "NodeCount = %llu", UI_State->NodeCount);
+                                UI_Label(NodeCountString);
+                                
+                                char FpsString[16];
+                                r32 Fps = 1 / UI_State->Input->dtForFrame;
+                                _snprintf_s(FpsString, sizeof(FpsString), "FPS = %d", (u32)Fps);
+                                UI_Label(FpsString);
+                                
+                                char MsString[32];
+                                r32 Ms = UI_State->Input->dtForFrame * 1000.0f;
+                                _snprintf_s(MsString, sizeof(MsString), "MS = %fms/frame", Ms);
+                                UI_Label(MsString);
+                                
+                                if(UI_IsPressed(UI_Button("Btn12345")))
+                                {
+                                    Log->Add("action when Btn12345 was pressed\n");
+                                }
+                                
+                                UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
+                                
+                                if(UI_State->HotInteraction)
+                                {
+                                    char HotInteractionString[128];
+                                    _snprintf_s(HotInteractionString, sizeof(HotInteractionString), "HotInteractionString = %s", UI_State->HotInteraction->String);
+                                    UI_Label(HotInteractionString);
+                                    
+                                    char HotInteractionRect[128];
+                                    _snprintf_s(HotInteractionRect, sizeof(HotInteractionRect), "HotInteractionRect = min(%.1f, %.1f) max(%.1f, %.1f)",
+                                                UI_State->HotInteraction->Rect.Min.x,
+                                                UI_State->HotInteraction->Rect.Min.y,
+                                                UI_State->HotInteraction->Rect.Max.x,
+                                                UI_State->HotInteraction->Rect.Max.y);
+                                    UI_Label(HotInteractionRect);
+                                }
+                 */
             }
             UI_EndWindow();
         }
         
+        local b32 IsWindowVisible2 = true;
+        if(IsWindowVisible2)
+        {
+            UI_BeginWindow("DebugTest2", &IsWindowVisible2, UI_StyleTemplate_Window2);
+            
+            // TODO(ezexff): 
+            
+            UI_EndWindow();
+        }
         
+        local b32 IsWindowVisible3 = true;
+        if(IsWindowVisible3)
+        {
+            UI_BeginWindow("DebugTest3", &IsWindowVisible3, UI_StyleTemplate_Window3);
+            
+            // TODO(ezexff): 
+            
+            UI_EndWindow();
+        }
         
         UI_EndFrame();
     }

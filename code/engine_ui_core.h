@@ -59,28 +59,32 @@ enum axis2
 
 struct ui_node
 {
-    // NOTE(ezexff): persistent links
+    // NOTE(ezexff): persistent vars
+    u32 Key;
+    ui_node *Cache;
     ui_node *CacheNext;
     ui_node *CachePrev;
-    u32 Key;
-    //U64 last_frame_touched_index;
+    v2 P;
+    v2 Size;
+    u64 LastFrameTouchedIndex;
     
-    // NOTE(ezexff): child per-frame links
+    // NOTE(ezexff): per-build vars
     ui_node *First;
     ui_node *Last;
     ui_node *Next;
     ui_node *Prev;
     ui_node *Parent;
-    ui_node *WidgetRoot;
+    //ui_node *WidgetRoot;
     u32 ChildCount;
     
     char *String;
     u32 Flags;
     v4 BackgroundColor;
     
+    axis2 LayoutAxis; // align elements by axis
+    
     // per-frame info provided by builders
-    v2 OffsetP;
-    v2 OffsetSize;
+    
     
     // TODO(ezexff): new positioning
     /* 
@@ -89,22 +93,18 @@ struct ui_node
      */
     v2 StartTextOffset;
     v2 MaxChildNodeDim;
-    ui_size Size[Axis2_Count];
+    //ui_size Size[Axis2_Count];
     rectangle2 Rect; // calculated rect in screen space coordiantes
     v2 ViewP; // TODO(ezexff): temp for scrollbars in windows only
     v2 PressMouseP;
     
     
     // NOTE(ezexff): used in autolayout algorithm (this affect on child elements)
-    axis2 LayoutAxis; // align elements by axis
-    r32 Spacing; // distance between child nodes in axis
-    r32 Padding;
+    //r32 Spacing; // distance between child nodes in axis
+    //r32 Padding;
     
     u32 InteractionType;
     u32 StyleTemplateIndex;
-    
-    
-    u64 LastTouchedFrame; // TODO(ezexff): mb rename?
     
     /* 
     string string;
@@ -130,7 +130,10 @@ enum ui_style_template_name
     UI_StyleTemplate_Label,
     UI_StyleTemplate_Checkbox,
     UI_StyleTemplate_CheckboxMark,
-    UI_StyleTemplate_Window,
+    //UI_StyleTemplate_Window,
+    UI_StyleTemplate_Window1,
+    UI_StyleTemplate_Window2,
+    UI_StyleTemplate_Window3,
     UI_StyleTemplate_WindowTitle,
     UI_StyleTemplate_WindowTitleEmptySpace,
     UI_StyleTemplate_WindowTitleExitButton,
@@ -154,10 +157,17 @@ struct ui_style_template
     v2 OffsetP;
 };
 
+struct ui_widget_link
+{
+    ui_node *First;
+    ui_node *Last;
+};
+
 struct ui_state
 {
-    ui_node *Root;
-    //ui_node *WindowFirst;
+    //ui_node *Root;
+    ui_widget_link WindowArray;
+    u32 WindowCount;
     
     u64 FrameCount;
     u64 NodeCount;
@@ -168,8 +178,10 @@ struct ui_state
     ui_node *CacheFirst;
     ui_node *CacheLast;
     
-    ui_node *OpenWindow;
-    ui_node *OpenWindowBody;
+    /* 
+        ui_node *OpenWindow;
+        ui_node *OpenWindowBody;
+     */
     
     ui_node *Interaction;
     ui_node *HotInteraction;
@@ -212,5 +224,15 @@ enum ui_interaction_type
     UI_Interaction_SetUInt32,
     UI_Interaction_SetPointer,
 };
+
+/* 
+enum ui_widget_type
+{
+    UI_WidgetType_None;
+    
+    UI_WidgetType_Window;
+    UI_WidgetType_None;
+};
+ */
 
 ui_state *UI_State;
