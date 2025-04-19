@@ -103,6 +103,7 @@ UI_BeginWindow(char *String, b32 *Value)
         Title->LayoutAxis = Axis2_X;
         Title->Padding = 5.0f;
         Title->InteractionType = UI_Interaction_Move;
+        Title->WidgetRoot = Window; // TODO(ezexff): test
         if(UI_IsDragging(TitleState))
         {
             CachedWindow->OffsetP.x += UI_State->Input->dMouseP.x;
@@ -261,117 +262,154 @@ UI_EndWindow()
         ui_node *CachedBody = UI_GetCachedNode(Body->String);
         if(!CachedBody){InvalidCodePath;}
         
+        v2 ResizeButtonDim = V2(10.0f, 10.0f); // TODO(ezexff): only for test, need replace
+        v2 WindowDim = GetDim(Window->Rect); // TODO(ezexff): use only body dim?
+        v2 BodyDim = GetDim(Body->Rect);
+        v2 ContentDim = Body->MaxChildNodeDim;
+        ui_node *TestCachedHSBCursor = 0;
+        
         // NOTE(ezexff): horizontal scroll bar
-        v2 BodyDim = Body->Rect.Max - Body->Rect.Min;
-        if(Body->MaxChildNodeDim.x > BodyDim.x)
+        if(ContentDim.x > WindowDim.x)
         {
+            ui_node *HSBCursor = UI_AddNodeVer3(Body,
+                                                UI_NodeFlag_Floating|
+                                                UI_NodeFlag_Clickable|
+                                                UI_NodeFlag_DrawBorder|
+                                                UI_NodeFlag_DrawBackground,
+                                                UI_StyleTemplate_WindowScrollBar,
+                                                Concat(UI_State->TranArena, "HorizontalScrollBarCursor#", Window->String));
+            u32 HSBCursorState = UI_GetNodeState(HSBCursor);
+            
+            r32 CursorWidth = WindowDim.x / (ContentDim.x + ResizeButtonDim.x) * WindowDim.x;
+            if(CursorWidth < 10.0f)
+            {
+                InvalidCodePath;
+            }
+            
+            
+            ui_node *CachedHSBCursor = UI_GetCachedNode(HSBCursor->String);
+            TestCachedHSBCursor = CachedHSBCursor;
+            CachedHSBCursor->OffsetP.y = BodyDim.y - ResizeButtonDim.y;
+            CachedHSBCursor->OffsetSize.y = 10.0f;
+            
+            if(UI_IsDragging(HSBCursorState))
+            {
+#if 1
+                r32 MinCursorP = 0.0f;
+                r32 MaxCursorP = WindowDim.x - CursorWidth - ResizeButtonDim.x;
+                
+                r32 MinViewP = (-1) * (ContentDim.x - WindowDim.x);
+                r32 MaxViewP = 0.0f;
+                r32 ScrollMultiplier = (-1) * (MinViewP / MaxCursorP);
+                
+                r32 MinDragHSBCursorP = Window->Rect.Min.x + CachedHSBCursor->PressMouseP.x;
+                r32 MaxDragHSBCursorP = Window->Rect.Max.x - CursorWidth + CachedHSBCursor->PressMouseP.x - ResizeButtonDim.x;
+                if(UI_State->Input->MouseP.x < MinDragHSBCursorP)
+                {
+                    // NOTE(ezexff): move scrollbar cursor
+                    CachedHSBCursor->OffsetP.x = MinCursorP;
+                    
+                    // NOTE(ezexff): move body view pos
+                    CachedBody->ViewP.x = MaxViewP;
+                }
+                else if(UI_State->Input->MouseP.x > MaxDragHSBCursorP)
+                {
+                    // NOTE(ezexff): move scrollbar cursor
+                    CachedHSBCursor->OffsetP.x = MaxCursorP;
+                    
+                    // NOTE(ezexff): move body view pos
+                    CachedBody->ViewP.x = MinViewP;
+                }
+                else
+                {
+                    // NOTE(ezexff): move scrollbar cursor
+                    CachedHSBCursor->OffsetP.x = (r32)RoundR32ToS32(UI_State->Input->MouseP.x - Window->Rect.Min.x - CachedHSBCursor->PressMouseP.x);
+                    CachedHSBCursor->OffsetP.x = Clamp(MinCursorP, CachedHSBCursor->OffsetP.x, MaxCursorP);
+                    
+                    // NOTE(ezexff): move body view pos
+                    //CachedBody->ViewP.x = CachedBody->ViewP.x - ScrollMultiplier * UI_State->Input->dMouseP.x;
+                    CachedBody->ViewP.x -= (r32)RoundR32ToS32(ScrollMultiplier * UI_State->Input->dMouseP.x);
+                    CachedBody->ViewP.x = Clamp(MinViewP, CachedBody->ViewP.x, MaxViewP);
+                }
+#else
+                r32 MinDragHSBCursorP = Window->Rect.Min.x + CachedHSBCursor->PressMouseP.x;
+                r32 MaxDragHSBCursorP = Window->Rect.Max.x - CursorWidth + CachedHSBCursor->PressMouseP.x;
+                if((UI_State->Input->MouseP.x > MinDragHSBCursorP) &&
+                   (UI_State->Input->MouseP.x < MaxDragHSBCursorP))
+                {
+                    // NOTE(ezexff): move scrollbar cursor
+                    r32 MinCursorP = 0.0f;
+                    r32 MaxCursorP = WindowDim.x - CursorWidth - ResizeButtonDim.x;
+                    r32 NewCursorP = CachedHSBCursor->OffsetP.x + UI_State->Input->dMouseP.x;
+                    NewCursorP = Clamp(MinCursorP, NewCursorP, MaxCursorP);
+                    
+                    //r32 TestMousePX = UI_State->Input->MouseP.x - HSBCursor->Rect.Min.x - UI_State->Input->dMouseP.x;
+                    {
+                        /* 
+                                                if(CachedHSBCursor->OffsetP.x == MinCursorP)
+                                                {
+                                                    // || !(CachedHSBCursor->OffsetP.x == MaxCursorP)
+                                                    Log->Add("TestMousePX = %f\n", TestMousePX);
+                                                    Log->Add("PressMouseP.x = %f\n", CachedHSBCursor->PressMouseP.x);
+                                                    Log->Add("OffsetP.x = %f\n", CachedHSBCursor->OffsetP.x);
+                                                }
+                         */
+                        
+                        CachedHSBCursor->OffsetP.x = NewCursorP;
+                        
+                        // NOTE(ezexff): move view pos
+                        r32 MinViewP = (-1) * (ContentDim.x - WindowDim.x);
+                        r32 MaxViewP = 0.0f;
+                        r32 ScrollMultiplier = (-1) * (MinViewP / MaxCursorP);
+                        //r32 ScrollMultiplier = WindowDim.x / MaxNewCursorP;
+                        r32 NewViewP = CachedBody->ViewP.x - ScrollMultiplier * UI_State->Input->dMouseP.x;
+                        CachedBody->ViewP.x = Clamp(MinViewP, NewViewP, MaxViewP);
+                    }
+                }
+#endif
+            }
+            
+            CachedHSBCursor->OffsetSize.x = CursorWidth;
+            
             /* 
-                        ui_node *HorizontalScrollBar = UI_AddNodeVer3(Body,
-                                                                      UI_NodeFlag_Floating|
-                                                                      UI_NodeFlag_Clickable|
-                                                                      UI_NodeFlag_DrawBorder|
-                                                                      UI_NodeFlag_DrawBackground,
-                                                                      UI_StyleTemplate_WindowScrollBar,
-                                                                      Concat(UI_State->TranArena, "HorizontalScrollBar#", Window->String));
-                        HorizontalScrollBar->Rect.Min = V2(Body->Rect.Min.x, Body->Rect.Max.y - 10.0f);
-                        HorizontalScrollBar->Rect.Max = V2(Body->Rect.Max.x - 10.0f, Body->Rect.Max.y);
-                        u32 HorizontalScrollBarState = UI_GetNodeState(HorizontalScrollBar);
-                        if(UI_IsDragging(HorizontalScrollBarState))
+                        r32 MaxCursorP = WindowDim.x - CursorWidth - ResizeButtonDim.x;
+                        if(CachedHSBCursor->OffsetP.x > MaxCursorP)
                         {
-                            //if(CachedBody1->ViewP.x < Body->MaxChildNodeDim.x)
-                            r32 NewViewPX = CachedBody->ViewP.x - UI_State->Input->dMouseP.x;
-                            // NewViewPX < Body->MaxChildNodeDim.x)
-                            r32 BodyDimX = Body->Rect.Max.x - Body->Rect.Min.x;
-                            //r32 TestMaxX = (-1)*(Body->MaxChildNodeDim.x + CachedBody1->ViewP.x);
-                            r32 TestMaxX = (-1)*(Body->MaxChildNodeDim.x - BodyDimX);
-                            // && (NewViewPX > TestMaxX)
-                            if(NewViewPX < 0)
-                            {
-                                if(NewViewPX > TestMaxX)
-                                {
-                                    CachedBody->ViewP.x = NewViewPX;
-                                }
-                                //CachedBody1->ViewP.x += UI_State->Input->dMouseP.x;
-                            }
+                            r32 Diff = CachedHSBCursor->OffsetP.x - MaxCursorP;
+                            CachedHSBCursor->OffsetP.x -= Diff;
+                            
                         }
              */
-            ui_node *HorizontalScrollBarCursor = UI_AddNodeVer3(Body,
-                                                                UI_NodeFlag_Floating|
-                                                                UI_NodeFlag_Clickable|
-                                                                UI_NodeFlag_DrawBorder|
-                                                                UI_NodeFlag_DrawBackground,
-                                                                UI_StyleTemplate_WindowScrollBar,
-                                                                Concat(UI_State->TranArena, "HorizontalScrollBarCursor#", Window->String));
-            //HorizontalScrollBarCursor->InteractionType = UI_Interaction_Move;
-            r32 ContentWidth = Body->MaxChildNodeDim.x;
-            r32 ViewWidth = Window->Rect.Max.x - Window->Rect.Min.x;
-            //r32 ViewWidth = 400;
-            r32 HorizontalScrollBarCursorWidth = ViewWidth / ContentWidth * ViewWidth;
-            /*HorizontalScrollBarCursor->Rect.Min = V2(Body->Rect.Min.x, Body->Rect.Max.y - 10.0f);
-            HorizontalScrollBarCursor->Rect.Max = V2(Body->Rect.Min.x + HorizontalScrollBarCursorWidth, Body->Rect.Max.y);
- */
-            //CachedHorizontalScrollBarCursor->OffsetSize.x = HorizontalScrollBarCursorWidth;
-            //CachedHorizontalScrollBarCursor->OffsetP.y = Body->Rect.Max.y - CachedHorizontalScrollBarCursor->Rect.Max.y;
-            /* 
-                        HorizontalScrollBarCursor->Rect.Min = HorizontalScrollBar->Rect.Min;
-                        HorizontalScrollBarCursor->Rect.Max = V2(Body->Rect.Min.x + HorizontalScrollBarCursorWidth, HorizontalScrollBar->Rect.Max.y);
-             */
-            ui_node *CachedHorizontalScrollBarCursor = UI_GetCachedNode(HorizontalScrollBarCursor->String);
-            CachedHorizontalScrollBarCursor->OffsetP.y = Body->Rect.Max.y - Body->Rect.Min.y - 10.0f;
-            CachedHorizontalScrollBarCursor->OffsetSize.x = HorizontalScrollBarCursorWidth;
-            CachedHorizontalScrollBarCursor->OffsetSize.y = 10.0f;
-            
-            u32 HorizontalScrollBarCursorState = UI_GetNodeState(HorizontalScrollBarCursor);
             
             /* 
-                        HorizontalScrollBarCursor->Rect.Min += CachedHorizontalScrollBarCursor->OffsetP;
-                        HorizontalScrollBarCursor->Rect.Max += CachedHorizontalScrollBarCursor->OffsetP;
+                        r32 Test = CachedHSBCursor->OffsetP.x + CursorWidth;
+                        if(Test > Window->Rect.Max.x)
+                        {
+                            r32 Diff = Test - Window->Rect.Max.x;
+                            CachedHSBCursor->OffsetP.x -= Diff;
+                        }
              */
-            //CachedHorizontalScrollBarCursor->OffsetSize.x = HorizontalScrollBarCursorWidth;
-            //HorizontalScrollBarCursor->Rect.Min += CachedHorizontalScrollBarCursor->OffsetP;
-            //HorizontalScrollBarCursor->Rect.Max += CachedHorizontalScrollBarCursor->OffsetP;
+            //if(CachedHSBCursor->OffsetP.x)
+            /* 
+                        r32 Test = ContentDim.x + CachedBody->ViewP.x - WindowDim.x;
+                        if(Test < 0)
+                        {
+                            CachedHSBCursor->OffsetP.x += Test;
+                            
+                            CachedBody->ViewP.x -= Test;
+                        }
+             */
             
-            if(UI_IsDragging(HorizontalScrollBarCursorState))
-            {
-                // NOTE(ezexff): move scrollbar cursor
-                r32 NewOffsetX = CachedHorizontalScrollBarCursor->OffsetP.x + UI_State->Input->dMouseP.x;
-                r32 MaxOffsetX = ViewWidth - HorizontalScrollBarCursorWidth - 10.0f;
-                CachedHorizontalScrollBarCursor->OffsetP.x = Clamp(0, NewOffsetX, MaxOffsetX);
-                
-                
-                // NOTE(ezexff): move view pos
-                r32 MinViewPX = (-1)*(Body->MaxChildNodeDim.x - (Window->Rect.Max.x - Window->Rect.Min.x));
-                r32 Multiplier2 = (-1)* (MinViewPX / MaxOffsetX);
-                r32 NewViewPX = CachedBody->ViewP.x - Multiplier2 * UI_State->Input->dMouseP.x;
-                CachedBody->ViewP.x = Clamp(MinViewPX, NewViewPX, 0);
-                
-                //CachedBody1->ViewP.x -= UI_State->Input->dMouseP.x;
-                /* 
-                                r32 NewViewPX = CachedBody1->ViewP.x - UI_State->Input->dMouseP.x;
-                                r32 BodyDimX = Body->Rect.Max.x - Body->Rect.Min.x;
-                                r32 TestMaxX = (-1)*(Body->MaxChildNodeDim.x - BodyDimX);
-                                if(NewViewPX < 0)
-                                {
-                                    if(NewViewPX > TestMaxX)
-                                    {
-                                    }
-                                }
-                                 */
-                
-                
-                /* 
-                                r32 NewViewPX = CachedBody1->ViewP.x - UI_State->Input->dMouseP.x;
-                                r32 MaxViewPX = (-1)*(Body->MaxChildNodeDim.x - Body->Rect.Max.x - Body->Rect.Min.x);
-                                CachedBody1->ViewP.x = Clamp(0, NewViewPX, MaxViewPX);*/
-                
-                /* 
-                                if((NewOffsetX >= 0) && NewOffsetX < MaxOffsetX)
-                                {
-                                    CachedHorizontalScrollBarCursor->OffsetP.x = NewOffsetX;
-                                }
-                 */
-                //CachedHorizontalScrollBarCursor->OffsetP.y -= UI_State->Input->dMouseP.y;
-            }
+            /* 
+                        r32 TestMax = Window->Rect.Max.x - 10.0f;
+                        if(HorizontalScrollBarCursor->Rect.Max.x > TestMax)
+                        {
+                            r32 Diff = HorizontalScrollBarCursor->Rect.Max.x - TestMax;
+                            CachedHorizontalScrollBarCursor->OffsetP.x -= Diff;
+                            
+                            CachedBody->ViewP.x += Multiplier2 * Diff;
+                        }
+             */
         }
         
         // NOTE(ezexff): vertical scroll bar
@@ -423,6 +461,83 @@ UI_EndWindow()
                 if(NewWindowDim.x > MinWindowWidth)
                 {
                     CachedWindow->OffsetSize.x += NewSize.x;
+                    
+                    // TODO(ezexff): fix body view pos
+                    if(TestCachedHSBCursor)
+                    {
+                        /* 
+                                                r32 CursorWidth = WindowDim.x / (ContentDim.x + ResizeButtonDim.x) * WindowDim.x;
+                                                if(CursorWidth < 10.0f) {InvalidCodePath;}
+                                                TestCachedHSBCursor->OffsetSize.x = CursorWidth;
+                         */
+                        
+                        r32 NewCursorWidth = NewWindowDim.x / (ContentDim.x  + ResizeButtonDim.x) * NewWindowDim.x;
+                        if(NewCursorWidth < 10.0f) {InvalidCodePath;}
+                        
+                        if(NewWindowDim.x != WindowDim.x)
+                        {
+                            r32 CursorWidth = WindowDim.x / (ContentDim.x + ResizeButtonDim.x) * WindowDim.x;
+                            if(CursorWidth < 10.0f) {InvalidCodePath;}
+                            r32 MaxCursorP = WindowDim.x - CursorWidth - ResizeButtonDim.x;
+                            r32 Percent = TestCachedHSBCursor->OffsetP.x / MaxCursorP;
+                            
+                            r32 MinCursorP = 0.0f;
+                            r32 NewMaxCursorP = NewWindowDim.x - NewCursorWidth - ResizeButtonDim.x;
+                            TestCachedHSBCursor->OffsetP.x = (r32)RoundR32ToS32(Percent * NewMaxCursorP);
+                            TestCachedHSBCursor->OffsetP.x = Clamp(MinCursorP, TestCachedHSBCursor->OffsetP.x, NewMaxCursorP);
+                            
+                            r32 VisibleContent = ContentDim.x + CachedBody->ViewP.x;
+                            if((NewWindowDim.x > WindowDim.x) && (NewWindowDim.x >= VisibleContent))
+                            {
+                                r32 NewMinViewP = (-1) * (ContentDim.x - NewWindowDim.x);
+                                r32 ScrollMultiplier = (-1) * (NewMinViewP / NewMaxCursorP);
+                                CachedBody->ViewP.x += (r32)RoundR32ToS32(ScrollMultiplier * UI_State->Input->dMouseP.x);
+                                
+                                CachedBody->ViewP.x = Clamp(NewMinViewP, CachedBody->ViewP.x, 0);
+                            }
+                        }
+                        
+                        TestCachedHSBCursor->OffsetSize.x = NewCursorWidth;
+                        
+                    }
+                    
+                    /* 
+                                        r32 MinViewP = (-1) * (ContentDim.x - WindowDim.x);
+                                        r32 ViewP = CachedBody->ViewP.x;
+                     */
+                    /* 
+                                        if(TestCachedHSBCursor)
+                                        {
+                                            r32 NewCursorWidth = NewWindowDim.x / ContentDim.x * NewWindowDim.x;
+                                            if(NewWindowDim.x < 10.0f)
+                                            {
+                                                InvalidCodePath;
+                                            }
+                                            
+                                            r32 MaxNewCursorP = NewWindowDim.x - NewCursorWidth - ResizeButtonDim.x;
+                                            
+                                            r32 MinNewViewP = (-1) * (ContentDim.x - NewWindowDim.x);
+                                            r32 ScrollMultiplier = (-1) * (MinNewViewP / MaxNewCursorP);
+                                            //r32 ScrollMultiplier = ContentDim.x / NewWindowDim.x;
+                                            
+                                            
+                                            
+                                            r32 NewCursorP = TestCachedHSBCursor->OffsetP.x + UI_State->Input->dMouseP.x / ScrollMultiplier;
+                                            TestCachedHSBCursor->OffsetP.x = Clamp(0, NewCursorP, MaxNewCursorP);
+                                            
+                                            
+                                            if(NewSize.x > 0)
+                                            {
+                                                if(TestCachedHSBCursor->OffsetP.x == MaxNewCursorP)
+                                                {
+                                                    r32 NewViewP = CachedBody->ViewP.x - ScrollMultiplier * UI_State->Input->dMouseP.x;
+                                                    CachedBody->ViewP.x = Clamp(MinNewViewP, NewViewP, 0);
+                                                }
+                                            }
+                                            
+                                            TestCachedHSBCursor->OffsetSize.x = NewCursorWidth;
+                                        }
+                     */
                 }
                 if(NewWindowDim.x > MinBodyHeight)
                 {

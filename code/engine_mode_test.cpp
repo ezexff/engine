@@ -428,6 +428,14 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             
             UI_BeginWindow("DebugTest", &IsWindowVisible);
             {
+                char FrameCountString[32];
+                _snprintf_s(FrameCountString, sizeof(FrameCountString), "FrameCount = %llu", UI_State->FrameCount);
+                UI_Label(FrameCountString);
+                
+                char NodeCountString[32];
+                _snprintf_s(NodeCountString, sizeof(NodeCountString), "NodeCount = %llu", UI_State->NodeCount);
+                UI_Label(NodeCountString);
+                
                 char FpsString[16];
                 r32 Fps = 1 / UI_State->Input->dtForFrame;
                 _snprintf_s(FpsString, sizeof(FpsString), "FPS = %d", (u32)Fps);

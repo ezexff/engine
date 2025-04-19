@@ -71,6 +71,7 @@ struct ui_node
     ui_node *Next;
     ui_node *Prev;
     ui_node *Parent;
+    ui_node *WidgetRoot;
     u32 ChildCount;
     
     char *String;
@@ -91,6 +92,7 @@ struct ui_node
     ui_size Size[Axis2_Count];
     rectangle2 Rect; // calculated rect in screen space coordiantes
     v2 ViewP; // TODO(ezexff): temp for scrollbars in windows only
+    v2 PressMouseP;
     
     
     // NOTE(ezexff): used in autolayout algorithm (this affect on child elements)
@@ -100,6 +102,9 @@ struct ui_node
     
     u32 InteractionType;
     u32 StyleTemplateIndex;
+    
+    
+    u64 LastTouchedFrame; // TODO(ezexff): mb rename?
     
     /* 
     string string;
@@ -152,6 +157,10 @@ struct ui_style_template
 struct ui_state
 {
     ui_node *Root;
+    //ui_node *WindowFirst;
+    
+    u64 FrameCount;
+    u64 NodeCount;
     
     u32 SelectedTemplateIndex;
     ui_style_template StyleTemplateArray[UI_StyleTemplate_Count];

@@ -41,9 +41,15 @@ UI_BeginInteract()
     
     if(CachedNode->Flags & UI_NodeFlag_Clickable)
     {
-        Log->Add("Interact (left clicked) = %s\n", UI_State->HotInteraction->String);
+        Log->Add("Interact (left pressed) = %s\n", UI_State->HotInteraction->String);
         
         CachedNode->Flags |= UI_NodeFlag_Pressed;
+        // TODO(ezexff): Test in node mouse p
+        {
+            //CachedNode->PressMouseP = UI_State->Input->MouseP;
+            CachedNode->PressMouseP.x = UI_State->Input->MouseP.x - UI_State->HotInteraction->Rect.Min.x;
+            //r32 TestY = UI_State->HotInteraction->Rect.Min.y - UI_State->Input->MouseP.y;
+        }
         if(!UI_State->HotInteraction->Key && (UI_State->HotInteraction != UI_State->Root)){InvalidCodePath;}
         UI_State->Interaction = UI_State->HotInteraction;
         UI_State->HotInteraction = 0;
@@ -59,6 +65,7 @@ UI_EndInteract()
     Log->Add("Interact (left released) = %s\n", UI_State->Interaction->String);
     
     CachedNode->Flags |= UI_NodeFlag_Released;
+    CachedNode->PressMouseP = V2(0.0f, 0.0f);
     
     UI_State->Interaction = 0;
 }
@@ -131,7 +138,9 @@ UI_Interact()
         
         if(!UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
         {
+            Log->Add("Interact (left clicked) = %s\n", UI_State->Interaction->String);
             CachedNode->Flags &= ~UI_NodeFlag_Dragging;
+            CachedNode->Flags &= ~UI_NodeFlag_Clicked;
             UI_EndInteract();
             //UI_State->Interaction = 0;
         }
@@ -604,6 +613,8 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
             }
             Parent->Last = Child;
             Parent->ChildCount++;
+            
+            UI_State->NodeCount++;
         }
     }
     
@@ -993,6 +1004,8 @@ internal void
 UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
 {
     UI_State = PushStruct(TranArena, ui_state);
+    UI_State->FrameCount = 0;
+    
     //UI_State->TestIsDragging = false;
     
     /* 
@@ -1270,6 +1283,16 @@ UI_DrawNodeTree(ui_node *Node)
         {
             //UI_State->NextHotInteraction = 0;
         }
+        
+        //if(Node != UI_State->Root)
+        {
+            if(CachedNode->Flags & UI_NodeFlag_Pressed)
+            {
+                // TODO(ezexff): mb move in other place?
+                CachedNode->LastTouchedFrame = UI_State->FrameCount;
+                Log->Add("%s %llu\n", Node->String, CachedNode->LastTouchedFrame);
+            }
+        }
     }
     
     if(Node != UI_State->Root)
@@ -1297,12 +1320,12 @@ UI_DrawNodeTree(ui_node *Node)
         {
             PushRectOutlineOnScreen(&Renderer->PushBufferUI, Node->Rect, 1, V4(1, 0, 0, 1), 100);
         }
-        
-        // TODO(ezexff): Test per frame clear flags
-        CachedNode->Flags &= ~UI_NodeFlag_Pressed;
-        CachedNode->Flags &= ~UI_NodeFlag_Hovering;
         //CachedNode->BackgroundColor = UI_State->StyleTemplateArray[Node->StyleTemplateIndex].BackgroundColor;
     }
+    
+    // TODO(ezexff): Test per frame clear flags
+    CachedNode->Flags &= ~UI_NodeFlag_Pressed;
+    CachedNode->Flags &= ~UI_NodeFlag_Hovering;
     
     // NOTE(ezexff): Process childs
     if(Node->First)
@@ -1349,4 +1372,7 @@ UI_EndFrame()
  */
     
     EndTemporaryMemory(UI_State->FrameMemory);
+    
+    UI_State->NodeCount = 0;
+    UI_State->FrameCount++;
 }
