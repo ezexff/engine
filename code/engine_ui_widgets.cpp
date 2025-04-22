@@ -1,105 +1,31 @@
-ui_node *
-UI_CreateWidgetNode(ui_widget_link *WidgetArray, u32 StyleTemplateIndex, u32 Flags, char *String)
+internal void
+UI_Label(char *String, ...)
 {
-    if(!String){InvalidCodePath;}
-    
-    rectangle2 Rect = {};
-    ui_style_template Template = UI_State->StyleTemplateArray[StyleTemplateIndex];
-    ui_size Size[Axis2_Count] = {};
-    Size[Axis2_X] = Template.Size[Axis2_X];
-    Size[Axis2_Y] = Template.Size[Axis2_Y];
-    
-    // NOTE(ezexff): calc size
-    //v2 LabelSize = UI_CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, String);
-    
-    for(u32 Index = 0;
-        Index < Axis2_Count;
-        ++Index)
-    {
-        switch(Size[Index].Type)
-        {
-            case UI_SizeKind_Pixels:
-            {
-                Rect.Max.E[Index] = Rect.Min.E[Index] + Size[Index].Value;
-            } break;
-            
-            case UI_SizeKind_TextContent:
-            {
-                InvalidCodePath;
-                //Rect.Max.E[Index] = Rect.Min.E[Index] + LabelSize.E[Index];
-            } break;
-            
-            case UI_SizeKind_ParentPercent:
-            {
-                InvalidCodePath;
-                //Rect.Max.E[Index] = Rect.Min.E[Index] + Size[Index].Value * (Parent->Rect.Max.E[Index] - Parent->Rect.Min.E[Index]);
-            } break;
-            
-            case UI_SizeKind_ChildrenSum:
-            {
-            } break;
-            
-            InvalidDefaultCase;
-        }
+    /* 
+        va_list ArgList;
+        va_start(ArgList, String);
         
-        /* 
-                if((Parent->Size[Index].Type == UI_SizeKind_ChildrenSum) && !(Flags & UI_NodeFlag_Floating))
-                {
-                    Parent->Rect.Max.E[Index] += Rect.Max.E[Index] - Rect.Min.E[Index];
-                }
-         */
-    }
-    
-    // NOTE(ezexff): get or create cache
-    ui_node *CachedNode = UI_GetCachedNode(String);
-    if(!CachedNode)
-    {
-        CachedNode = PushStruct(UI_State->ConstArena, ui_node);
-        if(!UI_State->CacheFirst)
-        {
-            UI_State->CacheFirst = CachedNode;
-        }
-        else
-        {
-            CachedNode->CachePrev = UI_State->CacheLast;
-            UI_State->CacheLast->CacheNext = CachedNode; 
-        }
+        u64 Value = va_arg(ArgList, int unsigned long);
         
-        UI_State->CacheLast = CachedNode;
-        
-        CachedNode->Key = UI_GetHashValue(String);
-        CachedNode->Flags = Flags;
-        CachedNode->BackgroundColor = Template.BackgroundColor;
-    }
+        va_end(ArgList);
+     */
     
-    // NOTE(ezexff): persist P and Size
-    Rect.Min += CachedNode->P;
-    Rect.Max += CachedNode->P;
-    Rect.Max += CachedNode->Size;
-    
-    // NOTE(ezexff): new widget
-    ui_node *Widget = PushStruct(UI_State->TranArena, ui_node);
-    Widget->Cache = CachedNode;
-    Widget->LayoutAxis = Axis2_Y;
-    Widget->String = PushString(UI_State->TranArena, String);
-    Widget->Key = CachedNode->Key;
-    Widget->Rect = Rect;
-    
-    if(!WidgetArray->First)
+    ui_node *Parent = UI_State->WindowArray.Last;
+    if(Parent)
     {
-        WidgetArray->First = Widget;
+        // Concat(FrameCount = ", UI_State->FrameCount)
+        //UI_UseStyleTemplate(UI_StyleTemplate_Label);
+        ui_node *Node = UI_AddNode(UI_State->WindowArray.Last,
+                                   Parent,
+                                   String,
+                                   UI_StyleTemplate_Label,
+                                   //UI_NodeFlag_DrawBackground|
+                                   UI_NodeFlag_DrawBorder|UI_NodeFlag_DrawText);
     }
     else
     {
-        Widget->Prev = WidgetArray->Last;
-        WidgetArray->Last->Next = Widget;
+        InvalidCodePath;
     }
-    WidgetArray->Last = Widget;
-    //Parent->ChildCount++;
-    
-    UI_State->NodeCount++;
-    
-    return(Widget);
 }
 
 /* 
@@ -123,22 +49,6 @@ UI_Button(char *String)
         return(State);
     }
     return(0);
-}
-
-internal void
-UI_Label(char *String)
-{
-    ui_node *Parent = UI_State->OpenWindowBody;
-    if(Parent)
-    {
-        //UI_UseStyleTemplate(UI_StyleTemplate_Label);
-        ui_node *Node = UI_AddNodeVer3(Parent,
-                                       //UI_NodeFlag_DrawBackground|
-                                       UI_NodeFlag_DrawBorder|
-                                       UI_NodeFlag_DrawText,
-                                       UI_StyleTemplate_Label,
-                                       String);
-    }
 }
 
 internal void
@@ -170,13 +80,12 @@ UI_Checkbox(char *String, b32 *Value)
  */
 
 internal void
-UI_BeginWindow(char *String, b32 *Value, u32 StyleTemplateIndex)
+UI_BeginWindow(char *WindowString, b32 *Value)
 {
-    char *WindowString = Concat(UI_State->TranArena, "UI_Window#", String);
-    ui_node *Window = UI_CreateWidgetNode(&UI_State->WindowArray,
-                                          StyleTemplateIndex,
-                                          UI_NodeFlag_DrawBackground|UI_NodeFlag_Floating|UI_NodeFlag_Clickable,
-                                          WindowString);
+    ui_node *Window = UI_AddRootNode(&UI_State->WindowArray,
+                                     WindowString,
+                                     UI_StyleTemplate_Window1,
+                                     UI_NodeFlag_DrawBackground|UI_NodeFlag_Floating|UI_NodeFlag_Clickable|UI_NodeFlag_DrawBorder);
     u32 WindowState = UI_GetNodeState(Window);
     if(UI_IsDragging(WindowState))
     {

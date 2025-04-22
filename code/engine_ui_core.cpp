@@ -13,12 +13,9 @@ UI_GetHashValue(char *String)
 }
 
 inline ui_node *
-UI_GetCachedNode(char *String)
+UI_GetCachedNode(u32 Key)
 {
-    if(!String){InvalidCodePath;}
-    
     ui_node *CachedNode = 0;
-    u32 Key = UI_GetHashValue(String);
     for(ui_node *Search = UI_State->CacheFirst;
         Search != 0;
         Search = Search->CacheNext)
@@ -33,12 +30,387 @@ UI_GetCachedNode(char *String)
     return(CachedNode);
 }
 
+internal v2
+UI_CalcTextSizeInPixels(renderer_frame *Frame, game_assets *Assets, font_id FontID, char *String)
+{
+    v2 Result = {};
+    
+    if(!String)
+    {
+        InvalidCodePath;
+    }
+    
+    loaded_font *Font = PushFont(Frame, Assets, FontID);
+    if(Font)
+    {
+        eab_font *FontInfo = GetFontInfo(Assets, FontID);
+        Result.y = (FontInfo->Ascent - FontInfo->Descent) * FontInfo->Scale;
+        
+        s32 AtX = 0;
+        for(char *At = String;
+            *At;
+            )
+        {
+            u32 CodePoint = *At;
+            if(CodePoint == '#')
+            {
+                break;
+            }
+            
+            s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * FontInfo->Scale);
+            AtX += AdvanceX;
+            ++At;
+        }
+        
+        Result.x = (r32)AtX;
+    }
+    return(Result);
+}
+
+ui_node *
+UI_AddRootNode(ui_widget_link *WidgetArray, char *String, u32 StyleTemplateIndex, u32 Flags)
+{
+    if(!String){Assert("String can't be null");}
+    
+    rectangle2 Rect = {};
+    ui_style_template Template = UI_State->StyleTemplateArray[StyleTemplateIndex];
+    ui_size Size[Axis2_Count] = {};
+    Size[Axis2_X] = Template.Size[Axis2_X];
+    Size[Axis2_Y] = Template.Size[Axis2_Y];
+    
+    // NOTE(ezexff): calc size
+    //v2 LabelSize = UI_CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, String);
+    
+    for(u32 Index = 0;
+        Index < Axis2_Count;
+        ++Index)
+    {
+        switch(Size[Index].Type)
+        {
+            case UI_SizeKind_Pixels:
+            {
+                Rect.Max.E[Index] = Rect.Min.E[Index] + Size[Index].Value;
+            } break;
+            
+            case UI_SizeKind_TextContent:
+            {
+                InvalidCodePath;
+                //Rect.Max.E[Index] = Rect.Min.E[Index] + LabelSize.E[Index];
+            } break;
+            
+            case UI_SizeKind_ParentPercent:
+            {
+                InvalidCodePath;
+                //Rect.Max.E[Index] = Rect.Min.E[Index] + Size[Index].Value * (Parent->Rect.Max.E[Index] - Parent->Rect.Min.E[Index]);
+            } break;
+            
+            case UI_SizeKind_ChildrenSum:
+            {
+            } break;
+            
+            InvalidDefaultCase;
+        }
+        
+        /* 
+                if((Parent->Size[Index].Type == UI_SizeKind_ChildrenSum) && !(Flags & UI_NodeFlag_Floating))
+                {
+                    Parent->Rect.Max.E[Index] += Rect.Max.E[Index] - Rect.Min.E[Index];
+                }
+         */
+    }
+    
+    // NOTE(ezexff): get or create cache
+    u32 Key = UI_GetHashValue(String);
+    ui_node *CachedNode = UI_GetCachedNode(Key);
+    if(!CachedNode)
+    {
+        CachedNode = PushStruct(UI_State->ConstArena, ui_node);
+        if(!UI_State->CacheFirst)
+        {
+            UI_State->CacheFirst = CachedNode;
+        }
+        else
+        {
+            CachedNode->CachePrev = UI_State->CacheLast;
+            UI_State->CacheLast->CacheNext = CachedNode; 
+        }
+        
+        UI_State->CacheLast = CachedNode;
+        
+        CachedNode->Key = Key;
+        CachedNode->Flags = Flags;
+        CachedNode->BackgroundColor = Template.BackgroundColor;
+        CachedNode->StyleTemplateIndex = StyleTemplateIndex;
+    }
+    
+    // NOTE(ezexff): persist P and Size
+    Rect.Min += CachedNode->P;
+    Rect.Max += CachedNode->P;
+    Rect.Max += CachedNode->Size;
+    
+    // NOTE(ezexff): new widget
+    ui_node *Widget = PushStruct(UI_State->TranArena, ui_node);
+    Widget->Cache = CachedNode;
+    Widget->LayoutAxis = Axis2_Y;
+    Widget->Key = CachedNode->Key;
+    Widget->Rect = Rect;
+    Widget->String = PushString(UI_State->TranArena, String);
+    CachedNode->String = Widget->String;
+    
+    if(!WidgetArray->First)
+    {
+        WidgetArray->First = Widget;
+    }
+    else
+    {
+        Widget->Prev = WidgetArray->Last;
+        WidgetArray->Last->Next = Widget;
+    }
+    WidgetArray->Last = Widget;
+    //Parent->ChildCount++;
+    
+    UI_State->NodeCount++;
+    
+    return(Widget);
+}
+
+ui_node *
+UI_AddNode(ui_node *Root, ui_node *Parent, char *String, u32 StyleTemplateIndex, u32 Flags)
+{
+    if(!Parent){InvalidCodePath;}
+    if(!String){Assert(!"String can't be null");}
+    /* 
+    v2 P = {};
+    v2 Dim = {};
+ */
+    rectangle2 Rect = {};
+    Rect.Min = Parent->Rect.Min;
+    //P = Parent->P;
+    
+    ui_style_template Template = UI_State->StyleTemplateArray[StyleTemplateIndex];
+    ui_style_template ParentTemplate = UI_State->StyleTemplateArray[Parent->Cache->StyleTemplateIndex];
+    ui_size Size[Axis2_Count] = {};
+    Size[Axis2_X] = Template.Size[Axis2_X];
+    Size[Axis2_Y] = Template.Size[Axis2_Y];
+    
+    // NOTE(ezexff): calc pos after prev node
+    if(Parent->Last)
+    {
+        //if(Parent != UI_State->Root) // TODO(ezexff): tmp
+        {
+            if(!(Flags & UI_NodeFlag_Floating))
+            {
+                if(Parent->LayoutAxis == Axis2_X)
+                {
+                    Rect.Min.x = Parent->Last->Rect.Max.x;
+                    //if(UI_State->OpenWindowBody)
+                    {
+                        //Rect.Min.x -= UI_State->OpenWindowBody->ViewP.x;
+                    }
+                }
+                else if(Parent->LayoutAxis == Axis2_Y)
+                {
+                    Rect.Min.y = Parent->Last->Rect.Max.y;
+                    //if(UI_State->OpenWindowBody)
+                    {
+                        //Rect.Min.y -= UI_State->OpenWindowBody->ViewP.y;
+                    }
+                }
+            }
+        }
+    }
+    
+    // NOTE(ezexff): calc size
+    v2 LabelSize = UI_CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, String);
+    
+    for(u32 Index = 0;
+        Index < Axis2_Count;
+        ++Index)
+    {
+        switch(Size[Index].Type)
+        {
+            case UI_SizeKind_Pixels:
+            {
+                //Dim.E[Index] = Size[Index].Value;
+                Rect.Max.E[Index] = Rect.Min.E[Index] + Size[Index].Value;
+            } break;
+            
+            case UI_SizeKind_TextContent:
+            {
+                //Dim.E[Index] = LabelSize.E[Index];
+                Rect.Max.E[Index] = Rect.Min.E[Index] + LabelSize.E[Index];
+            } break;
+            
+            case UI_SizeKind_ParentPercent:
+            {
+                //Dim.E[Index] = Size[Index].Value * (Parent->Rect.Max.E[Index] - Parent->Rect.Min.E[Index]);
+                Rect.Max.E[Index] = Rect.Min.E[Index] + Size[Index].Value * (Parent->Rect.Max.E[Index] - Parent->Rect.Min.E[Index]);
+            } break;
+            
+            case UI_SizeKind_ChildrenSum:
+            {
+                // TODO(ezexff): Need test
+                //Parent->Rect.Max.E[Index] += Size[Index].Value;
+            } break;
+            
+            InvalidDefaultCase;
+        }
+        
+        //if((Parent->Size[Index].Type == UI_SizeKind_ChildrenSum) && !(Flags & UI_NodeFlag_Floating))
+        if((ParentTemplate.Size[Index].Type == UI_SizeKind_ChildrenSum) && !(Flags & UI_NodeFlag_Floating))
+        {
+            //Parent->Rect.Max.E[Index] += Dim.E[Index];
+            Parent->Rect.Max.E[Index] += Rect.Max.E[Index] - Rect.Min.E[Index];
+        }
+    }
+    
+    // NOTE(ezexff): view rect in window
+    ui_node *Node = 0;
+    //if((Parent == UI_State->Root) || UI_State->OpenWindow)
+    {
+#if 0
+        
+        v2 StartTextOffset = {};
+        rectangle2 ViewRect = {};
+        
+        if(UI_State->OpenWindow)
+        {
+            ViewRect = UI_State->OpenWindow->Rect;
+        }
+        
+        renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
+        if(UI_State->OpenWindowBody && !(Flags & UI_NodeFlag_Floating))
+        {
+            ViewRect = {UI_State->OpenWindowBody->Rect.Min + UI_State->OpenWindowBody->ViewP, UI_State->OpenWindowBody->Rect.Max + UI_State->OpenWindowBody->ViewP};
+            
+            Rect = {Rect.Min + UI_State->OpenWindowBody->ViewP, Rect.Max + UI_State->OpenWindowBody->ViewP};
+            //PushRectOutlineOnScreen(&Renderer->PushBufferUI, Rect, 1,  V4(0, 1, 0, 1), 101);
+            
+            PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
+        }
+        
+        if(UI_State->OpenWindowBody && !(Flags & UI_NodeFlag_Floating))
+        {
+            // NOTE(ezexff): content size
+            {
+                UI_State->OpenWindowBody->MaxChildNodeDim.x = Maximum(UI_State->OpenWindowBody->MaxChildNodeDim.x, Rect.Max.x - Rect.Min.x);
+                UI_State->OpenWindowBody->MaxChildNodeDim.y = Maximum(UI_State->OpenWindowBody->MaxChildNodeDim.y, Rect.Max.y - Rect.Min.y);
+                
+                // NOTE(ezexff): clip x
+                if(Rect.Min.x < UI_State->OpenWindow->Rect.Min.x)
+                {
+                    StartTextOffset.x = UI_State->OpenWindow->Rect.Min.x - Rect.Min.x;
+                    Rect.Min.x = UI_State->OpenWindow->Rect.Min.x;
+                }
+                if(Rect.Max.x > UI_State->OpenWindow->Rect.Max.x){Rect.Max.x = UI_State->OpenWindow->Rect.Max.x;}
+                if(Rect.Max.x < UI_State->OpenWindow->Rect.Min.x){Rect.Max.x = UI_State->OpenWindow->Rect.Min.x;}
+                if(Rect.Min.x > UI_State->OpenWindow->Rect.Max.x){Rect.Min.x = UI_State->OpenWindow->Rect.Max.x;}
+                
+                // NOTE(ezexff): clip y
+                if(Rect.Min.y < UI_State->OpenWindowBody->Rect.Min.y)
+                {
+                    StartTextOffset.y = UI_State->OpenWindowBody->Rect.Min.y - Rect.Min.y;
+                    Rect.Min.y = UI_State->OpenWindowBody->Rect.Min.y;
+                }
+                if(Rect.Max.y > UI_State->OpenWindowBody->Rect.Max.y){Rect.Max.y = UI_State->OpenWindowBody->Rect.Max.y;}
+                if(Rect.Max.y < UI_State->OpenWindowBody->Rect.Min.y){Rect.Max.y = UI_State->OpenWindowBody->Rect.Min.y;}
+                if(Rect.Min.y > UI_State->OpenWindowBody->Rect.Max.y){Rect.Min.y = UI_State->OpenWindowBody->Rect.Max.y;}
+            }
+        }
+#endif
+        
+        // NOTE(ezexff): get or create cached node
+        u32 Key = UI_GetHashValue(String);
+        ui_node *CachedNode = UI_GetCachedNode(Key);
+        if(!CachedNode)
+        {
+            CachedNode = PushStruct(UI_State->ConstArena, ui_node);
+            if(!UI_State->CacheFirst)
+            {
+                UI_State->CacheFirst = CachedNode;
+            }
+            else
+            {
+                CachedNode->CachePrev = UI_State->CacheLast;
+                UI_State->CacheLast->CacheNext = CachedNode; 
+            }
+            
+            UI_State->CacheLast = CachedNode;
+            
+            CachedNode->Key = Key;
+            CachedNode->Flags = Flags;
+            //CachedNode->StartTextOffset = StartTextOffset;
+            CachedNode->Rect = Rect;
+            CachedNode->StyleTemplateIndex = StyleTemplateIndex;
+        }
+        
+        // NOTE(ezexff): persist P and Size
+        Rect.Min += CachedNode->P;
+        Rect.Max += CachedNode->P;
+        Rect.Max += CachedNode->Size;
+        
+        // NOTE(ezexff): init per frame node
+        Node = PushStruct(UI_State->TranArena, ui_node);
+        Node->Cache = CachedNode;
+        Node->LayoutAxis = Axis2_Invalid;
+        Node->Key = CachedNode->Key;
+        Node->Rect = Rect;
+        //Node->StartTextOffset = StartTextOffset;
+        Node->Parent = Parent;
+        Node->String = PushString(UI_State->TranArena, String);
+        CachedNode->String = Node->String;
+        //Node->Size[Axis2_X] = Size[Axis2_X];
+        //Child->Size[Axis2_Y] = Size[Axis2_Y];
+        //Child->ViewP = CachedNode->ViewP;
+        if(!Parent->First)
+        {
+            Parent->First = Node;
+        }
+        else
+        {
+            Node->Prev = Parent->Last;
+            Parent->Last->Next = Node;
+        }
+        Parent->Last = Node;
+        Parent->ChildCount++;
+        
+        UI_State->NodeCount++;
+        
+    }
+    
+    if(!Node){InvalidCodePath;}
+    return(Node);
+}
+
+/* 
+inline ui_node *
+UI_GetCachedNode(char *String)
+{
+if(!String){InvalidCodePath;}
+
+ui_node *CachedNode = 0;
+u32 Key = UI_GetHashValue(String);
+for(ui_node *Search = UI_State->CacheFirst;
+Search != 0;
+Search = Search->CacheNext)
+{
+if(Search->Key == Key)
+{
+    CachedNode = Search;
+    break;
+}
+}
+
+return(CachedNode);
+}
+*/
+
 internal void
 UI_BeginInteract()
 {
-    ui_node *CachedNode = UI_GetCachedNode(UI_State->HotInteraction->String);
-    if(!CachedNode){InvalidCodePath;}
-    
+    //ui_node *CachedNode = UI_GetCachedNode(UI_State->HotInteraction->String);
+    //if(!CachedNode){InvalidCodePath;}
+    ui_node *CachedNode = UI_State->HotInteraction->Cache;
     if(CachedNode->Flags & UI_NodeFlag_Clickable)
     {
         Log->Add("Interact (left pressed) = %s\n", UI_State->HotInteraction->String);
@@ -51,7 +423,7 @@ UI_BeginInteract()
             //r32 TestY = UI_State->HotInteraction->Rect.Min.y - UI_State->Input->MouseP.y;
             
             UI_State->HotInteraction->Cache->LastFrameTouchedIndex = UI_State->FrameCount;
-            Log->Add("%s %llu\n", UI_State->HotInteraction->String, UI_State->HotInteraction->Cache->LastFrameTouchedIndex);
+            Log->Add("%s %llu\n", UI_State->HotInteraction->String, CachedNode->LastFrameTouchedIndex);
         }
         if(!UI_State->HotInteraction->Key){InvalidCodePath;}
         UI_State->Interaction = UI_State->HotInteraction;
@@ -62,10 +434,12 @@ UI_BeginInteract()
 internal void
 UI_EndInteract()
 {
-    ui_node *CachedNode = UI_GetCachedNode(UI_State->Interaction->String);
-    if(!CachedNode){InvalidCodePath;}
+    //ui_node *CachedNode = UI_GetCachedNode(UI_State->Interaction->String);
+    //if(!CachedNode){InvalidCodePath;}
+    ui_node *Node = UI_State->Interaction;
+    ui_node *CachedNode = Node->Cache;
     
-    Log->Add("Interact (left released) = %s\n", UI_State->Interaction->String);
+    Log->Add("Interact (left released) = %s\n", Node->String);
     
     CachedNode->Flags |= UI_NodeFlag_Released;
     CachedNode->PressMouseP = V2(0.0f, 0.0f);
@@ -80,37 +454,38 @@ UI_Interact()
     {
         if(!UI_State->Interaction->Key){InvalidCodePath;}
         // NOTE(ezexff): button pressed and mouse move interaction
-        ui_node *CachedNode = UI_GetCachedNode(UI_State->Interaction->String);
-        if(!CachedNode){InvalidCodePath;}
+        //ui_node *CachedNode = UI_GetCachedNode(UI_State->Interaction->String);
+        //if(!CachedNode){InvalidCodePath;}
+        ui_node *CachedNode = UI_State->Interaction->Cache;
         CachedNode->Flags |= UI_NodeFlag_Dragging;
         
 #if 0        
         switch(UI_State->Interaction->InteractionType)
         {
             /* 
-                        case DebugInteraction_DragValue:
+                case DebugInteraction_DragValue:
+                {
+                    debug_event *Event = DebugState->Interaction.Element ? 
+                        &DebugState->Interaction.Element->Frames[FrameOrdinal].MostRecentEvent->Event : 0;
+                    switch(Event->Type)
+                    {
+                        case DebugType_r32:
                         {
-                            debug_event *Event = DebugState->Interaction.Element ? 
-                                &DebugState->Interaction.Element->Frames[FrameOrdinal].MostRecentEvent->Event : 0;
-                            switch(Event->Type)
-                            {
-                                case DebugType_r32:
-                                {
-                                    Event->Value_r32 += 0.1f*dMouseP.y;
-                                } break;
-                            }
-                            DEBUGMarkEditedEvent(DebugState, Event);
+                            Event->Value_r32 += 0.1f*dMouseP.y;
                         } break;
-             */
+                    }
+                    DEBUGMarkEditedEvent(DebugState, Event);
+                } break;
+     */
             
             /* 
-                        case DebugInteraction_Resize:
-                        {
-                            *P += V2(dMouseP.x, -dMouseP.y);
-                            P->x = Maximum(P->x, 10.0f);
-                            P->y = Maximum(P->y, 10.0f);
-                        } break;
-             */
+            case DebugInteraction_Resize:
+            {
+                *P += V2(dMouseP.x, -dMouseP.y);
+                P->x = Maximum(P->x, 10.0f);
+                P->y = Maximum(P->y, 10.0f);
+            } break;
+ */
             
             case UI_Interaction_Move:
             {
@@ -157,8 +532,9 @@ UI_Interact()
         if(UI_State->HotInteraction)
         {
             if(!UI_State->HotInteraction->Key){InvalidCodePath;}
-            ui_node *CachedNode = UI_GetCachedNode(UI_State->HotInteraction->String);
-            if(!CachedNode){InvalidCodePath;}
+            //ui_node *CachedNode = UI_GetCachedNode(UI_State->HotInteraction->String);
+            //if(!CachedNode){InvalidCodePath;}
+            ui_node *CachedNode = UI_State->HotInteraction->Cache;
             if(CachedNode->Flags & UI_NodeFlag_Clickable)
             {
                 //Log->Add("Interact (hover) = %s\n", UI_State->HotInteraction->String);
@@ -183,44 +559,6 @@ UI_Interact()
         }
     }
 }
-
-internal v2
-UI_CalcTextSizeInPixels(renderer_frame *Frame, game_assets *Assets, font_id FontID, char *String)
-{
-    v2 Result = {};
-    
-    if(!String)
-    {
-        InvalidCodePath;
-    }
-    
-    loaded_font *Font = PushFont(Frame, Assets, FontID);
-    if(Font)
-    {
-        eab_font *FontInfo = GetFontInfo(Assets, FontID);
-        Result.y = (FontInfo->Ascent - FontInfo->Descent) * FontInfo->Scale;
-        
-        s32 AtX = 0;
-        for(char *At = String;
-            *At;
-            )
-        {
-            u32 CodePoint = *At;
-            if(CodePoint == '#')
-            {
-                break;
-            }
-            
-            s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * FontInfo->Scale);
-            AtX += AdvanceX;
-            ++At;
-        }
-        
-        Result.x = (r32)AtX;
-    }
-    return(Result);
-}
-
 
 internal void
 UI_DrawLabel(ui_node *Node)
@@ -331,29 +669,29 @@ UI_DrawLabel(ui_node *Node)
                         MinClipUVX, MaxClipUVY,
                     };
                     /* 
-                                        r32 TexCoords[8] = 
-                                        {MinClipUVX,0,
-                                            MaxClipUVX,0,
-                                            MaxClipUVX,1,
-                                            MinClipUVX,1
-                                        };
-                     */
+                    r32 TexCoords[8] = 
+                    {MinClipUVX,0,
+                        MaxClipUVX,0,
+                        MaxClipUVX,1,
+                        MinClipUVX,1
+                    };
+ */
                     renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
-                    PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Rect, 10000, TexCoords);
+                    PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Rect, 100, TexCoords);
                 }
                 
                 /* 
-                                v2 TestMax = Max - Node->Rect.Min;
-                                if(TestMax.x > RectDim.x)
-                                {
-                                    break;
-                                }
-                                
-                                if(TestMax.y > RectDim.y)
-                                {
-                                    break;
-                                }
-                 */
+                v2 TestMax = Max - Node->Rect.Min;
+                if(TestMax.x > RectDim.x)
+                {
+                    break;
+                }
+                
+                if(TestMax.y > RectDim.y)
+                {
+                    break;
+                }
+ */
             }
             
             s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * CharScale);
@@ -370,12 +708,14 @@ UI_DrawLabel(ui_node *Node)
     }
 }
 
+/* 
 inline ui_style_template
 UI_GetSelectedStyleTemplate()
 {
     ui_style_template Result = UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex];
     return(Result);
 }
+ */
 
 #if 0
 ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char *String, u32 InteractionType = 0)
@@ -383,9 +723,9 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
     if(!Parent){InvalidCodePath;}
     if(!String){InvalidCodePath;}
     /* 
-    v2 P = {};
-    v2 Dim = {};
- */
+v2 P = {};
+v2 Dim = {};
+*/
     rectangle2 Rect = {};
     Rect.Min = Parent->Rect.Min;
     //P = Parent->P;
@@ -521,9 +861,9 @@ ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char
                 }
             }
             /* 
-    Rect.Min += UI_State->OpenWindowBody->ViewP;
-    Rect.Max += UI_State->OpenWindowBody->ViewP;
-*/
+            Rect.Min += UI_State->OpenWindowBody->ViewP;
+            Rect.Max += UI_State->OpenWindowBody->ViewP;
+        */
             
             PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
         }
@@ -1010,11 +1350,13 @@ u32 UI_GetNodeState(ui_node *Node)
 }
 #endif
 
+/* 
 void UI_UseStyleTemplate(u32 Index)
 {
     Assert(Index < UI_StyleTemplate_Count);
     UI_State->SelectedTemplateIndex = Index;
 }
+ */
 
 internal void
 UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
@@ -1207,11 +1549,11 @@ StyleTemplate.PressedColor = V4(0, 0, 0, 1);
                 StyleTemplate->BackgroundColor = V4(1, 1, 1, 1);
                 StyleTemplate->HoveringColor = V4(0, 0, 1, 1);
                 /* 
-                                StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_ParentPercent;
-                                StyleTemplate->Size[Axis2_X].Value = 1.0f;
-                                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
-                                StyleTemplate->Size[Axis2_Y].Value = 10.0f;
-                                 */
+StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_ParentPercent;
+StyleTemplate->Size[Axis2_X].Value = 1.0f;
+StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
+StyleTemplate->Size[Axis2_Y].Value = 10.0f;
+*/
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
                 StyleTemplate->Size[Axis2_X].Value = 0.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
@@ -1246,20 +1588,20 @@ UI_BeginFrame(game_state *GameState, tran_state *TranState, renderer_frame *Fram
     
     // NOTE(ezexff): Root ui_node
     /* 
-        UI_State->Root = PushStruct(UI_State->TranArena, ui_node);
-        UI_State->Root->First = 0;
-        UI_State->Root->Last = 0;
-        UI_State->Root->Next = 0;
-        UI_State->Root->Prev = 0;
-        UI_State->Root->String = PushString(UI_State->TranArena, "Root");
-        //UI_State->Root->Style.Flags = UI_NodeStyleFlag_DrawBackground;
-        //UI_State->Root->Style.BackgroundColor = V4(0.5f, 0, 0.5f, 1);
-        
-        UI_State->Root->Rect = {V2(0, 0), V2((r32)UI_State->Frame->Dim.x, (r32)UI_State->Frame->Dim.y)};
-        UI_State->Root->LayoutAxis = Axis2_Y;
-        UI_State->Root->Spacing = 1.0f;
-        //UI_State->Root->Padding = V4(5, 5, 5, 5);
-         */
+    UI_State->Root = PushStruct(UI_State->TranArena, ui_node);
+    UI_State->Root->First = 0;
+    UI_State->Root->Last = 0;
+    UI_State->Root->Next = 0;
+    UI_State->Root->Prev = 0;
+    UI_State->Root->String = PushString(UI_State->TranArena, "Root");
+    //UI_State->Root->Style.Flags = UI_NodeStyleFlag_DrawBackground;
+    //UI_State->Root->Style.BackgroundColor = V4(0.5f, 0, 0.5f, 1);
+    
+    UI_State->Root->Rect = {V2(0, 0), V2((r32)UI_State->Frame->Dim.x, (r32)UI_State->Frame->Dim.y)};
+    UI_State->Root->LayoutAxis = Axis2_Y;
+    UI_State->Root->Spacing = 1.0f;
+    //UI_State->Root->Padding = V4(5, 5, 5, 5);
+     */
     
     // NOTE(ezexff): keys history
     //UI_State->PressKeyHistory[PlatformMouseButton_Count][0] = UI_State->PressKeyHistory[PlatformMouseButton_Count][1];
@@ -1272,26 +1614,26 @@ UI_BeginFrame(game_state *GameState, tran_state *TranState, renderer_frame *Fram
     
     // NOTE(ezexff): Root cached node
     /* 
-        ui_node *CachedNode = UI_GetCachedNode("Root");
-        if(!CachedNode)
+    ui_node *CachedNode = UI_GetCachedNode("Root");
+    if(!CachedNode)
+    {
+        CachedNode = PushStruct(UI_State->ConstArena, ui_node);
+        if(!UI_State->CacheFirst)
         {
-            CachedNode = PushStruct(UI_State->ConstArena, ui_node);
-            if(!UI_State->CacheFirst)
-            {
-                UI_State->CacheFirst = CachedNode;
-            }
-            else
-            {
-                CachedNode->CachePrev = UI_State->CacheLast;
-                UI_State->CacheLast->CacheNext = CachedNode; 
-            }
-            
-            UI_State->CacheLast = CachedNode;
-            
-            CachedNode->Key = UI_GetHashValue("Root");
-            CachedNode->Flags = UI_NodeFlag_Clickable;
+            UI_State->CacheFirst = CachedNode;
         }
-     */
+        else
+        {
+            CachedNode->CachePrev = UI_State->CacheLast;
+            UI_State->CacheLast->CacheNext = CachedNode; 
+        }
+        
+        UI_State->CacheLast = CachedNode;
+        
+        CachedNode->Key = UI_GetHashValue("Root");
+        CachedNode->Flags = UI_NodeFlag_Clickable;
+    }
+ */
 }
 
 internal void
@@ -1321,15 +1663,15 @@ UI_DrawNodeTree(ui_node *Node)
         
         //if(Node != UI_State->Root)
         /* 
-                {
-                    if(Node->Cache->Flags & UI_NodeFlag_Pressed)
-                    {
-                        // TODO(ezexff): mb move in other place?
-                        Node->Cache->LastFrameTouchedIndex = UI_State->FrameCount;
-                        Log->Add("%s %llu\n", Node->String, Node->Cache->LastFrameTouchedIndex);
-                    }
-                }
-         */
+        {
+            if(Node->Cache->Flags & UI_NodeFlag_Pressed)
+            {
+                // TODO(ezexff): mb move in other place?
+                Node->Cache->LastFrameTouchedIndex = UI_State->FrameCount;
+                Log->Add("%s %llu\n", Node->String, Node->Cache->LastFrameTouchedIndex);
+            }
+        }
+ */
     }
     
     //if(Node != UI_State->Root)
@@ -1451,10 +1793,10 @@ UI_EndFrame()
     
     // NOTE(ezexff): draw windows
     /* 
-        for(ui_node *Node = UI_State->WindowArray.First;
-            Node != 0;
-            Node = Node->Next)
-         */
+    for(ui_node *Node = UI_State->WindowArray.First;
+        Node != 0;
+        Node = Node->Next)
+     */
     for(u32 Index = 0;
         Index < Count;
         ++Index)

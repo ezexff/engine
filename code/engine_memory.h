@@ -189,45 +189,6 @@ PushString(memory_arena *Arena, char *Source)
     return(Dest);
 }
 
-internal char *
-Concat(memory_arena *Arena, char *A, char *B)
-{
-    char *Result;
-    if(A && B)
-    {
-        u64 ALen = StringLength(A);
-        u64 BLen = StringLength(B);
-        u64 Size = ALen + BLen + 1;
-        //Result = (char *)PushSize_(Arena, Size, NoClear());
-        Result = (char *)PushSize_(Arena, Size, NoClear());
-        u32 CharIndex = 0;
-        for(u32 Index = 0;
-            Index < ALen;
-            ++Index)
-        {
-            Result[CharIndex] = A[Index];
-            CharIndex++;
-        }
-        for(u32 Index = 0;
-            Index < BLen;
-            ++Index)
-        {
-            Result[CharIndex] = B[Index];
-            CharIndex++;
-        }
-        Result[ALen + BLen] = 0;
-    }
-    else if(A)
-    {
-        Result = A;
-    }
-    else
-    {
-        Result = B;
-    }
-    return(Result);
-}
-
 inline char *
 PushAndNullTerminate(memory_arena *Arena, u32 Length, char *Source)
 {
@@ -285,4 +246,188 @@ SubArena(memory_arena *Result, memory_arena *Arena, memory_index Size, arena_pus
     Result->Base = (u8 *)PushSize_(Arena, Size, Params);
     Result->Used = 0;
     Result->TempCount = 0;
+}
+
+
+#include <stdarg.h>
+
+//~ TODO(ezexff): test functions for string
+internal char *
+Concat(memory_arena *Arena, char *A, char *B)
+{
+    char *Result;
+    if(A && B)
+    {
+        u64 ALen = StringLength(A);
+        u64 BLen = StringLength(B);
+        u64 Size = ALen + BLen + 1;
+        //Result = (char *)PushSize_(Arena, Size, NoClear());
+        Result = (char *)PushSize_(Arena, Size, NoClear());
+        u32 CharIndex = 0;
+        for(u32 Index = 0;
+            Index < ALen;
+            ++Index)
+        {
+            Result[CharIndex] = A[Index];
+            CharIndex++;
+        }
+        for(u32 Index = 0;
+            Index < BLen;
+            ++Index)
+        {
+            Result[CharIndex] = B[Index];
+            CharIndex++;
+        }
+        Result[ALen + BLen] = 0;
+    }
+    else if(A)
+    {
+        Result = A;
+    }
+    else
+    {
+        Result = B;
+    }
+    return(Result);
+}
+
+internal char *
+Concat(memory_arena *Arena, char *A, char *B, char *C)
+{
+    char *Result = Concat(Arena, A, Concat(Arena, B, C));
+    return(Result);
+}
+
+internal char *
+Concat(memory_arena *Arena, char *A, char *B, char *C, char *D)
+{
+    char *Result = Concat(Arena, A, B, Concat(Arena, C, D));
+    return(Result);
+}
+
+u32
+DigitsCount(u32 Value)
+{
+    u32 Result = 0;
+    while(Value != 0)
+    {
+        Value /= 10;
+        Result++;
+    }
+    
+    return(Result);
+}
+
+internal char *
+U32ToString(memory_arena *Arena, u32 Value)
+{
+    char Buffer[32];
+    
+    u32 Index = 0;
+    
+    if(Value == 0)
+    {
+        Buffer[0] = '0';
+        Buffer[1] = '\0';
+    }
+    else
+    {
+        while(Value != 0)
+        {
+            Buffer[Index] = Value % 10 + '0';
+            Value = Value / 10;
+            Index++;
+        }
+        
+        Buffer[Index] = '\0';
+    }
+    
+    int i = Index;
+    for(int t = 0; t < i / 2; t++)
+    {
+        Buffer[t] ^= Buffer[i - t - 1];
+        Buffer[i - t - 1] ^= Buffer[t];
+        Buffer[t] ^= Buffer[i - t - 1];
+    }
+    
+    char *Result = PushString(Arena, Buffer);
+    return(Result);
+}
+
+internal s32
+S32FromZ(char *At)
+{
+    s32 Result = 0;
+    
+    while((*At >= '0') &&
+          (*At <= '9'))
+    {
+        Result *= 10;
+        Result += (*At - '0');
+        ++At;
+    }
+    
+    return(Result);
+}
+
+struct format_dest
+{
+    umm Size;
+    char *At;
+};
+
+inline void
+OutChar(format_dest *Dest, char Value)
+{
+    if(Dest->Size)
+    {
+        --Dest->Size;
+        *Dest->At++ = Value;
+    }
+}
+
+internal umm
+FormatStringList(umm DestSize, char *DestInit, char *Format, va_list ArgList)
+{
+    format_dest Dest = {DestSize, DestInit};
+    if(Dest.Size)
+    {
+        char *At = Format;
+        while(At[0])
+        {
+            if(At[0] == '%')
+            {
+                // va_arg();
+                ++At;
+            }
+            else
+            {
+                OutChar(&Dest, *At++);
+            }
+        }
+        
+        if(Dest.Size)
+        {
+            Dest.At[0] = 0;
+        }
+        else
+        {
+            Dest.At[-1] = 0;
+        }
+    }
+    
+    umm Result = Dest.At - DestInit;
+    return(Result);
+}
+
+internal umm
+FormatString(umm DestSize, char *Dest, char *Format, ...)
+{
+    va_list ArgList;
+    
+    va_start(ArgList, Format);
+    umm Result = FormatStringList(DestSize, Dest, Format, ArgList);
+    va_end(ArgList);
+    
+    return(Result);
 }

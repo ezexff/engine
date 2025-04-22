@@ -381,11 +381,14 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     //ui_node *Node = UI_NodeCreate(UI_NodeStyleFlag_DrawBackground, String);
     //InvalidCodePath;
     // NOTE(ezexff): UI
-    
     BEGIN_BLOCK("UI_TEST");
     {
         UI_BeginFrame(GameState, TranState, Frame, Input);
         
+        //u32 TestVal = 123456789;
+        //u32 TestValDigitsCount = DigitsCount(TestVal);
+        //char *Test = Concat(UI_State->TranArena, "Test = ", U32ToString(UI_State->TranArena, TestVal));
+        //InvalidCodePath;
         /*         
                 local u32 FooCount = 0;
                 if(UI_IsClicked(UI_Button("Foo")))
@@ -428,8 +431,19 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         {
             //UI_TestWindow("Debug", &IsWindowVisible);
             
-            UI_BeginWindow("DebugTest", &IsWindowVisible, UI_StyleTemplate_Window1);
+            UI_BeginWindow("DebugTest", &IsWindowVisible);
             {
+                /* 
+                                char Buffer[64];
+                                char *At = Buffer;
+                                char *End = &Buffer[5];
+                                 */
+                //char Dest[64];
+                //u64 Size = StringLength(Dest);
+                //umm Size = ArrayCount(Dest) * sizeof(Dest[0]);
+                //FormatString(Size, Dest, "Var1 = %d Var2 = %d", UI_State->NodeCount);
+                UI_Label("NodeCount = %llu", UI_State->NodeCount);
+                //InvalidCodePath;
                 /* 
                                 char FrameCountString[32];
                                 _snprintf_s(FrameCountString, sizeof(FrameCountString), "FrameCount = %llu", UI_State->FrameCount);
@@ -478,7 +492,7 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         local b32 IsWindowVisible2 = true;
         if(IsWindowVisible2)
         {
-            UI_BeginWindow("DebugTest2", &IsWindowVisible2, UI_StyleTemplate_Window2);
+            UI_BeginWindow("DebugTest2", &IsWindowVisible2);
             
             // TODO(ezexff): 
             
@@ -488,7 +502,7 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         local b32 IsWindowVisible3 = true;
         if(IsWindowVisible3)
         {
-            UI_BeginWindow("DebugTest3", &IsWindowVisible3, UI_StyleTemplate_Window3);
+            UI_BeginWindow("DebugTest3", &IsWindowVisible3);
             
             // TODO(ezexff): 
             

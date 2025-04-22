@@ -67,6 +67,7 @@ struct ui_node
     v2 P;
     v2 Size;
     u64 LastFrameTouchedIndex;
+    u32 StyleTemplateIndex;
     
     // NOTE(ezexff): per-build vars
     ui_node *First;
@@ -104,7 +105,6 @@ struct ui_node
     //r32 Padding;
     
     u32 InteractionType;
-    u32 StyleTemplateIndex;
     
     /* 
     string string;
@@ -172,7 +172,7 @@ struct ui_state
     u64 FrameCount;
     u64 NodeCount;
     
-    u32 SelectedTemplateIndex;
+    //u32 SelectedTemplateIndex;
     ui_style_template StyleTemplateArray[UI_StyleTemplate_Count];
     
     ui_node *CacheFirst;
