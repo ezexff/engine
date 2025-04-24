@@ -66,8 +66,17 @@ struct ui_node
     ui_node *CachePrev;
     v2 P;
     v2 Size;
-    u64 LastFrameTouchedIndex;
     u32 StyleTemplateIndex;
+    
+    u64 LastFrameTouchedIndex;
+    b32 IsOpened; // u32 Flags
+    ui_node *Root;
+    ui_node *Title;
+    ui_node *Body;
+    ui_node *VerticalScrollbar;
+    ui_node *HorizontalScrollbar;
+    ui_node *ResizeButton;
+    v2 MaxContentDim;
     
     // NOTE(ezexff): per-build vars
     ui_node *First;
@@ -93,7 +102,7 @@ struct ui_node
         v2 Dim;
      */
     v2 StartTextOffset;
-    v2 MaxChildNodeDim;
+    //v2 MaxChildNodeDim;
     //ui_size Size[Axis2_Count];
     rectangle2 Rect; // calculated rect in screen space coordiantes
     v2 ViewP; // TODO(ezexff): temp for scrollbars in windows only

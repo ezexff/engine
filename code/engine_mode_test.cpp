@@ -442,7 +442,8 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
                 //u64 Size = StringLength(Dest);
                 //umm Size = ArrayCount(Dest) * sizeof(Dest[0]);
                 //FormatString(Size, Dest, "Var1 = %d Var2 = %d", UI_State->NodeCount);
-                UI_Label("NodeCount = %llu", UI_State->NodeCount);
+                //UI_Label("NodeCount = %llu1111111111111111111", UI_State->NodeCount);
+                UI_Label("NodeCount = %llu1111111111111111111");
                 //InvalidCodePath;
                 /* 
                                 char FrameCountString[32];
@@ -489,22 +490,24 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             UI_EndWindow();
         }
         
-        local b32 IsWindowVisible2 = true;
-        if(IsWindowVisible2)
-        {
-            UI_BeginWindow("DebugTest2", &IsWindowVisible2);
-            
-            // TODO(ezexff): 
-            
-            UI_EndWindow();
-        }
-        
         local b32 IsWindowVisible3 = true;
         if(IsWindowVisible3)
         {
             UI_BeginWindow("DebugTest3", &IsWindowVisible3);
             
             // TODO(ezexff): 
+            
+            UI_EndWindow();
+        }
+        
+        local b32 IsWindowVisible2 = true;
+        if(IsWindowVisible2)
+        {
+            UI_BeginWindow("DebugTest2", &IsWindowVisible2);
+            
+            UI_Label("FPS = %d");
+            UI_Label("FrameCount = %llu");
+            UI_Label("NodeCount = %llu");
             
             UI_EndWindow();
         }

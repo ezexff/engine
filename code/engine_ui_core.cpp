@@ -196,24 +196,27 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *String, u32 StyleTemplateIndex,
     // NOTE(ezexff): calc pos after prev node
     if(Parent->Last)
     {
-        //if(Parent != UI_State->Root) // TODO(ezexff): tmp
+        if(!(Flags & UI_NodeFlag_Floating))
         {
-            if(!(Flags & UI_NodeFlag_Floating))
+            if(Parent->LayoutAxis == Axis2_X)
             {
-                if(Parent->LayoutAxis == Axis2_X)
+                Rect.Min.x = Parent->Last->Rect.Max.x;
+                if(Root->Body)
                 {
-                    Rect.Min.x = Parent->Last->Rect.Max.x;
-                    //if(UI_State->OpenWindowBody)
+                    if(Root->Body->IsOpened)
                     {
-                        //Rect.Min.x -= UI_State->OpenWindowBody->ViewP.x;
+                        Rect.Min.x -= Root->Body->ViewP.x;
                     }
                 }
-                else if(Parent->LayoutAxis == Axis2_Y)
+            }
+            else if(Parent->LayoutAxis == Axis2_Y)
+            {
+                Rect.Min.y = Parent->Last->Rect.Max.y;
+                if(Root->Body)
                 {
-                    Rect.Min.y = Parent->Last->Rect.Max.y;
-                    //if(UI_State->OpenWindowBody)
+                    if(Root->Body->IsOpened)
                     {
-                        //Rect.Min.y -= UI_State->OpenWindowBody->ViewP.y;
+                        Rect.Min.y -= Root->Body->ViewP.y;
                     }
                 }
             }
@@ -268,53 +271,57 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *String, u32 StyleTemplateIndex,
     ui_node *Node = 0;
     //if((Parent == UI_State->Root) || UI_State->OpenWindow)
     {
-#if 0
+#if 1
         
         v2 StartTextOffset = {};
         rectangle2 ViewRect = {};
         
-        if(UI_State->OpenWindow)
+        if(Root->Body)
         {
-            ViewRect = UI_State->OpenWindow->Rect;
+            if(Root->Body->IsOpened)
+            {
+                ViewRect = Root->Body->Rect;
+            }
         }
         
         renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
-        if(UI_State->OpenWindowBody && !(Flags & UI_NodeFlag_Floating))
+        if(Root->Body && !(Flags & UI_NodeFlag_Floating))
         {
-            ViewRect = {UI_State->OpenWindowBody->Rect.Min + UI_State->OpenWindowBody->ViewP, UI_State->OpenWindowBody->Rect.Max + UI_State->OpenWindowBody->ViewP};
+            ViewRect = {Root->Body->Rect.Min + Root->Body->ViewP, Root->Body->Rect.Max + Root->Body->ViewP};
             
-            Rect = {Rect.Min + UI_State->OpenWindowBody->ViewP, Rect.Max + UI_State->OpenWindowBody->ViewP};
+            Rect = {Rect.Min + Root->Body->ViewP, Rect.Max + Root->Body->ViewP};
             //PushRectOutlineOnScreen(&Renderer->PushBufferUI, Rect, 1,  V4(0, 1, 0, 1), 101);
             
-            PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
+            //PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
         }
         
-        if(UI_State->OpenWindowBody && !(Flags & UI_NodeFlag_Floating))
+        if(Root->Body && !(Flags & UI_NodeFlag_Floating))
         {
+            ui_node *Body = Root->Body;
             // NOTE(ezexff): content size
             {
-                UI_State->OpenWindowBody->MaxChildNodeDim.x = Maximum(UI_State->OpenWindowBody->MaxChildNodeDim.x, Rect.Max.x - Rect.Min.x);
-                UI_State->OpenWindowBody->MaxChildNodeDim.y = Maximum(UI_State->OpenWindowBody->MaxChildNodeDim.y, Rect.Max.y - Rect.Min.y);
+                Body->MaxContentDim.x = Maximum(Body->MaxContentDim.x, Rect.Max.x - Rect.Min.x);
+                Body->MaxContentDim.y = Maximum(Body->MaxContentDim.y, Rect.Max.y - Rect.Min.y);
                 
                 // NOTE(ezexff): clip x
-                if(Rect.Min.x < UI_State->OpenWindow->Rect.Min.x)
+                if(Rect.Min.x < Body->Rect.Min.x)
                 {
-                    StartTextOffset.x = UI_State->OpenWindow->Rect.Min.x - Rect.Min.x;
-                    Rect.Min.x = UI_State->OpenWindow->Rect.Min.x;
+                    StartTextOffset.x = Body->Rect.Min.x - Rect.Min.x;
+                    Rect.Min.x = Body->Rect.Min.x;
                 }
-                if(Rect.Max.x > UI_State->OpenWindow->Rect.Max.x){Rect.Max.x = UI_State->OpenWindow->Rect.Max.x;}
-                if(Rect.Max.x < UI_State->OpenWindow->Rect.Min.x){Rect.Max.x = UI_State->OpenWindow->Rect.Min.x;}
-                if(Rect.Min.x > UI_State->OpenWindow->Rect.Max.x){Rect.Min.x = UI_State->OpenWindow->Rect.Max.x;}
+                if(Rect.Max.x > Body->Rect.Max.x){Rect.Max.x = Body->Rect.Max.x;}
+                if(Rect.Max.x < Body->Rect.Min.x){Rect.Max.x = Body->Rect.Min.x;}
+                if(Rect.Min.x > Body->Rect.Max.x){Rect.Min.x = Body->Rect.Max.x;}
                 
                 // NOTE(ezexff): clip y
-                if(Rect.Min.y < UI_State->OpenWindowBody->Rect.Min.y)
+                if(Rect.Min.y < Body->Rect.Min.y)
                 {
-                    StartTextOffset.y = UI_State->OpenWindowBody->Rect.Min.y - Rect.Min.y;
-                    Rect.Min.y = UI_State->OpenWindowBody->Rect.Min.y;
+                    StartTextOffset.y = Body->Rect.Min.y - Rect.Min.y;
+                    Rect.Min.y = Body->Rect.Min.y;
                 }
-                if(Rect.Max.y > UI_State->OpenWindowBody->Rect.Max.y){Rect.Max.y = UI_State->OpenWindowBody->Rect.Max.y;}
-                if(Rect.Max.y < UI_State->OpenWindowBody->Rect.Min.y){Rect.Max.y = UI_State->OpenWindowBody->Rect.Min.y;}
-                if(Rect.Min.y > UI_State->OpenWindowBody->Rect.Max.y){Rect.Min.y = UI_State->OpenWindowBody->Rect.Max.y;}
+                if(Rect.Max.y > Body->Rect.Max.y){Rect.Max.y = Body->Rect.Max.y;}
+                if(Rect.Max.y < Body->Rect.Min.y){Rect.Max.y = Body->Rect.Min.y;}
+                if(Rect.Min.y > Body->Rect.Max.y){Rect.Min.y = Body->Rect.Max.y;}
             }
         }
 #endif
@@ -336,9 +343,11 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *String, u32 StyleTemplateIndex,
             }
             
             UI_State->CacheLast = CachedNode;
+            CachedNode->CacheNext = 0;
             
             CachedNode->Key = Key;
             CachedNode->Flags = Flags;
+            
             //CachedNode->StartTextOffset = StartTextOffset;
             CachedNode->Rect = Rect;
             CachedNode->StyleTemplateIndex = StyleTemplateIndex;
@@ -357,6 +366,7 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *String, u32 StyleTemplateIndex,
         Node->Rect = Rect;
         //Node->StartTextOffset = StartTextOffset;
         Node->Parent = Parent;
+        Node->Root = Root;
         Node->String = PushString(UI_State->TranArena, String);
         CachedNode->String = Node->String;
         //Node->Size[Axis2_X] = Size[Axis2_X];
@@ -423,7 +433,11 @@ UI_BeginInteract()
             //r32 TestY = UI_State->HotInteraction->Rect.Min.y - UI_State->Input->MouseP.y;
             
             UI_State->HotInteraction->Cache->LastFrameTouchedIndex = UI_State->FrameCount;
-            Log->Add("%s %llu\n", UI_State->HotInteraction->String, CachedNode->LastFrameTouchedIndex);
+            if(UI_State->HotInteraction->Root)
+            {
+                UI_State->HotInteraction->Root->Cache->LastFrameTouchedIndex = UI_State->FrameCount;
+                Log->Add("%s %llu\n", UI_State->HotInteraction->String, CachedNode->LastFrameTouchedIndex);
+            }
         }
         if(!UI_State->HotInteraction->Key){InvalidCodePath;}
         UI_State->Interaction = UI_State->HotInteraction;
@@ -1748,7 +1762,6 @@ UI_EndFrame()
     }
     
     //UI_DrawNodeTree(UI_State->Root);
-    UI_Interact();
     
     // NOTE(ezexff): sort windows by last frame touch
     Assert(UI_State->WindowCount > 0);
@@ -1805,6 +1818,7 @@ UI_EndFrame()
         UI_DrawNodeTree(ArrayLink->Node);
     }
     
+    UI_Interact();
     
     EndTemporaryMemory(UI_State->FrameMemory);
     

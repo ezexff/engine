@@ -1,5 +1,6 @@
 internal void
-UI_Label(char *String, ...)
+UI_Label(char *String)
+//UI_Label(char *String, ...)
 {
     /* 
         va_list ArgList;
@@ -9,18 +10,23 @@ UI_Label(char *String, ...)
         
         va_end(ArgList);
      */
-    
-    ui_node *Parent = UI_State->WindowArray.Last;
-    if(Parent)
+    if(!UI_State->WindowArray.Last){InvalidCodePath};
+    ui_node *Window = UI_State->WindowArray.Last;
+    if(Window)
     {
-        // Concat(FrameCount = ", UI_State->FrameCount)
-        //UI_UseStyleTemplate(UI_StyleTemplate_Label);
-        ui_node *Node = UI_AddNode(UI_State->WindowArray.Last,
-                                   Parent,
-                                   String,
-                                   UI_StyleTemplate_Label,
-                                   //UI_NodeFlag_DrawBackground|
-                                   UI_NodeFlag_DrawBorder|UI_NodeFlag_DrawText);
+        //InvalidCodePath;
+        if(Window->Body)
+        {
+            if(Window->Cache->Flags & UI_NodeFlag_Expanded)
+            {
+                ui_node *Node = UI_AddNode(Window,
+                                           Window->Body,
+                                           String,
+                                           UI_StyleTemplate_Label,
+                                           //UI_NodeFlag_DrawBackground|
+                                           UI_NodeFlag_DrawBorder|UI_NodeFlag_DrawText);
+            }
+        }
     }
     else
     {
@@ -86,16 +92,115 @@ UI_BeginWindow(char *WindowString, b32 *Value)
                                      WindowString,
                                      UI_StyleTemplate_Window1,
                                      UI_NodeFlag_DrawBackground|UI_NodeFlag_Floating|UI_NodeFlag_Clickable|UI_NodeFlag_DrawBorder);
+    UI_State->WindowCount++;
     u32 WindowState = UI_GetNodeState(Window);
-    if(UI_IsDragging(WindowState))
+    
+    // NOTE(ezexff): Title
+    //UI_UseStyleTemplate(UI_StyleTemplate_WindowTitle);
+    ui_node *Title = UI_AddNode(Window,
+                                Window,
+                                Concat(UI_State->TranArena, "Title#", WindowString),
+                                UI_StyleTemplate_WindowTitle,
+                                UI_NodeFlag_Clickable|UI_NodeFlag_DrawBorder|UI_NodeFlag_DrawBackground);
+    Title->LayoutAxis = Axis2_X;
+    u32 TitleState = UI_GetNodeState(Title);
+    
+    // NOTE(ezexff): Title content
+    {
+        /* 
+                char *ExpandString = ">";
+                if(WindowState & UI_NodeFlag_Expanded)
+                {
+                    ExpandString = "v";
+                }
+         */
+        
+        ui_node *ExpandButton = UI_AddNode(Window,
+                                           Title,
+                                           Concat(UI_State->TranArena, "test#", WindowString),
+                                           UI_StyleTemplate_WindowTitleExitButton,
+                                           UI_NodeFlag_Clickable|
+                                           UI_NodeFlag_DrawBorder|
+                                           UI_NodeFlag_DrawText|
+                                           UI_NodeFlag_DrawBackground|
+                                           UI_NodeFlag_HotAnimation|
+                                           UI_NodeFlag_ActiveAnimation);
+        u32 ExpandButtonState = UI_GetNodeState(ExpandButton);
+        if(UI_IsPressed(ExpandButtonState))
+        {
+            Window->Cache->Flags = Window->Cache->Flags ^ UI_NodeFlag_Expanded;
+        }
+        
+        ui_node *TitleLabel = UI_AddNode(Window,
+                                         Title,
+                                         Concat(UI_State->TranArena, WindowString, "#", WindowString),
+                                         UI_StyleTemplate_Label,
+                                         //UI_NodeFlag_DrawBackground|
+                                         UI_NodeFlag_DrawBorder|
+                                         UI_NodeFlag_DrawText);
+        Window->Title = Title;
+        
+        // NOTE(ezexff): Empty space
+        ui_node *TitleEmptySpace = UI_AddNode(Window,
+                                              Title,
+                                              Concat(UI_State->TranArena, "EmptySpace#", WindowString),
+                                              UI_StyleTemplate_WindowTitleEmptySpace,
+                                              UI_NodeFlag_DrawBorder);
+        
+        // NOTE(ezexff): Exit button
+        ui_node *ExitButton = UI_AddNode(Window,
+                                         Title,
+                                         Concat(UI_State->TranArena, "x#", WindowString),
+                                         UI_StyleTemplate_WindowTitleExitButton,
+                                         UI_NodeFlag_Clickable|
+                                         UI_NodeFlag_DrawBorder|
+                                         UI_NodeFlag_DrawText|
+                                         UI_NodeFlag_DrawBackground|
+                                         UI_NodeFlag_HotAnimation|
+                                         UI_NodeFlag_ActiveAnimation);
+        
+        // NOTE(ezexff): Post widgets work
+        r32 ExitButtonWidth = ExitButton->Rect.Max.x - ExitButton->Rect.Min.x;
+        r32 TitleEmptySpaceWidth = Title->Rect.Max.x - TitleLabel->Rect.Max.x - ExitButtonWidth;
+        TitleEmptySpace->Rect.Min.x = TitleLabel->Rect.Max.x;
+        TitleEmptySpace->Rect.Max.x = TitleEmptySpace->Rect.Min.x + TitleEmptySpaceWidth;
+        ExitButton->Rect.Min.x = TitleEmptySpace->Rect.Max.x;
+        ExitButton->Rect.Max.x = ExitButton->Rect.Min.x + ExitButtonWidth;
+        u32 TitleExitState = UI_GetNodeState(ExitButton);
+        if(UI_IsPressed(TitleExitState))
+        {
+            //*Value = !*Value;
+            // TODO(ezexff): 
+            int Foo = 0;
+        }
+    }
+    
+    //if(WindowState & UI_NodeFlag_Expanded)
+    if(Window->Cache->Flags & UI_NodeFlag_Expanded)
+    {
+        ui_node *Body = UI_AddNode(Window,
+                                   Window,
+                                   Concat(UI_State->TranArena, "WindowBody#", WindowString),
+                                   UI_StyleTemplate_WindowBody,
+                                   UI_NodeFlag_Clickable|
+                                   UI_NodeFlag_DrawBorder|
+                                   UI_NodeFlag_DrawBackground);
+        u32 BodyState = UI_GetNodeState(Body);
+        UI_State->WindowArray.Last->Body = Body;
+        
+        if(UI_IsDragging(BodyState))
+        {
+            Window->Cache->P.x += UI_State->Input->dMouseP.x;
+            Window->Cache->P.y -= UI_State->Input->dMouseP.y;
+        }
+    }
+    
+    
+    if(UI_IsDragging(WindowState) || UI_IsDragging(TitleState))
     {
         Window->Cache->P.x += UI_State->Input->dMouseP.x;
         Window->Cache->P.y -= UI_State->Input->dMouseP.y;
     }
-    
-    UI_State->WindowCount++;
-    
-    //Window->InteractionType = UI_Interaction_Move;
     
     //if(!UI_State->OpenWindow)
 #if 0
