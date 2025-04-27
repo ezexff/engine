@@ -249,7 +249,7 @@ SubArena(memory_arena *Result, memory_arena *Arena, memory_index Size, arena_pus
 }
 
 
-#include <stdarg.h>
+//#include <stdarg.h>
 
 //~ TODO(ezexff): test functions for string
 internal char *
@@ -305,6 +305,7 @@ Concat(memory_arena *Arena, char *A, char *B, char *C, char *D)
     return(Result);
 }
 
+/* 
 u32
 DigitsCount(u32 Value)
 {
@@ -317,6 +318,7 @@ DigitsCount(u32 Value)
     
     return(Result);
 }
+ */
 
 internal char *
 U32ToString(memory_arena *Arena, u32 Value)
@@ -351,83 +353,5 @@ U32ToString(memory_arena *Arena, u32 Value)
     }
     
     char *Result = PushString(Arena, Buffer);
-    return(Result);
-}
-
-internal s32
-S32FromZ(char *At)
-{
-    s32 Result = 0;
-    
-    while((*At >= '0') &&
-          (*At <= '9'))
-    {
-        Result *= 10;
-        Result += (*At - '0');
-        ++At;
-    }
-    
-    return(Result);
-}
-
-struct format_dest
-{
-    umm Size;
-    char *At;
-};
-
-inline void
-OutChar(format_dest *Dest, char Value)
-{
-    if(Dest->Size)
-    {
-        --Dest->Size;
-        *Dest->At++ = Value;
-    }
-}
-
-internal umm
-FormatStringList(umm DestSize, char *DestInit, char *Format, va_list ArgList)
-{
-    format_dest Dest = {DestSize, DestInit};
-    if(Dest.Size)
-    {
-        char *At = Format;
-        while(At[0])
-        {
-            if(At[0] == '%')
-            {
-                // va_arg();
-                ++At;
-            }
-            else
-            {
-                OutChar(&Dest, *At++);
-            }
-        }
-        
-        if(Dest.Size)
-        {
-            Dest.At[0] = 0;
-        }
-        else
-        {
-            Dest.At[-1] = 0;
-        }
-    }
-    
-    umm Result = Dest.At - DestInit;
-    return(Result);
-}
-
-internal umm
-FormatString(umm DestSize, char *Dest, char *Format, ...)
-{
-    va_list ArgList;
-    
-    va_start(ArgList, Format);
-    umm Result = FormatStringList(DestSize, Dest, Format, ArgList);
-    va_end(ArgList);
-    
     return(Result);
 }

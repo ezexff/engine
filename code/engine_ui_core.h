@@ -87,7 +87,8 @@ struct ui_node
     //ui_node *WidgetRoot;
     u32 ChildCount;
     
-    char *String;
+    char *ID; // NOTE(ezexff): node id
+    char *Text;
     u32 Flags;
     v4 BackgroundColor;
     

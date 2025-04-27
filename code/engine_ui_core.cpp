@@ -154,8 +154,8 @@ UI_AddRootNode(ui_widget_link *WidgetArray, char *String, u32 StyleTemplateIndex
     Widget->LayoutAxis = Axis2_Y;
     Widget->Key = CachedNode->Key;
     Widget->Rect = Rect;
-    Widget->String = PushString(UI_State->TranArena, String);
-    CachedNode->String = Widget->String;
+    Widget->ID = PushString(UI_State->TranArena, String);
+    CachedNode->ID = Widget->ID;
     
     if(!WidgetArray->First)
     {
@@ -175,10 +175,10 @@ UI_AddRootNode(ui_widget_link *WidgetArray, char *String, u32 StyleTemplateIndex
 }
 
 ui_node *
-UI_AddNode(ui_node *Root, ui_node *Parent, char *String, u32 StyleTemplateIndex, u32 Flags)
+UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32 Flags, char *Text = 0)
 {
     if(!Parent){InvalidCodePath;}
-    if(!String){Assert(!"String can't be null");}
+    if(!ID){Assert(!"ID can't be null");}
     /* 
     v2 P = {};
     v2 Dim = {};
@@ -224,7 +224,7 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *String, u32 StyleTemplateIndex,
     }
     
     // NOTE(ezexff): calc size
-    v2 LabelSize = UI_CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, String);
+    v2 LabelSize = UI_CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, ID);
     
     for(u32 Index = 0;
         Index < Axis2_Count;
@@ -327,7 +327,7 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *String, u32 StyleTemplateIndex,
 #endif
         
         // NOTE(ezexff): get or create cached node
-        u32 Key = UI_GetHashValue(String);
+        u32 Key = UI_GetHashValue(ID);
         ui_node *CachedNode = UI_GetCachedNode(Key);
         if(!CachedNode)
         {
@@ -367,8 +367,12 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *String, u32 StyleTemplateIndex,
         //Node->StartTextOffset = StartTextOffset;
         Node->Parent = Parent;
         Node->Root = Root;
-        Node->String = PushString(UI_State->TranArena, String);
-        CachedNode->String = Node->String;
+        Node->ID = PushString(UI_State->TranArena, ID);
+        CachedNode->ID = Node->ID;
+        if(Text)
+        {
+            Node->Text = PushString(UI_State->TranArena, Text);
+        }
         //Node->Size[Axis2_X] = Size[Axis2_X];
         //Child->Size[Axis2_Y] = Size[Axis2_Y];
         //Child->ViewP = CachedNode->ViewP;
@@ -423,7 +427,7 @@ UI_BeginInteract()
     ui_node *CachedNode = UI_State->HotInteraction->Cache;
     if(CachedNode->Flags & UI_NodeFlag_Clickable)
     {
-        Log->Add("Interact (left pressed) = %s\n", UI_State->HotInteraction->String);
+        Log->Add("Interact (left pressed) = %s\n", UI_State->HotInteraction->ID);
         
         CachedNode->Flags |= UI_NodeFlag_Pressed;
         // TODO(ezexff): Test in node mouse p
@@ -436,7 +440,7 @@ UI_BeginInteract()
             if(UI_State->HotInteraction->Root)
             {
                 UI_State->HotInteraction->Root->Cache->LastFrameTouchedIndex = UI_State->FrameCount;
-                Log->Add("%s %llu\n", UI_State->HotInteraction->String, CachedNode->LastFrameTouchedIndex);
+                Log->Add("%s %llu\n", UI_State->HotInteraction->ID, CachedNode->LastFrameTouchedIndex);
             }
         }
         if(!UI_State->HotInteraction->Key){InvalidCodePath;}
@@ -453,7 +457,7 @@ UI_EndInteract()
     ui_node *Node = UI_State->Interaction;
     ui_node *CachedNode = Node->Cache;
     
-    Log->Add("Interact (left released) = %s\n", Node->String);
+    Log->Add("Interact (left released) = %s\n", Node->ID);
     
     CachedNode->Flags |= UI_NodeFlag_Released;
     CachedNode->PressMouseP = V2(0.0f, 0.0f);
@@ -523,14 +527,14 @@ UI_Interact()
             TransitionIndex > 1;
             --TransitionIndex)
         {
-            Log->Add("Interact (1) = %s\n", UI_State->Interaction->String);
+            Log->Add("Interact (1) = %s\n", UI_State->Interaction->ID);
             //UI_BeginInteract();
             //UI_EndInteract();
         }
         
         if(!UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
         {
-            Log->Add("Interact (left clicked) = %s\n", UI_State->Interaction->String);
+            Log->Add("Interact (left clicked) = %s\n", UI_State->Interaction->ID);
             CachedNode->Flags &= ~UI_NodeFlag_Dragging;
             CachedNode->Flags &= ~UI_NodeFlag_Clicked;
             UI_EndInteract();
@@ -561,7 +565,7 @@ UI_Interact()
                 TransitionIndex > 1;
                 --TransitionIndex)
             {
-                Log->Add("Interact (2) = %s\n", UI_State->HotInteraction->String);
+                Log->Add("Interact (2) = %s\n", UI_State->HotInteraction->ID);
                 //UI_BeginInteract();
                 //UI_EndInteract();
             }
@@ -603,7 +607,7 @@ UI_DrawLabel(ui_node *Node)
         //r32 RectWidth = Node->Rect.Max.x - Node->Rect.Min.x;
         v2 RectDim = GetDim(Node->Rect);
         
-        for(char *At = Node->String;
+        for(char *At = Node->Text;
             *At;
             )
         {

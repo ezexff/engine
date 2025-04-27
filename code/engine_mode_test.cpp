@@ -443,7 +443,7 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
                 //umm Size = ArrayCount(Dest) * sizeof(Dest[0]);
                 //FormatString(Size, Dest, "Var1 = %d Var2 = %d", UI_State->NodeCount);
                 //UI_Label("NodeCount = %llu1111111111111111111", UI_State->NodeCount);
-                UI_Label("NodeCount = %llu1111111111111111111");
+                //UI_Label("FrameCount = %llu", UI_State->FrameCount);
                 //InvalidCodePath;
                 /* 
                                 char FrameCountString[32];
@@ -505,9 +505,13 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         {
             UI_BeginWindow("DebugTest2", &IsWindowVisible2);
             
-            UI_Label("FPS = %d");
-            UI_Label("FrameCount = %llu");
-            UI_Label("NodeCount = %llu");
+            u32 FPS = (u32)(1 / UI_State->Input->dtForFrame);
+            UI_Label("FPS = %d", FPS);
+            
+            r32 MS = UI_State->Input->dtForFrame * 1000.0f;
+            UI_Label("MS = %fms/frame", MS);
+            
+            UI_Label("FrameCount = %llu", UI_State->FrameCount);
             
             UI_EndWindow();
         }

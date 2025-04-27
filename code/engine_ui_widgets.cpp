@@ -1,15 +1,6 @@
 internal void
-UI_Label(char *String)
-//UI_Label(char *String, ...)
+UI_Label(char *ID, char *Text)
 {
-    /* 
-        va_list ArgList;
-        va_start(ArgList, String);
-        
-        u64 Value = va_arg(ArgList, int unsigned long);
-        
-        va_end(ArgList);
-     */
     if(!UI_State->WindowArray.Last){InvalidCodePath};
     ui_node *Window = UI_State->WindowArray.Last;
     if(Window)
@@ -21,10 +12,11 @@ UI_Label(char *String)
             {
                 ui_node *Node = UI_AddNode(Window,
                                            Window->Body,
-                                           String,
+                                           ID,
                                            UI_StyleTemplate_Label,
                                            //UI_NodeFlag_DrawBackground|
-                                           UI_NodeFlag_DrawBorder|UI_NodeFlag_DrawText);
+                                           UI_NodeFlag_DrawBorder|UI_NodeFlag_DrawText,
+                                           Text);
             }
         }
     }
@@ -32,6 +24,18 @@ UI_Label(char *String)
     {
         InvalidCodePath;
     }
+}
+
+internal void
+UI_Label(char *Format, ...)
+{
+    va_list ArgList;
+    va_start(ArgList, Format);
+    
+    char Temp[64];
+    FormatStringList(sizeof(Temp), Temp, Format, ArgList);
+    UI_Label(Format, Temp);
+    va_end(ArgList);
 }
 
 /* 
@@ -124,7 +128,8 @@ UI_BeginWindow(char *WindowString, b32 *Value)
                                            UI_NodeFlag_DrawText|
                                            UI_NodeFlag_DrawBackground|
                                            UI_NodeFlag_HotAnimation|
-                                           UI_NodeFlag_ActiveAnimation);
+                                           UI_NodeFlag_ActiveAnimation,
+                                           ">");
         u32 ExpandButtonState = UI_GetNodeState(ExpandButton);
         if(UI_IsPressed(ExpandButtonState))
         {
@@ -137,7 +142,8 @@ UI_BeginWindow(char *WindowString, b32 *Value)
                                          UI_StyleTemplate_Label,
                                          //UI_NodeFlag_DrawBackground|
                                          UI_NodeFlag_DrawBorder|
-                                         UI_NodeFlag_DrawText);
+                                         UI_NodeFlag_DrawText,
+                                         WindowString);
         Window->Title = Title;
         
         // NOTE(ezexff): Empty space
@@ -157,7 +163,8 @@ UI_BeginWindow(char *WindowString, b32 *Value)
                                          UI_NodeFlag_DrawText|
                                          UI_NodeFlag_DrawBackground|
                                          UI_NodeFlag_HotAnimation|
-                                         UI_NodeFlag_ActiveAnimation);
+                                         UI_NodeFlag_ActiveAnimation,
+                                         "x#");
         
         // NOTE(ezexff): Post widgets work
         r32 ExitButtonWidth = ExitButton->Rect.Max.x - ExitButton->Rect.Min.x;
@@ -185,6 +192,7 @@ UI_BeginWindow(char *WindowString, b32 *Value)
                                    UI_NodeFlag_Clickable|
                                    UI_NodeFlag_DrawBorder|
                                    UI_NodeFlag_DrawBackground);
+        Body->LayoutAxis = Axis2_Y;
         u32 BodyState = UI_GetNodeState(Body);
         UI_State->WindowArray.Last->Body = Body;
         
