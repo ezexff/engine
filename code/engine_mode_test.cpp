@@ -469,8 +469,6 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
                                     Log->Add("action when Btn12345 was pressed\n");
                                 }
                                 
-                                UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
-                                
                                 if(UI_State->HotInteraction)
                                 {
                                     char HotInteractionString[128];
@@ -495,15 +493,15 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         {
             UI_BeginWindow("DebugTest3", &IsWindowVisible3);
             
-            // TODO(ezexff): 
+            UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
             
             UI_EndWindow();
         }
         
-        local b32 IsWindowVisible2 = true;
-        if(IsWindowVisible2)
+        local b32 IsDebugVarsWindowVisible = true;
+        if(IsDebugVarsWindowVisible)
         {
-            UI_BeginWindow("DebugTest2", &IsWindowVisible2);
+            UI_BeginWindow("DebugVars", &IsDebugVarsWindowVisible);
             
             u32 FPS = (u32)(1 / UI_State->Input->dtForFrame);
             UI_Label("FPS = %d", FPS);

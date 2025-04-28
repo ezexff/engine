@@ -69,7 +69,7 @@ struct ui_node
     u32 StyleTemplateIndex;
     
     u64 LastFrameTouchedIndex;
-    b32 IsOpened; // u32 Flags
+    //b32 IsOpened; // u32 Flags
     ui_node *Root;
     ui_node *Title;
     ui_node *Body;

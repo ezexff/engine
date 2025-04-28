@@ -177,8 +177,10 @@ UI_AddRootNode(ui_widget_link *WidgetArray, char *String, u32 StyleTemplateIndex
 ui_node *
 UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32 Flags, char *Text = 0)
 {
+    if(!Root){InvalidCodePath;}
     if(!Parent){InvalidCodePath;}
     if(!ID){Assert(!"ID can't be null");}
+    if((StyleTemplateIndex == 0) || (StyleTemplateIndex >= UI_StyleTemplate_Count)){InvalidCodePath};
     /* 
     v2 P = {};
     v2 Dim = {};
@@ -201,9 +203,9 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
             if(Parent->LayoutAxis == Axis2_X)
             {
                 Rect.Min.x = Parent->Last->Rect.Max.x;
-                if(Root->Body)
+                if(UI_State->WindowArray.Last->Body)
                 {
-                    if(Root->Body->IsOpened)
+                    //if(Root->Body->IsOpened)
                     {
                         Rect.Min.x -= Root->Body->ViewP.x;
                     }
@@ -212,19 +214,27 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
             else if(Parent->LayoutAxis == Axis2_Y)
             {
                 Rect.Min.y = Parent->Last->Rect.Max.y;
-                if(Root->Body)
+                if(UI_State->WindowArray.Last->Body)
                 {
-                    if(Root->Body->IsOpened)
+                    //if(Root->Body->IsOpened)
                     {
                         Rect.Min.y -= Root->Body->ViewP.y;
                     }
                 }
             }
+            else
+            {
+                InvalidCodePath;
+            }
         }
     }
     
     // NOTE(ezexff): calc size
-    v2 LabelSize = UI_CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, ID);
+    v2 LabelSize = {};
+    if(Text)
+    {
+        LabelSize = UI_CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, Text);
+    }
     
     for(u32 Index = 0;
         Index < Axis2_Count;
@@ -241,7 +251,14 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
             case UI_SizeKind_TextContent:
             {
                 //Dim.E[Index] = LabelSize.E[Index];
-                Rect.Max.E[Index] = Rect.Min.E[Index] + LabelSize.E[Index];
+                if(Text)
+                {
+                    Rect.Max.E[Index] = Rect.Min.E[Index] + LabelSize.E[Index];
+                }
+                else
+                {
+                    InvalidCodePath;
+                }
             } break;
             
             case UI_SizeKind_ParentPercent:
@@ -278,7 +295,7 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
         
         if(Root->Body)
         {
-            if(Root->Body->IsOpened)
+            //if(Root->Body->IsOpened)
             {
                 ViewRect = Root->Body->Rect;
             }
@@ -292,7 +309,7 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
             Rect = {Rect.Min + Root->Body->ViewP, Rect.Max + Root->Body->ViewP};
             //PushRectOutlineOnScreen(&Renderer->PushBufferUI, Rect, 1,  V4(0, 1, 0, 1), 101);
             
-            //PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
+            PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
         }
         
         if(Root->Body && !(Flags & UI_NodeFlag_Floating))
@@ -1474,12 +1491,12 @@ StyleTemplate.PressedColor = V4(0, 0, 0, 1);
             
             case UI_StyleTemplate_Window1:
             {
-                StyleTemplate->BackgroundColor = V4(0, 1, 1, 1);
+                StyleTemplate->BackgroundColor = V4(0, 0, 0, 1);
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
                 StyleTemplate->Size[Axis2_X].Value = 400.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_Y].Value = 400.0f;
-                //StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ChildrenSum;
+                //StyleTemplate->Size[Axis2_Y].Value = 400.0f;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ChildrenSum;
                 
                 //StyleTemplate->OffsetP = V2(200, 100);
                 //StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
@@ -1493,7 +1510,8 @@ StyleTemplate.PressedColor = V4(0, 0, 0, 1);
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
                 StyleTemplate->Size[Axis2_X].Value = 400.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_Y].Value = 400.0f;
+                //StyleTemplate->Size[Axis2_Y].Value = 400.0f;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ChildrenSum;
             } break;
             
             case UI_StyleTemplate_Window3:
@@ -1502,7 +1520,8 @@ StyleTemplate.PressedColor = V4(0, 0, 0, 1);
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
                 StyleTemplate->Size[Axis2_X].Value = 400.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_Y].Value = 400.0f;
+                //StyleTemplate->Size[Axis2_Y].Value = 400.0f;
+                StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ChildrenSum;
             } break;
             
             case UI_StyleTemplate_WindowTitle:

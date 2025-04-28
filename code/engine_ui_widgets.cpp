@@ -32,7 +32,7 @@ UI_Label(char *Format, ...)
     va_list ArgList;
     va_start(ArgList, Format);
     
-    char Temp[64];
+    char Temp[1024];
     FormatStringList(sizeof(Temp), Temp, Format, ArgList);
     UI_Label(Format, Temp);
     va_end(ArgList);
@@ -90,20 +90,20 @@ UI_Checkbox(char *String, b32 *Value)
  */
 
 internal void
-UI_BeginWindow(char *WindowString, b32 *Value)
+UI_BeginWindow(char *ID, b32 *ExitButtonValue)
 {
     ui_node *Window = UI_AddRootNode(&UI_State->WindowArray,
-                                     WindowString,
+                                     ID,
                                      UI_StyleTemplate_Window1,
-                                     UI_NodeFlag_DrawBackground|UI_NodeFlag_Floating|UI_NodeFlag_Clickable|UI_NodeFlag_DrawBorder);
+                                     //UI_NodeFlag_DrawBackground|UI_NodeFlag_Floating|UI_NodeFlag_Clickable|UI_NodeFlag_DrawBorder);
+                                     UI_NodeFlag_DrawBackground|UI_NodeFlag_Floating);
     UI_State->WindowCount++;
     u32 WindowState = UI_GetNodeState(Window);
     
     // NOTE(ezexff): Title
-    //UI_UseStyleTemplate(UI_StyleTemplate_WindowTitle);
     ui_node *Title = UI_AddNode(Window,
                                 Window,
-                                Concat(UI_State->TranArena, "Title#", WindowString),
+                                Concat(UI_State->TranArena, "Title#", ID),
                                 UI_StyleTemplate_WindowTitle,
                                 UI_NodeFlag_Clickable|UI_NodeFlag_DrawBorder|UI_NodeFlag_DrawBackground);
     Title->LayoutAxis = Axis2_X;
@@ -111,17 +111,9 @@ UI_BeginWindow(char *WindowString, b32 *Value)
     
     // NOTE(ezexff): Title content
     {
-        /* 
-                char *ExpandString = ">";
-                if(WindowState & UI_NodeFlag_Expanded)
-                {
-                    ExpandString = "v";
-                }
-         */
-        
         ui_node *ExpandButton = UI_AddNode(Window,
                                            Title,
-                                           Concat(UI_State->TranArena, "test#", WindowString),
+                                           Concat(UI_State->TranArena, "test#", ID),
                                            UI_StyleTemplate_WindowTitleExitButton,
                                            UI_NodeFlag_Clickable|
                                            UI_NodeFlag_DrawBorder|
@@ -129,7 +121,7 @@ UI_BeginWindow(char *WindowString, b32 *Value)
                                            UI_NodeFlag_DrawBackground|
                                            UI_NodeFlag_HotAnimation|
                                            UI_NodeFlag_ActiveAnimation,
-                                           ">");
+                                           (Window->Cache->Flags & UI_NodeFlag_Expanded) ? "v" : ">");
         u32 ExpandButtonState = UI_GetNodeState(ExpandButton);
         if(UI_IsPressed(ExpandButtonState))
         {
@@ -138,25 +130,25 @@ UI_BeginWindow(char *WindowString, b32 *Value)
         
         ui_node *TitleLabel = UI_AddNode(Window,
                                          Title,
-                                         Concat(UI_State->TranArena, WindowString, "#", WindowString),
+                                         Concat(UI_State->TranArena, ID, "#", ID),
                                          UI_StyleTemplate_Label,
                                          //UI_NodeFlag_DrawBackground|
                                          UI_NodeFlag_DrawBorder|
                                          UI_NodeFlag_DrawText,
-                                         WindowString);
-        Window->Title = Title;
+                                         ID);
+        UI_State->WindowArray.Last->Title = Title;
         
         // NOTE(ezexff): Empty space
         ui_node *TitleEmptySpace = UI_AddNode(Window,
                                               Title,
-                                              Concat(UI_State->TranArena, "EmptySpace#", WindowString),
+                                              Concat(UI_State->TranArena, "EmptySpace#", ID),
                                               UI_StyleTemplate_WindowTitleEmptySpace,
                                               UI_NodeFlag_DrawBorder);
         
         // NOTE(ezexff): Exit button
         ui_node *ExitButton = UI_AddNode(Window,
                                          Title,
-                                         Concat(UI_State->TranArena, "x#", WindowString),
+                                         Concat(UI_State->TranArena, "x#", ID),
                                          UI_StyleTemplate_WindowTitleExitButton,
                                          UI_NodeFlag_Clickable|
                                          UI_NodeFlag_DrawBorder|
@@ -176,9 +168,7 @@ UI_BeginWindow(char *WindowString, b32 *Value)
         u32 TitleExitState = UI_GetNodeState(ExitButton);
         if(UI_IsPressed(TitleExitState))
         {
-            //*Value = !*Value;
-            // TODO(ezexff): 
-            int Foo = 0;
+            //*ExitButtonValue = !*ExitButtonValue;
         }
     }
     
@@ -187,15 +177,15 @@ UI_BeginWindow(char *WindowString, b32 *Value)
     {
         ui_node *Body = UI_AddNode(Window,
                                    Window,
-                                   Concat(UI_State->TranArena, "WindowBody#", WindowString),
+                                   Concat(UI_State->TranArena, "WindowBody#", ID),
                                    UI_StyleTemplate_WindowBody,
                                    UI_NodeFlag_Clickable|
                                    UI_NodeFlag_DrawBorder|
                                    UI_NodeFlag_DrawBackground);
         Body->LayoutAxis = Axis2_Y;
-        u32 BodyState = UI_GetNodeState(Body);
         UI_State->WindowArray.Last->Body = Body;
         
+        u32 BodyState = UI_GetNodeState(Body);
         if(UI_IsDragging(BodyState))
         {
             Window->Cache->P.x += UI_State->Input->dMouseP.x;
@@ -398,6 +388,85 @@ UI_BeginWindow(char *WindowString, b32 *Value)
 internal void
 UI_EndWindow()
 {
+    ui_node *Window = UI_State->WindowArray.Last;
+    ui_node *Body = Window->Body;
+    
+    /* 
+        UI_State->WindowArray.Last->VerticalScrollbar = ...;
+        UI_State->WindowArray.Last->HorizontalScrollbar = ...;
+        UI_State->WindowArray.Last->ResizeButton = ...;
+     */
+    if(Body)
+    {
+        v2 ResizeButtonDim = V2(10.0f, 10.0f); // TODO(ezexff): replace with getting dim from node
+        v2 BodyDim = GetDim(Body->Rect);
+        v2 ContentDim = Body->MaxContentDim;
+        
+        if(ContentDim.x > BodyDim.x)
+        {
+            ui_node *HScrollBarCursor = UI_AddNode(Window,
+                                                   Body,
+                                                   Concat(UI_State->TranArena, "HScrollBarCursor#", Window->ID),
+                                                   UI_StyleTemplate_WindowScrollBar,
+                                                   UI_NodeFlag_Floating|
+                                                   UI_NodeFlag_Clickable|
+                                                   UI_NodeFlag_DrawBorder|
+                                                   UI_NodeFlag_DrawBackground);
+            u32 HSBCursorState = UI_GetNodeState(HScrollBarCursor);
+            
+            r32 CursorWidth = BodyDim.x / (ContentDim.x + ResizeButtonDim.x) * BodyDim.x;
+            if(CursorWidth < 10.0f)
+            {
+                InvalidCodePath;
+            }
+            
+            HScrollBarCursor->Cache->P.y = BodyDim.y - ResizeButtonDim.y;
+            HScrollBarCursor->Cache->Size.y = 10.0f;
+            
+            if(UI_IsDragging(HSBCursorState))
+            {
+                r32 MinCursorP = 0.0f;
+                r32 MaxCursorP = BodyDim.x - CursorWidth - ResizeButtonDim.x;
+                
+                r32 MinViewP = (-1) * (ContentDim.x - BodyDim.x);
+                r32 MaxViewP = 0.0f;
+                r32 ScrollMultiplier = (-1) * (MinViewP / MaxCursorP);
+                
+                r32 MinDragHSBCursorP = Window->Rect.Min.x + HScrollBarCursor->Cache->PressMouseP.x;
+                r32 MaxDragHSBCursorP = Window->Rect.Max.x - CursorWidth + HScrollBarCursor->Cache->PressMouseP.x - ResizeButtonDim.x;
+                if(UI_State->Input->MouseP.x < MinDragHSBCursorP)
+                {
+                    // NOTE(ezexff): move scrollbar cursor
+                    HScrollBarCursor->Cache->P.x = MinCursorP;
+                    
+                    // NOTE(ezexff): move body view pos
+                    Body->Cache->ViewP.x = MaxViewP;
+                }
+                else if(UI_State->Input->MouseP.x > MaxDragHSBCursorP)
+                {
+                    // NOTE(ezexff): move scrollbar cursor
+                    HScrollBarCursor->Cache->P.x = MaxCursorP;
+                    
+                    // NOTE(ezexff): move body view pos
+                    Body->Cache->ViewP.x = MinViewP;
+                }
+                else
+                {
+                    // NOTE(ezexff): move scrollbar cursor
+                    HScrollBarCursor->Cache->P.x = (r32)RoundR32ToS32(UI_State->Input->MouseP.x - Window->Rect.Min.x - HScrollBarCursor->Cache->PressMouseP.x);
+                    HScrollBarCursor->Cache->P.x = Clamp(MinCursorP, HScrollBarCursor->Cache->P.x, MaxCursorP);
+                    
+                    // NOTE(ezexff): move body view pos
+                    //CachedBody->ViewP.x = CachedBody->ViewP.x - ScrollMultiplier * UI_State->Input->dMouseP.x;
+                    Body->Cache->ViewP.x -= (r32)RoundR32ToS32(ScrollMultiplier * UI_State->Input->dMouseP.x);
+                    Body->Cache->ViewP.x = Clamp(MinViewP, Body->Cache->ViewP.x, MaxViewP);
+                }
+            }
+            
+            HScrollBarCursor->Cache->Size.x = CursorWidth;
+        }
+    }
+    
 #if 0
     if(!UI_State->OpenWindow){InvalidCodePath;}
     
