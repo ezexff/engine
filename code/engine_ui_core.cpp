@@ -289,57 +289,64 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
     //if((Parent == UI_State->Root) || UI_State->OpenWindow)
     {
 #if 1
-        
         v2 StartTextOffset = {};
-        rectangle2 ViewRect = {};
-        
-        if(Root->Body)
-        {
-            //if(Root->Body->IsOpened)
-            {
-                ViewRect = Root->Body->Rect;
-            }
-        }
-        
         renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
         if(Root->Body && !(Flags & UI_NodeFlag_Floating))
         {
-            ViewRect = {Root->Body->Rect.Min + Root->Body->ViewP, Root->Body->Rect.Max + Root->Body->ViewP};
+            ui_node *Body = Root->Body;
+            ui_node *BodyCache = Root->Body->Cache;
             
-            Rect = {Rect.Min + Root->Body->ViewP, Rect.Max + Root->Body->ViewP};
-            //PushRectOutlineOnScreen(&Renderer->PushBufferUI, Rect, 1,  V4(0, 1, 0, 1), 101);
+            // NOTE(ezexff): content max
+            Body->MaxNodeDim.x = Maximum(Body->MaxNodeDim.x, Rect.Max.x - Body->Rect.Min.x);
+            Body->MaxNodeDim.y = Maximum(Body->MaxNodeDim.y, Rect.Max.y - Body->Rect.Min.y);
             
-            PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
+            /* 
+                        if(Parent->LayoutAxis == Axis2_X)
+                        {
+                            Body->ContentDimSum.x += Rect.Max.x - Rect.Min.x;
+                        }
+                        if(Parent->LayoutAxis == Axis2_Y)
+                        {
+                            Body->ContentDimSum.y += Rect.Max.y - Rect.Min.y;
+                        }
+             */
+            
+            if(BodyCache)
+            {
+                Rect = {Rect.Min + BodyCache->ViewP, Rect.Max + BodyCache->ViewP};
+                
+                rectangle2 ViewRect = {Body->Rect.Min + BodyCache->ViewP, Body->Rect.Max + BodyCache->ViewP};
+                PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
+            }
+            else
+            {
+                InvalidCodePath;
+            }
         }
         
         if(Root->Body && !(Flags & UI_NodeFlag_Floating))
         {
             ui_node *Body = Root->Body;
-            // NOTE(ezexff): content size
+            
+            // NOTE(ezexff): clip x
+            if(Rect.Min.x < Body->Rect.Min.x)
             {
-                Body->MaxContentDim.x = Maximum(Body->MaxContentDim.x, Rect.Max.x - Rect.Min.x);
-                Body->MaxContentDim.y = Maximum(Body->MaxContentDim.y, Rect.Max.y - Rect.Min.y);
-                
-                // NOTE(ezexff): clip x
-                if(Rect.Min.x < Body->Rect.Min.x)
-                {
-                    StartTextOffset.x = Body->Rect.Min.x - Rect.Min.x;
-                    Rect.Min.x = Body->Rect.Min.x;
-                }
-                if(Rect.Max.x > Body->Rect.Max.x){Rect.Max.x = Body->Rect.Max.x;}
-                if(Rect.Max.x < Body->Rect.Min.x){Rect.Max.x = Body->Rect.Min.x;}
-                if(Rect.Min.x > Body->Rect.Max.x){Rect.Min.x = Body->Rect.Max.x;}
-                
-                // NOTE(ezexff): clip y
-                if(Rect.Min.y < Body->Rect.Min.y)
-                {
-                    StartTextOffset.y = Body->Rect.Min.y - Rect.Min.y;
-                    Rect.Min.y = Body->Rect.Min.y;
-                }
-                if(Rect.Max.y > Body->Rect.Max.y){Rect.Max.y = Body->Rect.Max.y;}
-                if(Rect.Max.y < Body->Rect.Min.y){Rect.Max.y = Body->Rect.Min.y;}
-                if(Rect.Min.y > Body->Rect.Max.y){Rect.Min.y = Body->Rect.Max.y;}
+                StartTextOffset.x = Body->Rect.Min.x - Rect.Min.x;
+                Rect.Min.x = Body->Rect.Min.x;
             }
+            if(Rect.Max.x > Body->Rect.Max.x){Rect.Max.x = Body->Rect.Max.x;}
+            if(Rect.Max.x < Body->Rect.Min.x){Rect.Max.x = Body->Rect.Min.x;}
+            if(Rect.Min.x > Body->Rect.Max.x){Rect.Min.x = Body->Rect.Max.x;}
+            
+            // NOTE(ezexff): clip y
+            if(Rect.Min.y < Body->Rect.Min.y)
+            {
+                StartTextOffset.y = Body->Rect.Min.y - Rect.Min.y;
+                Rect.Min.y = Body->Rect.Min.y;
+            }
+            if(Rect.Max.y > Body->Rect.Max.y){Rect.Max.y = Body->Rect.Max.y;}
+            if(Rect.Max.y < Body->Rect.Min.y){Rect.Max.y = Body->Rect.Min.y;}
+            if(Rect.Min.y > Body->Rect.Max.y){Rect.Min.y = Body->Rect.Max.y;}
         }
 #endif
         
@@ -365,7 +372,6 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
             CachedNode->Key = Key;
             CachedNode->Flags = Flags;
             
-            //CachedNode->StartTextOffset = StartTextOffset;
             CachedNode->Rect = Rect;
             CachedNode->StyleTemplateIndex = StyleTemplateIndex;
         }
@@ -381,7 +387,7 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
         Node->LayoutAxis = Axis2_Invalid;
         Node->Key = CachedNode->Key;
         Node->Rect = Rect;
-        //Node->StartTextOffset = StartTextOffset;
+        Node->StartTextOffset = StartTextOffset;
         Node->Parent = Parent;
         Node->Root = Root;
         Node->ID = PushString(UI_State->TranArena, ID);
@@ -413,29 +419,6 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
     return(Node);
 }
 
-/* 
-inline ui_node *
-UI_GetCachedNode(char *String)
-{
-if(!String){InvalidCodePath;}
-
-ui_node *CachedNode = 0;
-u32 Key = UI_GetHashValue(String);
-for(ui_node *Search = UI_State->CacheFirst;
-Search != 0;
-Search = Search->CacheNext)
-{
-if(Search->Key == Key)
-{
-    CachedNode = Search;
-    break;
-}
-}
-
-return(CachedNode);
-}
-*/
-
 internal void
 UI_BeginInteract()
 {
@@ -451,6 +434,8 @@ UI_BeginInteract()
         {
             //CachedNode->PressMouseP = UI_State->Input->MouseP;
             CachedNode->PressMouseP.x = UI_State->Input->MouseP.x - UI_State->HotInteraction->Rect.Min.x;
+            CachedNode->PressMouseP.y = UI_State->Frame->Dim.y - UI_State->Input->MouseP.y - UI_State->HotInteraction->Rect.Min.y;
+            Log->Add("CachedNode->PressMouseP.y = %f\n", CachedNode->PressMouseP.y);
             //r32 TestY = UI_State->HotInteraction->Rect.Min.y - UI_State->Input->MouseP.y;
             
             UI_State->HotInteraction->Cache->LastFrameTouchedIndex = UI_State->FrameCount;
@@ -493,51 +478,6 @@ UI_Interact()
         //if(!CachedNode){InvalidCodePath;}
         ui_node *CachedNode = UI_State->Interaction->Cache;
         CachedNode->Flags |= UI_NodeFlag_Dragging;
-        
-#if 0        
-        switch(UI_State->Interaction->InteractionType)
-        {
-            /* 
-                case DebugInteraction_DragValue:
-                {
-                    debug_event *Event = DebugState->Interaction.Element ? 
-                        &DebugState->Interaction.Element->Frames[FrameOrdinal].MostRecentEvent->Event : 0;
-                    switch(Event->Type)
-                    {
-                        case DebugType_r32:
-                        {
-                            Event->Value_r32 += 0.1f*dMouseP.y;
-                        } break;
-                    }
-                    DEBUGMarkEditedEvent(DebugState, Event);
-                } break;
-     */
-            
-            /* 
-            case DebugInteraction_Resize:
-            {
-                *P += V2(dMouseP.x, -dMouseP.y);
-                P->x = Maximum(P->x, 10.0f);
-                P->y = Maximum(P->y, 10.0f);
-            } break;
- */
-            
-            case UI_Interaction_Move:
-            {
-                //*P += V2(dMouseP.x, dMouseP.y);
-                Log->Add("UI_Interaction_Move = %s\n", UI_State->Interaction->String);
-                //CachedNode->OffsetP += V2(dMouseP.x, -dMouseP.y);
-                CachedNode->OffsetP.x += UI_State->Input->dMouseP.x;
-                CachedNode->OffsetP.y -= UI_State->Input->dMouseP.y;
-            } break;
-            
-            default:
-            {
-                //*P += V2(dMouseP.x, dMouseP.y);
-                Log->Add("no interaction = %s\n", UI_State->Interaction->String);
-            } break;
-        }
-#endif
         
         // NOTE(ezexff): click interaction
         for(u32 TransitionIndex = UI_State->Input->MouseButtons[PlatformMouseButton_Left].HalfTransitionCount;
@@ -743,655 +683,11 @@ UI_DrawLabel(ui_node *Node)
     }
 }
 
-/* 
-inline ui_style_template
-UI_GetSelectedStyleTemplate()
-{
-    ui_style_template Result = UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex];
-    return(Result);
-}
- */
-
-#if 0
-ui_node *UI_AddNodeVer3(ui_node *Parent, u32 Flags, u32 StyleTemplateIndex, char *String, u32 InteractionType = 0)
-{
-    if(!Parent){InvalidCodePath;}
-    if(!String){InvalidCodePath;}
-    /* 
-v2 P = {};
-v2 Dim = {};
-*/
-    rectangle2 Rect = {};
-    Rect.Min = Parent->Rect.Min;
-    //P = Parent->P;
-    
-    ui_style_template Template = UI_State->StyleTemplateArray[StyleTemplateIndex];
-    ui_size Size[Axis2_Count] = {};
-    Size[Axis2_X] = Template.Size[Axis2_X];
-    Size[Axis2_Y] = Template.Size[Axis2_Y];
-    
-    // NOTE(ezexff): calc pos after prev node
-    if(Parent->Last)
-    {
-        if(Parent != UI_State->Root) // TODO(ezexff): tmp
-        {
-            if(!(Flags & UI_NodeFlag_Floating))
-            {
-                if(Parent->LayoutAxis == Axis2_X)
-                {
-                    //P.x = Parent->Last->P.x + Parent->Last->Dim.x + Parent->Spacing;
-                    //r32 ParentPX = Parent->Last->Rect.Min.x;
-                    //r32 ParentDimX = Parent->Last->Rect.Max.x - Parent->Last->Rect.Min.x;
-                    //Rect.Min.x = ParentPX + ParentDimX + Parent->Spacing;
-                    Rect.Min.x = Parent->Last->Rect.Max.x;
-                    if(UI_State->OpenWindowBody)
-                    {
-                        Rect.Min.x -= UI_State->OpenWindowBody->ViewP.x;
-                    }
-                }
-                else if(Parent->LayoutAxis == Axis2_Y)
-                {
-                    //P.y = Parent->Last->P.y + Parent->Last->Dim.y + Parent->Spacing;
-                    //r32 PrevNodeP = Parent->Last->Rect.Min.y;
-                    //r32 PrevNodeHeight = Parent->Last->Rect.Max.y - Parent->Last->Rect.Min.y;
-                    //Rect.Min.y = PrevNodeP + PrevNodeHeight + Parent->Spacing;
-                    Rect.Min.y = Parent->Last->Rect.Max.y;
-                    if(UI_State->OpenWindowBody)
-                    {
-                        Rect.Min.y -= UI_State->OpenWindowBody->ViewP.y;
-                    }
-                }
-            }
-        }
-    }
-    
-    // NOTE(ezexff): calc size
-    v2 LabelSize = UI_CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, String);
-    
-    for(u32 Index = 0;
-        Index < Axis2_Count;
-        ++Index)
-    {
-        switch(Size[Index].Type)
-        {
-            case UI_SizeKind_Pixels:
-            {
-                //Dim.E[Index] = Size[Index].Value;
-                Rect.Max.E[Index] = Rect.Min.E[Index] + Size[Index].Value;
-            } break;
-            
-            case UI_SizeKind_TextContent:
-            {
-                //Dim.E[Index] = LabelSize.E[Index];
-                Rect.Max.E[Index] = Rect.Min.E[Index] + LabelSize.E[Index];
-            } break;
-            
-            case UI_SizeKind_ParentPercent:
-            {
-                //Dim.E[Index] = Size[Index].Value * (Parent->Rect.Max.E[Index] - Parent->Rect.Min.E[Index]);
-                Rect.Max.E[Index] = Rect.Min.E[Index] + Size[Index].Value * (Parent->Rect.Max.E[Index] - Parent->Rect.Min.E[Index]);
-            } break;
-            
-            case UI_SizeKind_ChildrenSum:
-            {
-                // TODO(ezexff): Need test
-                //Parent->Rect.Max.E[Index] += Size[Index].Value;
-            } break;
-            
-            InvalidDefaultCase;
-        }
-        
-        if((Parent->Size[Index].Type == UI_SizeKind_ChildrenSum) && !(Flags & UI_NodeFlag_Floating))
-        {
-            //Parent->Rect.Max.E[Index] += Dim.E[Index];
-            Parent->Rect.Max.E[Index] += Rect.Max.E[Index] - Rect.Min.E[Index];
-        }
-    }
-    
-    // NOTE(ezexff): view rect in window
-    ui_node *Child = 0;
-    if((Parent == UI_State->Root) || UI_State->OpenWindow)
-    {
-        /* 
-            if(P.y == Parent->P.y){P.y += Parent->Padding;}
-            if(P.x == Parent->P.x){P.x += Parent->Padding;}
-     */
-        
-        /* 
-        // NOTE(ezexff): padding
-        if(Rect.Min.x == Parent->Rect.Min.x)
-        {
-            Rect.Min.x += Parent->Padding;
-            Rect.Max.x += Parent->Padding;
-        }
-        
-        if(Rect.Min.y == Parent->Rect.Min.y)
-        {
-            Rect.Min.y += Parent->Padding;
-            Rect.Max.y += Parent->Padding;
-        }
- */
-        
-        //Rect = {P, P + Dim};
-        
-        v2 StartTextOffset = {};
-        rectangle2 ViewRect = {};
-        
-        if(UI_State->OpenWindow)
-        {
-            ViewRect = UI_State->OpenWindow->Rect;
-        }
-        
-        renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
-        if(UI_State->OpenWindowBody && !(Flags & UI_NodeFlag_Floating))
-        {
-            ViewRect = {UI_State->OpenWindowBody->Rect.Min + UI_State->OpenWindowBody->ViewP, UI_State->OpenWindowBody->Rect.Max + UI_State->OpenWindowBody->ViewP};
-            
-            //if(!Parent->Last)
-            {
-                //if((!(Parent->LayoutAxis == Axis2_Invalid)))
-                {
-                    Rect = {Rect.Min + UI_State->OpenWindowBody->ViewP, Rect.Max + UI_State->OpenWindowBody->ViewP};
-                    //PushRectOutlineOnScreen(&Renderer->PushBufferUI, Rect, 1,  V4(0, 1, 0, 1), 101);
-                }
-            }
-            /* 
-            Rect.Min += UI_State->OpenWindowBody->ViewP;
-            Rect.Max += UI_State->OpenWindowBody->ViewP;
-        */
-            
-            PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
-        }
-        
-        //if((Parent == UI_State->Root) || RectanglesIntersect(ViewRect, Rect))
-        {
-            //if(RectanglesIntersect(ViewRect, Rect))
-            {
-                //if(RectanglesIntersect(UI_State->OpenWindow->Rect, Rect))
-                if(UI_State->OpenWindowBody && !(Flags & UI_NodeFlag_Floating))
-                {
-                    // NOTE(ezexff): content size
-                    {
-                        UI_State->OpenWindowBody->MaxChildNodeDim.x = Maximum(UI_State->OpenWindowBody->MaxChildNodeDim.x, Rect.Max.x - Rect.Min.x);
-                        UI_State->OpenWindowBody->MaxChildNodeDim.y = Maximum(UI_State->OpenWindowBody->MaxChildNodeDim.y, Rect.Max.y - Rect.Min.y);
-                        
-                        // NOTE(ezexff): clip x
-                        if(Rect.Min.x < UI_State->OpenWindow->Rect.Min.x)
-                        {
-                            StartTextOffset.x = UI_State->OpenWindow->Rect.Min.x - Rect.Min.x;
-                            Rect.Min.x = UI_State->OpenWindow->Rect.Min.x;
-                        }
-                        if(Rect.Max.x > UI_State->OpenWindow->Rect.Max.x){Rect.Max.x = UI_State->OpenWindow->Rect.Max.x;}
-                        if(Rect.Max.x < UI_State->OpenWindow->Rect.Min.x){Rect.Max.x = UI_State->OpenWindow->Rect.Min.x;}
-                        if(Rect.Min.x > UI_State->OpenWindow->Rect.Max.x){Rect.Min.x = UI_State->OpenWindow->Rect.Max.x;}
-                        
-                        // NOTE(ezexff): clip y
-                        if(Rect.Min.y < UI_State->OpenWindowBody->Rect.Min.y)
-                        {
-                            StartTextOffset.y = UI_State->OpenWindowBody->Rect.Min.y - Rect.Min.y;
-                            Rect.Min.y = UI_State->OpenWindowBody->Rect.Min.y;
-                        }
-                        if(Rect.Max.y > UI_State->OpenWindowBody->Rect.Max.y){Rect.Max.y = UI_State->OpenWindowBody->Rect.Max.y;}
-                        if(Rect.Max.y < UI_State->OpenWindowBody->Rect.Min.y){Rect.Max.y = UI_State->OpenWindowBody->Rect.Min.y;}
-                        if(Rect.Min.y > UI_State->OpenWindowBody->Rect.Max.y){Rect.Min.y = UI_State->OpenWindowBody->Rect.Max.y;}
-                    }
-                }
-            }
-            
-            // NOTE(ezexff): get or create cached node
-            ui_node *CachedNode = UI_GetCachedNode(String);
-            if(!CachedNode)
-            {
-                CachedNode = PushStruct(UI_State->ConstArena, ui_node);
-                if(!UI_State->CacheFirst)
-                {
-                    UI_State->CacheFirst = CachedNode;
-                }
-                else
-                {
-                    CachedNode->CachePrev = UI_State->CacheLast;
-                    UI_State->CacheLast->CacheNext = CachedNode; 
-                }
-                
-                UI_State->CacheLast = CachedNode;
-                
-                CachedNode->Key = UI_GetHashValue(String);
-                CachedNode->Flags = Flags;
-                //CachedNode->P = P;
-                //CachedNode->Dim = Dim;
-                CachedNode->StartTextOffset = StartTextOffset;
-                CachedNode->Rect = Rect;
-            }
-            
-            // NOTE(ezexff): static offset
-            Rect.Min += CachedNode->OffsetP;
-            Rect.Max += CachedNode->OffsetP;
-            Rect.Max += CachedNode->OffsetSize;
-            
-            // NOTE(ezexff): init per frame node
-            Child = PushStruct(UI_State->TranArena, ui_node);
-            Child->LayoutAxis = Axis2_Invalid;
-            Child->String = PushString(UI_State->TranArena, String);
-            Child->Key = CachedNode->Key;
-            //Child->P = P;
-            //Child->Dim = Dim;
-            Child->Rect = Rect;
-            Child->StartTextOffset = StartTextOffset;
-            Child->Parent = Parent;
-            Child->Size[Axis2_X] = Size[Axis2_X];
-            Child->Size[Axis2_Y] = Size[Axis2_Y];
-            Child->ViewP = CachedNode->ViewP;
-            if(!Parent->First)
-            {
-                Parent->First = Child;
-            }
-            else
-            {
-                Child->Prev = Parent->Last;
-                Parent->Last->Next = Child;
-            }
-            Parent->Last = Child;
-            Parent->ChildCount++;
-            
-            UI_State->NodeCount++;
-        }
-    }
-    
-    return(Child);
-}
-#endif
-
-#if 0
-ui_node *UI_AddNodeVer2(ui_node *Parent, u32 Flags, char *String)
-{
-    if(!Parent){InvalidCodePath;}
-    rectangle2 Rect = {};
-    Rect = {Parent->Rect.Min, Parent->Rect.Min};
-    
-    // NOTE(ezexff): get data from template
-    //r32 Padding = UI_GetSelectedStyleTemplate().Padding;
-    ui_size Size[Axis2_Count] = {};
-    Size[Axis2_X] = UI_GetSelectedStyleTemplate().Size[Axis2_X];
-    Size[Axis2_Y] = UI_GetSelectedStyleTemplate().Size[Axis2_Y];
-    v2 OffsetP = UI_GetSelectedStyleTemplate().OffsetP;
-    
-    // NOTE(ezexff): calc pos after prev node
-    if(Parent->Last)
-    {
-        if(Parent != UI_State->Root) // TODO(ezexff): tmp
-        {
-            if(!(Flags & UI_NodeFlag_Floating))
-            {
-                if(Parent->LayoutAxis == Axis2_X)
-                {
-                    Rect.Min = V2(Parent->Last->Rect.Max.x + Parent->Spacing, Parent->Rect.Min.y);
-                }
-                else if(Parent->LayoutAxis == Axis2_Y)
-                {
-                    Rect.Min = V2(Parent->Rect.Min.x, Parent->Last->Rect.Max.y + Parent->Spacing);
-                }
-                
-                Rect.Max = Rect.Min;
-            }
-        }
-    }
-    
-    // NOTE(ezexff): calc size
-    v2 LabelSize = UI_CalcTextSizeInPixels(UI_State->Frame, UI_State->Assets, UI_State->FontID, String);
-    
-    for(u32 Index = 0;
-        Index < Axis2_Count;
-        ++Index)
-    {
-        switch(Size[Index].Type)
-        {
-            case UI_SizeKind_Pixels:
-            {
-                Rect.Max.E[Index] += Size[Index].Value;
-            } break;
-            
-            case UI_SizeKind_TextContent:
-            {
-                Size[Index].Value = LabelSize.E[Index];
-                Rect.Max.E[Index] += Size[Index].Value;
-            } break;
-            
-            case UI_SizeKind_ParentPercent:
-            {
-                // TODO(ezexff): Mb sub size prev nodes?
-                Rect.Max.E[Index] += Size[Index].Value * (Parent->Rect.Max.E[Index] - Parent->Rect.Min.E[Index]);
-            } break;
-            
-            case UI_SizeKind_ChildrenSum:
-            {
-                // TODO(ezexff): Need test
-                //Parent->Rect.Max.E[Index] += Size[Index].Value;
-            } break;
-            
-            InvalidDefaultCase;
-        }
-        
-        if(Parent->Size[Index].Type == UI_SizeKind_ChildrenSum)
-        {
-            Parent->Rect.Max.E[Index] += Size[Index].Value;
-        }
-    }
-    
-    // TODO(ezexff): tmp test
-    //|| StringsAreEqual(String, "EmptySpace")
-    /* 
-    if(StringsAreEqual(String, "ResizeButton"))
-    {
-        Rect = {Parent->Rect.Min, Parent->Rect.Min};
-    }
- */
-    if(!IsInRectangle(Parent->Rect, Rect.Min))
-    {
-        return(0);
-        //InvalidCodePath;
-    }
-    
-    // NOTE(ezexff): padding
-    if(Rect.Min.x == Parent->Rect.Min.x)
-    {
-        Rect.Min.x += Parent->Padding;
-        Rect.Max.x += Parent->Padding;
-    }
-    
-    if(Rect.Min.y == Parent->Rect.Min.y)
-    {
-        Rect.Min.y += Parent->Padding;
-        Rect.Max.y += Parent->Padding;
-    }
-    
-    // NOTE(ezexff): clip
-    v2 ParentRectMaxWidthPadding = Parent->Rect.Max;
-    ParentRectMaxWidthPadding.x -= Parent->Padding;
-    ParentRectMaxWidthPadding.y -= Parent->Padding;
-    if(Rect.Max.x > ParentRectMaxWidthPadding.x)
-    {
-        Rect.Max.x = ParentRectMaxWidthPadding.x;
-    }
-    if(Rect.Max.y > ParentRectMaxWidthPadding.y)
-    {
-        Rect.Max.y = ParentRectMaxWidthPadding.y;
-    }
-    
-    // NOTE(ezexff): get or create cached node
-    ui_node *CachedNode = UI_GetCachedNode(String);
-    if(!CachedNode)
-    {
-        CachedNode = PushStruct(UI_State->ConstArena, ui_node);
-        if(!UI_State->CacheFirst)
-        {
-            UI_State->CacheFirst = CachedNode;
-        }
-        else
-        {
-            CachedNode->CachePrev = UI_State->CacheLast;
-            UI_State->CacheLast->CacheNext = CachedNode; 
-        }
-        
-        UI_State->CacheLast = CachedNode;
-        
-        CachedNode->Key = UI_GetHashValue(String);
-        CachedNode->Flags = Flags;
-        CachedNode->OffsetP = OffsetP;
-    }
-    
-    // NOTE(ezexff): static offset
-    Rect.Min += CachedNode->OffsetP;
-    Rect.Max += CachedNode->OffsetP;
-    Rect.Max += CachedNode->OffsetSize;
-    
-    // NOTE(ezexff): init per frame node
-    ui_node *Child = PushStruct(UI_State->TranArena, ui_node);
-    Child->String = PushString(UI_State->TranArena, String);
-    Child->Rect = Rect;
-    Child->Parent = Parent;
-    Child->Size[Axis2_X] = Size[Axis2_X];
-    Child->Size[Axis2_Y] = Size[Axis2_Y];
-    if(!Parent->First)
-    {
-        Parent->First = Child;
-    }
-    else
-    {
-        Child->Prev = Parent->Last;
-        Parent->Last->Next = Child;
-    }
-    Parent->Last = Child;
-    Parent->ChildCount++;
-    
-#if 0    
-    ui_node *Child = PushStruct(UI_State->TranArena, ui_node);
-    Child->Padding = Padding;
-    Child->Size[Axis2_X] = SizeX;
-    Child->Size[Axis2_Y] = SizeY;
-    
-    Child->String = PushString(UI_State->TranArena, String);
-    
-    Child->Rect.Min = Parent->Rect.Min;
-    Child->Rect.Max = Parent->Rect.Min;
-    v2 PrevRectMax = {};
-    
-    // NOTE(ezexff): add to node per frame links
-    Child->Parent = Parent;
-    if(!Parent->First)
-    {
-        Parent->First = Child;
-    }
-    else
-    {
-        Child->Prev = Parent->Last;
-        Parent->Last->Next = Child;
-        
-        // NOTE(ezexff): 
-        if(Parent != UI_State->Root)
-        {
-            if(Parent->LayoutAxis == Axis2_X)
-            {
-                PrevRectMax.x = Child->Prev->Rect.Max.x + Parent->Spacing;
-                PrevRectMax.y = Parent->Rect.Min.y;
-            }
-            else if(Parent->LayoutAxis == Axis2_Y)
-            {
-                PrevRectMax.x = Parent->Rect.Min.x;
-                PrevRectMax.y = Child->Prev->Rect.Max.y + Parent->Spacing;
-            }
-        }
-        
-        Child->Rect.Min = PrevRectMax;
-        Child->Rect.Max = PrevRectMax;
-        
-        // TODO(ezexff): clip?
-        if(Child->Rect.Max.x > Parent->Rect.Max.x)
-        {
-            InvalidCodePath;
-        }
-        if(Child->Rect.Max.y > Parent->Rect.Max.y)
-        {
-            InvalidCodePath;
-        }
-    }
-    
-    Parent->Last = Child;
-    
-    /*     
-        Child->Rect.Min = Parent->Rect.Min;
-        Child->Rect.Max = Parent->Rect.Min;
-             */
-    
-    // NOTE(ezexff): padding min
-    /* 
-    Child->Rect.Min.x += Parent->Padding.left;
-    Child->Rect.Min.y += Parent->Padding.bottom;
- */
-    
-    // NOTE(ezexff): calc size
-    for(u32 Index = 0;
-        Index < Axis2_Count;
-        ++Index)
-    {
-        switch(Child->Size[Index].Type)
-        {
-            case UI_SizeKind_Pixels:
-            {
-                Child->Rect.Max.E[Index] += Child->Size[Index].Value;
-            } break;
-            
-            case UI_SizeKind_TextContent:
-            {
-                Child->Size[Index].Value = LabelSize.E[Index];
-                Child->Rect.Max.E[Index] += Child->Size[Index].Value;
-                //Child->Rect.Max.E[Index] = Child->Rect.Min.E[Index] + Child->Size[Index].Value;
-            } break;
-            
-            case UI_SizeKind_ParentPercent:
-            {
-                // TODO(ezexff): Mb sub size prev nodes?
-                //Child->Rect.Min.E[Index] = PrevRectMax.E[Index];
-                Child->Rect.Max.E[Index] += Child->Size[Index].Value * (Parent->Rect.Max.E[Index] - Parent->Rect.Min.E[Index]);
-                //PrevRectMax.E[Index] = 0;
-            } break;
-            
-            case UI_SizeKind_ChildrenSum:
-            {
-                // TODO(ezexff): Need test
-                Parent->Rect.Max.E[Index] += Child->Size[Index].Value;
-            } break;
-            
-            InvalidDefaultCase;
-        }
-    }
-    
-    // NOTE(ezexff): padding max
-    /* 
-    Child->Rect.Max.x -= Parent->Padding.right;
-    Child->Rect.Max.y -= Parent->Padding.top;
- */
-    
-    // TODO(ezexff): Is spacing advanced twice?
-    //Child->Rect.Min += PrevRectMax;
-    //Child->Rect.Max += PrevRectMax;
-    
-    if(!IsInRectangle(Parent->Rect, Child->Rect.Min) || !IsInRectangle(Parent->Rect, Child->Rect.Max))
-    {
-        if((Parent->Rect.Min.x != Child->Rect.Min.x) && (Parent->Rect.Min.y != Child->Rect.Min.y) &&
-           (Parent->Rect.Max.x != Child->Rect.Max.x) && (Parent->Rect.Max.y != Child->Rect.Max.y))
-        {
-            // Child outside parent space
-            InvalidCodePath;
-        }
-    }
-#endif
-    
-    return(Child);
-}
-
-#endif
-
 u32 UI_GetNodeState(ui_node *Node)
 {
     u32 Result = Node->Cache->Flags;
     return(Result);
 }
-
-#if 0
-u32 UI_GetNodeState(ui_node *Node)
-{
-    //if(!Node){InvalidCodePath;}
-    if(!Node)
-    {
-        return(0);
-    }
-    
-    ui_node *CachedNode = UI_GetCachedNode(Node->String);
-    if(!CachedNode){InvalidCodePath;}
-    
-#if 0    
-    ui_style_template *Template = &UI_State->StyleTemplateArray[UI_State->SelectedTemplateIndex];
-    
-    if(CachedNode->Flags & UI_NodeFlag_DrawBackground)
-    {
-        CachedNode->BackgroundColor = Template->BackgroundColor;
-    }
-    
-    rectangle2 NodeRect = Node->Rect;
-    NodeRect.Max.y = UI_State->Frame->Dim.y - Node->Rect.Min.y;
-    NodeRect.Min.y = UI_State->Frame->Dim.y - Node->Rect.Max.y;
-    if(CachedNode->Flags & UI_NodeFlag_Clickable)
-    {
-        v2 MouseP = V2((r32)UI_State->Input->MouseP.x, (r32)UI_State->Input->MouseP.y);
-        if(IsInRectangle(NodeRect, MouseP))
-        {
-            // NOTE(ezexff): start hover
-            CachedNode->Flags |= UI_NodeFlag_Hovering;
-            CachedNode->BackgroundColor = Template->HoveringColor;
-            
-            // NOTE(ezexff): start dragging
-            if(CachedNode->Flags & UI_NodeFlag_Pressed)
-            {
-                if(IsDown(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
-                {
-                    CachedNode->Flags |= UI_NodeFlag_Dragging;
-                }
-            }
-            
-            // NOTE(ezexff): pressed
-            if(WasPressed(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
-            {
-                CachedNode->Flags |= UI_NodeFlag_Pressed;
-            }
-            else
-            {
-                CachedNode->Flags &= ~UI_NodeFlag_Pressed;
-            }
-        }
-        else
-        {
-            // NOTE(ezexff): end hover
-            CachedNode->Flags &= ~UI_NodeFlag_Hovering;
-            
-            // NOTE(ezexff): while dragging
-            if(CachedNode->Flags & UI_NodeFlag_Dragging)
-            {
-                CachedNode->BackgroundColor = Template->HoveringColor;
-            }
-        }
-        
-        // NOTE(ezexff): end dragging
-        if(!IsDown(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
-        {
-            CachedNode->Flags &= ~UI_NodeFlag_Dragging;
-        }
-        
-        /* 
-        game_button_state PrevFrameMouseButtonLeftState = UI_State->PressKeyHistory[PlatformMouseButton_Left][0];
-        v2 PrevFrameMouseP = V2((r32)UI_State->MousePHistory[0].x ,(r32)UI_State->MousePHistory[0].y);
-        if(WasPressed(PrevFrameMouseButtonLeftState) && IsInRectangle(NodeRect, PrevFrameMouseP))
-        {
-            if(IsDown(UI_State->Input->MouseButtons[PlatformMouseButton_Left]))
-            {
-                UI_State->TestIsDragging = true;
-            }
-        }
- */
-    }
-    
-#endif
-    Node->Flags = CachedNode->Flags;
-    return(Node->Flags);
-}
-#endif
-
-/* 
-void UI_UseStyleTemplate(u32 Index)
-{
-    Assert(Index < UI_StyleTemplate_Count);
-    UI_State->SelectedTemplateIndex = Index;
-}
- */
 
 internal void
 UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
@@ -1601,7 +897,6 @@ StyleTemplate->Size[Axis2_Y].Value = 10.0f;
         }
     }
 }
-
 
 internal void
 UI_BeginFrame(game_state *GameState, tran_state *TranState, renderer_frame *Frame, game_input *Input)

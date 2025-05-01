@@ -59,7 +59,7 @@ enum axis2
 
 struct ui_node
 {
-    // NOTE(ezexff): persistent vars
+    //~ NOTE(ezexff): persistent vars
     u32 Key;
     ui_node *Cache;
     ui_node *CacheNext;
@@ -76,9 +76,10 @@ struct ui_node
     ui_node *VerticalScrollbar;
     ui_node *HorizontalScrollbar;
     ui_node *ResizeButton;
-    v2 MaxContentDim;
+    v2 MaxNodeDim;
+    //v2 ContentDimSum;;
     
-    // NOTE(ezexff): per-build vars
+    //~ NOTE(ezexff): per-build vars
     ui_node *First;
     ui_node *Last;
     ui_node *Next;
