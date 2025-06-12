@@ -121,7 +121,6 @@ UI_BeginWindow(char *ID, b32 *ExitButtonValue)
         }
     }
     
-    //if(WindowState & UI_NodeFlag_Expanded)
     if(Window->Cache->Flags & UI_NodeFlag_Expanded)
     {
         ui_node *Body = UI_AddNode(Window,
@@ -141,7 +140,6 @@ UI_BeginWindow(char *ID, b32 *ExitButtonValue)
             Window->Cache->P.y -= UI_State->Input->dMouseP.y;
         }
     }
-    
     
     if(UI_IsDragging(WindowState) || UI_IsDragging(TitleState))
     {
@@ -165,7 +163,7 @@ UI_EndWindow()
     {
         v2 ResizeButtonDim = V2(10.0f, 10.0f); // TODO(ezexff): replace with getting dim from node
         v2 BodyDim = GetDim(Body->Rect);
-        v2 ContentDim = Body->MaxNodeDim;
+        v2 ContentDim = Body->ContentDim;
         
         // NOTE(ezexff): horizontal scroll bar
         if(ContentDim.x > BodyDim.x)
@@ -197,6 +195,7 @@ UI_EndWindow()
                 r32 MinViewP = (-1) * (ContentDim.x - BodyDim.x);
                 r32 MaxViewP = 0.0f;
                 r32 ScrollMultiplier = (-1) * (MinViewP / MaxCursorP);
+                //Log->Add("HScrollBar = %.2f %.2f\n", MinViewP, MaxViewP);
                 
                 r32 MinDragHSBCursorP = Body->Rect.Min.x + HScrollBarCursor->Cache->PressMouseP.x;
                 r32 MaxDragHSBCursorP = Body->Rect.Max.x - CursorWidth + HScrollBarCursor->Cache->PressMouseP.x - ResizeButtonDim.x;
@@ -261,17 +260,19 @@ UI_EndWindow()
                 r32 MinViewP = (-1) * (ContentDim.y - BodyDim.y);
                 r32 MaxViewP = 0.0f;
                 r32 ScrollMultiplier = (-1) * (MinViewP / MaxCursorP);
+                //Log->Add("VScrollBar = %.2f %.2f\n", MinViewP, MaxViewP);
                 
                 r32 MinDragVSBCursorP = Body->Rect.Min.y + VScrollBarCursor->Cache->PressMouseP.y;
                 r32 MaxDragVSBCursorP = Body->Rect.Max.y - CursorHeight + VScrollBarCursor->Cache->PressMouseP.y - ResizeButtonDim.y;
                 r32 MousePY = UI_State->Frame->Dim.y - UI_State->Input->MouseP.y;
+                r32 MouseDeltaY = (-1) * UI_State->Input->dMouseP.y;
                 if(MousePY < MinDragVSBCursorP)
                 {
                     // NOTE(ezexff): move scrollbar cursor
                     VScrollBarCursor->Cache->P.y = MinCursorP;
                     
                     // NOTE(ezexff): move body view pos
-                    //Body->Cache->ViewP.y = MaxViewP;
+                    Body->Cache->ViewP.y = MaxViewP;
                 }
                 else if(MousePY > MaxDragVSBCursorP)
                 {
@@ -279,7 +280,7 @@ UI_EndWindow()
                     VScrollBarCursor->Cache->P.y = MaxCursorP;
                     
                     // NOTE(ezexff): move body view pos
-                    //Body->Cache->ViewP.y = MinViewP;
+                    Body->Cache->ViewP.y = MinViewP;
                 }
                 else
                 {
@@ -288,12 +289,23 @@ UI_EndWindow()
                     VScrollBarCursor->Cache->P.y = Clamp(MinCursorP, VScrollBarCursor->Cache->P.y, MaxCursorP);
                     
                     // NOTE(ezexff): move body view pos
-                    //Body->Cache->ViewP.y -= (r32)RoundR32ToS32(ScrollMultiplier * MousePY);
-                    //Body->Cache->ViewP.y = Clamp(MinViewP, Body->Cache->ViewP.y, MaxViewP);
+                    Body->Cache->ViewP.y -= (r32)RoundR32ToS32(ScrollMultiplier * MouseDeltaY);
+                    Body->Cache->ViewP.y = Clamp(MinViewP, Body->Cache->ViewP.y, MaxViewP);
                 }
             }
             
             VScrollBarCursor->Cache->Size.y = CursorHeight;
+            
+            /* 
+                        if(!UI_IsDragging(VScrollBarCursorState))
+                        {
+                            if(UI_State->Input->dMouseP.z != 0)
+                            {
+                                // TODO(ezexff): 
+                                Log->Add("implement scrolling in window by mouse scroll\n");
+                            }
+                        }
+             */
         }
     }
 }

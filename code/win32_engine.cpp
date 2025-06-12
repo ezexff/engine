@@ -1273,6 +1273,18 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                     ImGui::Checkbox("Debug collation window", &ImGuiHandle->ShowDebugCollationWindow);
                                     ImGui::Checkbox("Log window", &ImGuiHandle->ShowLogWindow);
                                     
+                                    ImGui::SeparatorText("HighPriorityQueue");
+                                    ImGui::BulletText("CompletionGoal = %lu", GameMemory.HighPriorityQueue->CompletionGoal);
+                                    ImGui::BulletText("CompletionCount = %lu", GameMemory.HighPriorityQueue->CompletionCount);
+                                    ImGui::BulletText("NextEntryToWrite = %lu", GameMemory.HighPriorityQueue->NextEntryToWrite);
+                                    ImGui::BulletText("NextEntryToRead = %lu", GameMemory.HighPriorityQueue->NextEntryToRead);
+                                    
+                                    ImGui::SeparatorText("LowPriorityQueue");
+                                    ImGui::BulletText("CompletionGoal = %lu", GameMemory.LowPriorityQueue->CompletionGoal);
+                                    ImGui::BulletText("CompletionCount = %lu", GameMemory.LowPriorityQueue->CompletionCount);
+                                    ImGui::BulletText("NextEntryToWrite = %lu", GameMemory.LowPriorityQueue->NextEntryToWrite);
+                                    ImGui::BulletText("NextEntryToRead = %lu", GameMemory.LowPriorityQueue->NextEntryToRead);
+                                    
                                     ImGui::SeparatorText("Settings");
                                     bool IsFullscreen = GlobalIsFullscreen;
                                     if(ImGui::Checkbox("IsFullscreen", &IsFullscreen))

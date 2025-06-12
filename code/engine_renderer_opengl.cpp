@@ -1298,6 +1298,7 @@ OpenglDrawTerrain(renderer *Renderer, u32 ShaderProgramID)
                 
                 Opengl->glBindVertexArray(GroundBuffer->VAO);
                 glDrawElements(GL_TRIANGLES, Terrain->IndexArray.Count, GL_UNSIGNED_INT, 0);
+                //glDrawElements(GL_LINES, Terrain->IndexArray.Count, GL_UNSIGNED_INT, 0);
                 Opengl->glBindVertexArray(0);
             }
         }

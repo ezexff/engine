@@ -76,7 +76,7 @@ struct ui_node
     ui_node *VerticalScrollbar;
     ui_node *HorizontalScrollbar;
     ui_node *ResizeButton;
-    v2 MaxNodeDim;
+    v2 ContentDim;
     //v2 ContentDimSum;;
     
     //~ NOTE(ezexff): per-build vars

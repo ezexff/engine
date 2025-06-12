@@ -195,7 +195,7 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
     Size[Axis2_X] = Template.Size[Axis2_X];
     Size[Axis2_Y] = Template.Size[Axis2_Y];
     
-    // NOTE(ezexff): calc pos after prev node
+    // NOTE(ezexff): calc pos after prev node and only if that node have parent
     if(Parent->Last)
     {
         if(!(Flags & UI_NodeFlag_Floating))
@@ -203,22 +203,22 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
             if(Parent->LayoutAxis == Axis2_X)
             {
                 Rect.Min.x = Parent->Last->Rect.Max.x;
-                if(UI_State->WindowArray.Last->Body)
+                //if(UI_State->WindowArray.Last->Body)
                 {
                     //if(Root->Body->IsOpened)
                     {
-                        Rect.Min.x -= Root->Body->ViewP.x;
+                        //Rect.Min.x -= Root->Body->ViewP.x;
                     }
                 }
             }
             else if(Parent->LayoutAxis == Axis2_Y)
             {
                 Rect.Min.y = Parent->Last->Rect.Max.y;
-                if(UI_State->WindowArray.Last->Body)
+                //if(UI_State->WindowArray.Last->Body)
                 {
                     //if(Root->Body->IsOpened)
                     {
-                        Rect.Min.y -= Root->Body->ViewP.y;
+                        //Rect.Min.y -= Root->Body->ViewP.y;
                     }
                 }
             }
@@ -288,8 +288,8 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
     ui_node *Node = 0;
     //if((Parent == UI_State->Root) || UI_State->OpenWindow)
     {
-#if 1
         v2 StartTextOffset = {};
+#if 1
         renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
         if(Root->Body && !(Flags & UI_NodeFlag_Floating))
         {
@@ -297,8 +297,8 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
             ui_node *BodyCache = Root->Body->Cache;
             
             // NOTE(ezexff): content max
-            Body->MaxNodeDim.x = Maximum(Body->MaxNodeDim.x, Rect.Max.x - Body->Rect.Min.x);
-            Body->MaxNodeDim.y = Maximum(Body->MaxNodeDim.y, Rect.Max.y - Body->Rect.Min.y);
+            //Body->MaxNodeDim.x = Maximum(Body->MaxNodeDim.x, Rect.Max.x - Body->Rect.Min.x);
+            //Body->MaxNodeDim.y = Maximum(Body->MaxNodeDim.y, Rect.Max.y - Body->Rect.Min.y);
             
             /* 
                         if(Parent->LayoutAxis == Axis2_X)
@@ -310,13 +310,45 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
                             Body->ContentDimSum.y += Rect.Max.y - Rect.Min.y;
                         }
              */
+            // NOTE(ezexff): calc window content dim
+            v2 NodeDim = GetDim(Rect);
+            v2 BodyDim = GetDim(Body->Rect);
+            if(Parent->LayoutAxis == Axis2_X)
+            {
+                Body->ContentDim.x += NodeDim.x;
+                if(NodeDim.y > BodyDim.y)
+                {
+                    Body->ContentDim.y = NodeDim.y;
+                }
+            }
+            else if(Parent->LayoutAxis == Axis2_Y)
+            {
+                Body->ContentDim.y += NodeDim.y;
+                if(NodeDim.x > BodyDim.x)
+                {
+                    Body->ContentDim.x = NodeDim.x;
+                }
+            }
+            else
+            {
+                InvalidCodePath;
+            }
             
             if(BodyCache)
             {
-                Rect = {Rect.Min + BodyCache->ViewP, Rect.Max + BodyCache->ViewP};
+                // NOTE(ezexff): смещаем первый элемент в зависимости от позиции области просмотра
+                // NOTE(ezexff): позиции последующих звеньев благодаря автовыравниванию будут тоже смещены
+                if(!Parent->First)
+                {
+                    Rect = {Rect.Min + BodyCache->ViewP, Rect.Max + BodyCache->ViewP};
+                }
+                else
+                {
+                    Rect = {Rect.Min, Rect.Max};
+                }
                 
-                rectangle2 ViewRect = {Body->Rect.Min + BodyCache->ViewP, Body->Rect.Max + BodyCache->ViewP};
-                PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
+                //rectangle2 ViewRect = {Body->Rect.Min + BodyCache->ViewP, Body->Rect.Max + BodyCache->ViewP};
+                //PushRectOutlineOnScreen(&Renderer->PushBufferUI, ViewRect, 1,  V4(0, 0, 1, 1), 101);
             }
             else
             {
@@ -324,34 +356,39 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
             }
         }
         
-        if(Root->Body && !(Flags & UI_NodeFlag_Floating))
-        {
-            ui_node *Body = Root->Body;
-            
-            // NOTE(ezexff): clip x
-            if(Rect.Min.x < Body->Rect.Min.x)
-            {
-                StartTextOffset.x = Body->Rect.Min.x - Rect.Min.x;
-                Rect.Min.x = Body->Rect.Min.x;
-            }
-            if(Rect.Max.x > Body->Rect.Max.x){Rect.Max.x = Body->Rect.Max.x;}
-            if(Rect.Max.x < Body->Rect.Min.x){Rect.Max.x = Body->Rect.Min.x;}
-            if(Rect.Min.x > Body->Rect.Max.x){Rect.Min.x = Body->Rect.Max.x;}
-            
-            // NOTE(ezexff): clip y
-            if(Rect.Min.y < Body->Rect.Min.y)
-            {
-                StartTextOffset.y = Body->Rect.Min.y - Rect.Min.y;
-                Rect.Min.y = Body->Rect.Min.y;
-            }
-            if(Rect.Max.y > Body->Rect.Max.y){Rect.Max.y = Body->Rect.Max.y;}
-            if(Rect.Max.y < Body->Rect.Min.y){Rect.Max.y = Body->Rect.Min.y;}
-            if(Rect.Min.y > Body->Rect.Max.y){Rect.Min.y = Body->Rect.Max.y;}
-        }
+        
+        /*         
+                // NOTE(ezexff): Clip nodes that outside window body
+                if(Root->Body && !(Flags & UI_NodeFlag_Floating))
+                {
+                    ui_node *Body = Root->Body;
+                    
+                                // NOTE(ezexff): clip x
+                                if(Rect.Min.x < Body->Rect.Min.x)
+                                {
+                                    StartTextOffset.x = Body->Rect.Min.x - Rect.Min.x;
+                                    Rect.Min.x = Body->Rect.Min.x;
+                                }
+                                if(Rect.Max.x > Body->Rect.Max.x){Rect.Max.x = Body->Rect.Max.x;}
+                                if(Rect.Max.x < Body->Rect.Min.x){Rect.Max.x = Body->Rect.Min.x;}
+                                if(Rect.Min.x > Body->Rect.Max.x){Rect.Min.x = Body->Rect.Max.x;}
+                                
+                                // NOTE(ezexff): clip y
+                                if(Rect.Min.y < Body->Rect.Min.y)
+                                {
+                                    StartTextOffset.y = Body->Rect.Min.y - Rect.Min.y;
+                                    Rect.Min.y = Body->Rect.Min.y;
+                                }
+                                if(Rect.Max.y > Body->Rect.Max.y){Rect.Max.y = Body->Rect.Max.y;}
+                                if(Rect.Max.y < Body->Rect.Min.y){Rect.Max.y = Body->Rect.Min.y;}
+                                if(Rect.Min.y > Body->Rect.Max.y){Rect.Min.y = Body->Rect.Max.y;}
+                }
+         */
 #endif
         
         // NOTE(ezexff): get or create cached node
         u32 Key = UI_GetHashValue(ID);
+        if(Key == 172056332){InvalidCodePath;};
         ui_node *CachedNode = UI_GetCachedNode(Key);
         if(!CachedNode)
         {
@@ -969,8 +1006,10 @@ UI_BeginFrame(game_state *GameState, tran_state *TranState, renderer_frame *Fram
 }
 
 internal void
-UI_DrawNodeTree(ui_node *Node)
+UI_ProcessNodeTree(ui_node *Node)
 {
+    if(!Node->Key){InvalidCodePath;}
+    
     // TODO(ezexff): Test interaction
     rectangle2 NodeRect = Node->Rect;
     NodeRect.Max.y = UI_State->Frame->Dim.y - Node->Rect.Min.y;
@@ -985,7 +1024,6 @@ UI_DrawNodeTree(ui_node *Node)
         
         if(Node->Cache->Flags & UI_NodeFlag_Clickable)
         {
-            if(!Node->Key){InvalidCodePath;}
             UI_State->NextHotInteraction = Node;
         }
         else
@@ -1049,7 +1087,7 @@ UI_DrawNodeTree(ui_node *Node)
             ChildNode != 0;
             ChildNode = ChildNode->Next)
         {
-            UI_DrawNodeTree(ChildNode);
+            UI_ProcessNodeTree(ChildNode);
             /* 
 if(Node->ChildLayoutAxis == Axis2_Y)
 {
@@ -1133,7 +1171,7 @@ UI_EndFrame()
         ++Index)
     {
         ui_node_sort_entry *ArrayLink = SortWindowArray + Index;
-        UI_DrawNodeTree(ArrayLink->Node);
+        UI_ProcessNodeTree(ArrayLink->Node);
     }
     
     UI_Interact();

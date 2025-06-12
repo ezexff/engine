@@ -1106,7 +1106,7 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
         }
     }
     
-#if 0    
+#if 0
     if(ImGuiHandle->ShowImGuiWindows)
     {
         ImGui::Begin("Test", &ImGuiHandle->ShowDebugCollationWindow);

@@ -28,8 +28,8 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         {
             UI_BeginWindow("DebugTest", &IsWindowVisible);
             
-            for(u32 Index = 0;
-                Index < 20;
+            for(u32 Index = 1;
+                Index <= 30;
                 ++Index)
             {
                 UI_Label("Text%d", Index);
