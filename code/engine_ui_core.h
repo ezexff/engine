@@ -103,7 +103,7 @@ struct ui_node
         v2 P;
         v2 Dim;
      */
-    v2 StartTextOffset;
+    //v2 StartTextOffset;
     //v2 MaxChildNodeDim;
     //ui_size Size[Axis2_Count];
     rectangle2 Rect; // calculated rect in screen space coordiantes

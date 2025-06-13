@@ -424,7 +424,7 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
         Node->LayoutAxis = Axis2_Invalid;
         Node->Key = CachedNode->Key;
         Node->Rect = Rect;
-        Node->StartTextOffset = StartTextOffset;
+        //Node->StartTextOffset = StartTextOffset;
         Node->Parent = Parent;
         Node->Root = Root;
         Node->ID = PushString(UI_State->TranArena, ID);
@@ -573,7 +573,7 @@ UI_Interact()
 }
 
 internal void
-UI_DrawLabel(ui_node *Node)
+UI_DrawLabel(ui_node *Node, rectangle2 ClippedRect)
 {
     game_assets *Assets = UI_State->Assets;
     renderer_frame *Frame = UI_State->Frame;
@@ -620,16 +620,68 @@ UI_DrawLabel(ui_node *Node)
             {
                 bitmap_id BitmapID = GetBitmapForGlyph(Assets, FontInfo, Font, CodePoint);
                 eab_bitmap *GlyphInfo = GetBitmapInfo(Assets, BitmapID);
+#if 1
+                v2 GlyphDim = V2((r32)GlyphInfo->Dim[0], (r32)GlyphInfo->Dim[1]);
+                v2 GlyphPos = V2((r32)(AtX + XOffset), (r32)(AtY + YOffset));
+                rectangle2 Rect = {GlyphPos, GlyphPos + GlyphDim};
                 
+                if(RectanglesIntersect(Rect, ClippedRect))
+                {
+                    r32 MinClipX = 0;
+                    r32 MinClipUVX = 0;
+                    if(Rect.Min.x < ClippedRect.Min.x)
+                    {
+                        MinClipX = ClippedRect.Min.x - Rect.Min.x;
+                        MinClipUVX = MinClipX / GlyphDim.x;
+                    }
+                    r32 MaxClipX = 0;
+                    r32 MaxClipUVX = 1;
+                    if(Rect.Max.x > ClippedRect.Max.x)
+                    {
+                        MaxClipX = Rect.Max.x - ClippedRect.Max.x;
+                        MaxClipUVX = 1 - MaxClipX / GlyphDim.x;
+                    }
+                    
+                    Rect.Min.x += MinClipX;
+                    Rect.Max.x -= MaxClipX;
+                    
+                    // NOTE(ezexff): clip y
+                    r32 MinClipY = 0;
+                    r32 MinClipUVY = 0;
+                    if(Rect.Min.y < ClippedRect.Min.y)
+                    {
+                        MinClipY = ClippedRect.Min.y - Rect.Min.y;
+                        MinClipUVY = MinClipY / GlyphDim.y;
+                    }
+                    r32 MaxClipY = 0;
+                    r32 MaxClipUVY = 1;
+                    if(Rect.Max.y > ClippedRect.Max.y)
+                    {
+                        MaxClipY = Rect.Max.y - ClippedRect.Max.y;
+                        MaxClipUVY = 1 - MaxClipY / GlyphDim.y;
+                    }
+                    
+                    Rect.Min.y += MinClipY;
+                    Rect.Max.y -= MaxClipY;
+                    
+                    r32 TexCoords[8] = 
+                    {MinClipUVX, MinClipUVY,
+                        MaxClipUVX, MinClipUVY,
+                        MaxClipUVX, MaxClipUVY,
+                        MinClipUVX, MaxClipUVY,
+                    };
+                    
+                    renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
+                    PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Rect, 100, TexCoords);
+                }
+#else
                 v2 GlyphDim;
                 GlyphDim.x = (r32)GlyphInfo->Dim[0];
                 GlyphDim.y = (r32)GlyphInfo->Dim[1];
                 v2 Pos = V2(0, 0);
                 Pos.x = (r32)(AtX + XOffset - Node->StartTextOffset.x);
                 Pos.y = (r32)(AtY + YOffset - Node->StartTextOffset.y);
-                //PushBitmapOnScreen(Frame, Assets, BitmapID, Pos, GlyphDim, 1.0f);
                 rectangle2 Rect = {Pos, Pos + GlyphDim};
-                
                 // NOTE(ezexff): skip glyph that outside node->rect
                 if(((Rect.Max.x > Node->Rect.Min.x) && (Rect.Min.x < Node->Rect.Max.x)) &&
                    ((Rect.Max.y > Node->Rect.Min.y) && (Rect.Min.y < Node->Rect.Max.y)))
@@ -668,7 +720,6 @@ UI_DrawLabel(ui_node *Node)
                     {
                         MaxClipY = Rect.Max.y - Node->Rect.Max.y;
                         MaxClipUVY = 1 - MaxClipY / GlyphDim.y;
-                        //MaxClipUVY = 1 - MaxClipY / (Node->Rect.Max.y - Node->Rect.Min.y);
                     }
                     
                     Rect.Min.y += MinClipY;
@@ -680,18 +731,10 @@ UI_DrawLabel(ui_node *Node)
                         MaxClipUVX, MaxClipUVY,
                         MinClipUVX, MaxClipUVY,
                     };
-                    /* 
-                    r32 TexCoords[8] = 
-                    {MinClipUVX,0,
-                        MaxClipUVX,0,
-                        MaxClipUVX,1,
-                        MinClipUVX,1
-                    };
- */
                     renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
                     PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Rect, 100, TexCoords);
                 }
-                
+#endif
                 /* 
                 v2 TestMax = Max - Node->Rect.Min;
                 if(TestMax.x > RectDim.x)
@@ -703,7 +746,7 @@ UI_DrawLabel(ui_node *Node)
                 {
                     break;
                 }
- */
+    */
             }
             
             s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * CharScale);
@@ -715,7 +758,7 @@ UI_DrawLabel(ui_node *Node)
             {
                 InvalidCodePath;
             }
- */
+    */
         }
     }
 }
@@ -1011,95 +1054,109 @@ UI_ProcessNodeTree(ui_node *Node)
     if(!Node->Key){InvalidCodePath;}
     
     // TODO(ezexff): Test interaction
-    rectangle2 NodeRect = Node->Rect;
-    NodeRect.Max.y = UI_State->Frame->Dim.y - Node->Rect.Min.y;
-    NodeRect.Min.y = UI_State->Frame->Dim.y - Node->Rect.Max.y;
-    v2 MouseP = V2((r32)UI_State->Input->MouseP.x, (r32)UI_State->Input->MouseP.y);
-    if(IsInRectangle(NodeRect, MouseP))
+    rectangle2 ClippedRect = Node->Rect;
     {
-        if(UI_State->Frame->Dim.x == 0 || UI_State->Frame->Dim.y == 0)
+        if(!(Node->Cache->Flags & UI_NodeFlag_Floating))
         {
-            Log->Add("FrameDim = 0\n");
+            if(Node->Root)
+            {
+                if(Node->Root->Body == Node->Parent)
+                {
+                    if(RectanglesIntersect(Node->Rect, Node->Root->Body->Rect))
+                    {
+                        // NOTE(ezexff): clip left
+                        if(Node->Rect.Min.x < Node->Root->Body->Rect.Min.x)
+                        {
+                            ClippedRect.Min.x = Node->Root->Body->Rect.Min.x;
+                        }
+                        
+                        // NOTE(ezexff): clip right
+                        if(Node->Rect.Max.x > Node->Root->Body->Rect.Max.x)
+                        {
+                            ClippedRect.Max.x = Node->Root->Body->Rect.Max.x;
+                        }
+                        
+                        // NOTE(ezexff): clip top
+                        if(Node->Rect.Min.y < Node->Root->Body->Rect.Min.y)
+                        {
+                            ClippedRect.Min.y = Node->Root->Body->Rect.Min.y;
+                        }
+                        
+                        // NOTE(ezexff): clip bot
+                        if(Node->Rect.Max.y > Node->Root->Body->Rect.Max.y)
+                        {
+                            ClippedRect.Max.y = Node->Root->Body->Rect.Max.y;
+                        }
+                    }
+                    else
+                    {
+                        // NOTE(ezexff): skip node that outside body
+                        return;
+                    }
+                }
+            }
         }
         
-        if(Node->Cache->Flags & UI_NodeFlag_Clickable)
+        rectangle2 TestRect = ClippedRect;
+        TestRect.Max.y = UI_State->Frame->Dim.y - ClippedRect.Min.y;
+        TestRect.Min.y = UI_State->Frame->Dim.y - ClippedRect.Max.y;
+        /* 
+                TestRect.Max.y = UI_State->Frame->Dim.y - Node->Rect.Min.y;
+                TestRect.Min.y = UI_State->Frame->Dim.y - Node->Rect.Max.y;
+         */
+        v2 MouseP = V2((r32)UI_State->Input->MouseP.x, (r32)UI_State->Input->MouseP.y);
+        if(IsInRectangle(TestRect, MouseP))
         {
-            UI_State->NextHotInteraction = Node;
-        }
-        else
-        {
-            //UI_State->NextHotInteraction = 0;
+            if(UI_State->Frame->Dim.x == 0 || UI_State->Frame->Dim.y == 0)
+            {
+                Log->Add("FrameDim = 0\n");
+            }
+            
+            if(Node->Cache->Flags & UI_NodeFlag_Clickable)
+            {
+                UI_State->NextHotInteraction = Node;
+            }
         }
         
         //if(Node != UI_State->Root)
-        /* 
         {
-            if(Node->Cache->Flags & UI_NodeFlag_Pressed)
+            renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
+            if(Node->Cache->Flags & UI_NodeFlag_DrawBackground)
             {
-                // TODO(ezexff): mb move in other place?
-                Node->Cache->LastFrameTouchedIndex = UI_State->FrameCount;
-                Log->Add("%s %llu\n", Node->String, Node->Cache->LastFrameTouchedIndex);
+                if(Node->Cache->Flags & UI_NodeFlag_Hovering)
+                {
+                    PushRectOnScreen(&Renderer->PushBufferUI, ClippedRect.Min, ClippedRect.Max, V4(0, 0, 1, 1), 100);
+                }
+                else
+                {
+                    PushRectOnScreen(&Renderer->PushBufferUI, ClippedRect.Min, ClippedRect.Max, Node->Cache->BackgroundColor, 100);
+                }
             }
-        }
- */
-    }
-    
-    //if(Node != UI_State->Root)
-    {
-        renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
-        if(Node->Cache->Flags & UI_NodeFlag_DrawBackground)
-        {
-            //PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, Node->Cache->BackgroundColor, 100);
-            if(Node->Cache->Flags & UI_NodeFlag_Hovering)
+            
+            if(Node->Cache->Flags & UI_NodeFlag_DrawText)
             {
-                PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, V4(0, 0, 1, 1), 100);
+                UI_DrawLabel(Node, ClippedRect);
             }
-            else
+            
+            if(Node->Cache->Flags & UI_NodeFlag_DrawBorder)
             {
-                //PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, V4(0, 0, 0, 1), 100);
-                PushRectOnScreen(&Renderer->PushBufferUI, Node->Rect.Min, Node->Rect.Max, Node->Cache->BackgroundColor, 100);
+                PushRectOutlineOnScreen(&Renderer->PushBufferUI, ClippedRect, 1, V4(1, 0, 0, 1), 100);
             }
         }
         
-        if(Node->Cache->Flags & UI_NodeFlag_DrawText)
-        {
-            UI_DrawLabel(Node);
-        }
-        
-        if(Node->Cache->Flags & UI_NodeFlag_DrawBorder)
-        {
-            PushRectOutlineOnScreen(&Renderer->PushBufferUI, Node->Rect, 1, V4(1, 0, 0, 1), 100);
-        }
-        //Node->Cache->BackgroundColor = UI_State->StyleTemplateArray[Node->StyleTemplateIndex].BackgroundColor;
+        // TODO(ezexff): Test per frame clear flags
+        Node->Cache->Flags &= ~UI_NodeFlag_Pressed;
+        Node->Cache->Flags &= ~UI_NodeFlag_Hovering;
     }
-    
-    // TODO(ezexff): Test per frame clear flags
-    Node->Cache->Flags &= ~UI_NodeFlag_Pressed;
-    Node->Cache->Flags &= ~UI_NodeFlag_Hovering;
     
     // NOTE(ezexff): Process childs
     if(Node->First)
     {
-        //r32 AdvancedChildY = Node->FixedP.y + Node->InnerSumY;
-        r32 AtX = 0;
-        r32 AtY = 0;
         for(ui_node *ChildNode = Node->First;
             ChildNode != 0;
             ChildNode = ChildNode->Next)
         {
             UI_ProcessNodeTree(ChildNode);
-            /* 
-if(Node->ChildLayoutAxis == Axis2_Y)
-{
-AtY -= ChildNode->FixedSize.y;
-}
-*/
-            //Node->InnerSumY += ChildNode->FixedSize.y;
-            /* 
-            ui_node_style *ChildNodeStyle = &ChildNode->Style;
-            renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
-            PushRectOnScreen(&Renderer->PushBufferUI, ChildNode->FixedSizeRect.Min, ChildNode->FixedSizeRect.Max, ChildNodeStyle->BackgroundColor, 100);
- */
         }
     }
 }
@@ -1160,7 +1217,7 @@ UI_EndFrame()
         }
     }
     
-    // NOTE(ezexff): draw windows
+    // NOTE(ezexff): find interaction and draw nodes
     /* 
     for(ui_node *Node = UI_State->WindowArray.First;
         Node != 0;
