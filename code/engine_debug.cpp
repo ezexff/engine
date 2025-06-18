@@ -886,17 +886,15 @@ DrawStoredBlockTreeV2(debug_stored_block *InNode, u32 Depth, debug_state *DebugS
         Node != 0;
         Node = Node->NextChild)
     {
+        char IndentBuffer[32];
         debug_parsed_name ParsedName = DebugParseName(Node->GUID);
-        /* 
-                for(u32 Index = 0;
-                    Index < Depth;
-                    Index++)
-                {
-                    ImGui::Text(" ");
-                    ImGui::SameLine();
-                }
-                ImGui::SameLine();
-         */
+        for(u32 Index = 0;
+            Index < Depth;
+            Index++)
+        {
+            IndentBuffer[Index] = ' ';
+        }
+        IndentBuffer[Depth] = '\0';
         
         debug_statistic *Stat = &DebugState->BlockStatArray[DebugState->TmpBlockCount] ;
         Stat->Min = Minimum(Stat->Min, (r64)Node->Clock);
@@ -925,7 +923,7 @@ DrawStoredBlockTreeV2(debug_stored_block *InNode, u32 Depth, debug_state *DebugS
                 UI_Label("%s %.2f%% ThreadID=%d avg=%.2f min=%.2f max=%.2f clock=%d", ParsedName.Name, FramePercent, Node->ThreadID, (r64)Stat->Avg, (r64)Stat->Min, (r64)Stat->Max, Node->Clock);
                  */
         
-        UI_Label("%s %.2f%%", ParsedName.Name, FramePercent);
+        UI_Label("%s %s %.2f%% avg=%.2f", IndentBuffer, ParsedName.Name, FramePercent, (r64)Stat->Avg);
         //ImGui::PopStyleColor();
         
         DebugState->TmpBlockCount++;
@@ -1780,6 +1778,8 @@ ImPlot::EndPlot();
     
     //~ NOTE(ezexff): test new ui
     {
+#if 1
+        BEGIN_BLOCK("UI_TEST");
         game_state *GameState = (game_state *)GlobalDebugMemory->PermanentStorage;
         tran_state *TranState = (tran_state *)GlobalDebugMemory->TransientStorage;
         //debug_state *DebugState = (debug_state *)GlobalDebugMemory->DebugStorage;
@@ -1807,7 +1807,7 @@ ImPlot::EndPlot();
         local b32 IsWindowVisible2 = true;
         if(IsWindowVisible2)
         {
-            UI_BeginWindow("DebugTest3", &IsWindowVisible2);
+            UI_BeginWindow("DebugTest2", &IsWindowVisible2);
             
             UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
             
@@ -1845,6 +1845,8 @@ ImPlot::EndPlot();
         }
         
         UI_EndFrame();
+        END_BLOCK();
+#endif
     }
 }
 

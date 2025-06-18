@@ -19,9 +19,9 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     }
     
     // NOTE(ezexff): UI
-    BEGIN_BLOCK("UI_TEST");
     {
 #if 0
+        BEGIN_BLOCK("UI_TEST");
         UI_BeginFrame(GameState, TranState, Frame, Input);
         
         local b32 IsWindowVisible = true;
@@ -50,7 +50,7 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         }
         
         UI_EndFrame();
+        END_BLOCK();
 #endif
     }
-    END_BLOCK();
 }

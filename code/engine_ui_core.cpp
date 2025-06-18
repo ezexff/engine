@@ -421,6 +421,7 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
         // NOTE(ezexff): init per frame node
         Node = PushStruct(UI_State->TranArena, ui_node);
         Node->Cache = CachedNode;
+        Node->Cache->Root = Root; // TODO(ezexff): mb do smth else?
         Node->LayoutAxis = Axis2_Invalid;
         Node->Key = CachedNode->Key;
         Node->Rect = Rect;
@@ -461,7 +462,8 @@ UI_BeginInteract()
 {
     //ui_node *CachedNode = UI_GetCachedNode(UI_State->HotInteraction->String);
     //if(!CachedNode){InvalidCodePath;}
-    ui_node *CachedNode = UI_State->HotInteraction->Cache;
+    //ui_node *CachedNode = UI_State->HotInteraction->Cache;
+    ui_node *CachedNode = UI_State->HotInteraction;
     if(CachedNode->Flags & UI_NodeFlag_Clickable)
     {
         Log->Add("Interact (left pressed) = %s\n", UI_State->HotInteraction->ID);
@@ -475,11 +477,15 @@ UI_BeginInteract()
             Log->Add("CachedNode->PressMouseP.y = %f\n", CachedNode->PressMouseP.y);
             //r32 TestY = UI_State->HotInteraction->Rect.Min.y - UI_State->Input->MouseP.y;
             
-            UI_State->HotInteraction->Cache->LastFrameTouchedIndex = UI_State->FrameCount;
+            UI_State->HotInteraction->LastFrameTouchedIndex = UI_State->FrameCount;
             if(UI_State->HotInteraction->Root)
             {
                 UI_State->HotInteraction->Root->Cache->LastFrameTouchedIndex = UI_State->FrameCount;
                 Log->Add("%s %llu\n", UI_State->HotInteraction->ID, CachedNode->LastFrameTouchedIndex);
+            }
+            else
+            {
+                InvalidCodePath;
             }
         }
         if(!UI_State->HotInteraction->Key){InvalidCodePath;}
@@ -493,10 +499,11 @@ UI_EndInteract()
 {
     //ui_node *CachedNode = UI_GetCachedNode(UI_State->Interaction->String);
     //if(!CachedNode){InvalidCodePath;}
-    ui_node *Node = UI_State->Interaction;
-    ui_node *CachedNode = Node->Cache;
+    //ui_node *Node = UI_State->Interaction;
+    ui_node *CachedNode = UI_State->Interaction;
+    //ui_node *CachedNode = Node->Cache;
     
-    Log->Add("Interact (left released) = %s\n", Node->ID);
+    Log->Add("Interact (left released) = %s\n", CachedNode->ID);
     
     CachedNode->Flags |= UI_NodeFlag_Released;
     CachedNode->PressMouseP = V2(0.0f, 0.0f);
@@ -513,8 +520,8 @@ UI_Interact()
         // NOTE(ezexff): button pressed and mouse move interaction
         //ui_node *CachedNode = UI_GetCachedNode(UI_State->Interaction->String);
         //if(!CachedNode){InvalidCodePath;}
-        ui_node *CachedNode = UI_State->Interaction->Cache;
-        CachedNode->Flags |= UI_NodeFlag_Dragging;
+        //ui_node *CachedNode = UI_State->Interaction->Cache;
+        UI_State->Interaction->Flags |= UI_NodeFlag_Dragging;
         
         // NOTE(ezexff): click interaction
         for(u32 TransitionIndex = UI_State->Input->MouseButtons[PlatformMouseButton_Left].HalfTransitionCount;
@@ -529,8 +536,8 @@ UI_Interact()
         if(!UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
         {
             Log->Add("Interact (left clicked) = %s\n", UI_State->Interaction->ID);
-            CachedNode->Flags &= ~UI_NodeFlag_Dragging;
-            CachedNode->Flags &= ~UI_NodeFlag_Clicked;
+            UI_State->Interaction->Flags &= ~UI_NodeFlag_Dragging;
+            UI_State->Interaction->Flags &= ~UI_NodeFlag_Clicked;
             UI_EndInteract();
             //UI_State->Interaction = 0;
         }
@@ -546,11 +553,11 @@ UI_Interact()
             if(!UI_State->HotInteraction->Key){InvalidCodePath;}
             //ui_node *CachedNode = UI_GetCachedNode(UI_State->HotInteraction->String);
             //if(!CachedNode){InvalidCodePath;}
-            ui_node *CachedNode = UI_State->HotInteraction->Cache;
-            if(CachedNode->Flags & UI_NodeFlag_Clickable)
+            //ui_node *CachedNode = UI_State->HotInteraction->Cache;
+            if(UI_State->HotInteraction->Flags & UI_NodeFlag_Clickable)
             {
                 //Log->Add("Interact (hover) = %s\n", UI_State->HotInteraction->String);
-                CachedNode->Flags |= UI_NodeFlag_Hovering;
+                UI_State->HotInteraction->Flags |= UI_NodeFlag_Hovering;
             }
             //CachedNode->BackgroundColor = UI_State->StyleTemplateArray[UI_State->HotInteraction->StyleTemplateIndex].HoveringColor;
             
@@ -943,7 +950,7 @@ StyleTemplate.PressedColor = V4(0, 0, 0, 1);
                 StyleTemplate->Size[Axis2_Y].Value = 1.0f;
 #else
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_Y].Value = 750.0f;
+                StyleTemplate->Size[Axis2_Y].Value = 500.0f;
 #endif
             } break;
             
@@ -1097,6 +1104,7 @@ UI_ProcessNodeTree(ui_node *Node)
             }
         }
         
+        Node->Cache->Rect = ClippedRect; // TODO(ezexff): temp???
         rectangle2 TestRect = ClippedRect;
         TestRect.Max.y = UI_State->Frame->Dim.y - ClippedRect.Min.y;
         TestRect.Min.y = UI_State->Frame->Dim.y - ClippedRect.Max.y;
@@ -1114,7 +1122,7 @@ UI_ProcessNodeTree(ui_node *Node)
             
             if(Node->Cache->Flags & UI_NodeFlag_Clickable)
             {
-                UI_State->NextHotInteraction = Node;
+                UI_State->NextHotInteraction = Node->Cache;
             }
         }
         

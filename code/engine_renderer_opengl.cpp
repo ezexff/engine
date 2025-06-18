@@ -1797,6 +1797,7 @@ SortPushBufferEntries(renderer_push_buffer *PushBuffer)
 void
 OpenglDrawUI(renderer_frame *Frame)
 {
+    TIMED_FUNCTION();
     renderer *Renderer = (renderer *)Frame->Renderer;
     //~ NOTE(ezexff): Draw UI
     //glDisbale(GL_BLEND);    
@@ -2079,7 +2080,7 @@ OpenglEndFrame(renderer_frame *Frame)
     
     OpenglDrawUI(Frame);
     
-    BEGIN_BLOCK("ClearPushBuffer");
+    BEGIN_BLOCK("OpenglClearPushBuffer");
     Renderer->Flags = 0;
     
     while(Renderer->PushBufferUI.Size--)
