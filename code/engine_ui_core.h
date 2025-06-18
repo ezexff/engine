@@ -30,6 +30,7 @@ enum ui_node_flags
 
 #define UI_IsPressed(Node) (Node & UI_NodeFlag_Pressed)
 #define UI_IsDragging(Node) (Node & UI_NodeFlag_Dragging)
+#define UI_IsHovering(Node) (Node & UI_NodeFlag_Hovering)
 #define UI_IsExpanded(Node) (Node & UI_NodeFlag_Expanded)
 
 enum ui_size_type

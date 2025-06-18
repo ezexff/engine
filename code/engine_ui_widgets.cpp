@@ -293,6 +293,33 @@ UI_EndWindow()
                     Body->Cache->ViewP.y = Clamp(MinViewP, Body->Cache->ViewP.y, MaxViewP);
                 }
             }
+            else
+            {
+                u32 BodyState = UI_GetNodeState(Body);
+                if(UI_IsHovering(BodyState))
+                {
+                    u32 ScrollSensitivity = 20;
+                    if(UI_State->Input->dMouseP.z != 0)
+                    {
+                        Log->Add("Scroll\n");
+                        
+                        r32 MinCursorP = 0.0f;
+                        r32 MaxCursorP = BodyDim.y - CursorHeight - ResizeButtonDim.y;
+                        
+                        r32 MinViewP = (-1) * (ContentDim.y - BodyDim.y);
+                        r32 MaxViewP = 0.0f;
+                        r32 ScrollMultiplier = (-1) * (MinViewP / MaxCursorP);
+                        
+                        r32 MouseDeltaZ = UI_State->Input->dMouseP.z;
+                        
+                        VScrollBarCursor->Cache->P.y -= (r32)RoundR32ToS32(MouseDeltaZ * ScrollSensitivity);
+                        VScrollBarCursor->Cache->P.y = Clamp(MinCursorP, VScrollBarCursor->Cache->P.y, MaxCursorP);
+                        
+                        Body->Cache->ViewP.y += (r32)RoundR32ToS32(ScrollMultiplier * MouseDeltaZ * ScrollSensitivity);
+                        Body->Cache->ViewP.y = Clamp(MinViewP, Body->Cache->ViewP.y, MaxViewP);
+                    }
+                }
+            }
             
             VScrollBarCursor->Cache->Size.y = CursorHeight;
             
