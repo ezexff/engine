@@ -880,6 +880,64 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
 }
 
 internal void
+DrawStoredBlockTreeV2(debug_stored_block *InNode, u32 Depth, debug_state *DebugState, r64 FrameClock)
+{
+    for(debug_stored_block *Node = InNode;
+        Node != 0;
+        Node = Node->NextChild)
+    {
+        debug_parsed_name ParsedName = DebugParseName(Node->GUID);
+        /* 
+                for(u32 Index = 0;
+                    Index < Depth;
+                    Index++)
+                {
+                    ImGui::Text(" ");
+                    ImGui::SameLine();
+                }
+                ImGui::SameLine();
+         */
+        
+        debug_statistic *Stat = &DebugState->BlockStatArray[DebugState->TmpBlockCount] ;
+        Stat->Min = Minimum(Stat->Min, (r64)Node->Clock);
+        Stat->Max = Maximum(Stat->Max, (r64)Node->Clock);
+        Stat->Sum += (r64)Node->Clock;
+        Stat->Count++;
+        Stat->Avg = Stat->Sum / Stat->Count;
+        Assert(DebugState->TmpBlockCount < ArrayCount(DebugState->BlockStatArray));
+        
+        
+        r64 FramePercent = 100 * Node->Clock / FrameClock;
+        /*if(FramePercent > 5.0f)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
+        }
+        else if((FramePercent <= 5.0f) && (FramePercent > 0.5f))
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 0, 255));
+        }
+        else
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 255));
+        }
+ */
+        /* 
+                UI_Label("%s %.2f%% ThreadID=%d avg=%.2f min=%.2f max=%.2f clock=%d", ParsedName.Name, FramePercent, Node->ThreadID, (r64)Stat->Avg, (r64)Stat->Min, (r64)Stat->Max, Node->Clock);
+                 */
+        
+        UI_Label("%s %.2f%%", ParsedName.Name, FramePercent);
+        //ImGui::PopStyleColor();
+        
+        DebugState->TmpBlockCount++;
+        
+        if(Node->FirstChild != 0)
+        {
+            DrawStoredBlockTreeV2(Node->FirstChild, Depth + 1, DebugState, FrameClock);
+        }
+    }
+}
+
+internal void
 DrawStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *DebugState, r64 FrameClock)
 {
     for(debug_stored_block *Node = InNode;
@@ -1719,6 +1777,75 @@ ImPlot::EndPlot();
     }
     
     UpdateAndRenderImgui();
+    
+    //~ NOTE(ezexff): test new ui
+    {
+        game_state *GameState = (game_state *)GlobalDebugMemory->PermanentStorage;
+        tran_state *TranState = (tran_state *)GlobalDebugMemory->TransientStorage;
+        //debug_state *DebugState = (debug_state *)GlobalDebugMemory->DebugStorage;
+        
+        renderer_frame *Frame = &GlobalDebugMemory->Frame;
+        game_input *Input = GlobalDebugInput;
+        
+        UI_BeginFrame(GameState, TranState, Frame, Input);
+        
+        local b32 IsWindowVisible = true;
+        if(IsWindowVisible)
+        {
+            UI_BeginWindow("DebugTest", &IsWindowVisible);
+            
+            for(u32 Index = 1;
+                Index <= 30;
+                ++Index)
+            {
+                UI_Label("Text%d", Index);
+            }
+            
+            UI_EndWindow();
+        }
+        
+        local b32 IsWindowVisible2 = true;
+        if(IsWindowVisible2)
+        {
+            UI_BeginWindow("DebugTest3", &IsWindowVisible2);
+            
+            UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
+            
+            UI_EndWindow();
+        }
+        
+        local b32 IsWindowVisible3 = true;
+        if(IsWindowVisible3)
+        {
+            UI_BeginWindow("DebugCollation", &IsWindowVisible3);
+            
+            UI_Label("TotalFrameCount = %d", DebugState->TotalFrameCount);
+            UI_Label("StoredBlockCount = %d", DebugState->StoredBlockCount);
+            UI_Label("DebugFrameIndex = %d", DebugState->DebugFrameIndex);
+            UI_Label("OpenBlockIndex = %d", DebugState->OpenBlockIndex);
+            
+            if(DebugState->TotalFrameCount > 0)
+            {
+                s32 PrevFrameIndex = DebugState->DebugFrameIndex - 1;
+                
+                if(DebugState->DebugFrameIndex == 0)
+                {
+                    PrevFrameIndex = 255;
+                }
+                
+                UI_Label("PrevFrameClock = %.3fms", DebugState->DebugFrameArray[PrevFrameIndex].ClockInMs * 1000.0f);
+                UI_Label("PrevFrameClock = %.0fcycles", DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
+                UI_Label("---");
+                ImGui::Spacing();
+                DebugState->TmpBlockCount = 0;
+                DrawStoredBlockTreeV2(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
+            }
+            
+            UI_EndWindow();
+        }
+        
+        UI_EndFrame();
+    }
 }
 
 // TODO(casey): Really want to get rid of main generation ID

@@ -21,6 +21,7 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     // NOTE(ezexff): UI
     BEGIN_BLOCK("UI_TEST");
     {
+#if 0
         UI_BeginFrame(GameState, TranState, Frame, Input);
         
         local b32 IsWindowVisible = true;
@@ -48,21 +49,8 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             UI_EndWindow();
         }
         
-        /*local b32 IsDebugVarsWindowVisible = true;
-        if(IsDebugVarsWindowVisible)
-        {
-            UI_BeginWindow("DebugVars", &IsDebugVarsWindowVisible);
-            u32 FPS = (u32)(1 / UI_State->Input->dtForFrame);
-            UI_Label("FPS = %d", FPS);
-            r32 MS = UI_State->Input->dtForFrame * 1000.0f;
-            UI_Label("MS = %fms/frame", MS);
-            UI_Label("FrameCount = %llu", UI_State->FrameCount);
-            
-            UI_EndWindow();
-        }
- */
-        
         UI_EndFrame();
+#endif
     }
     END_BLOCK();
 }

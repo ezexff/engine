@@ -869,7 +869,7 @@ StyleTemplate.PressedColor = V4(0, 0, 0, 1);
             {
                 StyleTemplate->BackgroundColor = V4(0, 0, 0, 1);
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_X].Value = 400.0f;
+                StyleTemplate->Size[Axis2_X].Value = 1100.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
                 //StyleTemplate->Size[Axis2_Y].Value = 400.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ChildrenSum;
@@ -943,7 +943,7 @@ StyleTemplate.PressedColor = V4(0, 0, 0, 1);
                 StyleTemplate->Size[Axis2_Y].Value = 1.0f;
 #else
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_Y].Value = 350.0f;
+                StyleTemplate->Size[Axis2_Y].Value = 750.0f;
 #endif
             } break;
             
