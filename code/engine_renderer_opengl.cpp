@@ -1838,6 +1838,7 @@ OpenglDrawUI(renderer_frame *Frame)
     
     tile_sort_entry *SortEntryArray = PushBufferUI->SortEntryArray;
     tile_sort_entry *SortEntry = SortEntryArray;
+    Log->Add("PushBufferUI->ElementCount = %d\n", PushBufferUI->ElementCount);
     for(u32 SortEntryIndex = 0;
         SortEntryIndex < PushBufferUI->ElementCount;
         ++SortEntryIndex, ++SortEntry)

@@ -301,8 +301,6 @@ UI_EndWindow()
                     u32 ScrollSensitivity = 20;
                     if(UI_State->Input->dMouseP.z != 0)
                     {
-                        Log->Add("Scroll\n");
-                        
                         r32 MinCursorP = 0.0f;
                         r32 MaxCursorP = BodyDim.y - CursorHeight - ResizeButtonDim.y;
                         

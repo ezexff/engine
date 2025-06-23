@@ -923,6 +923,7 @@ DrawStoredBlockTreeV2(debug_stored_block *InNode, u32 Depth, debug_state *DebugS
                 UI_Label("%s %.2f%% ThreadID=%d avg=%.2f min=%.2f max=%.2f clock=%d", ParsedName.Name, FramePercent, Node->ThreadID, (r64)Stat->Avg, (r64)Stat->Min, (r64)Stat->Max, Node->Clock);
                  */
         
+        //UI_Label("%s %s %.2f%% avg=%.2f", IndentBuffer, ParsedName.Name, FramePercent, (r64)Stat->Avg);
         UI_Label("%s %s %.2f%% avg=%.2f", IndentBuffer, ParsedName.Name, FramePercent, (r64)Stat->Avg);
         //ImGui::PopStyleColor();
         
@@ -933,6 +934,86 @@ DrawStoredBlockTreeV2(debug_stored_block *InNode, u32 Depth, debug_state *DebugS
             DrawStoredBlockTreeV2(Node->FirstChild, Depth + 1, DebugState, FrameClock);
         }
     }
+}
+
+internal void
+TestNewUI(debug_state *DebugState)
+{
+    TIMED_FUNCTION();
+    
+    game_state *GameState = (game_state *)GlobalDebugMemory->PermanentStorage;
+    tran_state *TranState = (tran_state *)GlobalDebugMemory->TransientStorage;
+    //debug_state *DebugState = (debug_state *)GlobalDebugMemory->DebugStorage;
+    
+    renderer_frame *Frame = &GlobalDebugMemory->Frame;
+    game_input *Input = GlobalDebugInput;
+    
+    UI_BeginFrame(GameState, TranState, Frame, Input);
+    
+    local b32 IsWindowVisible = true;
+    if(IsWindowVisible)
+    {
+        UI_BeginWindow("DebugTest", &IsWindowVisible);
+        
+        for(u32 Index = 1;
+            Index <= 30;
+            ++Index)
+        {
+            UI_Label("Text%d", Index);
+        }
+        
+        UI_EndWindow();
+    }
+    
+    local b32 IsWindowVisible2 = true;
+    if(IsWindowVisible2)
+    {
+        UI_BeginWindow("DebugTest2", &IsWindowVisible2);
+        
+        UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
+        
+        UI_EndWindow();
+    }
+    
+    local b32 IsWindowVisible3 = true;
+    if(IsWindowVisible3)
+    {
+        UI_BeginWindow("DebugCollation", &IsWindowVisible3);
+        
+        r32 FPS = 1 / UI_State->Input->dtForFrame;
+        UI_Label("FPS = %.2f", FPS);
+        
+        UI_Label("TotalFrameCount = %d", DebugState->TotalFrameCount);
+        UI_Label("StoredBlockCount = %d", DebugState->StoredBlockCount);
+        UI_Label("DebugFrameIndex = %d", DebugState->DebugFrameIndex);
+        UI_Label("OpenBlockIndex = %d", DebugState->OpenBlockIndex);
+        
+        
+        if(DebugState->TotalFrameCount > 0)
+        {
+            s32 PrevFrameIndex = DebugState->DebugFrameIndex - 1;
+            
+            if(DebugState->DebugFrameIndex == DEBUG_FRAME_COUNT - 1)
+            {
+                int Test = 0;
+            }
+            
+            if(DebugState->DebugFrameIndex == 0)
+            {
+                PrevFrameIndex = 255;
+            }
+            
+            UI_Label("PrevFrameClock = %.3fms", DebugState->DebugFrameArray[PrevFrameIndex].ClockInMs * 1000.0f);
+            UI_Label("PrevFrameClock = %.0fcycles", DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
+            UI_Label("---");
+            DebugState->TmpBlockCount = 0;
+            DrawStoredBlockTreeV2(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
+        }
+        
+        UI_EndWindow();
+    }
+    
+    UI_EndFrame();
 }
 
 internal void
@@ -985,6 +1066,7 @@ DrawStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *DebugSta
     }
 }
 
+/* 
 internal void
 DEBUGInitFrame(debug_state *DebugState)
 {
@@ -1000,16 +1082,18 @@ DEBUGInitFrame(debug_state *DebugState)
         DebugState->DebugFrameArray[Index].ClockInCycles = 0;
         DebugState->DebugFrameArray[Index].RootStoredBlock = {};
         char TextBuffer[256];
-        _snprintf_s(TextBuffer, sizeof(TextBuffer), "0|0|0|Root#%d", Index);
+        FormatString(sizeof(TextBuffer), TextBuffer, "0|0|0|Root#%d", Index);
         DebugState->DebugFrameArray[Index].RootStoredBlock.GUID = PushString(&DebugState->DebugArena, TextBuffer);
     }
 }
+ */
 
 internal void
 CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventArray)
 {
     TIMED_FUNCTION();
     
+    // NOTE(ezexff): collate events
     for(u32 EventIndex = 0;
         EventIndex < EventCount;
         ++EventIndex)
@@ -1019,11 +1103,39 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
         {
             DebugState->DebugFrameArray[DebugState->DebugFrameIndex].ClockInMs = Event->Value_r32;
             DebugState->DebugFrameIndex++;
+            
+            // NOTE(ezexff): clear frame before event collation
+            DebugState->DebugFrameArray[DebugState->DebugFrameIndex].ClockInCycles = 0;
+            DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock = {};
+            char TextBuffer[256];
+            FormatString(sizeof(TextBuffer), TextBuffer, "0|0|0|Root%d", DebugState->DebugFrameIndex);
+            DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock.GUID = PushString(&DebugState->DebugArena, TextBuffer);
+            
             if(DebugState->DebugFrameIndex >= DEBUG_FRAME_COUNT)
             {
                 EndTemporaryMemory(DebugState->FramesTempMemory);
                 DebugState->FramesTempMemory = BeginTemporaryMemory(&DebugState->DebugArena);
-                DEBUGInitFrame(DebugState);
+                //DEBUGInitFrame(DebugState);
+                
+                DebugState->StoredBlockCount = 1;
+                DebugState->OpenBlockIndex = 0;
+                DebugState->DebugFrameIndex = 0;
+                
+                // NOTE(ezexff): clear frame before event collation
+                DebugState->DebugFrameArray[DebugState->DebugFrameIndex].ClockInCycles = 0;
+                DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock = {};
+                char TextBuffer[256];
+                FormatString(sizeof(TextBuffer), TextBuffer, "0|0|0|Root%d", DebugState->DebugFrameIndex);
+                DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock.GUID = PushString(&DebugState->DebugArena, TextBuffer);
+                /* 
+                                u32 FrameCount = ArrayCount(DebugState->DebugFrameArray);
+                                for(u32 Index = 0;
+                                    Index < FrameCount;
+                                    ++Index)
+                                {
+                                }
+                 */
+                
             }
             DebugState->TotalFrameCount++;
         }
@@ -1292,6 +1404,18 @@ DEBUGStart(debug_state *DebugState, u32 MainGenerationID)
         //DebugState->EmptyDebugArena = DebugState->DebugArena;
         DebugState->TotalFrameCount = 0;
         
+        //DEBUGInitFrame(DebugState);
+        DebugState->StoredBlockCount = 1;
+        DebugState->OpenBlockIndex = 0;
+        DebugState->DebugFrameIndex = 0;
+        
+        // NOTE(ezexff): clear frame before event collation
+        DebugState->DebugFrameArray[DebugState->DebugFrameIndex].ClockInCycles = 0;
+        DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock = {};
+        char TextBuffer[256];
+        FormatString(sizeof(TextBuffer), TextBuffer, "0|0|0|Root%d", DebugState->DebugFrameIndex);
+        DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock.GUID = PushString(&DebugState->DebugArena, TextBuffer);
+        
         DebugState->FramesTempMemory = BeginTemporaryMemory(&DebugState->DebugArena);
         
         // NOTE(ezexff): Init block stat
@@ -1305,8 +1429,6 @@ DEBUGStart(debug_state *DebugState, u32 MainGenerationID)
             DebugState->BlockStatArray[Index].Avg = 0.0f;
             DebugState->BlockStatArray[Index].Count = 0;
         }
-        
-        DEBUGInitFrame(DebugState);
         
         DebugState->Initialized = true;
     }
@@ -1777,77 +1899,7 @@ ImPlot::EndPlot();
     UpdateAndRenderImgui();
     
     //~ NOTE(ezexff): test new ui
-    {
-#if 1
-        BEGIN_BLOCK("UI_TEST");
-        game_state *GameState = (game_state *)GlobalDebugMemory->PermanentStorage;
-        tran_state *TranState = (tran_state *)GlobalDebugMemory->TransientStorage;
-        //debug_state *DebugState = (debug_state *)GlobalDebugMemory->DebugStorage;
-        
-        renderer_frame *Frame = &GlobalDebugMemory->Frame;
-        game_input *Input = GlobalDebugInput;
-        
-        UI_BeginFrame(GameState, TranState, Frame, Input);
-        
-        local b32 IsWindowVisible = true;
-        if(IsWindowVisible)
-        {
-            UI_BeginWindow("DebugTest", &IsWindowVisible);
-            
-            for(u32 Index = 1;
-                Index <= 30;
-                ++Index)
-            {
-                UI_Label("Text%d", Index);
-            }
-            
-            UI_EndWindow();
-        }
-        
-        local b32 IsWindowVisible2 = true;
-        if(IsWindowVisible2)
-        {
-            UI_BeginWindow("DebugTest2", &IsWindowVisible2);
-            
-            UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
-            
-            UI_EndWindow();
-        }
-        
-        local b32 IsWindowVisible3 = true;
-        if(IsWindowVisible3)
-        {
-            UI_BeginWindow("DebugCollation", &IsWindowVisible3);
-            
-            UI_Label("TotalFrameCount = %d", DebugState->TotalFrameCount);
-            UI_Label("StoredBlockCount = %d", DebugState->StoredBlockCount);
-            UI_Label("DebugFrameIndex = %d", DebugState->DebugFrameIndex);
-            UI_Label("OpenBlockIndex = %d", DebugState->OpenBlockIndex);
-            
-            if(DebugState->TotalFrameCount > 0)
-            {
-                s32 PrevFrameIndex = DebugState->DebugFrameIndex - 1;
-                
-                if(DebugState->DebugFrameIndex == 0)
-                {
-                    PrevFrameIndex = 255;
-                }
-                
-                UI_Label("PrevFrameClock = %.3fms", DebugState->DebugFrameArray[PrevFrameIndex].ClockInMs * 1000.0f);
-                UI_Label("PrevFrameClock = %.0fcycles", DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
-                UI_Label("---");
-                ImGui::Spacing();
-                DebugState->TmpBlockCount = 0;
-                DrawStoredBlockTreeV2(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
-            }
-            
-            UI_EndWindow();
-        }
-        
-        UI_EndFrame();
-        END_BLOCK();
-#endif
-    }
+    TestNewUI(DebugState);
 }
 
 // TODO(casey): Really want to get rid of main generation ID

@@ -1295,9 +1295,9 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                     //if(ImGui::SliderInt("fps", &GlobalGameUpdateHz, 30, 4096))
                                     if(ImGui::InputInt("fps lock", &GlobalGameUpdateHz))
                                     {
-                                        if(GlobalGameUpdateHz < 30)
+                                        if(GlobalGameUpdateHz < 5)
                                         {
-                                            GlobalGameUpdateHz = 30;
+                                            GlobalGameUpdateHz = 5;
                                         } 
                                         else if(GlobalGameUpdateHz > 4096)
                                         {
