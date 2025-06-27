@@ -804,7 +804,9 @@ DEBUGLoadShaders(memory_arena *ConstArena, renderer_shaders *Shaders)
                 {
                     Platform.ReadDataFromFile(FileHandle, 0, FileHandle->Size, Text);
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
                     Log->Add("[asset] loaded text from %ls\n", FileHandle->Name.Data);
+#endif
 #endif
                 }
                 else
@@ -867,7 +869,9 @@ DEBUGLoadShaders(memory_arena *ConstArena, renderer_shaders *Shaders)
                 {
                     Platform.ReadDataFromFile(FileHandle, 0, FileHandle->Size, Text);
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
                     Log->Add("[asset] loaded text from %ls\n", FileHandle->Name.Data);
+#endif
 #endif
                 }
                 else

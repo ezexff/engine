@@ -1,8 +1,9 @@
 #include "engine_debug.h"
 
 internal void
-UpdateAndRenderImgui()
+ImGuiUpdateAndRender()
 {
+#if ENGINE_IMGUI
     game_state *GameState = (game_state *)GlobalDebugMemory->PermanentStorage;
     tran_state *TranState = (tran_state *)GlobalDebugMemory->TransientStorage;
     debug_state *DebugState = (debug_state *)GlobalDebugMemory->DebugStorage;
@@ -877,6 +878,7 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
             ImGui::End();
         }
     }
+#endif
 }
 
 internal void
@@ -924,14 +926,19 @@ DrawStoredBlockTreeV2(debug_stored_block *InNode, u32 Depth, debug_state *DebugS
                  */
         
         //UI_Label("%s %s %.2f%% avg=%.2f", IndentBuffer, ParsedName.Name, FramePercent, (r64)Stat->Avg);
-        UI_Label("%s %s %.2f%% avg=%.2f", IndentBuffer, ParsedName.Name, FramePercent, (r64)Stat->Avg);
+        //UI_Label("%s %s %.2f%% avg=%.2f", IndentBuffer, ParsedName.Name, FramePercent, (r64)Stat->Avg);
+        UI_Label("%s %.2f%% avg=%.2f %s", IndentBuffer, FramePercent, (r64)Stat->Avg, ParsedName.Name);
         //ImGui::PopStyleColor();
         
         DebugState->TmpBlockCount++;
         
         if(Node->FirstChild != 0)
         {
-            DrawStoredBlockTreeV2(Node->FirstChild, Depth + 1, DebugState, FrameClock);
+            int TmpTest = Depth + 1;
+            if(Depth < 1)
+            {
+                DrawStoredBlockTreeV2(Node->FirstChild, Depth + 1, DebugState, FrameClock);
+            }
         }
     }
 }
@@ -1017,8 +1024,9 @@ TestNewUI(debug_state *DebugState)
 }
 
 internal void
-DrawStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *DebugState, r64 FrameClock)
+ImGuiDrawStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *DebugState, r64 FrameClock)
 {
+#if ENGINE_IMGUI
     for(debug_stored_block *Node = InNode;
         Node != 0;
         Node = Node->NextChild)
@@ -1061,9 +1069,14 @@ DrawStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *DebugSta
         
         if(Node->FirstChild != 0)
         {
-            DrawStoredBlockTree(Node->FirstChild, Depth + 1, DebugState, FrameClock);
+            int TmpTest = Depth + 1;
+            if(Depth < 1)
+            {
+                ImGuiDrawStoredBlockTree(Node->FirstChild, Depth + 1, DebugState, FrameClock);
+            }
         }
     }
+#endif
 }
 
 /* 
@@ -1146,7 +1159,8 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
                 case DebugType_BeginBlock:
                 {
                     DebugState->StoredBlockCount++;
-                    debug_stored_block *StoredBlock = PushStruct(&DebugState->DebugArena, debug_stored_block, NoClear());
+                    //debug_stored_block *StoredBlock = PushStruct(&DebugState->DebugArena, debug_stored_block, NoClear());
+                    debug_stored_block *StoredBlock = PushStruct(&DebugState->DebugArena, debug_stored_block);
                     StoredBlock->Clock = Event->Clock;
                     StoredBlock->GUID = Event->GUID;
                     StoredBlock->ThreadID = Event->ThreadID;
@@ -1444,6 +1458,7 @@ DEBUGEnd(debug_state *DebugState)
 {
     TIMED_FUNCTION();
     
+#if ENGINE_IMGUI
     imgui *ImGuiHandle = &GlobalDebugMemory->ImGuiHandle;
     if(ImGuiHandle->ShowImGuiWindows)
     {
@@ -1490,7 +1505,7 @@ DEBUGEnd(debug_state *DebugState)
                 ImGui::Text("PrevFrameClock = %.0fcycles", DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
                 ImGui::Spacing();
                 DebugState->TmpBlockCount = 0;
-                DrawStoredBlockTree(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
+                ImGuiDrawStoredBlockTree(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
             }
             
             ImGui::End();
@@ -1896,8 +1911,8 @@ ImPlot::EndPlot();
 #endif
     }
     
-    UpdateAndRenderImgui();
-    
+    ImGuiUpdateAndRender();
+#endif
     //~ NOTE(ezexff): test new ui
     TestNewUI(DebugState);
 }

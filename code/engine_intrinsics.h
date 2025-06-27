@@ -86,8 +86,11 @@ inline r32 Sin(r32 Angle)
 
 inline s32 FloorR32ToS32(r32 R32)
 {
-    //r32 Result = _mm_cvtss_f32(_mm_svml_floor_ps(_mm_set_ss(R32)));
+#if ENGINE_INTERNAL
     s32 Result = (s32)floorf(R32);
+#else
+    r32 Result = _mm_cvtss_f32(_mm_svml_floor_ps(_mm_set_ss(R32)));
+#endif
     return(Result);
 }
 

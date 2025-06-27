@@ -128,6 +128,7 @@ EndTaskWithMemory(task_with_memory *Task)
 platform_api Platform;
 
 #if ENGINE_INTERNAL
-//game_memory *GlobalDebugMemory;
+#if ENGINE_IMGUI
 app_log *Log;
+#endif
 #endif

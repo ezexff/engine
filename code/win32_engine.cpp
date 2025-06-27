@@ -22,22 +22,24 @@ game_controller_input *NewKeyboardController;
 IAudioClient* GlobalAudioClient;
 IAudioRenderClient* GlobalAudioRenderClient;
 #define FramesOfAudioLatency 1
-#define MonitorRefreshHz 120
+#define MonitorRefreshHz 2048
 s32 GlobalGameUpdateHz = (MonitorRefreshHz);
 
 u64 GlobalTimerOffset;
 u64 GlobalTimerFrequency;
 
 #if ENGINE_INTERNAL
-app_log *Log;
-b32 GlobalShowImGuiWindows = true; // All ImGui windows visibility
-
 global debug_table GlobalDebugTable_;
 debug_table *GlobalDebugTable = &GlobalDebugTable_;
-
+#if ENGINE_IMGUI
+b32 GlobalShowImGuiWindows = true; // All ImGui windows visibility
+app_log *Log;
+#endif
 //~ NOTE(ezexff): Callbacks and inputs
 // Add in beginning Win32MainWindowCallback for ImGui inputs
+#if ENGINE_IMGUI
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+#endif
 
 void
 ImGuiProcessPendingMessages(HWND Window)
@@ -170,8 +172,10 @@ Win32ProcessPendingMessages(game_controller_input *KeyboardController, game_inpu
                     {
                         if(IsDown)
                         {
+#if ENGINE_IMGUI
                             GlobalShowImGuiWindows = !GlobalShowImGuiWindows;
                             ShowCursor(GlobalShowImGuiWindows);
+#endif
                         }
                     }
 #endif
@@ -218,10 +222,12 @@ Win32MainWindowCallback(HWND Window,
     // NOTE(ezexff): ImGui message handler
     {
 #if ENGINE_INTERNAL
-        if (ImGui_ImplWin32_WndProcHandler(Window, Message, WParam, LParam))
+#if ENGINE_IMGUI
+        if(ImGui_ImplWin32_WndProcHandler(Window, Message, WParam, LParam))
         {
             return(true);
         }
+#endif
 #endif
     }
     
@@ -373,7 +379,9 @@ internal PLATFORM_OPEN_FILE(Win32OpenNextFile)
 internal PLATFORM_FILE_ERROR(Win32FileError)
 {
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
     Log->Add("[win32file] error: %s\n", Message);
+#endif
 #endif
     Handle->NoErrors = false;
 }
@@ -736,7 +744,9 @@ ThreadProc(LPVOID lpParameter)
 internal PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork)
 {
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
     Log->Add("[win32workqueue] thread %u: %s\n", GetCurrentThreadId(), (char *)Data);
+#endif
 #endif
 }
 
@@ -928,6 +938,9 @@ extern "C" void __stdcall WinMainCRTStartup(void)
             
             // NOTE(ezexff): Init imgui for opengl
 #if ENGINE_INTERNAL
+            GameMemory.DebugTable = GlobalDebugTable;
+            Frame->DebugTable = GlobalDebugTable;
+#if ENGINE_IMGUI
             IMGUI_CHECKVERSION();
             ImGui::CreateContext();
             ImPlot::CreateContext();
@@ -946,11 +959,9 @@ extern "C" void __stdcall WinMainCRTStartup(void)
             ImGuiHandle->ShowGameWindow = true;
             ImGuiHandle->ShowDebugCollationWindow = true;
             ImGuiHandle->ShowLogWindow = true;
-            GameMemory.DebugTable = GlobalDebugTable;
-            Frame->DebugTable = GlobalDebugTable;
             Frame->ImGuiHandle = ImGuiHandle;
-            
             Log = &ImGuiHandle->Log;
+#endif
 #endif
             
             // NOTE(ezexff): Init Audio
@@ -1014,9 +1025,11 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                         // NOTE(ezexff): ImGui new frame
                         {
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
                             ImGui_ImplOpenGL3_NewFrame();
                             ImGui_ImplWin32_NewFrame();
                             ImGui::NewFrame();
+#endif
 #endif
                         }
                         
@@ -1044,8 +1057,9 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                             }
                             
 #if ENGINE_INTERNAL
-                            // NOTE(ezexff): Win32 inputs with ImGui works only when ImGui windows is unselected
                             NewInput->dMouseP.z = 0;
+#if ENGINE_IMGUI
+                            // NOTE(ezexff): Win32 inputs with ImGui works only when ImGui windows is unselected
                             if(ImGuiHandle->IO->WantCaptureKeyboard)
                             {
                                 ImGuiProcessPendingMessages(Window);
@@ -1055,6 +1069,9 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                 Win32ProcessPendingMessages(NewKeyboardController, NewInput);
                             }
                             ImGuiHandle->ShowImGuiWindows = GlobalShowImGuiWindows;
+#else
+                            Win32ProcessPendingMessages(NewKeyboardController, NewInput);
+#endif
 #else
                             Win32ProcessPendingMessages(NewKeyboardController, NewInput);
 #endif
@@ -1090,7 +1107,9 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                 NewInput->dMouseP.y = NewInput->MouseP.y - OldInput->MouseP.y;
                                 
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
                                 if(!ImGuiHandle->ShowImGuiWindows)
+#endif
 #endif
                                 {
                                     if(Input->CenteringMouseCursor)
@@ -1111,6 +1130,7 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                         ScreenToClient(Window, &MouseP);
                                         NewInput->MouseP.x = (r32)MouseP.x;
                                         NewInput->MouseP.y = (r32)((Frame->Dim.y - 1) - MouseP.y);
+                                        //NewInput->MouseP.y = (r32)(MouseP.y); // TODO(ezexff): mb start use flipped y?
                                     }
                                 }
                             }
@@ -1198,11 +1218,13 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                     // TODO(ezexff): нужно округление после деления?
                                     //SoundOutput.LatencySampleCount -= 5;
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
                                     if(ImGuiHandle->LogAudio)
                                     {
                                         Log->Add("[win32audio] SamplesToWrite = %d LatencySampleCount = %d Aligned8LatencySampleCount = %d\n", 
                                                  SamplesToWrite, SoundOutput.LatencySampleCount, Align8(SoundOutput.LatencySampleCount));
                                     }
+#endif
 #endif
                                     SoundOutput.LatencySampleCount = Align8(SoundOutput.LatencySampleCount);
                                 }
@@ -1250,9 +1272,9 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                         END_BLOCK();
                         
                         // NOTE(ezexff): ImGui demo, win32 and renderer windows
-                        BEGIN_BLOCK("ImGuiUpdate");
                         {
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
                             if(ImGuiHandle->ShowImGuiWindows)
                             {
                                 if(ImGuiHandle->ShowWin32Window)
@@ -1534,8 +1556,8 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                                 }
                             }
 #endif
+#endif
                         }
-                        END_BLOCK();
                         
                         // NOTE(ezexff): END FRAME
                         BEGIN_BLOCK("EndFrame");
@@ -1544,6 +1566,7 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                         }
                         END_BLOCK();
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
                         // NOTE(ezexff): ImGui end frame
                         BEGIN_BLOCK("ImGuiRender");
                         {
@@ -1552,6 +1575,7 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                             SwapBuffers(GameMemory.ImGuiHandle.WGL);
                         }
                         END_BLOCK();
+#endif
 #endif
                         
                         // NOTE(ezexff): Save input state for next after flip frame
@@ -1584,10 +1608,12 @@ extern "C" void __stdcall WinMainCRTStartup(void)
     // NOTE(ezexff): ImGui destroy
     {
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplWin32_Shutdown();
         ImPlot::DestroyContext();
         ImGui::DestroyContext();
+#endif
 #endif
     }
     

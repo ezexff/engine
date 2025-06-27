@@ -69,7 +69,11 @@ OpenglLinkProgram(loaded_shader *VertShader, loaded_shader *FragShader, shader_p
     }
     else
     {
+#if ENGINE_INTERNAL
+#if ENGINE_IMGUI
         Log->Add("[opengl] shader program compiled\n");
+#endif
+#endif
     }
 }
 
@@ -1066,10 +1070,6 @@ OpenglInit(renderer_frame *Frame)
 {
     Opengl = &Frame->Opengl;
     
-    // NOTE(ezexff): Push buffer
-    Frame->MaxPushBufferSize = sizeof(Frame->PushBufferMemory);
-    Frame->PushBufferBase = Frame->PushBufferMemory;
-    
     // TODO(ezexff): Test water push buffer
     Frame->WaterMaxPushBufferSize = sizeof(Frame->WaterPushBufferMemory);
     Frame->WaterPushBufferBase = Frame->WaterPushBufferMemory;
@@ -1134,6 +1134,8 @@ void
 OpenglBeginFrame(renderer_frame *Frame)
 {
 #if ENGINE_INTERNAL
+    GlobalDebugTable = Frame->DebugTable;
+#if ENGINE_IMGUI
     if(!Frame->IsOpenglImGuiInitialized)
     {
         imgui *ImGuiHandle = Frame->ImGuiHandle;
@@ -1141,10 +1143,10 @@ OpenglBeginFrame(renderer_frame *Frame)
         ImPlot::SetCurrentContext(ImGuiHandle->ContextImPlot);
         ImGui::SetAllocatorFunctions(ImGuiHandle->AllocFunc, ImGuiHandle->FreeFunc, ImGuiHandle->UserData);
         Log = &Frame->ImGuiHandle->Log;
-        GlobalDebugTable = Frame->DebugTable;
         
         Frame->IsOpenglImGuiInitialized = true;
     }
+#endif
 #endif
     
     while(Frame->PushBufferSize--)
@@ -1707,6 +1709,8 @@ void
 OpenglInitBitmapPreview(renderer_frame *Frame)
 {
     TIMED_FUNCTION();
+#if ENGINE_INTERNAL
+#if ENGINE_IMGUI
     loaded_bitmap *Preview = &Frame->Preview;
     if(!Preview->OpenglID)
     {
@@ -1726,6 +1730,8 @@ OpenglInitBitmapPreview(renderer_frame *Frame)
                      Preview->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Preview->Memory);
         //Opengl->glGenerateMipmap(GL_TEXTURE_2D);
     }
+#endif
+#endif
 }
 
 void
@@ -1763,6 +1769,7 @@ OpenglInitFrameFBO(renderer_frame *Frame)
 internal void
 SortPushBufferEntries(renderer_push_buffer *PushBuffer)
 {
+    TIMED_FUNCTION();
     u32 Count = PushBuffer->ElementCount;
     tile_sort_entry *SortEntryArray = PushBuffer->SortEntryArray;
     
@@ -1838,7 +1845,8 @@ OpenglDrawUI(renderer_frame *Frame)
     
     tile_sort_entry *SortEntryArray = PushBufferUI->SortEntryArray;
     tile_sort_entry *SortEntry = SortEntryArray;
-    Log->Add("PushBufferUI->ElementCount = %d\n", PushBufferUI->ElementCount);
+    //Log->Add("PushBufferUI->ElementCount = %d\n", PushBufferUI->ElementCount);
+    BEGIN_BLOCK("OpenglDrawUIEntries");
     for(u32 SortEntryIndex = 0;
         SortEntryIndex < PushBufferUI->ElementCount;
         ++SortEntryIndex, ++SortEntry)
@@ -1909,7 +1917,7 @@ OpenglDrawUI(renderer_frame *Frame)
     }
     
     glDisable(GL_BLEND);
-    
+    END_BLOCK();
     /*     
         for(u32 BaseAddress = 0;
             BaseAddress < PushBufferUI->Size;
@@ -2081,9 +2089,9 @@ OpenglEndFrame(renderer_frame *Frame)
     
     OpenglDrawUI(Frame);
     
-    BEGIN_BLOCK("OpenglClearPushBuffer");
     Renderer->Flags = 0;
     
+    BEGIN_BLOCK("OpenglClearPushBuffer");
     while(Renderer->PushBufferUI.Size--)
     {
         Renderer->PushBufferUI.Memory[Renderer->PushBufferUI.Size] = 0;

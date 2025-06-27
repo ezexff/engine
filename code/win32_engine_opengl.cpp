@@ -147,7 +147,11 @@ RENDERER_END_FRAME(Win32EndFrame)
     OpenglEndFrame(Frame);
     
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
     Frame->ImGuiHandle->WGL = wglGetCurrentDC();
+#else
+    SwapBuffers(wglGetCurrentDC());
+#endif
 #else
     SwapBuffers(wglGetCurrentDC());
 #endif

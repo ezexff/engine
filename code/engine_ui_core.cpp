@@ -466,7 +466,7 @@ UI_BeginInteract()
     ui_node *CachedNode = UI_State->HotInteraction;
     if(CachedNode->Flags & UI_NodeFlag_Clickable)
     {
-        Log->Add("Interact (left pressed) = %s\n", UI_State->HotInteraction->ID);
+        //Log->Add("Interact (left pressed) = %s\n", UI_State->HotInteraction->ID);
         
         CachedNode->Flags |= UI_NodeFlag_Pressed;
         // TODO(ezexff): Test in node mouse p
@@ -474,14 +474,14 @@ UI_BeginInteract()
             //CachedNode->PressMouseP = UI_State->Input->MouseP;
             CachedNode->PressMouseP.x = UI_State->Input->MouseP.x - UI_State->HotInteraction->Rect.Min.x;
             CachedNode->PressMouseP.y = UI_State->Frame->Dim.y - UI_State->Input->MouseP.y - UI_State->HotInteraction->Rect.Min.y;
-            Log->Add("CachedNode->PressMouseP.y = %f\n", CachedNode->PressMouseP.y);
+            //Log->Add("CachedNode->PressMouseP.y = %f\n", CachedNode->PressMouseP.y);
             //r32 TestY = UI_State->HotInteraction->Rect.Min.y - UI_State->Input->MouseP.y;
             
             UI_State->HotInteraction->LastFrameTouchedIndex = UI_State->FrameCount;
             if(UI_State->HotInteraction->Root)
             {
                 UI_State->HotInteraction->Root->Cache->LastFrameTouchedIndex = UI_State->FrameCount;
-                Log->Add("%s %llu\n", UI_State->HotInteraction->ID, CachedNode->LastFrameTouchedIndex);
+                //Log->Add("%s %llu\n", UI_State->HotInteraction->ID, CachedNode->LastFrameTouchedIndex);
             }
             else
             {
@@ -503,7 +503,7 @@ UI_EndInteract()
     ui_node *CachedNode = UI_State->Interaction;
     //ui_node *CachedNode = Node->Cache;
     
-    Log->Add("Interact (left released) = %s\n", CachedNode->ID);
+    //Log->Add("Interact (left released) = %s\n", CachedNode->ID);
     
     CachedNode->Flags |= UI_NodeFlag_Released;
     CachedNode->PressMouseP = V2(0.0f, 0.0f);
@@ -528,14 +528,14 @@ UI_Interact()
             TransitionIndex > 1;
             --TransitionIndex)
         {
-            Log->Add("Interact (1) = %s\n", UI_State->Interaction->ID);
+            //Log->Add("Interact (1) = %s\n", UI_State->Interaction->ID);
             //UI_BeginInteract();
             //UI_EndInteract();
         }
         
         if(!UI_State->Input->MouseButtons[PlatformMouseButton_Left].EndedDown)
         {
-            Log->Add("Interact (left clicked) = %s\n", UI_State->Interaction->ID);
+            //Log->Add("Interact (left clicked) = %s\n", UI_State->Interaction->ID);
             UI_State->Interaction->Flags &= ~UI_NodeFlag_Dragging;
             UI_State->Interaction->Flags &= ~UI_NodeFlag_Clicked;
             UI_EndInteract();
@@ -566,7 +566,7 @@ UI_Interact()
                 TransitionIndex > 1;
                 --TransitionIndex)
             {
-                Log->Add("Interact (2) = %s\n", UI_State->HotInteraction->ID);
+                //Log->Add("Interact (2) = %s\n", UI_State->HotInteraction->ID);
                 //UI_BeginInteract();
                 //UI_EndInteract();
             }
@@ -1117,7 +1117,7 @@ UI_ProcessNodeTree(ui_node *Node)
         {
             if(UI_State->Frame->Dim.x == 0 || UI_State->Frame->Dim.y == 0)
             {
-                Log->Add("FrameDim = 0\n");
+                //Log->Add("FrameDim = 0\n");
             }
             
             if(Node->Cache->Flags & UI_NodeFlag_Clickable)

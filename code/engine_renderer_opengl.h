@@ -1,6 +1,8 @@
 #if ENGINE_INTERNAL
 debug_table *GlobalDebugTable;
+#if ENGINE_IMGUI
 app_log *Log;
+#endif
 #endif
 
 struct frame_vertex

@@ -137,13 +137,17 @@ internal PLATFORM_WORK_QUEUE_CALLBACK(TestWork)
     test_work *Work = (test_work *)Data;
     
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
     Log->Add("[enginework] TestWorkWithMemory\n");
+#endif
 #endif
     
     EndTaskWithMemory(Work->Task);
 }
 
+#if ENGINE_INTERNAL
 debug_table *GlobalDebugTable;
+#endif
 extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
 {
     renderer_frame *Frame = &Memory->Frame;
@@ -171,6 +175,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         // NOTE(ezexff): Init Log App
         {
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
             imgui *ImGuiHandle = &GlobalDebugMemory->ImGuiHandle;
             ImGui::SetCurrentContext(ImGuiHandle->ContextImGui);
             ImPlot::SetCurrentContext(ImGuiHandle->ContextImPlot);
@@ -180,6 +185,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             
             ImGuiHandle->LogMouseInput = false;
             ImGuiHandle->LogKeyboardInput = false;
+#endif
 #endif
         }
         
@@ -209,6 +215,12 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             }*/
 #endif
         }
+        
+        // NOTE(ezexff): Init memory for push buffer
+        //Frame->MaxPushBufferSize = Megabytes(1);
+        Frame->MaxPushBufferSize = Kilobytes(4);
+        Frame->PushBufferMemory = (u8 *)PushSize(ConstArena, Frame->MaxPushBufferSize);
+        Frame->PushBufferBase = Frame->PushBufferMemory;
         
         // NOTE(ezexff): Screen shader program
         {

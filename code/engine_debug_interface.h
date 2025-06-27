@@ -1,4 +1,7 @@
+#define ENGINE_IMGUI 0
+
 //~ NOTE(ezexff): ImGui
+#if ENGINE_IMGUI
 #include <stdio.h>
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
@@ -205,6 +208,7 @@ struct imgui
         RollingBuffer RData[32];
      */
 };
+#endif
 
 //~ NOTE(ezexff): Debug collation
 struct game_memory;

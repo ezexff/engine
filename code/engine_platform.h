@@ -45,6 +45,12 @@ inline u32 GetThreadID(void)
 
 #if ENGINE_INTERNAL
 #include "engine_debug_interface.h"
+#else
+#define TIMED_FUNCTION()
+#define BEGIN_BLOCK()
+#define END_BLOCK()
+#define DEBUGSetEventRecording()
+#define FRAME_MARKER()
 #endif
 
 //~ NOTE(ezexff): Audio
@@ -387,7 +393,8 @@ struct renderer_frame
     r32 AspectRatio;
     b32 CompileShaders;
     
-    u8 PushBufferMemory[65536];
+    //u8 PushBufferMemory[65536];
+    u8 *PushBufferMemory;
     u32 MaxPushBufferSize;
     u8 *PushBufferBase;
     u32 PushBufferSize;
@@ -424,10 +431,12 @@ struct renderer_frame
     u32 WaterPushBufferSize;
     
 #if ENGINE_INTERNAL
+    debug_table *DebugTable; // for opengl renderer collation
+#if ENGINE_IMGUI
     b32 IsOpenglImGuiInitialized;
     loaded_bitmap Preview;
     imgui *ImGuiHandle;
-    debug_table *DebugTable; // for opengl renderer collation
+#endif
 #endif
     
     opengl Opengl;
@@ -443,16 +452,19 @@ struct game_memory
     void *TransientStorage; // NOTE(ezexff): REQUIRED to be cleared to zero at startup
     
 #if ENGINE_INTERNAL
-    imgui ImGuiHandle;
     struct debug_table *DebugTable;
+#if ENGINE_IMGUI
+    imgui ImGuiHandle;
+#endif
     
     u64 DebugStorageSize;
     void *DebugStorage; // NOTE(ezexff): REQUIRED to be cleared to zero at startup
     
-    b32 Paused;
     //struct debug_state *DebugState;
     //struct memory_arena *ConstArena;
 #endif
+    
+    b32 Paused;
     
     renderer_frame Frame;
     

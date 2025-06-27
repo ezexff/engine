@@ -539,7 +539,9 @@ internal void
 UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
 {
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
     imgui *ImGuiHandle = &Memory->ImGuiHandle;
+#endif
 #endif
     game_state *GameState = (game_state *)Memory->PermanentStorage;
     tran_state *TranState = (tran_state *)Memory->TransientStorage;
@@ -701,7 +703,9 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 *ConHero = {};
                 ConHero->EntityIndex = AddPlayer(ModeWorld).LowIndex;
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
                 Log->Add("[engineworld] 1st player added\n");
+#endif
 #endif
             }
         }
@@ -790,7 +794,9 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         // NOTE(ezexff): Mouse cursor input delta
         Input->CenteringMouseCursor = true;
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
         if(!ImGuiHandle->ShowImGuiWindows)
+#endif
 #endif
         {
             r32 Sensitivity = 0.03;
@@ -904,6 +910,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     //Frame->WaterNormalMap = LoadTexture(&Render->WaterNormalMapName);
     
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
     // NOTE(ezexff): Sim region outlines
     {
         if(ImGuiHandle->DrawCameraBounds)
@@ -923,6 +930,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             PushRectOutlineOnGround(Frame, V2(0, 0), GetDim(SimRegion->UpdatableBounds).xy, V4(1.0f, 0.0f, 1.0f, 1));
         }
     }
+#endif
 #endif
     END_BLOCK();
     
@@ -1271,6 +1279,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                 case EntityType_Space:
                 {
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
                     if(ImGuiHandle->DrawSpaceBounds)
                     {
                         for(u32 VolumeIndex = 0;
@@ -1282,6 +1291,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
                             PushRectOutlineOnGround(Frame, InCameraSpaceEntityP.xy, Volume->Dim.xy, V4(1, 1, 1, 1));
                         }
                     }
+#endif
 #endif
                 } break;
                 
@@ -1380,10 +1390,12 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
             {
                 GroundBuffer->OffsetP = Subtract(ModeWorld->World, &GroundBuffer->P, &ModeWorld->Camera.P);
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
                 if(ImGuiHandle->DrawGroundBufferBounds)
                 {
                     PushRectOutlineOnGround(Frame, GroundBuffer->OffsetP.xy, V2(8, 8), V4(0, 0, 1, 1));
                 }
+#endif
 #endif
                 // NOTE(ezexff): From center pos to left bottom pos for proper rendering
                 GroundBuffer->OffsetP.x -= 0.5f * ModeWorld->GroundBufferWidth;
@@ -1531,6 +1543,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
 #endif
     
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
     if(ImGuiHandle->ShowImGuiWindows)
     {
         if(ImGuiHandle->ShowSimRegionWindow)
@@ -1623,6 +1636,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         }
     }
 #endif
+#endif
     
     // TODO(ezexff): Mb rework text output and add kerning
     /* 
@@ -1645,6 +1659,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     END_BLOCK();
     
 #if ENGINE_INTERNAL
+#if ENGINE_IMGUI
     {
         // NOTE(ezexff): Player pos, angle, velocity
         ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Appearing);
@@ -1681,5 +1696,6 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         
         ImGui::End();
     }
+#endif
 #endif
 }
