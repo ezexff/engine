@@ -1,4 +1,5 @@
 #define ENGINE_IMGUI 0
+#define ENGINE_UI    1
 
 //~ NOTE(ezexff): ImGui
 #if ENGINE_IMGUI

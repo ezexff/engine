@@ -230,6 +230,8 @@ struct opengl
 #define GL_RENDERBUFFER 0x8D41
 #define GL_CLIP_DISTANCE0 0x3000
     
+    //#define GL_R8 33321
+    
     // Load shader
     OpenglFunction(glCreateShader);
     OpenglFunction(glShaderSource);

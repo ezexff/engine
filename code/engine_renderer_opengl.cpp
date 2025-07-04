@@ -1161,11 +1161,12 @@ OpenglInit(renderer_frame *Frame)
     Opengl->glBindBuffer(GL_ARRAY_BUFFER, 0);
     Opengl->glBindVertexArray(0);
     
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glGenTextures(1, &Frame->OpenglFontTexture);
     Opengl->glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D_ARRAY, Frame->OpenglFontTexture);
-    Opengl->glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 20, 20, 128, 0,
-                         GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    Opengl->glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RED, 20, 20, 128, 0,
+                         GL_RED, GL_UNSIGNED_BYTE, 0);
     glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
 }
 
@@ -1765,8 +1766,21 @@ OpenglInitBitmapPreview(renderer_frame *Frame)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         // texture to GPU
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Preview->Width, Preview->Height, 0,
-                     Preview->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Preview->Memory);
+        s32 InternalFormat = GL_RGBA;
+        s32 Format = GL_RGBA;
+        
+        if(Preview->BytesPerPixel == 1)
+        {
+            InternalFormat = GL_RED;
+            Format = GL_RED;
+        }
+        else if(Preview->BytesPerPixel == 3)
+        {
+            Format = GL_RGB;
+        }
+        
+        glTexImage2D(GL_TEXTURE_2D, 0, InternalFormat, Preview->Width, Preview->Height, 0,
+                     Format, GL_UNSIGNED_BYTE, Preview->Memory);
         //Opengl->glGenerateMipmap(GL_TEXTURE_2D);
     }
 #endif
@@ -2008,7 +2022,7 @@ OpenglDrawUI(renderer_frame *Frame)
             loaded_bitmap *Bitmap = Entry->Bitmap;
             if(!Entry->Bitmap->OpenglID)
             {
-                Opengl->glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, Entry->CodePoint, Bitmap->Width, Bitmap->Height, 1, GL_RGBA, GL_UNSIGNED_BYTE, Bitmap->Memory);
+                Opengl->glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, Entry->CodePoint, Bitmap->Width, Bitmap->Height, 1, GL_RED, GL_UNSIGNED_BYTE, Bitmap->Memory);
                 glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
                 glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
                 glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);

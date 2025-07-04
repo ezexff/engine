@@ -1465,6 +1465,8 @@ DEBUGEnd(debug_state *DebugState)
         if(ImGuiHandle->ShowDebugCollationWindow)
         {
             ImGui::Begin("DebugProfile", &ImGuiHandle->ShowDebugCollationWindow);
+            r32 FPS = 1 / GlobalDebugInput->dtForFrame;
+            ImGui::Text("FPS = %.2f", FPS);
             ImGui::Text("TotalFrameCount = %d\n", DebugState->TotalFrameCount);
             ImGui::Text("StoredBlockCount = %d\n", DebugState->StoredBlockCount);
             ImGui::Text("DebugFrameIndex = %d\n", DebugState->DebugFrameIndex);
@@ -1914,7 +1916,9 @@ ImPlot::EndPlot();
     ImGuiUpdateAndRender();
 #endif
     //~ NOTE(ezexff): test new ui
+#if ENGINE_UI
     TestNewUI(DebugState);
+#endif
 }
 
 // TODO(casey): Really want to get rid of main generation ID

@@ -638,52 +638,54 @@ UI_DrawText(ui_node *Node, rectangle2 ClippedRect)
                     
                     if(RectanglesIntersect(Rect, ClippedRect))
                     {
-                        r32 MinClipX = 0;
-                        r32 MinClipUVX = 0;
-                        if(Rect.Min.x < ClippedRect.Min.x)
-                        {
-                            MinClipX = ClippedRect.Min.x - Rect.Min.x;
-                            MinClipUVX = MinClipX / GlyphDim.x;
-                        }
-                        r32 MaxClipX = 0;
-                        r32 MaxClipUVX = 1;
-                        if(Rect.Max.x > ClippedRect.Max.x)
-                        {
-                            MaxClipX = Rect.Max.x - ClippedRect.Max.x;
-                            MaxClipUVX = 1 - MaxClipX / GlyphDim.x;
-                        }
-                        
-                        Rect.Min.x += MinClipX;
-                        Rect.Max.x -= MaxClipX;
-                        
-                        // NOTE(ezexff): clip y
-                        r32 MinClipY = 0;
-                        r32 MinClipUVY = 0;
-                        if(Rect.Min.y < ClippedRect.Min.y)
-                        {
-                            MinClipY = ClippedRect.Min.y - Rect.Min.y;
-                            MinClipUVY = MinClipY / GlyphDim.y;
-                        }
-                        r32 MaxClipY = 0;
-                        r32 MaxClipUVY = 1;
-                        if(Rect.Max.y > ClippedRect.Max.y)
-                        {
-                            MaxClipY = Rect.Max.y - ClippedRect.Max.y;
-                            MaxClipUVY = 1 - MaxClipY / GlyphDim.y;
-                        }
-                        
-                        Rect.Min.y += MinClipY;
-                        Rect.Max.y -= MaxClipY;
-                        
-                        r32 TexCoords[8] = 
-                        {MinClipUVX, MinClipUVY,
-                            MaxClipUVX, MinClipUVY,
-                            MaxClipUVX, MaxClipUVY,
-                            MinClipUVX, MaxClipUVY,
-                        };
+                        /* 
+                                                r32 MinClipX = 0;
+                                                r32 MinClipUVX = 0;
+                                                if(Rect.Min.x < ClippedRect.Min.x)
+                                                {
+                                                    MinClipX = ClippedRect.Min.x - Rect.Min.x;
+                                                    MinClipUVX = MinClipX / GlyphDim.x;
+                                                }
+                                                r32 MaxClipX = 0;
+                                                r32 MaxClipUVX = 1;
+                                                if(Rect.Max.x > ClippedRect.Max.x)
+                                                {
+                                                    MaxClipX = Rect.Max.x - ClippedRect.Max.x;
+                                                    MaxClipUVX = 1 - MaxClipX / GlyphDim.x;
+                                                }
+                                                
+                                                Rect.Min.x += MinClipX;
+                                                Rect.Max.x -= MaxClipX;
+                                                
+                                                // NOTE(ezexff): clip y
+                                                r32 MinClipY = 0;
+                                                r32 MinClipUVY = 0;
+                                                if(Rect.Min.y < ClippedRect.Min.y)
+                                                {
+                                                    MinClipY = ClippedRect.Min.y - Rect.Min.y;
+                                                    MinClipUVY = MinClipY / GlyphDim.y;
+                                                }
+                                                r32 MaxClipY = 0;
+                                                r32 MaxClipUVY = 1;
+                                                if(Rect.Max.y > ClippedRect.Max.y)
+                                                {
+                                                    MaxClipY = Rect.Max.y - ClippedRect.Max.y;
+                                                    MaxClipUVY = 1 - MaxClipY / GlyphDim.y;
+                                                }
+                                                
+                                                Rect.Min.y += MinClipY;
+                                                Rect.Max.y -= MaxClipY;
+                                                
+                                                r32 TexCoords[8] = 
+                                                {MinClipUVX, MinClipUVY,
+                                                    MaxClipUVX, MinClipUVY,
+                                                    MaxClipUVX, MaxClipUVY,
+                                                    MinClipUVX, MaxClipUVY,
+                                                };
+                         */
                         
                         //m4x4 Model = Identity() * Translate(V3(GlyphPos.x, GlyphPos.y, 0.0f)) * Scale(V3(GlyphDim.x, GlyphDim.y, 0.0f));
-                        m4x4 Model = Identity() * Translate(V3(GlyphPos.x, GlyphPos.y, 0.0f)) * Scale(20);
+                        m4x4 Model = Translate(V3(GlyphPos.x, GlyphPos.y, 0.0f)) * Scale(20);
                         Model = Transpose(Model);
                         
                         renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
