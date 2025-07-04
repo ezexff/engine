@@ -222,6 +222,9 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         Frame->PushBufferMemory = (u8 *)PushSize(ConstArena, Frame->MaxPushBufferSize);
         Frame->PushBufferBase = Frame->PushBufferMemory;
         
+        // TODO(ezexff): test new push buffer
+        Frame->TextPushBuffer = CreatePushBuffer(ConstArena, Kilobytes(200));
+        
         // NOTE(ezexff): Screen shader program
         {
             DEBUGLoadShaders(ConstArena, &Frame->Shaders);

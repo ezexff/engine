@@ -173,6 +173,8 @@ typedef void WINAPI type_glVertexAttribPointer(GLuint index, GLint size, GLenum 
 typedef GLint WINAPI type_glGetUniformLocation(GLuint program, const GLchar *name);
 typedef GLenum WINAPI type_glCheckFramebufferStatus(GLenum target);
 typedef void WINAPI type_glUniform1i(GLint location, GLint v0);
+typedef void WINAPI type_glUniform1iv(GLint location, GLsizei count, const GLint *value);
+
 typedef void WINAPI type_glUniformMatrix4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
 typedef void WINAPI type_glUniform3fv(GLint location, GLsizei count, const GLfloat *value);
 typedef void WINAPI type_glUniform4fv(GLint location, GLsizei count, const GLfloat *value);
@@ -186,6 +188,14 @@ typedef void WINAPI type_glGenRenderbuffers(GLsizei n, GLuint *renderbuffers);
 typedef void WINAPI type_glBindRenderbuffer(GLenum target, GLuint renderbuffer);
 typedef void WINAPI type_glRenderbufferStorage(GLenum target, GLenum internalformat, GLsizei width, GLsizei height);
 typedef void WINAPI type_glFramebufferRenderbuffer(GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer);
+
+// Instancing
+typedef void WINAPI type_glDrawArraysInstanced(GLenum mode, GLint first, GLsizei count, GLsizei instancecount);
+typedef void WINAPI type_glTexImage3D(GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid *data);
+typedef void WINAPI type_glTexSubImage3D(GLenum target,
+                                         GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const GLvoid *data);
+
+
 
 
 #define OpenglFunction(Name) type_##Name *Name
@@ -206,6 +216,7 @@ struct opengl
 #define GL_TEXTURE3 0x84C3
 #define GL_TEXTURE4 0x84C4
 #define GL_CLAMP_TO_EDGE 0x812F
+#define GL_TEXTURE_2D_ARRAY 0x8C1A
     
 #define GL_ARRAY_BUFFER 0x8892
 #define GL_STATIC_DRAW 0x88E4
@@ -257,6 +268,7 @@ struct opengl
     OpenglFunction(glGetUniformLocation);
     OpenglFunction(glCheckFramebufferStatus);
     OpenglFunction(glUniform1i);
+    OpenglFunction(glUniform1iv);
     OpenglFunction(glUniformMatrix4fv);
     OpenglFunction(glUniform3fv);
     OpenglFunction(glUniform4fv);
@@ -270,6 +282,11 @@ struct opengl
     OpenglFunction(glBindRenderbuffer);
     OpenglFunction(glRenderbufferStorage);
     OpenglFunction(glFramebufferRenderbuffer);
+    
+    // Instancing
+    OpenglFunction(glDrawArraysInstanced);
+    OpenglFunction(glTexImage3D);
+    OpenglFunction(glTexSubImage3D);
     
 #if ENGINE_INTERNAL
     // NOTE(ezexff): OpenGL info
@@ -376,6 +393,9 @@ struct renderer_shaders
     
     loaded_shader WaterVert;
     loaded_shader WaterFrag;
+    
+    loaded_shader UI_GlyphVert;
+    loaded_shader UI_GlyphFrag;
 };
 
 struct renderer_programs
@@ -384,7 +404,15 @@ struct renderer_programs
     shader_program Scene;
     shader_program Skybox;
     shader_program ShadowMap;
-    shader_program Water ;
+    shader_program Water;
+    shader_program UI_Glyph;
+};
+
+struct push_buffer
+{
+    u32 Size;
+    u32 MaxSize;
+    u8 *Memory;
 };
 
 struct renderer_frame
@@ -405,6 +433,15 @@ struct renderer_frame
     u32 FBO;
     u32 VAO;
     u32 VBO;
+    
+    // TODO(ezexff): think!!!
+    push_buffer TextPushBuffer;
+    u32 OpenglFontTexture;
+    //m4x4 ModelArray[128];
+    //void *GlyphMemoryArray[128]
+    
+    u32 GlyphVAO;
+    u32 GlyphVBO;
     
     s32 EffectID; // fragment shader effect - enum frame_effect
     

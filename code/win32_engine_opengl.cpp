@@ -11,7 +11,6 @@
 #include "engine_renderer_opengl.h"
 #include "engine_renderer_opengl.cpp"
 
-
 void Win32ErrorMessageBox(char *Message)
 {
     MessageBoxA(0, Message, 0, MB_OK);
@@ -86,6 +85,7 @@ Win32InitOpengl(renderer_frame *Frame, HDC WindowDC)
         Win32GetOpenglFunction(glGetUniformLocation);
         Win32GetOpenglFunction(glCheckFramebufferStatus);
         Win32GetOpenglFunction(glUniform1i);
+        Win32GetOpenglFunction(glUniform1iv);
         Win32GetOpenglFunction(glUniformMatrix4fv);
         Win32GetOpenglFunction(glUniform3fv);
         Win32GetOpenglFunction(glUniform4fv);
@@ -99,6 +99,11 @@ Win32InitOpengl(renderer_frame *Frame, HDC WindowDC)
         Win32GetOpenglFunction(glBindRenderbuffer);
         Win32GetOpenglFunction(glRenderbufferStorage);
         Win32GetOpenglFunction(glFramebufferRenderbuffer);
+        
+        // Instancing
+        Win32GetOpenglFunction(glDrawArraysInstanced);
+        Win32GetOpenglFunction(glTexImage3D);
+        Win32GetOpenglFunction(glTexSubImage3D);
     }
     else
     {

@@ -628,6 +628,21 @@ inline m4x4 Scale(r32 P)
     return (R);
 }
 
+inline m4x4 Scale(v3 P)
+{
+    m4x4 R = 
+    {
+        {
+            {1 * P.x, 0, 0, 0},
+            {0, 1 * P.y, 0, 0},
+            {0, 0, 1 * P.z, 0},
+            {0, 0, 0, 1}
+        },
+    };
+    
+    return (R);
+}
+
 m4x4 Transpose(m4x4 A)
 {
     m4x4 R;

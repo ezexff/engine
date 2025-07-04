@@ -26,6 +26,11 @@ LoadAssetWorkDirectly(load_asset_work *Work)
         {
             case FinalizeAsset_None:
             {
+                /* 
+                #if ENGINE_INTERNAL
+                                OutputDebugStringA("LoadAssetWorkCompleted\n");
+                #endif
+                 */
                 // NOTE(casey): Nothing to do.
             } break;
             
@@ -796,6 +801,10 @@ DEBUGLoadShaders(memory_arena *ConstArena, renderer_shaders *Shaders)
                 {
                     Text = Shaders->WaterVert.Text;
                 }
+                else if(FileHandle->Name == L"ui_glyph.vert")
+                {
+                    Text = Shaders->UI_GlyphVert.Text;
+                }
                 else
                 {
                     InvalidCodePath;
@@ -860,6 +869,10 @@ DEBUGLoadShaders(memory_arena *ConstArena, renderer_shaders *Shaders)
                 else if(FileHandle->Name == L"water.frag")
                 {
                     Text = Shaders->WaterFrag.Text;
+                }
+                else if(FileHandle->Name == L"ui_glyph.frag")
+                {
+                    Text = Shaders->UI_GlyphFrag.Text;
                 }
                 else
                 {

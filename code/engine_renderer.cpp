@@ -135,6 +135,17 @@ PushFont(renderer_frame *Frame, game_assets *Assets, font_id ID)
     loaded_font *Font = GetFont(Assets, ID, true);    
     if(Font)
     {
+        /* 
+                if(!Frame->TestFontInitialized)
+                {
+                    eab_font *FontInfo = GetFontInfo(Assets, ID);
+                    Frame->GlyphSize = RoundR32ToS32((FontInfo->Ascent - FontInfo->Descent) * FontInfo->Scale);
+                    Frame->GlyphCount = FontInfo->GlyphCount;
+                    
+                    
+                    Frame->TestFontInitialized = true;
+                }
+         */
         // NOTE(casey): Nothing to do
     }
     else
@@ -302,6 +313,108 @@ PushBitmapOnScreen(renderer_push_buffer *PushBuffer, game_assets *Assets, bitmap
             Entry->TexCoords[5] = TexCoords[5];
             Entry->TexCoords[6] = TexCoords[6];
             Entry->TexCoords[7] = TexCoords[7];
+            //Entry->Repeat = Repeat;
+        }
+    }
+    else
+    {
+        LoadBitmap(Assets, ID, true);
+        //++Frame->MissingResourceCount;
+    }
+}
+
+void
+PushGlyphOnScreen(renderer_push_buffer *PushBuffer, game_assets *Assets, bitmap_id ID, m4x4 Model,
+                  r32 SortKey = 0.0f)
+{
+    loaded_bitmap *Bitmap = GetBitmap(Assets, ID, true);
+    if(Bitmap)
+    {
+        renderer_ortho_entry_glyph *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_glyph, SortKey);
+        if(Entry)
+        {
+            Entry->Bitmap = Bitmap;
+            Entry->Model = Model;
+        }
+    }
+    else
+    {
+        LoadBitmap(Assets, ID, true);
+        //++Frame->MissingResourceCount;
+    }
+}
+
+//~ NOTE(ezexff): new push buffer
+internal push_buffer
+CreatePushBuffer(memory_arena *Arena, u32 MaxSize)
+{
+    push_buffer Result = {};
+    Result.MaxSize = MaxSize;
+    Result.Memory = (u8 *)PushSize(Arena, Result.MaxSize);
+    return(Result);
+}
+
+/* 
+#define PushRenderElement2(PushBuffer, type) (type *)PushRenderElement_(PushBuffer, sizeof(type), RendererOrthoEntryType_##type)
+void *
+PushRenderElement_(push_buffer *PushBuffer, u32 Size, renderer_ortho_entry_type Type)
+{
+    void *Result = 0;
+    
+    Size += sizeof(renderer_entry_header);
+    
+    if((PushBuffer->Size + Size) < PushBuffer->MaxSize)
+    {
+        renderer_entry_header *Header = (renderer_entry_header *)(PushBuffer->Memory + PushBuffer->Size);
+        Header->OrthoType = Type;
+        Result = (u8 *)Header + sizeof(*Header);
+        PushBuffer->Size += Size;
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+    
+    return(Result);
+}
+ */
+
+void
+PushGlyph(push_buffer *PushBuffer, game_assets *Assets, u32 CodePoint, bitmap_id ID, m4x4 Model,
+          r32 *TexCoords = DefaultTexCoords)
+{
+    loaded_bitmap *Bitmap = GetBitmap(Assets, ID, true);
+    if(Bitmap)
+    {
+        renderer_ortho_entry_glyph *Entry = 0;
+        
+        u32 Size = sizeof(renderer_ortho_entry_glyph);
+        if((PushBuffer->Size + Size) < PushBuffer->MaxSize)
+        {
+            Entry = (renderer_ortho_entry_glyph *)(PushBuffer->Memory + PushBuffer->Size);
+            PushBuffer->Size += Size;
+        }
+        else
+        {
+            InvalidCodePath;
+        }
+        
+        
+        if(Entry)
+        {
+            Entry->CodePoint = CodePoint;
+            Entry->Bitmap = Bitmap;
+            Entry->Model = Model;
+            /* 
+        Entry->TexCoords[0] = TexCoords[0];
+        Entry->TexCoords[1] = TexCoords[1];
+        Entry->TexCoords[2] = TexCoords[2];
+        Entry->TexCoords[3] = TexCoords[3];
+        Entry->TexCoords[4] = TexCoords[4];
+        Entry->TexCoords[5] = TexCoords[5];
+        Entry->TexCoords[6] = TexCoords[6];
+        Entry->TexCoords[7] = TexCoords[7];
+*/
             //Entry->Repeat = Repeat;
         }
     }

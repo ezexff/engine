@@ -249,11 +249,19 @@ struct renderer_ortho_entry_bitmap
     r32 TexCoords[8];
 };
 
+struct renderer_ortho_entry_glyph
+{
+    u32 CodePoint;
+    loaded_bitmap *Bitmap;
+    m4x4 Model;
+};
+
 enum renderer_ortho_entry_type
 {
     RendererOrthoEntryType_renderer_ortho_entry_rect,
     RendererOrthoEntryType_renderer_ortho_entry_rect_outline,
     RendererOrthoEntryType_renderer_ortho_entry_bitmap,
+    RendererOrthoEntryType_renderer_ortho_entry_glyph,
 };
 
 struct renderer_entry_header

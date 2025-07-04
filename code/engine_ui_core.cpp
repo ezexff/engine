@@ -580,7 +580,7 @@ UI_Interact()
 }
 
 internal void
-UI_DrawLabel(ui_node *Node, rectangle2 ClippedRect)
+UI_DrawText(ui_node *Node, rectangle2 ClippedRect)
 {
     game_assets *Assets = UI_State->Assets;
     renderer_frame *Frame = UI_State->Frame;
@@ -617,155 +617,149 @@ UI_DrawLabel(ui_node *Node, rectangle2 ClippedRect)
             {
                 break;
             }
-            
-            s32 Ascent = RoundR32ToS32(FontInfo->Ascent * FontScale);
-            s32 LSB = Font->LSBs[CodePoint];
-            s32 XOffset = s32(Font->GlyphOffsets[CodePoint].x);
-            s32 YOffset = s32(Font->GlyphOffsets[CodePoint].y);
-            
-            //if(CodePoint != ' ')
+            else if(CodePoint == ' ')
             {
-                bitmap_id BitmapID = GetBitmapForGlyph(Assets, FontInfo, Font, CodePoint);
-                eab_bitmap *GlyphInfo = GetBitmapInfo(Assets, BitmapID);
+                
+            }
+            else
+            {
+                s32 Ascent = RoundR32ToS32(FontInfo->Ascent * FontScale);
+                s32 LSB = Font->LSBs[CodePoint];
+                s32 XOffset = s32(Font->GlyphOffsets[CodePoint].x);
+                s32 YOffset = s32(Font->GlyphOffsets[CodePoint].y);
+                
+                {
+                    bitmap_id BitmapID = GetBitmapForGlyph(Assets, FontInfo, Font, CodePoint);
+                    eab_bitmap *GlyphInfo = GetBitmapInfo(Assets, BitmapID);
 #if 1
-                v2 GlyphDim = V2((r32)GlyphInfo->Dim[0], (r32)GlyphInfo->Dim[1]);
-                v2 GlyphPos = V2((r32)(AtX + XOffset), (r32)(AtY + YOffset));
-                rectangle2 Rect = {GlyphPos, GlyphPos + GlyphDim};
-                
-                if(RectanglesIntersect(Rect, ClippedRect))
-                {
-                    r32 MinClipX = 0;
-                    r32 MinClipUVX = 0;
-                    if(Rect.Min.x < ClippedRect.Min.x)
+                    v2 GlyphDim = V2((r32)GlyphInfo->Dim[0], (r32)GlyphInfo->Dim[1]);
+                    v2 GlyphPos = V2((r32)(AtX + XOffset), (r32)(AtY + YOffset));
+                    rectangle2 Rect = {GlyphPos, GlyphPos + GlyphDim};
+                    
+                    if(RectanglesIntersect(Rect, ClippedRect))
                     {
-                        MinClipX = ClippedRect.Min.x - Rect.Min.x;
-                        MinClipUVX = MinClipX / GlyphDim.x;
+                        r32 MinClipX = 0;
+                        r32 MinClipUVX = 0;
+                        if(Rect.Min.x < ClippedRect.Min.x)
+                        {
+                            MinClipX = ClippedRect.Min.x - Rect.Min.x;
+                            MinClipUVX = MinClipX / GlyphDim.x;
+                        }
+                        r32 MaxClipX = 0;
+                        r32 MaxClipUVX = 1;
+                        if(Rect.Max.x > ClippedRect.Max.x)
+                        {
+                            MaxClipX = Rect.Max.x - ClippedRect.Max.x;
+                            MaxClipUVX = 1 - MaxClipX / GlyphDim.x;
+                        }
+                        
+                        Rect.Min.x += MinClipX;
+                        Rect.Max.x -= MaxClipX;
+                        
+                        // NOTE(ezexff): clip y
+                        r32 MinClipY = 0;
+                        r32 MinClipUVY = 0;
+                        if(Rect.Min.y < ClippedRect.Min.y)
+                        {
+                            MinClipY = ClippedRect.Min.y - Rect.Min.y;
+                            MinClipUVY = MinClipY / GlyphDim.y;
+                        }
+                        r32 MaxClipY = 0;
+                        r32 MaxClipUVY = 1;
+                        if(Rect.Max.y > ClippedRect.Max.y)
+                        {
+                            MaxClipY = Rect.Max.y - ClippedRect.Max.y;
+                            MaxClipUVY = 1 - MaxClipY / GlyphDim.y;
+                        }
+                        
+                        Rect.Min.y += MinClipY;
+                        Rect.Max.y -= MaxClipY;
+                        
+                        r32 TexCoords[8] = 
+                        {MinClipUVX, MinClipUVY,
+                            MaxClipUVX, MinClipUVY,
+                            MaxClipUVX, MaxClipUVY,
+                            MinClipUVX, MaxClipUVY,
+                        };
+                        
+                        //m4x4 Model = Identity() * Translate(V3(GlyphPos.x, GlyphPos.y, 0.0f)) * Scale(V3(GlyphDim.x, GlyphDim.y, 0.0f));
+                        m4x4 Model = Identity() * Translate(V3(GlyphPos.x, GlyphPos.y, 0.0f)) * Scale(20);
+                        Model = Transpose(Model);
+                        
+                        renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
+                        //PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Rect, 100, TexCoords);
+                        //PushGlyphOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Model, 100);
+                        //Frame->ModelArray[CodePoint] = Model;
+                        //Frame->GlyphMemoryArray[CodePoint] = fsdfs;
+                        PushGlyph(&Frame->TextPushBuffer, Assets, CodePoint, BitmapID, Model);
                     }
-                    r32 MaxClipX = 0;
-                    r32 MaxClipUVX = 1;
-                    if(Rect.Max.x > ClippedRect.Max.x)
-                    {
-                        MaxClipX = Rect.Max.x - ClippedRect.Max.x;
-                        MaxClipUVX = 1 - MaxClipX / GlyphDim.x;
-                    }
-                    
-                    Rect.Min.x += MinClipX;
-                    Rect.Max.x -= MaxClipX;
-                    
-                    // NOTE(ezexff): clip y
-                    r32 MinClipY = 0;
-                    r32 MinClipUVY = 0;
-                    if(Rect.Min.y < ClippedRect.Min.y)
-                    {
-                        MinClipY = ClippedRect.Min.y - Rect.Min.y;
-                        MinClipUVY = MinClipY / GlyphDim.y;
-                    }
-                    r32 MaxClipY = 0;
-                    r32 MaxClipUVY = 1;
-                    if(Rect.Max.y > ClippedRect.Max.y)
-                    {
-                        MaxClipY = Rect.Max.y - ClippedRect.Max.y;
-                        MaxClipUVY = 1 - MaxClipY / GlyphDim.y;
-                    }
-                    
-                    Rect.Min.y += MinClipY;
-                    Rect.Max.y -= MaxClipY;
-                    
-                    r32 TexCoords[8] = 
-                    {MinClipUVX, MinClipUVY,
-                        MaxClipUVX, MinClipUVY,
-                        MaxClipUVX, MaxClipUVY,
-                        MinClipUVX, MaxClipUVY,
-                    };
-                    
-                    renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
-                    PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Rect, 100, TexCoords);
-                }
 #else
-                v2 GlyphDim;
-                GlyphDim.x = (r32)GlyphInfo->Dim[0];
-                GlyphDim.y = (r32)GlyphInfo->Dim[1];
-                v2 Pos = V2(0, 0);
-                Pos.x = (r32)(AtX + XOffset - Node->StartTextOffset.x);
-                Pos.y = (r32)(AtY + YOffset - Node->StartTextOffset.y);
-                rectangle2 Rect = {Pos, Pos + GlyphDim};
-                // NOTE(ezexff): skip glyph that outside node->rect
-                if(((Rect.Max.x > Node->Rect.Min.x) && (Rect.Min.x < Node->Rect.Max.x)) &&
-                   ((Rect.Max.y > Node->Rect.Min.y) && (Rect.Min.y < Node->Rect.Max.y)))
-                {
-                    // NOTE(ezexff): clip when glyph on node->rect border
-                    // NOTE(ezexff): clip x
-                    r32 MinClipX = 0;
-                    r32 MinClipUVX = 0;
-                    if(Rect.Min.x < Node->Rect.Min.x)
+                    v2 GlyphDim;
+                    GlyphDim.x = (r32)GlyphInfo->Dim[0];
+                    GlyphDim.y = (r32)GlyphInfo->Dim[1];
+                    v2 Pos = V2(0, 0);
+                    Pos.x = (r32)(AtX + XOffset - Node->StartTextOffset.x);
+                    Pos.y = (r32)(AtY + YOffset - Node->StartTextOffset.y);
+                    rectangle2 Rect = {Pos, Pos + GlyphDim};
+                    // NOTE(ezexff): skip glyph that outside node->rect
+                    if(((Rect.Max.x > Node->Rect.Min.x) && (Rect.Min.x < Node->Rect.Max.x)) &&
+                       ((Rect.Max.y > Node->Rect.Min.y) && (Rect.Min.y < Node->Rect.Max.y)))
                     {
-                        MinClipX = Node->Rect.Min.x - Rect.Min.x;
-                        MinClipUVX = MinClipX / GlyphDim.x;
+                        // NOTE(ezexff): clip when glyph on node->rect border
+                        // NOTE(ezexff): clip x
+                        r32 MinClipX = 0;
+                        r32 MinClipUVX = 0;
+                        if(Rect.Min.x < Node->Rect.Min.x)
+                        {
+                            MinClipX = Node->Rect.Min.x - Rect.Min.x;
+                            MinClipUVX = MinClipX / GlyphDim.x;
+                        }
+                        r32 MaxClipX = 0;
+                        r32 MaxClipUVX = 1;
+                        if(Rect.Max.x > Node->Rect.Max.x)
+                        {
+                            MaxClipX = Rect.Max.x - Node->Rect.Max.x;
+                            MaxClipUVX = 1 - MaxClipX / GlyphDim.x;
+                        }
+                        
+                        Rect.Min.x += MinClipX;
+                        Rect.Max.x -= MaxClipX;
+                        
+                        // NOTE(ezexff): clip y
+                        r32 MinClipY = 0;
+                        r32 MinClipUVY = 0;
+                        if(Rect.Min.y < Node->Rect.Min.y)
+                        {
+                            MinClipY = Node->Rect.Min.y - Rect.Min.y;
+                            MinClipUVY = MinClipY / GlyphDim.y;
+                        }
+                        r32 MaxClipY = 0;
+                        r32 MaxClipUVY = 1;
+                        if(Rect.Max.y > Node->Rect.Max.y)
+                        {
+                            MaxClipY = Rect.Max.y - Node->Rect.Max.y;
+                            MaxClipUVY = 1 - MaxClipY / GlyphDim.y;
+                        }
+                        
+                        Rect.Min.y += MinClipY;
+                        Rect.Max.y -= MaxClipY;
+                        
+                        r32 TexCoords[8] = 
+                        {MinClipUVX, MinClipUVY,
+                            MaxClipUVX, MinClipUVY,
+                            MaxClipUVX, MaxClipUVY,
+                            MinClipUVX, MaxClipUVY,
+                        };
+                        renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
+                        PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Rect, 100, TexCoords);
                     }
-                    r32 MaxClipX = 0;
-                    r32 MaxClipUVX = 1;
-                    if(Rect.Max.x > Node->Rect.Max.x)
-                    {
-                        MaxClipX = Rect.Max.x - Node->Rect.Max.x;
-                        MaxClipUVX = 1 - MaxClipX / GlyphDim.x;
-                    }
-                    
-                    Rect.Min.x += MinClipX;
-                    Rect.Max.x -= MaxClipX;
-                    
-                    // NOTE(ezexff): clip y
-                    r32 MinClipY = 0;
-                    r32 MinClipUVY = 0;
-                    if(Rect.Min.y < Node->Rect.Min.y)
-                    {
-                        MinClipY = Node->Rect.Min.y - Rect.Min.y;
-                        MinClipUVY = MinClipY / GlyphDim.y;
-                    }
-                    r32 MaxClipY = 0;
-                    r32 MaxClipUVY = 1;
-                    if(Rect.Max.y > Node->Rect.Max.y)
-                    {
-                        MaxClipY = Rect.Max.y - Node->Rect.Max.y;
-                        MaxClipUVY = 1 - MaxClipY / GlyphDim.y;
-                    }
-                    
-                    Rect.Min.y += MinClipY;
-                    Rect.Max.y -= MaxClipY;
-                    
-                    r32 TexCoords[8] = 
-                    {MinClipUVX, MinClipUVY,
-                        MaxClipUVX, MinClipUVY,
-                        MaxClipUVX, MaxClipUVY,
-                        MinClipUVX, MaxClipUVY,
-                    };
-                    renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
-                    PushBitmapOnScreen(&Renderer->PushBufferUI, Assets, BitmapID, Rect, 100, TexCoords);
-                }
 #endif
-                /* 
-                v2 TestMax = Max - Node->Rect.Min;
-                if(TestMax.x > RectDim.x)
-                {
-                    break;
                 }
-                
-                if(TestMax.y > RectDim.y)
-                {
-                    break;
-                }
-    */
             }
             
             s32 AdvanceX = RoundR32ToS32(Font->Advances[CodePoint] * CharScale);
             AtX += AdvanceX;
             ++At;
-            
-            /* 
-            if(AtX > RectWidth)
-            {
-                InvalidCodePath;
-            }
-    */
         }
     }
 }
@@ -1143,7 +1137,7 @@ UI_ProcessNodeTree(ui_node *Node)
             
             if(Node->Cache->Flags & UI_NodeFlag_DrawText)
             {
-                UI_DrawLabel(Node, ClippedRect);
+                UI_DrawText(Node, ClippedRect);
             }
             
             if(Node->Cache->Flags & UI_NodeFlag_DrawBorder)

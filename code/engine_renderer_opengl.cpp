@@ -1,3 +1,14 @@
+s32
+OpenglGetUniformLocation(u32 Program, char *Name)
+{
+    s32 Result = Opengl->glGetUniformLocation(Program, Name);
+    if(Result == -1)
+    {
+        InvalidCodePath;
+    }
+    return(Result);
+};
+
 void
 OpenglCompileShader(GLuint Type, loaded_shader *Shader)
 {
@@ -1061,6 +1072,10 @@ OpenglCompileShaders(renderer_frame *Frame)
         OpenglCompileShader(GL_FRAGMENT_SHADER, &Shaders->WaterFrag);
         OpenglLinkProgram(&Shaders->WaterVert, &Shaders->WaterFrag, &Programs->Water);
         
+        OpenglCompileShader(GL_VERTEX_SHADER, &Shaders->UI_GlyphVert);
+        OpenglCompileShader(GL_FRAGMENT_SHADER, &Shaders->UI_GlyphFrag);
+        OpenglLinkProgram(&Shaders->UI_GlyphVert, &Shaders->UI_GlyphFrag, &Programs->UI_Glyph);
+        
         Frame->CompileShaders = false;
     }
 }
@@ -1126,8 +1141,32 @@ OpenglInit(renderer_frame *Frame)
     Opengl->glVertexAttribPointer(VertexAttributeIndex_TexCoord, 2, GL_FLOAT, GL_FALSE, sizeof(frame_vertex), (void *)offsetof(frame_vertex, TexCoords));
 #endif
     
+    //~ NOTE(ezexff): text VAO and VBO
+    r32 GlyphVertexArray[] = 
+    {
+        0.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        1.0f, 0.0f,
+    };
+    Opengl->glGenVertexArrays(1, &Frame->GlyphVAO);
+    Opengl->glGenBuffers(1, &Frame->GlyphVBO);
+    
+    Opengl->glBindVertexArray(Frame->GlyphVAO);
+    Opengl->glBindBuffer(GL_ARRAY_BUFFER, Frame->GlyphVBO);
+    Opengl->glBufferData(GL_ARRAY_BUFFER, sizeof(GlyphVertexArray), GlyphVertexArray, GL_STATIC_DRAW);
+    Opengl->glEnableVertexAttribArray(0);
+    Opengl->glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    
     Opengl->glBindBuffer(GL_ARRAY_BUFFER, 0);
     Opengl->glBindVertexArray(0);
+    
+    glGenTextures(1, &Frame->OpenglFontTexture);
+    Opengl->glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, Frame->OpenglFontTexture);
+    Opengl->glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 20, 20, 128, 0,
+                         GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
 }
 
 void
@@ -1163,21 +1202,21 @@ OpenglBeginFrame(renderer_frame *Frame)
 void
 OpenglMeshUniforms(renderer *Renderer, u32 ShaderProgramID)
 {
-    Opengl->glUniform4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uCutPlane"), 1, Renderer->CutPlane.E);
+    Opengl->glUniform4fv(OpenglGetUniformLocation(ShaderProgramID, "uCutPlane"), 1, Renderer->CutPlane.E);
     
-    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, (r32 *)Renderer->Proj.E);
-    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, (r32 *)Renderer->View.E);
-    Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (r32 *)Renderer->Model.E);
+    Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, (r32 *)Renderer->Proj.E);
+    Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, (r32 *)Renderer->View.E);
+    Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (r32 *)Renderer->Model.E);
     
     if(IsSet(Renderer, RendererFlag_Shadows))
     {
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProjShadowMap"), 1, GL_FALSE, (r32 *)Renderer->ShadowMap->Proj.E);
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uViewShadowMap"), 1, GL_FALSE, (r32 *)Renderer->ShadowMap->View.E);
+        Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uProjShadowMap"), 1, GL_FALSE, (r32 *)Renderer->ShadowMap->Proj.E);
+        Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uViewShadowMap"), 1, GL_FALSE, (r32 *)Renderer->ShadowMap->View.E);
         
         Opengl->glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, Renderer->ShadowMap->Texture);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uShadowMap"), 1);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uBias"), Renderer->ShadowMap->Bias);
+        Opengl->glUniform1i(OpenglGetUniformLocation(ShaderProgramID, "uShadowMap"), 1);
+        Opengl->glUniform1f(OpenglGetUniformLocation(ShaderProgramID, "uBias"), Renderer->ShadowMap->Bias);
         
     }
     if(IsSet(Renderer, RendererFlag_Lighting))
@@ -1185,23 +1224,23 @@ OpenglMeshUniforms(renderer *Renderer, u32 ShaderProgramID)
         renderer_lighting *Lighting = Renderer->Lighting;
         // NOTE(ezexff): Send camera pos into shader for light calc
         // TODO(ezexff): Позиция солнца должна быть рассчитана относительно позиции в мировом пространстве
-        //Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uCameraLocalP"), 1, SunP.E);
-        //Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uCameraLocalP"), 1, Frame->WorldOrigin.E);
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uCameraLocalP"), 1, Lighting->TestSunP.E);
+        //Opengl->glUniform3fv(OpenglGetUniformLocation(ShaderProgramID, "uCameraLocalP"), 1, SunP.E);
+        //Opengl->glUniform3fv(OpenglGetUniformLocation(ShaderProgramID, "uCameraLocalP"), 1, Frame->WorldOrigin.E);
+        Opengl->glUniform3fv(OpenglGetUniformLocation(ShaderProgramID, "uCameraLocalP"), 1, Lighting->TestSunP.E);
         
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.Color"), 1, Lighting->DirLight.Base.Color.E);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.AmbientIntensity"), Lighting->DirLight.Base.AmbientIntensity);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.DiffuseIntensity"), Lighting->DirLight.Base.DiffuseIntensity);
+        Opengl->glUniform3fv(OpenglGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.Color"), 1, Lighting->DirLight.Base.Color.E);
+        Opengl->glUniform1f(OpenglGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.AmbientIntensity"), Lighting->DirLight.Base.AmbientIntensity);
+        Opengl->glUniform1f(OpenglGetUniformLocation(ShaderProgramID, "uDirectionalLight.Base.DiffuseIntensity"), Lighting->DirLight.Base.DiffuseIntensity);
         v3 DirLightDirection = Lighting->DirLight.WorldDirection;
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uDirectionalLight.Direction"), 1, DirLightDirection.E);
+        Opengl->glUniform3fv(OpenglGetUniformLocation(ShaderProgramID, "uDirectionalLight.Direction"), 1, DirLightDirection.E);
         
         // TODO(ezexff): Replace this with material code per mesh
         if(IsSet(Renderer, RendererFlag_Terrain))
         {        
             renderer_terrain *Terrain = Renderer->Terrain;
-            Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uMaterial.AmbientColor"), 1, Terrain->Material.Ambient.E);
-            Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uMaterial.DiffuseColor"), 1, Terrain->Material.Diffuse.E);
-            Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uMaterial.SpecularColor"), 1, Terrain->Material.Specular.E);
+            Opengl->glUniform3fv(OpenglGetUniformLocation(ShaderProgramID, "uMaterial.AmbientColor"), 1, Terrain->Material.Ambient.E);
+            Opengl->glUniform3fv(OpenglGetUniformLocation(ShaderProgramID, "uMaterial.DiffuseColor"), 1, Terrain->Material.Diffuse.E);
+            Opengl->glUniform3fv(OpenglGetUniformLocation(ShaderProgramID, "uMaterial.SpecularColor"), 1, Terrain->Material.Specular.E);
         }
     }
     if(IsSet(Renderer, RendererFlag_Terrain))
@@ -1210,8 +1249,8 @@ OpenglMeshUniforms(renderer *Renderer, u32 ShaderProgramID)
         {
             Opengl->glActiveTexture(GL_TEXTURE0 + 0);
             glBindTexture(GL_TEXTURE_2D, Renderer->Terrain->Bitmap->OpenglID);
-            Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uSampler"), 0);
-            Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uSamplerSpecularExponent"), 0);
+            Opengl->glUniform1i(OpenglGetUniformLocation(ShaderProgramID, "uSampler"), 0);
+            Opengl->glUniform1i(OpenglGetUniformLocation(ShaderProgramID, "uSamplerSpecularExponent"), 0);
         }
     }
 }
@@ -1229,17 +1268,17 @@ OpenglDrawSkybox(renderer *Renderer, u32 ShaderProgramID)
         Opengl->glUseProgram(ShaderProgramID);
         
         // NOTE(ezexff): Send matrices into shader
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "Proj"), 1, GL_FALSE, (r32 *)Renderer->Proj.E);
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "View"), 1, GL_FALSE, (r32 *)Renderer->View.E);
+        Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "Proj"), 1, GL_FALSE, (r32 *)Renderer->Proj.E);
+        Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "View"), 1, GL_FALSE, (r32 *)Renderer->View.E);
         m4x4 Model = Identity();
         Model = XRotation(90) * Scale(200);
         Model = Transpose(Model); // opengl to glsl format
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "Model"), 1, GL_FALSE, (r32 *)Model.E);
+        Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "Model"), 1, GL_FALSE, (r32 *)Model.E);
         
         // NOTE(ezexff): Send texture into shader
         Opengl->glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, Skybox->Texture);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "SkyboxTexture"), 0);
+        Opengl->glUniform1i(OpenglGetUniformLocation(ShaderProgramID, "SkyboxTexture"), 0);
         
         // NOTE(ezexff): Draw
         Opengl->glBindVertexArray(Skybox->VAO);
@@ -1296,7 +1335,7 @@ OpenglDrawTerrain(renderer *Renderer, u32 ShaderProgramID)
                 m4x4 MatModel = Identity();
                 MatModel = Translate(GroundBuffer->OffsetP);
                 MatModel = Transpose(MatModel); // opengl to glsl format
-                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
+                Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (const GLfloat *)&MatModel);
                 
                 Opengl->glBindVertexArray(GroundBuffer->VAO);
                 glDrawElements(GL_TRIANGLES, Terrain->IndexArray.Count, GL_UNSIGNED_INT, 0);
@@ -1446,9 +1485,9 @@ OpenglDrawShadowMap(renderer *Renderer, u32 ShaderProgramID)
             glCullFace(GL_FRONT);
             Opengl->glUseProgram(ShaderProgramID);
             {
-                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, (r32 *)ShadowMap->Proj.E);
-                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, (r32 *)ShadowMap->View.E);
-                Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (r32 *)ShadowMap->Model.E);
+                Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, (r32 *)ShadowMap->Proj.E);
+                Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, (r32 *)ShadowMap->View.E);
+                Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (r32 *)ShadowMap->Model.E);
                 
                 OpenglDrawTerrain(Renderer, ShaderProgramID);
             }
@@ -1530,21 +1569,21 @@ OpenglDrawWater(renderer *Renderer, u32 ShaderProgramID, renderer_frame *Frame)
         renderer_water *Water = Renderer->Water;
         Opengl->glUseProgram(ShaderProgramID);
         
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, (r32 *)Renderer->Proj.E);
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, (r32 *)Renderer->View.E);
-        Opengl->glUniformMatrix4fv(Opengl->glGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (r32 *)Renderer->Model.E);
+        Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, (r32 *)Renderer->Proj.E);
+        Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, (r32 *)Renderer->View.E);
+        Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uModel"), 1, GL_FALSE, (r32 *)Renderer->Model.E);
         
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uSunP"), 1, Frame->TestSunRelP.E);
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uCameraP"), 1, Renderer->Camera.P.E);
+        Opengl->glUniform3fv(OpenglGetUniformLocation(ShaderProgramID, "uSunP"), 1, Frame->TestSunRelP.E);
+        Opengl->glUniform3fv(OpenglGetUniformLocation(ShaderProgramID, "uCameraP"), 1, Renderer->Camera.P.E);
         
-        Opengl->glUniform3fv(Opengl->glGetUniformLocation(ShaderProgramID, "uLightColor"), 1, Renderer->Lighting->DirLight.Base.Color.E);
+        Opengl->glUniform3fv(OpenglGetUniformLocation(ShaderProgramID, "uLightColor"), 1, Renderer->Lighting->DirLight.Base.Color.E);
         
         // NOTE(ezexff): Vars
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uTiling"), Water->Tiling);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uMoveFactor"), Water->MoveFactor);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uWaveStrength"), Water->WaveStrength);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uShineDamper"), Water->ShineDamper);
-        Opengl->glUniform1f(Opengl->glGetUniformLocation(ShaderProgramID, "uReflectivity"), Water->Reflectivity);
+        Opengl->glUniform1f(OpenglGetUniformLocation(ShaderProgramID, "uTiling"), Water->Tiling);
+        Opengl->glUniform1f(OpenglGetUniformLocation(ShaderProgramID, "uMoveFactor"), Water->MoveFactor);
+        Opengl->glUniform1f(OpenglGetUniformLocation(ShaderProgramID, "uWaveStrength"), Water->WaveStrength);
+        Opengl->glUniform1f(OpenglGetUniformLocation(ShaderProgramID, "uShineDamper"), Water->ShineDamper);
+        Opengl->glUniform1f(OpenglGetUniformLocation(ShaderProgramID, "uReflectivity"), Water->Reflectivity);
         
         // glUniform3fv(glGetUniformLocation(ShaderProgramID, "SunPosition"), 1, Render->DirLight.WorldDirection.E);
         //v3 TestSunPos = V3(-Render->SunPos.x, -Render->SunPos.y, -Render->SunPos.z);
@@ -1554,19 +1593,19 @@ OpenglDrawWater(renderer *Renderer, u32 ShaderProgramID, renderer_frame *Frame)
         // NOTE(ezexff): Textures
         Opengl->glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, Water->Reflection.ColorTexture);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uReflectionColorTexture"), 0);
+        Opengl->glUniform1i(OpenglGetUniformLocation(ShaderProgramID, "uReflectionColorTexture"), 0);
         Opengl->glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, Water->Refraction.ColorTexture);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uRefractionColorTexture"), 1);
+        Opengl->glUniform1i(OpenglGetUniformLocation(ShaderProgramID, "uRefractionColorTexture"), 1);
         Opengl->glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, Water->Reflection.DuDv->OpenglID);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uDUDVTexture"), 2);
+        Opengl->glUniform1i(OpenglGetUniformLocation(ShaderProgramID, "uDUDVTexture"), 2);
         Opengl->glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, Water->Reflection.NormalMap->OpenglID);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uNormalMapTexture"), 3);
+        Opengl->glUniform1i(OpenglGetUniformLocation(ShaderProgramID, "uNormalMapTexture"), 3);
         Opengl->glActiveTexture(GL_TEXTURE4);
         glBindTexture(GL_TEXTURE_2D, Water->Refraction.DepthTexture);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(ShaderProgramID, "uRefractionDepthTexture"), 4);
+        Opengl->glUniform1i(OpenglGetUniformLocation(ShaderProgramID, "uRefractionDepthTexture"), 4);
         
 #if 0        
         for(u32 BaseAddress = 0;
@@ -1846,7 +1885,7 @@ OpenglDrawUI(renderer_frame *Frame)
     tile_sort_entry *SortEntryArray = PushBufferUI->SortEntryArray;
     tile_sort_entry *SortEntry = SortEntryArray;
     //Log->Add("PushBufferUI->ElementCount = %d\n", PushBufferUI->ElementCount);
-    BEGIN_BLOCK("OpenglDrawUIEntries");
+    BEGIN_BLOCK("OpenglDrawUI_Entries");
     for(u32 SortEntryIndex = 0;
         SortEntryIndex < PushBufferUI->ElementCount;
         ++SortEntryIndex, ++SortEntry)
@@ -1903,6 +1942,11 @@ OpenglDrawUI(renderer_frame *Frame)
                 //BaseAddress += sizeof(*Entry);
             } break;
             
+            case RendererOrthoEntryType_renderer_ortho_entry_glyph:
+            {
+                //InvalidCodePath;
+            } break;
+            
             /* 
                         case RendererOrthoEntryType_renderer_ortho_entry_bitmap:
                         {
@@ -1916,8 +1960,173 @@ OpenglDrawUI(renderer_frame *Frame)
         }
     }
     
-    glDisable(GL_BLEND);
     END_BLOCK();
+    
+    glDisable(GL_BLEND);
+    
+    //~ NOTE(ezexff): fast text rendering
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    renderer_programs *Programs = &Frame->Programs;
+    u32 ShaderProgramID = Programs->UI_Glyph.OpenglID;
+    m4x4 TmpProj = {};
+    m4x4 TmpView = {};
+    Opengl->glUseProgram(ShaderProgramID);
+    {
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, (r32)Frame->Dim.x, (r32)Frame->Dim.y, 0, 0.0f, 1.0f);
+        glGetFloatv(GL_PROJECTION_MATRIX, (r32 *)TmpProj.E);
+        
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        glGetFloatv(GL_MODELVIEW_MATRIX, (r32 *)TmpView.E);
+        
+        Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, (r32 *)TmpProj.E);
+        Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, (r32 *)TmpView.E);
+        
+        v4 TmpColor = V4(0, 1, 0, 1);
+        Opengl->glUniform4fv(OpenglGetUniformLocation(ShaderProgramID, "GlyphColor"), 1, TmpColor.E);
+        
+        Opengl->glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, Frame->OpenglFontTexture);
+        Opengl->glBindVertexArray(Frame->GlyphVAO);
+        Opengl->glBindBuffer(GL_ARRAY_BUFFER, Frame->GlyphVBO);
+        
+#define OPENGL_SHADER_ARRAY_MAX 250
+        m4x4 ModelArray[OPENGL_SHADER_ARRAY_MAX];
+        u32 GlyphMapArray[OPENGL_SHADER_ARRAY_MAX];
+        u32 TmpIndex = 0;
+        
+        for(u32 BaseAddress = 0;
+            BaseAddress < Frame->TextPushBuffer.Size;
+            )
+        {
+            renderer_ortho_entry_glyph *Entry = (renderer_ortho_entry_glyph *)(Frame->TextPushBuffer.Memory + BaseAddress);
+            
+            loaded_bitmap *Bitmap = Entry->Bitmap;
+            if(!Entry->Bitmap->OpenglID)
+            {
+                Opengl->glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, Entry->CodePoint, Bitmap->Width, Bitmap->Height, 1, GL_RGBA, GL_UNSIGNED_BYTE, Bitmap->Memory);
+                glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                
+                Entry->Bitmap->OpenglID = 99;
+            }
+            
+            ModelArray[TmpIndex] = Entry->Model;
+            GlyphMapArray[TmpIndex] = Entry->CodePoint;
+            TmpIndex++;
+            if(TmpIndex == OPENGL_SHADER_ARRAY_MAX - 1)
+            {
+                Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "ModelArray"), TmpIndex, GL_FALSE, (r32 *)ModelArray);
+                Opengl->glUniform1iv(OpenglGetUniformLocation(ShaderProgramID, "GlyphMapArray"), TmpIndex, (s32 *)GlyphMapArray);
+                Opengl->glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, TmpIndex);
+                TmpIndex = 0;
+            }
+            
+            BaseAddress += sizeof(*Entry);
+        }
+        
+        Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "ModelArray"), TmpIndex, GL_FALSE, (r32 *)ModelArray);
+        Opengl->glUniform1iv(OpenglGetUniformLocation(ShaderProgramID, "GlyphMapArray"), TmpIndex, (s32 *)GlyphMapArray);
+        Opengl->glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, TmpIndex);
+        
+        Opengl->glBindBuffer(GL_ARRAY_BUFFER, 0);
+        Opengl->glBindVertexArray(0);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+    }
+    Opengl->glUseProgram(0);
+    glDisable(GL_BLEND);
+    
+    
+    
+    if(0)
+    {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        BEGIN_BLOCK("OpenglDrawUI_Text");
+        m4x4 TmpProj = {};
+        m4x4 TmpView = {};
+        
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, (r32)Frame->Dim.x, (r32)Frame->Dim.y, 0, 0.0f, 1.0f);
+        glGetFloatv(GL_PROJECTION_MATRIX, (r32 *)TmpProj.E);
+        
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        glGetFloatv(GL_MODELVIEW_MATRIX, (r32 *)TmpView.E);
+        
+        renderer_programs *Programs = &Frame->Programs;
+        u32 ShaderProgramID = Programs->UI_Glyph.OpenglID;
+        Opengl->glUseProgram(ShaderProgramID);
+        {
+            Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uProj"), 1, GL_FALSE, (r32 *)TmpProj.E);
+            Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uView"), 1, GL_FALSE, (r32 *)TmpView.E);
+            
+            tile_sort_entry *SortEntryArray = PushBufferUI->SortEntryArray;
+            tile_sort_entry *SortEntry = SortEntryArray;
+            
+            for(u32 SortEntryIndex = 0;
+                SortEntryIndex < PushBufferUI->ElementCount;
+                ++SortEntryIndex, ++SortEntry)
+            {
+                renderer_entry_header *Header = (renderer_entry_header *)
+                (PushBufferUI->Base + SortEntry->Offset);
+                
+                void *Data = (u8 *)Header + sizeof(*Header);
+                
+                switch(Header->Type)
+                {
+                    case RendererOrthoEntryType_renderer_ortho_entry_rect:
+                    {
+                        //renderer_ortho_entry_rect *Entry = (renderer_ortho_entry_rect *)Data;
+                    } break;
+                    
+                    case RendererOrthoEntryType_renderer_ortho_entry_rect_outline:
+                    {
+                        //renderer_ortho_entry_rect_outline *Entry = (renderer_ortho_entry_rect_outline *)Data;
+                    } break;
+                    
+                    case RendererOrthoEntryType_renderer_ortho_entry_bitmap:
+                    {
+                        //renderer_ortho_entry_bitmap *Entry = (renderer_ortho_entry_bitmap *)Data;
+                    } break;
+                    
+                    case RendererOrthoEntryType_renderer_ortho_entry_glyph:
+                    {
+                        renderer_ortho_entry_glyph *Entry = (renderer_ortho_entry_glyph *)Data;
+                        loaded_bitmap *Bitmap = Entry->Bitmap;
+                        
+                        // NOTE(ezexff): draw
+                        /* 
+                                                Opengl->glUniformMatrix4fv(OpenglGetUniformLocation(ShaderProgramID, "uModelArray"), INDEX, GL_FALSE, &GlyphModelArray);
+                                                Opengl->glUniform1i(OpenglGetUniformLocation(ShaderProgramID, "GlyphTexture"), INDEX, &GlyphBitmapsArray);
+                                                
+                                                
+                                                v4 TmpColor = V4(0, 1, 0, 1);
+                                                Opengl->glUniform4fv(OpenglGetUniformLocation(ShaderProgramID, "GlyphColor"), 1, TmpColor.E);
+                                                
+                                                Opengl->glBindVertexArray(Frame->GlyphVAO);
+                                                Opengl->glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, 1);
+                                                Opengl->glBindVertexArray(0);
+                         */
+                        
+                    } break;
+                    InvalidDefaultCase;
+                }
+            }
+        }
+        Opengl->glUseProgram(0);
+        END_BLOCK();
+        glDisable(GL_BLEND);
+    }
+    
     /*     
         for(u32 BaseAddress = 0;
             BaseAddress < PushBufferUI->Size;
@@ -2047,6 +2256,44 @@ OpenglEndFrame(renderer_frame *Frame)
     OpenglInitBitmapPreview(Frame);
 #endif
     
+    // TODO(ezexff): test init font
+    {
+        //if(Frame->TestFontInitialized && !Frame->OpenglFontTexture)
+        {
+            // NOTE(ezexff): text texture array
+            // Preview->BytesPerPixel == 4 ? GL_RGBA : GL_RGB
+            
+            // NOTE(ezexff): init glyph textures
+            /* 
+                    for(u32 Index = 0;
+                        Index < Frame->GlyphCount;
+                        ++Index)
+                    {
+                        Opengl->glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, Index, Frame->GlyphSize, Frame->GlyphSize, 1, GL_RGB, GL_UNSIGNED_BYTE, Bitmap->Memory);
+                        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                    }
+                    glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+             */
+        }
+        /* 
+            = &Work->Asset->Header->Font;
+                eab_font *EAB = &Work->Asset->EAB.Font;
+                for(u32 GlyphIndex = 1;
+                    GlyphIndex < EAB->GlyphCount;
+                    ++GlyphIndex)
+                {
+                    eab_font_glyph *Glyph = Font->Glyphs + GlyphIndex;
+                    
+                    Assert(Glyph->UnicodeCodePoint < EAB->OnePastHighestCodepoint);
+                    Assert((u32)(u16)GlyphIndex == GlyphIndex);
+                    Font->UnicodeMap[Glyph->UnicodeCodePoint] = (u16)GlyphIndex;
+                }
+         */
+    }
+    
     OpenglCompileShaders(Frame);
     END_BLOCK();
     
@@ -2068,16 +2315,17 @@ OpenglEndFrame(renderer_frame *Frame)
         OpenglDrawDebugShapes(Frame);
         OpenglDrawSkybox(Renderer, Programs->Skybox.OpenglID);
     }
+    
     Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
     
     //~ NOTE(ezexff): Draw FBO texture on screen
     Opengl->glUseProgram(Programs->Frame.OpenglID);
     {
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(Programs->Frame.OpenglID, "EffectID"), Frame->EffectID);
+        Opengl->glUniform1i(OpenglGetUniformLocation(Programs->Frame.OpenglID, "EffectID"), Frame->EffectID);
         Opengl->glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, Frame->ColorTexture);
-        Opengl->glUniform1i(Opengl->glGetUniformLocation(Programs->Frame.OpenglID, "ColorTexture"), 0);
+        Opengl->glUniform1i(OpenglGetUniformLocation(Programs->Frame.OpenglID, "ColorTexture"), 0);
         
         glViewport(0, 0, Frame->Dim.x, Frame->Dim.y);
         Opengl->glBindVertexArray(Frame->VAO);
@@ -2098,6 +2346,12 @@ OpenglEndFrame(renderer_frame *Frame)
     }
     Renderer->PushBufferUI.Size = 0;
     Renderer->PushBufferUI.ElementCount = 0;
+    
+    while(Frame->TextPushBuffer.Size--)
+    {
+        Frame->TextPushBuffer.Memory[Frame->TextPushBuffer.Size] = 0;
+    }
+    Frame->TextPushBuffer.Size = 0;
     END_BLOCK();
     
     /*
