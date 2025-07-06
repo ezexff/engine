@@ -1072,7 +1072,9 @@ TestNewUI(debug_state *DebugState)
     renderer_frame *Frame = &GlobalDebugMemory->Frame;
     game_input *Input = GlobalDebugInput;
     
+    BEGIN_BLOCK("UI_BeginFrame");
     UI_BeginFrame(GameState, TranState, Frame, Input);
+    END_BLOCK();
     
     local b32 IsWindowVisible = true;
     if(IsWindowVisible)
@@ -1099,6 +1101,7 @@ TestNewUI(debug_state *DebugState)
         UI_EndWindow();
     }
     
+    BEGIN_BLOCK("UI_DebugCollationWindow");
     local b32 IsWindowVisible3 = true;
     if(IsWindowVisible3)
     {
@@ -1133,13 +1136,17 @@ TestNewUI(debug_state *DebugState)
             UI_Label("StatisticTimerInSeconds = %.3f", DebugState->StatisticTimerInSeconds);
             UI_Label("---");
             DebugState->TmpBlockCount = 0;
+            
             DrawStoredBlockTreeV2(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
         }
         
         UI_EndWindow();
     }
+    END_BLOCK();
     
+    BEGIN_BLOCK("UI_EndFrame");
     UI_EndFrame();
+    END_BLOCK();
 }
 
 /* 

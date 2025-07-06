@@ -514,6 +514,8 @@ UI_EndInteract()
 internal void
 UI_Interact()
 {
+    TIMED_FUNCTION();
+    
     if(UI_State->Interaction)
     {
         if(!UI_State->Interaction->Key){InvalidCodePath;}
@@ -1181,6 +1183,7 @@ UI_EndFrame()
     //UI_DrawNodeTree(UI_State->Root);
     
     // NOTE(ezexff): sort windows by last frame touch
+    BEGIN_BLOCK("UI_SortWindows");
     Assert(UI_State->WindowCount > 0);
     u32 Count = UI_State->WindowCount;
     ui_node_sort_entry *SortWindowArray = PushArray(UI_State->TranArena, Count, ui_node_sort_entry);
@@ -1220,6 +1223,7 @@ UI_EndFrame()
             break;
         }
     }
+    END_BLOCK();
     
     // NOTE(ezexff): find interaction and draw nodes
     /* 
@@ -1227,6 +1231,7 @@ UI_EndFrame()
         Node != 0;
         Node = Node->Next)
      */
+    BEGIN_BLOCK("UI_ProcessNodeTree");
     for(u32 Index = 0;
         Index < Count;
         ++Index)
@@ -1234,6 +1239,7 @@ UI_EndFrame()
         ui_node_sort_entry *ArrayLink = SortWindowArray + Index;
         UI_ProcessNodeTree(ArrayLink->Node);
     }
+    END_BLOCK();
     
     UI_Interact();
     
