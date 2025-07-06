@@ -851,7 +851,7 @@ extern "C" void __stdcall WinMainCRTStartup(void)
     }
     
 #if !ENGINE_INTERNAL
-    ShowCursor(0);
+    ShowCursor(1);
 #endif
     
     GlobalTimerFrequency = Win32GetTimerFrequency();

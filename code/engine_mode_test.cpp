@@ -29,6 +29,9 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         {
             UI_BeginWindow("DebugTest", &IsWindowVisible);
             
+            r32 FPS = 1 / UI_State->Input->dtForFrame;
+            UI_Label("FPS = %.2f", FPS);
+            
             for(u32 Index = 1;
                 Index <= 30;
                 ++Index)
@@ -43,6 +46,9 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         if(IsWindowVisible3)
         {
             UI_BeginWindow("DebugTest3", &IsWindowVisible3);
+            
+            r32 FPS = 1 / UI_State->Input->dtForFrame;
+            UI_Label("FPS = %.2f", FPS);
             
             UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
             

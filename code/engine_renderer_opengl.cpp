@@ -1973,12 +1973,12 @@ OpenglDrawUI(renderer_frame *Frame)
             InvalidDefaultCase;
         }
     }
-    
+    glDisable(GL_BLEND);
     END_BLOCK();
     
-    glDisable(GL_BLEND);
     
     //~ NOTE(ezexff): fast text rendering
+    BEGIN_BLOCK("OpenglDrawUI_Text");
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
@@ -2028,7 +2028,7 @@ OpenglDrawUI(renderer_frame *Frame)
                 glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                 glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
                 
-                Entry->Bitmap->OpenglID = 99;
+                Entry->Bitmap->OpenglID = 99999;
             }
             
             ModelArray[TmpIndex] = Entry->Model;
@@ -2055,7 +2055,7 @@ OpenglDrawUI(renderer_frame *Frame)
     }
     Opengl->glUseProgram(0);
     glDisable(GL_BLEND);
-    
+    END_BLOCK();
     
     
     if(0)
@@ -2353,21 +2353,24 @@ OpenglEndFrame(renderer_frame *Frame)
     
     Renderer->Flags = 0;
     
-    BEGIN_BLOCK("OpenglClearPushBuffer");
+    BEGIN_BLOCK("OpenglClearUIPushBuffer");
     while(Renderer->PushBufferUI.Size--)
     {
         Renderer->PushBufferUI.Memory[Renderer->PushBufferUI.Size] = 0;
     }
     Renderer->PushBufferUI.Size = 0;
     Renderer->PushBufferUI.ElementCount = 0;
-    
-    while(Frame->TextPushBuffer.Size--)
-    {
-        Frame->TextPushBuffer.Memory[Frame->TextPushBuffer.Size] = 0;
-    }
-    Frame->TextPushBuffer.Size = 0;
     END_BLOCK();
     
+    BEGIN_BLOCK("OpenglClearTextPushBuffer");
+    /* 
+        while(Frame->TextPushBuffer.Size--)
+        {
+            Frame->TextPushBuffer.Memory[Frame->TextPushBuffer.Size] = 0;
+        }
+     */
+    Frame->TextPushBuffer.Size = 0;
+    END_BLOCK();
     /*
     // NOTE(ezexff): Draw Player Crosshair
         r32 Crosshair[] = {0, -1, 0, 1, -1, 0, 1, 0};

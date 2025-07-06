@@ -1,5 +1,61 @@
 #include "engine_debug.h"
 
+#if ENGINE_IMGUI
+internal void
+ImGuiDrawStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *DebugState, r64 FrameClock)
+{
+    for(debug_stored_block *Node = InNode;
+        Node != 0;
+        Node = Node->NextChild)
+    {
+        debug_parsed_name ParsedName = DebugParseName(Node->GUID);
+        for(u32 Index = 0;
+            Index < Depth;
+            Index++)
+        {
+            ImGui::Text(" ");
+            ImGui::SameLine();
+        }
+        ImGui::SameLine();
+        
+        debug_statistic *Stat = &DebugState->BlockStatArray[DebugState->TmpBlockCount] ;
+        Stat->Min = Minimum(Stat->Min, (r64)Node->Clock);
+        Stat->Max = Maximum(Stat->Max, (r64)Node->Clock);
+        Stat->Sum += (r64)Node->Clock;
+        Stat->Count++;
+        Stat->Avg = Stat->Sum / Stat->Count;
+        Assert(DebugState->TmpBlockCount < ArrayCount(DebugState->BlockStatArray));
+        
+        r64 FramePercent = 100 * Node->Clock / FrameClock;
+        if(FramePercent > 5.0f)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
+        }
+        else if((FramePercent <= 5.0f) && (FramePercent > 0.5f))
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 0, 255));
+        }
+        else
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 255));
+        }
+        ImGui::Text("%s %.2f%% ThreadID=%d avg=%.2f min=%.2f max=%.2f clock=%d\n", ParsedName.Name, FramePercent, Node->ThreadID, (r64)Stat->Avg, (r64)Stat->Min, (r64)Stat->Max, Node->Clock);
+        ImGui::PopStyleColor();
+        
+        DebugState->TmpBlockCount++;
+        
+        if(Node->FirstChild != 0)
+        {
+            int TmpTest = Depth + 1;
+            if(Depth < 1)
+            {
+                ImGuiDrawStoredBlockTree(Node->FirstChild, Depth + 1, DebugState, FrameClock);
+            }
+        }
+    }
+}
+#endif
+
 internal void
 ImGuiUpdateAndRender()
 {
@@ -877,6 +933,57 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
             
             ImGui::End();
         }
+        
+        if(ImGuiHandle->ShowDebugCollationWindow)
+        {
+            ImGui::Begin("DebugProfile", &ImGuiHandle->ShowDebugCollationWindow);
+            r32 FPS = 1 / GlobalDebugInput->dtForFrame;
+            ImGui::Text("FPS = %.2f", FPS);
+            ImGui::Text("TotalFrameCount = %d\n", DebugState->TotalFrameCount);
+            ImGui::Text("StoredBlockCount = %d\n", DebugState->StoredBlockCount);
+            ImGui::Text("DebugFrameIndex = %d\n", DebugState->DebugFrameIndex);
+            ImGui::Text("OpenBlockIndex = %d\n", DebugState->OpenBlockIndex);
+            
+            if(ImGui::Button("ResetStat"))
+            {
+                for(u32 Index = 0;
+                    Index < ArrayCount(DebugState->BlockStatArray);
+                    ++Index)
+                {
+                    DebugState->BlockStatArray[Index].Min = F64Max;
+                    DebugState->BlockStatArray[Index].Max = F64Min;
+                    DebugState->BlockStatArray[Index].Sum = 0.0f;
+                    DebugState->BlockStatArray[Index].Avg = 0.0f;
+                    DebugState->BlockStatArray[Index].Count = 0;
+                }
+            }
+            
+            if(DebugState->TotalFrameCount > 0)
+            {
+                s32 PrevFrameIndex = DebugState->DebugFrameIndex - 1;
+                
+                if(DebugState->DebugFrameIndex == 0)
+                {
+                    PrevFrameIndex = 255;
+                }
+                /* 
+                            if(PrevFrameIndex <= 0)
+                            {
+                                int TestFoo = 0;
+                            }
+                 */
+                
+                //if(DebugState->DebugFrameIndex > 0)
+                //CalcStoredBlockTreeStat(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState->BlockStatArray);
+                ImGui::Text("PrevFrameClock = %.3fms", DebugState->DebugFrameArray[PrevFrameIndex].ClockInMs * 1000.0f);
+                ImGui::Text("PrevFrameClock = %.0fcycles", DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
+                ImGui::Spacing();
+                DebugState->TmpBlockCount = 0;
+                ImGuiDrawStoredBlockTree(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
+            }
+            
+            ImGui::End();
+        }
     }
 #endif
 }
@@ -888,26 +995,6 @@ DrawStoredBlockTreeV2(debug_stored_block *InNode, u32 Depth, debug_state *DebugS
         Node != 0;
         Node = Node->NextChild)
     {
-        char IndentBuffer[32];
-        debug_parsed_name ParsedName = DebugParseName(Node->GUID);
-        for(u32 Index = 0;
-            Index < Depth;
-            Index++)
-        {
-            IndentBuffer[Index] = ' ';
-        }
-        IndentBuffer[Depth] = '\0';
-        
-        debug_statistic *Stat = &DebugState->BlockStatArray[DebugState->TmpBlockCount] ;
-        Stat->Min = Minimum(Stat->Min, (r64)Node->Clock);
-        Stat->Max = Maximum(Stat->Max, (r64)Node->Clock);
-        Stat->Sum += (r64)Node->Clock;
-        Stat->Count++;
-        Stat->Avg = Stat->Sum / Stat->Count;
-        Assert(DebugState->TmpBlockCount < ArrayCount(DebugState->BlockStatArray));
-        
-        
-        r64 FramePercent = 100 * Node->Clock / FrameClock;
         /*if(FramePercent > 5.0f)
         {
             ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
@@ -927,7 +1014,37 @@ DrawStoredBlockTreeV2(debug_stored_block *InNode, u32 Depth, debug_state *DebugS
         
         //UI_Label("%s %s %.2f%% avg=%.2f", IndentBuffer, ParsedName.Name, FramePercent, (r64)Stat->Avg);
         //UI_Label("%s %s %.2f%% avg=%.2f", IndentBuffer, ParsedName.Name, FramePercent, (r64)Stat->Avg);
-        UI_Label("%s %.2f%% avg=%.2f %s", IndentBuffer, FramePercent, (r64)Stat->Avg, ParsedName.Name);
+        char IndentBuffer[64];
+        debug_parsed_name ParsedName = DebugParseName(Node->GUID);
+        if(DebugState->TmpBlockCount > 0)
+        {
+            for(u32 Index = 0;
+                Index < Depth;
+                Index = Index++)
+            {
+                IndentBuffer[Index] = ' ';
+            }
+            IndentBuffer[Depth] = '\0';
+            
+            debug_statistic *Stat = &DebugState->BlockStatArray[DebugState->TmpBlockCount] ;
+            Stat->Min = Minimum(Stat->Min, (r64)Node->Clock);
+            Stat->Max = Maximum(Stat->Max, (r64)Node->Clock);
+            Stat->Sum += (r64)Node->Clock;
+            Stat->Count++;
+            Stat->Avg = Stat->Sum / Stat->Count;
+            Assert(DebugState->TmpBlockCount < ArrayCount(DebugState->BlockStatArray));
+            
+            
+            r64 FramePercent = 100 * Node->Clock / FrameClock;
+            //UI_Label("%s %5.2f%% %12.2favg %12.2fmin %12.2fmax %s", IndentBuffer, FramePercent, Stat->Avg, Stat->Min, Stat->Max, ParsedName.Name);
+            UI_Label("%d %s %05.2f%% %s %.2f %.2f %.2f", Depth, IndentBuffer, FramePercent, ParsedName.Name, Stat->Avg, Stat->Min, Stat->Max);
+        }
+        else
+        {
+            UI_Label("%s", ParsedName.Name);
+            UI_Label("depth, percent, name, avg, min, max");
+        }
+        //UI_Label("%s %.2f%% avg=%.2f %s", IndentBuffer, FramePercent, Stat->Avg, ParsedName.Name);
         //ImGui::PopStyleColor();
         
         DebugState->TmpBlockCount++;
@@ -935,7 +1052,7 @@ DrawStoredBlockTreeV2(debug_stored_block *InNode, u32 Depth, debug_state *DebugS
         if(Node->FirstChild != 0)
         {
             int TmpTest = Depth + 1;
-            if(Depth < 1)
+            //if(Depth < 2)
             {
                 DrawStoredBlockTreeV2(Node->FirstChild, Depth + 1, DebugState, FrameClock);
             }
@@ -1010,8 +1127,10 @@ TestNewUI(debug_state *DebugState)
                 PrevFrameIndex = 255;
             }
             
-            UI_Label("PrevFrameClock = %.3fms", DebugState->DebugFrameArray[PrevFrameIndex].ClockInMs * 1000.0f);
+            UI_Label("PrevFrameClock1 = %.3fms", DebugState->DebugFrameArray[PrevFrameIndex].ClockInMs * 1000.0f);
+            UI_Label("PrevFrameClock2 = %.3fms", GlobalDebugInput->dtForFrame * 1000.0f);
             UI_Label("PrevFrameClock = %.0fcycles", DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
+            UI_Label("StatisticTimerInSeconds = %.3f", DebugState->StatisticTimerInSeconds);
             UI_Label("---");
             DebugState->TmpBlockCount = 0;
             DrawStoredBlockTreeV2(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
@@ -1021,62 +1140,6 @@ TestNewUI(debug_state *DebugState)
     }
     
     UI_EndFrame();
-}
-
-internal void
-ImGuiDrawStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *DebugState, r64 FrameClock)
-{
-#if ENGINE_IMGUI
-    for(debug_stored_block *Node = InNode;
-        Node != 0;
-        Node = Node->NextChild)
-    {
-        debug_parsed_name ParsedName = DebugParseName(Node->GUID);
-        for(u32 Index = 0;
-            Index < Depth;
-            Index++)
-        {
-            ImGui::Text(" ");
-            ImGui::SameLine();
-        }
-        ImGui::SameLine();
-        
-        debug_statistic *Stat = &DebugState->BlockStatArray[DebugState->TmpBlockCount] ;
-        Stat->Min = Minimum(Stat->Min, (r64)Node->Clock);
-        Stat->Max = Maximum(Stat->Max, (r64)Node->Clock);
-        Stat->Sum += (r64)Node->Clock;
-        Stat->Count++;
-        Stat->Avg = Stat->Sum / Stat->Count;
-        Assert(DebugState->TmpBlockCount < ArrayCount(DebugState->BlockStatArray));
-        
-        r64 FramePercent = 100 * Node->Clock / FrameClock;
-        if(FramePercent > 5.0f)
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
-        }
-        else if((FramePercent <= 5.0f) && (FramePercent > 0.5f))
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 0, 255));
-        }
-        else
-        {
-            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 255, 255));
-        }
-        ImGui::Text("%s %.2f%% ThreadID=%d avg=%.2f min=%.2f max=%.2f clock=%d\n", ParsedName.Name, FramePercent, Node->ThreadID, (r64)Stat->Avg, (r64)Stat->Min, (r64)Stat->Max, Node->Clock);
-        ImGui::PopStyleColor();
-        
-        DebugState->TmpBlockCount++;
-        
-        if(Node->FirstChild != 0)
-        {
-            int TmpTest = Depth + 1;
-            if(Depth < 1)
-            {
-                ImGuiDrawStoredBlockTree(Node->FirstChild, Depth + 1, DebugState, FrameClock);
-            }
-        }
-    }
-#endif
 }
 
 /* 
@@ -1118,12 +1181,6 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
             DebugState->DebugFrameIndex++;
             
             // NOTE(ezexff): clear frame before event collation
-            DebugState->DebugFrameArray[DebugState->DebugFrameIndex].ClockInCycles = 0;
-            DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock = {};
-            char TextBuffer[256];
-            FormatString(sizeof(TextBuffer), TextBuffer, "0|0|0|Root%d", DebugState->DebugFrameIndex);
-            DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock.GUID = PushString(&DebugState->DebugArena, TextBuffer);
-            
             if(DebugState->DebugFrameIndex >= DEBUG_FRAME_COUNT)
             {
                 EndTemporaryMemory(DebugState->FramesTempMemory);
@@ -1133,23 +1190,23 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
                 DebugState->StoredBlockCount = 1;
                 DebugState->OpenBlockIndex = 0;
                 DebugState->DebugFrameIndex = 0;
-                
-                // NOTE(ezexff): clear frame before event collation
-                DebugState->DebugFrameArray[DebugState->DebugFrameIndex].ClockInCycles = 0;
-                DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock = {};
-                char TextBuffer[256];
-                FormatString(sizeof(TextBuffer), TextBuffer, "0|0|0|Root%d", DebugState->DebugFrameIndex);
-                DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock.GUID = PushString(&DebugState->DebugArena, TextBuffer);
                 /* 
-                                u32 FrameCount = ArrayCount(DebugState->DebugFrameArray);
-                                for(u32 Index = 0;
-                                    Index < FrameCount;
-                                    ++Index)
-                                {
-                                }
+                                DebugState->DebugFrameArray[DebugState->DebugFrameIndex].ClockInCycles = 0;
+                                DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock = {};
+                                char TextBuffer[256];
+                                FormatString(sizeof(TextBuffer), TextBuffer, "0|0|0|Root%d", DebugState->DebugFrameIndex);
+                                DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock.GUID = PushString(&DebugState->DebugArena, TextBuffer);
                  */
-                
             }
+            
+            Assert(DebugState->DebugFrameIndex < DEBUG_FRAME_COUNT);
+            // NOTE(ezexff): clear next frame before event collation
+            DebugState->DebugFrameArray[DebugState->DebugFrameIndex].ClockInCycles = 0;
+            DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock = {};
+            char TextBuffer[256];
+            FormatString(sizeof(TextBuffer), TextBuffer, "0|0|0|Root%d", DebugState->DebugFrameIndex);
+            DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock.GUID = PushString(&DebugState->DebugArena, TextBuffer);
+            
             DebugState->TotalFrameCount++;
         }
         else 
@@ -1207,7 +1264,6 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
                     DebugState->OpenBlockIndex++;
                     Assert(DebugState->OpenBlockIndex < 10);
                     DebugState->OpenBlockArray[DebugState->OpenBlockIndex] = StoredBlock;
-                    
                     /* 
                                         if(DebugState->CurrentStoredBlockInHierarchy->Child == 0)
                                         {
@@ -1265,7 +1321,12 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
                     if(OpenStoredBlock->ThreadID == Event->ThreadID)
                     {
                         OpenStoredBlock->Clock = Event->Clock - OpenStoredBlock->Clock;
-                        DebugState->DebugFrameArray[DebugState->DebugFrameIndex].ClockInCycles += (r64)OpenStoredBlock->Clock;
+                        
+                        // NOTE(ezexff): add to frame clock only parent value
+                        if(DebugState->OpenBlockIndex == 1)
+                        {
+                            DebugState->DebugFrameArray[DebugState->DebugFrameIndex].ClockInCycles += (r64)OpenStoredBlock->Clock;
+                        }
                     }
                     else
                     {
@@ -1274,7 +1335,6 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
                     
                     DebugState->OpenBlockArray[DebugState->OpenBlockIndex] = 0;
                     DebugState->OpenBlockIndex--;
-                    
                     
                     /* 
                                         DebugState->OpenBlockArray[DebugState->OpenBlockIndex] = 0;
@@ -1287,116 +1347,6 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
             }
         }
     }
-    
-#if 0
-    if(ImGuiHandle->ShowImGuiWindows)
-    {
-        ImGui::Begin("Test", &ImGuiHandle->ShowDebugCollationWindow);
-        
-        local bool DrawRollingPlot = false;
-        ImGui::Checkbox("DrawRollingPlot", &DrawRollingPlot);
-        local bool ShowPieChart = false;
-        ImGui::Checkbox("ShowPieChart", &ShowPieChart);
-        
-        u32 RegionCount = EventCount / 2;
-        r64 *CycleCountArray = PushArray(&DebugState->DebugArena, RegionCount, r64);
-        char **BlockNameArray = PushArray(&DebugState->DebugArena, RegionCount, char *);
-        
-        
-        //local RollingBuffer RData[32]; // TODO(ezexff): Replace this with debug storage
-        local r32 t = 0;
-        t += ImGui::GetIO().DeltaTime;
-        
-        local r32 History = 5.0f;
-        ImGui::SliderFloat("History", &History, 1, 60, "%.1f s");
-        
-        u32 RegionIndex = 0;
-        
-        if(ImPlot::BeginPlot("##Rolling", ImVec2(-1, 500)))
-        {        
-            ImPlot::SetupAxisLimits(ImAxis_X1, 0, History, ImGuiCond_Always);
-            ImPlot::SetupAxisLimits(ImAxis_Y1, 0, (r64)(30000000.0f));
-            ImPlot::SetupAxisFormat(ImAxis_Y1, "%.0f");
-            
-            for(u32 EventIndex = 0;
-                EventIndex < EventCount;
-                ++EventIndex)
-            {
-                debug_event *Event = EventArray + EventIndex;
-                
-                if(Event->Type == DebugType_FrameMarker)
-                {
-                    Log->Add("\n\n\n");
-                    Log->Add("%s = %d\n", Event->BlockName, DebugState->FrameCount);
-                    Log->Add("\n\n\n");
-                    DebugState->CurrentDebugBlock = 0;
-                    
-                    ++DebugState->FrameCount;
-                }
-                else if(Event->Type == DebugType_BeginBlock)
-                {
-                    if(!DebugState->CurrentDebugBlock)
-                    {
-                        DebugState->CurrentDebugBlock = PushStruct(&DebugState->DebugArena, debug_block);
-                        DebugState->CurrentDebugBlock->OpeningEvent = Event;
-                    }
-                    else
-                    {
-                        DebugState->CurrentDebugBlock->Next = PushStruct(&DebugState->DebugArena, debug_block);
-                        DebugState->CurrentDebugBlock->Next->Prev = DebugState->CurrentDebugBlock;
-                        DebugState->CurrentDebugBlock->Next->OpeningEvent = Event;
-                        DebugState->CurrentDebugBlock = DebugState->CurrentDebugBlock->Next;
-                    }
-                    
-                    //Log->Add("Begin = %s\n", Event->BlockName);
-                    //open_debug_block *DebugBlock = AllocateOpenDebugBlock(DebugState, Element, FrameIndex, Event, &Thread->FirstOpenCodeBlock);
-                }
-                else if(Event->Type == DebugType_EndBlock)
-                {
-                    u64 CycleCount = (Event->Clock - DebugState->CurrentDebugBlock->OpeningEvent->Clock);
-                    //Log->Add("%s = %lu\n", DebugState->CurrentDebugBlock->OpeningEvent->BlockName, CycleCount);
-                    
-                    if(DrawRollingPlot)
-                    {                    
-                        ImGuiHandle->RData[RegionIndex].AddPoint(t, (r32)CycleCount);
-                        ImGuiHandle->RData[RegionIndex].Span = History;
-                        char BlockNameTextBuffer[256];
-                        _snprintf_s(BlockNameTextBuffer, sizeof(BlockNameTextBuffer), "%s", DebugState->CurrentDebugBlock->OpeningEvent->BlockName);
-                        ImPlot::PlotLine(BlockNameTextBuffer, 
-                                         &ImGuiHandle->RData[RegionIndex].Data[0].x, &ImGuiHandle->RData[RegionIndex].Data[0].y, 
-                                         ImGuiHandle->RData[RegionIndex].Data.size(), 0, 0, 2 * sizeof(float));
-                    }
-                    
-                    
-                    
-                    char *BlockName = DebugState->CurrentDebugBlock->OpeningEvent->BlockName;
-                    BlockNameArray[RegionIndex] = BlockName;
-                    CycleCountArray[RegionIndex] = (r64)CycleCount;
-                    
-                    Log->Add("ImGuiHandle->RData[RegionIndex].Data.size() = %d\n", ImGuiHandle->RData[RegionIndex].Data.size());
-                    
-                    DebugState->CurrentDebugBlock = DebugState->CurrentDebugBlock->Prev;
-                    RegionIndex++;
-                }
-            }
-            Assert(RegionIndex == RegionCount);
-            ImPlot::EndPlot();
-        }
-        
-        
-        if(ShowPieChart)
-        {        
-            if(ImPlot::BeginPlot("##Pie1", ImVec2(550,550), ImPlotFlags_Equal))
-            {
-                ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoDecorations, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoDecorations);
-                ImPlot::SetupAxesLimits(0, 1, 0, 1);
-                ImPlot::PlotPieChart(BlockNameArray, CycleCountArray, RegionCount, 0.5, 0.5, 0.4, "%.0f", 90, ImPlotPieChartFlags_Normalize);
-                ImPlot::EndPlot();
-            }
-        }
-        ImGui::End();
-    }
-#endif
 }
 
 internal void
@@ -1423,7 +1373,10 @@ DEBUGStart(debug_state *DebugState, u32 MainGenerationID)
         DebugState->OpenBlockIndex = 0;
         DebugState->DebugFrameIndex = 0;
         
-        // NOTE(ezexff): clear frame before event collation
+        DebugState->StatisticTimerInSeconds = 0.0f;
+        DebugState->StatisticTimerMaxInSeconds = 5.0f;
+        
+        // NOTE(ezexff): clear first frame before event collation
         DebugState->DebugFrameArray[DebugState->DebugFrameIndex].ClockInCycles = 0;
         DebugState->DebugFrameArray[DebugState->DebugFrameIndex].RootStoredBlock = {};
         char TextBuffer[256];
@@ -1458,461 +1411,24 @@ DEBUGEnd(debug_state *DebugState)
 {
     TIMED_FUNCTION();
     
-#if ENGINE_IMGUI
-    imgui *ImGuiHandle = &GlobalDebugMemory->ImGuiHandle;
-    if(ImGuiHandle->ShowImGuiWindows)
+    // NOTE(ezexff): clear stat
+    DebugState->StatisticTimerInSeconds += GlobalDebugInput->dtForFrame;
+    if(DebugState->StatisticTimerInSeconds >= DebugState->StatisticTimerMaxInSeconds)
     {
-        if(ImGuiHandle->ShowDebugCollationWindow)
+        DebugState->StatisticTimerInSeconds = 0;
+        for(u32 Index = 0;
+            Index < ArrayCount(DebugState->BlockStatArray);
+            ++Index)
         {
-            ImGui::Begin("DebugProfile", &ImGuiHandle->ShowDebugCollationWindow);
-            r32 FPS = 1 / GlobalDebugInput->dtForFrame;
-            ImGui::Text("FPS = %.2f", FPS);
-            ImGui::Text("TotalFrameCount = %d\n", DebugState->TotalFrameCount);
-            ImGui::Text("StoredBlockCount = %d\n", DebugState->StoredBlockCount);
-            ImGui::Text("DebugFrameIndex = %d\n", DebugState->DebugFrameIndex);
-            ImGui::Text("OpenBlockIndex = %d\n", DebugState->OpenBlockIndex);
-            
-            if(ImGui::Button("ResetStat"))
-            {
-                for(u32 Index = 0;
-                    Index < ArrayCount(DebugState->BlockStatArray);
-                    ++Index)
-                {
-                    DebugState->BlockStatArray[Index].Min = F64Max;
-                    DebugState->BlockStatArray[Index].Max = F64Min;
-                    DebugState->BlockStatArray[Index].Sum = 0.0f;
-                    DebugState->BlockStatArray[Index].Avg = 0.0f;
-                    DebugState->BlockStatArray[Index].Count = 0;
-                }
-            }
-            
-            if(DebugState->TotalFrameCount > 0)
-            {
-                s32 PrevFrameIndex = DebugState->DebugFrameIndex - 1;
-                
-                if(DebugState->DebugFrameIndex == 0)
-                {
-                    PrevFrameIndex = 255;
-                }
-                /* 
-                            if(PrevFrameIndex <= 0)
-                            {
-                                int TestFoo = 0;
-                            }
-                 */
-                
-                //if(DebugState->DebugFrameIndex > 0)
-                //CalcStoredBlockTreeStat(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState->BlockStatArray);
-                ImGui::Text("PrevFrameClock = %.3fms", DebugState->DebugFrameArray[PrevFrameIndex].ClockInMs * 1000.0f);
-                ImGui::Text("PrevFrameClock = %.0fcycles", DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
-                ImGui::Spacing();
-                DebugState->TmpBlockCount = 0;
-                ImGuiDrawStoredBlockTree(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
-            }
-            
-            ImGui::End();
+            DebugState->BlockStatArray[Index].Min = F64Max;
+            DebugState->BlockStatArray[Index].Max = F64Min;
+            DebugState->BlockStatArray[Index].Sum  = 0.0f;
+            DebugState->BlockStatArray[Index].Avg = 0.0f;
+            DebugState->BlockStatArray[Index].Count = 0;
         }
-        
-#if 0
-        ImGui::Begin("DebugProfile", &ImGuiHandle->ShowDebugCollationWindow);
-        ImGui::Text("TotalFrameCount = %d\n", DebugState->TotalFrameCount);
-        ImGui::Text("StoredBlockCount = %d\n", DebugState->StoredBlockCount);
-        ImGui::Text("DebugFrameIndex = %d\n", DebugState->DebugFrameIndex);
-        
-        if(DebugState->TotalFrameCount > 0)
-        {
-            s32 PrevFrameIndex = DebugState->DebugFrameIndex - 1;
-            /* 
-                        if(DebugState->DebugFrameIndex == 0)
-                        {
-                            PrevFrameIndex = 255;
-                        }
-             */
-            if(DebugState->DebugFrameIndex > 0)
-            {
-                PrintStoredBlockTree(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0);
-            }
-            
-            debug_stored_block *NewFirstStoredBlock = DebugState->DebugFrameArray[PrevFrameIndex].FirstStoredBlock;
-            u32 RootBlockCount = 0;
-            r64 RootClockSum = 0.0f;
-            for(debug_stored_block *Node = DebugState->DebugFrameArray[PrevFrameIndex].FirstStoredBlock;
-                Node != 0;
-                Node = Node->Next)
-            {
-                if(Node->Parent == DebugState->StoredBlockRoot)
-                {
-                    debug_statistic *Stat = &DebugState->BlockStatArray[RootBlockCount];
-                    Stat->Min = Minimum(Stat->Min, (r64)Node->Clock);
-                    Stat->Max = Maximum(Stat->Max, (r64)Node->Clock);
-                    Stat->Sum += (r64)Node->Clock;
-                    Stat->Count++;
-                    Stat->Avg = Stat->Sum / Stat->Count;
-                    
-                    RootClockSum += (r64)Node->Clock;
-                    RootBlockCount++;
-                    Assert(ArrayCount(DebugState->BlockStatArray) > RootBlockCount);
-                    
-                    debug_parsed_name ParsedName = DebugParseName(Node->GUID);
-                    ImGui::Text("%s", ParsedName.Name);
-                    /* 
-if(ImGui::TreeNode((void *)(intptr_t)Node, "%s", ParsedName.Name))
-{
-for(debug_stored_block *InnerNode = Node->Next;
-InnerNode != 0;
-InnerNode = InnerNode->Next)
-{
-debug_parsed_name InnerParsedName = DebugParseName(InnerNode->GUID);
-
-}
-ImGui::TreePop();
-}
-*/
-                    /* 
-                                        if((Node->Next != 0) && (Node->Next != DebugState->StoredBlockRoot))
-                                        {
-                                            //while(Node->Next != DebugState->StoredBlockRoot)
-                                            {
-                                                debug_parsed_name InnerParsedName = DebugParseName(Node->GUID);
-                                                ImGui::Text("  %s", InnerParsedName.Name);
-                                                Node = Node->Next;
-                                            }
-                                        }
-                     */
-                    /* 
-                                        for(debug_stored_block *InnerNode = Node->Next;
-                                            InnerNode != 0;
-                                            InnerNode = InnerNode->Next)
-                                        {
-                                            if(Node->Parent == InnerNode)
-                                            {
-                                                debug_parsed_name InnerParsedName = DebugParseName(Node->GUID);
-                                                ImGui::Text("  %s", InnerParsedName.Name);
-                                            }
-                                            else
-                                            {
-                                                break;
-                                            }
-                                        }
-                     */
-                }
-                else
-                {
-                    debug_parsed_name ParsedName = DebugParseName(Node->GUID);
-                    ImGui::Text("  %s", ParsedName.Name);
-                }
-            }
-            
-            ImGui::Text("RootBlockCount = %d\n", RootBlockCount);
-            
-            temporary_memory TempMem = BeginTemporaryMemory(&DebugState->PerFrameArena);
-            r64 *CycleCountArray = PushArray(&DebugState->PerFrameArena, RootBlockCount, r64);
-            char **BlockNameArray = PushArray(&DebugState->PerFrameArena, RootBlockCount, char *);
-            
-            ImGui::SeparatorText("UnsortedBlocks");
-            ImGui::Text("PrevFrameClock = %.3fms", DebugState->DebugFrameArray[PrevFrameIndex].Clock * 1000.0f);
-            if(ImGui::BeginTable("DebugStatTable", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
-            {
-                ImGui::TableSetupColumn("Name");
-                ImGui::TableSetupColumn("Min");
-                ImGui::TableSetupColumn("Max");
-                ImGui::TableSetupColumn("Avg");
-                ImGui::TableSetupColumn("Cycles");
-                ImGui::TableSetupColumn("Percent");
-                ImGui::TableHeadersRow();
-                
-                u32 Index = 0;
-                for(debug_stored_block *Node = DebugState->DebugFrameArray[PrevFrameIndex].FirstStoredBlock;
-                    Node != 0;
-                    Node = Node->Next)
-                {
-                    if(Node->Parent == DebugState->StoredBlockRoot)
-                    {
-                        debug_parsed_name ParsedName = DebugParseName(Node->GUID);
-                        debug_statistic *Stat = &DebugState->BlockStatArray[Index];
-                        
-                        ImGui::TableNextRow();
-                        ImGui::TableNextColumn();
-                        ImGui::Text("%s", ParsedName.Name);
-                        ImGui::TableNextColumn();
-                        ImGui::Text("%.0lf", Stat->Min);
-                        ImGui::TableNextColumn();
-                        ImGui::Text("%.0f", Stat->Max);
-                        ImGui::TableNextColumn();
-                        ImGui::Text("%.2f", Stat->Avg);
-                        ImGui::TableNextColumn();
-                        ImGui::Text("%.0f", (r64)Node->Clock);
-                        ImGui::TableNextColumn();
-                        ImGui::Text("%.2f", (r64)Node->Clock / RootClockSum * 100.0f);
-                        
-                        CycleCountArray[Index] = (r64)Node->Clock;
-                        BlockNameArray[Index] = ParsedName.Name;
-                        
-                        Index++;
-                    }
-                }
-                Index++;
-                
-                ImGui::EndTable();
-            }
-            
-            if(ImPlot::BeginPlot("##Pie1", ImVec2(550,550), ImPlotFlags_Equal))
-            {
-                ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoDecorations, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoDecorations);
-                ImPlot::SetupAxesLimits(0, 1, 0, 1);
-                ImPlot::PlotPieChart(BlockNameArray, CycleCountArray, RootBlockCount, 0.5, 0.5, 0.4, "%.0f", 90, ImPlotPieChartFlags_Normalize);
-                ImPlot::EndPlot();
-            }
-            
-            u32 Count = RootBlockCount;
-            for(u32 Outer = 0;
-                Outer < Count;
-                ++Outer)
-            {
-                b32 ListIsSorted = true;
-                for(u32 Inner = 0;
-                    Inner < Count - 1;
-                    ++Inner)
-                {
-                    r64 A = CycleCountArray[Inner];
-                    r64 B = CycleCountArray[Inner + 1];
-                    if(A > B)
-                    {
-                        CycleCountArray[Inner] = B;
-                        CycleCountArray[Inner + 1] = A;
-                        
-                        char *A2 = BlockNameArray[Inner];
-                        char *B2 = BlockNameArray[Inner + 1];
-                        BlockNameArray[Inner] = B2;
-                        BlockNameArray[Inner + 1] = A2;
-                        
-                        ListIsSorted = false;
-                    }
-                }
-                
-                if(ListIsSorted)
-                {
-                    break;
-                }
-            }
-            
-            ImGui::SeparatorText("SortedBlocks");
-            for(s32 Index = Count - 1;
-                Index >= 0;
-                Index--)
-            {
-                ImGui::Text("%s = %f\n", BlockNameArray[Index], CycleCountArray[Index]);
-            }
-            
-            EndTemporaryMemory(TempMem);
-            /*             
-local r32 History = 15.0f;
-ImGui::SliderFloat("History", &History, 1, 60, "%.1f s");
-
-local r32 PlotZoom = 50.0f;
-ImGui::SliderFloat("PlotZoom", &PlotZoom, 1, 100, "%.1f s");
-
-if(ImPlot::BeginPlot("##Rolling", ImVec2(-1, 700)))
-{
-ImPlot::SetupAxisLimits(ImAxis_X1, 0, History, ImGuiCond_Always);
-ImPlot::SetupAxisLimits(ImAxis_Y1, 0, (r64)(30000000.0f));
-ImPlot::SetupAxisFormat(ImAxis_Y1, "%.0f");
-
-for(u32 RegionIndex = 0;
-RegionIndex < Frame->RegionCount;
-++RegionIndex)
-{
-debug_frame_region *Region = Frame->Regions + RegionIndex;
-debug_record *Record = Region->Record;
-char BlockNameTextBuffer[256];
-_snprintf_s(BlockNameTextBuffer, sizeof(BlockNameTextBuffer), "%s", Record->BlockName);
-ImPlot::PlotLine(BlockNameTextBuffer, 
-              &RData[RegionIndex].Data[0].x, &RData[RegionIndex].Data[0].y, 
-              RData[RegionIndex].Data.size(), 0, 0, 2 * sizeof(float));
-}
-ImPlot::EndPlot();
-}
-*/
-        }
-        
-        ImGui::End();
-        {
-            ImGui::Begin("DebugCollation", &ImGuiHandle->ShowDebugCollationWindow);
-            
-            u32 MaxFrame = DebugState->FrameCount;
-            Log->Add("MaxFrame = %d\n", MaxFrame);
-            if(MaxFrame > 10)
-            {
-                MaxFrame = 10;
-            }
-            
-            temporary_memory TempMem = BeginTemporaryMemory(&DebugState->DebugArena);
-            
-            // NOTE(ezexff): Realtime plot
-            //local int FrameIndex = 0;
-            //ImGui::SliderInt("FrameIndex", &FrameIndex, 1, 60);
-            
-            u32 FrameIndex = 0;
-            debug_frame *Frame = DebugState->Frames + DebugState->FrameCount - (FrameIndex + 1);
-            u64 FrameCycleCount = Frame->EndClock - Frame->BeginClock;
-            ImGui::Text("FrameCycleCount = %lu", FrameCycleCount);
-            
-            //Assert(Frame->Regions);
-            
-            if(Frame->Regions)
-            {
-                local r32 History = 15.0f;
-                ImGui::SliderFloat("History", &History, 1, 60, "%.1f s");
-                
-                local r32 PlotZoom = 50.0f;
-                ImGui::SliderFloat("PlotZoom", &PlotZoom, 1, 100, "%.1f s");
-                
-                Assert(Frame->RegionCount < 32);
-                local RollingBuffer RData[32]; // TODO(ezexff): Replace this with debug storage
-                local r32 t = 0;
-                t += ImGui::GetIO().DeltaTime;
-                
-                for(u32 RegionIndex = 0;
-                    RegionIndex < Frame->RegionCount;
-                    ++RegionIndex)
-                {
-                    debug_frame_region *Region = Frame->Regions + RegionIndex;
-                    debug_record *Record = Region->Record;
-                    RData[RegionIndex].AddPoint(t, (r32)Region->CycleCount);
-                    RData[RegionIndex].Span = History;
-                }
-                
-                if(ImPlot::BeginPlot("##Rolling", ImVec2(-1, 700)))
-                {
-                    //ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickLabels, ImPlotAxisFlags_NoTickLabels);
-                    ImPlot::SetupAxisLimits(ImAxis_X1, 0, History, ImGuiCond_Always);
-                    //ImPlot::SetupAxisLimits(ImAxis_Y1, 0, (r64)(FrameCycleCount / PlotZoom), ImGuiCond_Always);
-                    //r64 TestFrameCycleCount = 3.6f * 1000 * 1000 * 1000 * DebugGlobalInput->dtForFrame;
-                    //ImPlot::SetupAxisLimits(ImAxis_Y1, 0, (r64)(TestFrameCycleCount), ImGuiCond_Always);
-                    ImPlot::SetupAxisLimits(ImAxis_Y1, 0, (r64)(30000000.0f));
-                    ImPlot::SetupAxisFormat(ImAxis_Y1, "%.0f");
-                    
-                    for(u32 RegionIndex = 0;
-                        RegionIndex < Frame->RegionCount;
-                        ++RegionIndex)
-                    {
-                        debug_frame_region *Region = Frame->Regions + RegionIndex;
-                        debug_record *Record = Region->Record;
-                        char BlockNameTextBuffer[256];
-                        _snprintf_s(BlockNameTextBuffer, sizeof(BlockNameTextBuffer), "%s", Record->BlockName);
-                        ImPlot::PlotLine(BlockNameTextBuffer, 
-                                         &RData[RegionIndex].Data[0].x, &RData[RegionIndex].Data[0].y, 
-                                         RData[RegionIndex].Data.size(), 0, 0, 2 * sizeof(float));
-                    }
-                    ImPlot::EndPlot();
-                }
-            }
-            
-            for(u32 FrameIndex = 0;
-                FrameIndex < MaxFrame;
-                ++FrameIndex)
-            {
-                debug_frame *Frame = DebugState->Frames + DebugState->FrameCount - (FrameIndex + 1);
-                
-                r64 *CycleCountArray = PushArray(&DebugState->DebugArena, Frame->RegionCount, r64);
-                r64 CycleCountMax = 0;
-                
-                char **BlockNameArray = PushArray(&DebugState->DebugArena, Frame->RegionCount, char *);
-                
-                r32 *TmpArrayOld = PushArray(&DebugState->DebugArena, Frame->RegionCount, r32);
-                r32 TmpMaxOld = 0;
-                
-                ImGui::BulletText("FrameIndex = %d", FrameIndex);
-                //r32 StackX = ChartLeft;
-                //r32 StackY = ChartTop - BarsPlusSpacing*(r32)FrameIndex;
-                for(u32 RegionIndex = 0;
-                    RegionIndex < Frame->RegionCount;
-                    ++RegionIndex)
-                {
-                    debug_frame_region *Region = Frame->Regions + RegionIndex;
-                    debug_record *Record = Region->Record;
-                    
-                    CycleCountArray[RegionIndex] = (r64)Region->CycleCount;
-                    BlockNameArray[RegionIndex] = Record->BlockName;
-                    if(Region->CycleCount > CycleCountMax)
-                    {
-                        CycleCountMax = (r64)Region->CycleCount;
-                    }
-                    
-                    TmpArrayOld[RegionIndex] = (r32)Region->CycleCount;
-                    if(Region->CycleCount > TmpMaxOld)
-                    {
-                        TmpMaxOld = (r32)Region->CycleCount;
-                    }
-                }
-                
-                r32 BarSize = 0.95f;
-                r32 Shift = 0.5f;
-                r32 BarStep = 1.0f;
-                
-                char TitleTextBuffer[256];
-                _snprintf_s(TitleTextBuffer, sizeof(TitleTextBuffer),
-                            "FrameIndex = %d##Histogram", FrameIndex);
-                if(ImPlot::BeginPlot(TitleTextBuffer))
-                {
-                    ImPlot::SetupAxes("Regions", "Cycles", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
-                    ImPlot::SetupAxesLimits(0, (u32)Frame->RegionCount, 0, (r64)CycleCountMax);
-                    
-                    ImPlot::SetupAxisFormat(ImAxis_X1, "%.0f");
-                    ImPlot::SetupAxisFormat(ImAxis_Y1, "%.0f");
-                    
-                    ImPlot::PlotBars("TestPlotBars", CycleCountArray, Frame->RegionCount, BarSize, Shift);
-                    
-                    ImDrawList *DrawList = ImPlot::GetPlotDrawList();
-                    if(ImPlot::IsPlotHovered())
-                    {
-                        ImPlotPoint MouseP = ImPlot::GetPlotMousePos();
-                        if((MouseP.x > 0) && MouseP.x < Frame->RegionCount)
-                        {
-                            ImGui::BeginTooltip();
-                            u32 RegionIndex = FloorR32ToS32((r32)MouseP.x);
-                            r32 TooltipLeft = ImPlot::PlotToPixels(RegionIndex, MouseP.y).x;
-                            r32 TooltipRight = ImPlot::PlotToPixels(RegionIndex + BarStep, MouseP.y).x;
-                            r32 TooltipTop = ImPlot::GetPlotPos().y;
-                            r32 TooltipBot = TooltipTop + ImPlot::GetPlotSize().y;
-                            ImPlot::PushPlotClipRect();
-                            DrawList->AddRectFilled(ImVec2(TooltipLeft, TooltipTop), ImVec2(TooltipRight, TooltipBot), IM_COL32(128, 128, 128, 64));
-                            ImPlot::PopPlotClipRect();
-                            
-                            debug_frame_region *Region = Frame->Regions + RegionIndex;
-                            debug_record *Record = Region->Record;
-                            ImGui::Text("RegionIndex = %d", RegionIndex);
-                            ImGui::Text("BlockName = %s", Record->BlockName);
-                            ImGui::Text("CycleCount = %lu", Region->CycleCount);
-                            ImGui::Text("FileName = %s", Record->FileName);
-                            ImGui::Text("LineNumber = %d", Record->LineNumber);
-                            
-                            ImGui::EndTooltip();
-                        }
-                    }
-                    
-                    ImPlot::EndPlot();
-                }
-                
-                if(ImPlot::BeginPlot("##Pie1", ImVec2(550,550), ImPlotFlags_Equal))
-                {
-                    ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoDecorations, ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoDecorations);
-                    ImPlot::SetupAxesLimits(0, 1, 0, 1);
-                    ImPlot::PlotPieChart(BlockNameArray, CycleCountArray, Frame->RegionCount, 0.5, 0.5, 0.4, "%.0f", 90, ImPlotPieChartFlags_Normalize);
-                    ImPlot::EndPlot();
-                }
-                
-                char *TestStr = "1st ver histogram";
-                ImGui::PlotHistogram("##Histogram", TmpArrayOld, Frame->RegionCount, 0, TestStr, 0.0f, TmpMaxOld, ImVec2(0, 200.0f));
-            }
-            
-            //EndTemporaryMemory(TempMem);
-            
-            ImGui::End();
-        }
-#endif
-    }
+    };
     
+#if ENGINE_IMGUI
     ImGuiUpdateAndRender();
 #endif
     //~ NOTE(ezexff): test new ui

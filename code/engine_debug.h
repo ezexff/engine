@@ -67,6 +67,8 @@ struct debug_state
     debug_frame DebugFrameArray[DEBUG_FRAME_COUNT];
     
     //u32 BlockStatIndex;
+    r32 StatisticTimerInSeconds;
+    r32 StatisticTimerMaxInSeconds;
     debug_statistic BlockStatArray[64];
     //debug_stored_block *PrevBeginEvent;
     
