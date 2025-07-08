@@ -350,6 +350,49 @@ OpenglDrawCubeOutline(v3 P, v3 Dim, v3 Color, r32 LineWidth)
 }
 
 void
+OpenglDrawCircleOnScreen(v2 P, r32 Radius, v4 Color)
+{
+    glColor4f(Color.r, Color.g, Color.b, Color.a);
+    //glBegin(GL_LINE_LOOP);
+    glBegin(GL_TRIANGLE_FAN);
+    r32 Precision = 16;
+    for(u32 Index = 0;
+        Index < Precision;
+        ++Index)
+    {
+        r32 Angle = Tau32  * Index / Precision;
+        r32 X = Cos(Angle) * Radius; // cos = x / r
+        r32 Y = Sin(Angle) * Radius; // sin = y / r
+        glVertex2f(P.x + X, P.y + Y);
+    }
+    glEnd();
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+}
+
+void
+OpenglDrawCircleOutlineOnScreen(v2 P, r32 Radius, r32 LineWidth, v4 Color)
+{
+    glLineWidth(LineWidth);
+    glEnable(GL_LINE_SMOOTH);
+    glColor4f(Color.r, Color.g, Color.b, Color.a);
+    glBegin(GL_LINE_LOOP);
+    r32 Precision = 16;
+    for(u32 Index = 0;
+        Index < Precision;
+        ++Index)
+    {
+        r32 Angle = Tau32  * Index / Precision;
+        r32 X = Cos(Angle) * Radius; // cos = x / r
+        r32 Y = Sin(Angle) * Radius; // sin = y / r
+        glVertex2f(P.x + X, P.y + Y);
+    }
+    glEnd();
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    glLineWidth(1);
+    glDisable(GL_LINE_SMOOTH);
+}
+
+void
 OpenglDrawRectOnScreen(rectangle2 R, v4 Color)
 {
     r32 VertPositions[] = 
@@ -1911,6 +1954,22 @@ OpenglDrawUI(renderer_frame *Frame)
         
         switch(Header->Type)
         {
+            case RendererOrthoEntryType_renderer_ortho_entry_circle:
+            {
+                renderer_ortho_entry_circle *Entry = (renderer_ortho_entry_circle *)Data;
+                OpenglDrawCircleOnScreen(Entry->P, Entry->Radius, Entry->Color);
+                
+                //BaseAddress += sizeof(*Entry);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_circle_outline:
+            {
+                renderer_ortho_entry_circle_outline *Entry = (renderer_ortho_entry_circle_outline *)Data;
+                OpenglDrawCircleOutlineOnScreen(Entry->P, Entry->Radius, Entry->LineWidth, Entry->Color);
+                
+                //BaseAddress += sizeof(*Entry);
+            } break;
+            
             case RendererOrthoEntryType_renderer_ortho_entry_rect:
             {
                 renderer_ortho_entry_rect *Entry = (renderer_ortho_entry_rect *)Data;

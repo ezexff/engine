@@ -262,6 +262,31 @@ PushRenderElement_(renderer_push_buffer *PushBuffer, u32 Size, renderer_ortho_en
 }
 
 void
+PushCircleOnScreen(renderer_push_buffer *PushBuffer, v2 P, r32 Radius, v4 Color = V4(1, 1, 1, 1), r32 SortKey = 0.0f)
+{
+    renderer_ortho_entry_circle *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_circle, SortKey);
+    if(Entry)
+    {
+        Entry->Color = Color;
+        Entry->P = P;
+        Entry->Radius = Radius;
+    }
+}
+
+void
+PushCircleOutlineOnScreen(renderer_push_buffer *PushBuffer, v2 P, r32 Radius, r32 LineWidth, v4 Color = V4(1, 1, 1, 1), r32 SortKey = 0.0f)
+{
+    renderer_ortho_entry_circle_outline *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_circle_outline, SortKey);
+    if(Entry)
+    {
+        Entry->Color = Color;
+        Entry->P = P;
+        Entry->Radius = Radius;
+        Entry->LineWidth = LineWidth;
+    }
+}
+
+void
 PushRectOnScreen(renderer_push_buffer *PushBuffer, v2 Offset, v2 Dim, v4 Color = V4(1, 1, 1, 1), r32 SortKey = 0.0f)
 {
     v2 P = Offset;

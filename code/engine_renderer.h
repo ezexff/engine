@@ -225,6 +225,22 @@ enum
 PushRect(RendererPushBufferType_Ortho, Pos, Dim, ...);
  */
 
+
+struct renderer_ortho_entry_circle
+{
+    v4 Color;
+    v2 P;
+    r32 Radius;
+};
+
+struct renderer_ortho_entry_circle_outline
+{
+    v4 Color;
+    v2 P;
+    r32 Radius;
+    r32 LineWidth;
+};
+
 struct renderer_ortho_entry_rect
 {
     v4 Color;
@@ -258,6 +274,8 @@ struct renderer_ortho_entry_glyph
 
 enum renderer_ortho_entry_type
 {
+    RendererOrthoEntryType_renderer_ortho_entry_circle,
+    RendererOrthoEntryType_renderer_ortho_entry_circle_outline,
     RendererOrthoEntryType_renderer_ortho_entry_rect,
     RendererOrthoEntryType_renderer_ortho_entry_rect_outline,
     RendererOrthoEntryType_renderer_ortho_entry_bitmap,

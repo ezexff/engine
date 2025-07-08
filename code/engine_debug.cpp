@@ -1140,6 +1140,19 @@ TestNewUI(debug_state *DebugState)
             DrawStoredBlockTreeV2(&DebugState->DebugFrameArray[PrevFrameIndex].RootStoredBlock, 0, DebugState, DebugState->DebugFrameArray[PrevFrameIndex].ClockInCycles);
         }
         
+    }
+    UI_EndWindow();
+    
+    local b32 IsWindowVisible4 = true;
+    if(IsWindowVisible4)
+    {
+        UI_BeginWindow("TestPhysics", &IsWindowVisible4);
+        
+        game_state *GameState = (game_state *)GlobalDebugMemory->PermanentStorage;
+        mode_test *ModeTest = &GameState->ModeTest;
+        
+        UI_Label("Entity0P = %.2f %.2f", ModeTest->EntityArray[0].P.x, ModeTest->EntityArray[0].P.y);
+        
         UI_EndWindow();
     }
     END_BLOCK();
