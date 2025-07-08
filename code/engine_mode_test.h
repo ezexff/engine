@@ -22,6 +22,18 @@ struct controlled_entity
     v2 ddP;
 };
 
+struct test_rect
+{
+    v2 P;
+    r32 Size;
+    r32 Angle;
+    u32 VertexCount;
+    v2 VertexArray[4];
+    v2 TransformedVertexArray[4];
+    //m4x4 Model;
+    v4 Color;
+    v4 OutlineColor;
+};
 
 struct mode_test
 {
@@ -29,6 +41,8 @@ struct mode_test
     
     controlled_entity ControlledEntityArray[ArrayCount(((game_input *)0)->Controllers)];
     test_entity EntityArray[10];
+    
+    test_rect RectArray[2];
     /* 
         v4 ClearColor;
         

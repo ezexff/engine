@@ -665,6 +665,28 @@ m4x4 Transpose(m4x4 A)
     return (R);
 }
 
+inline m4x4 Rotation(v4 P)
+{
+    r32 a1 = (r32)(1.0) - (r32)(2.0) * (P.y * P.y + P.z * P.z);
+    r32 a2 = (r32)(2.0) * (P.x * P.y - P.z * P.w);
+    r32 a3 = (r32)(2.0) * (P.x * P.z + P.y * P.w);
+    r32 b1 = (r32)(2.0) * (P.x * P.y + P.z * P.w);
+    r32 b2 = (r32)(1.0) - (r32)(2.0) * (P.x * P.x + P.z * P.z);
+    r32 b3 = (r32)(2.0) * (P.y * P.z - P.x * P.w);
+    r32 c1 = (r32)(2.0) * (P.x * P.z - P.y * P.w);
+    r32 c2 = (r32)(2.0) * (P.y * P.z + P.x * P.w);
+    r32 c3 = (r32)(1.0) - (r32)(2.0) * (P.x * P.x + P.y * P.y);
+    
+    m4x4 R = {
+        {{a1, a2, a3, 0}, //
+            {b1, b2, b3, 0}, //
+            {c1, c2, c3, 0}, //
+            {0, 0, 0, 1}},   //
+    };
+    
+    return (R);
+}
+
 inline m4x4 XRotation(r32 Angle)
 {
     Angle = Angle * Pi32 / 180;
@@ -679,6 +701,36 @@ inline m4x4 XRotation(r32 Angle)
             {0, s, c, 0},
             {0, 0, 0, 1}
         }
+    };
+    
+    return (R);
+}
+
+inline m4x4 YRotation(f32 Angle)
+{
+    f32 c = Cos(Angle);
+    f32 s = Sin(Angle);
+    
+    m4x4 R = {
+        {{c, 0, s, 0},  //
+            {0, 1, 0, 0},  //
+            {-s, 0, c, 0}, //
+            {0, 0, 0, 1}}, //
+    };
+    
+    return (R);
+}
+
+inline m4x4 ZRotation(f32 Angle)
+{
+    f32 c = Cos(Angle);
+    f32 s = Sin(Angle);
+    
+    m4x4 R = {
+        {{c, -s, 0, 0}, //
+            {s, c, 0, 0},  //
+            {0, 0, 1, 0},  //
+            {0, 0, 0, 1}}, //
     };
     
     return (R);
@@ -715,6 +767,22 @@ internal m4x4 operator*(m4x4 A, m4x4 B)
             }
         }
     }
+    
+    return (R);
+}
+
+internal v4 operator*(m4x4 A, v4 B)
+{
+    v4 R = {};
+    
+    R.x = A.E[0][0] * B.E[0] + A.E[0][1] * B.E[1] + A.E[0][2] * B.E[2] + A.E[0][3] * B.E[3];
+    R.y = A.E[1][0] * B.E[0] + A.E[1][1] * B.E[1] + A.E[1][2] * B.E[2] + A.E[1][3] * B.E[3];
+    R.z = A.E[2][0] * B.E[0] + A.E[2][1] * B.E[1] + A.E[2][2] * B.E[2] + A.E[2][3] * B.E[3];
+    R.w = A.E[3][0] * B.E[0] + A.E[3][1] * B.E[1] + A.E[3][2] * B.E[2] + A.E[3][3] * B.E[3];
+    
+    R.x += A.E[0][3];
+    R.y += A.E[1][3];
+    R.z += A.E[2][3];
     
     return (R);
 }

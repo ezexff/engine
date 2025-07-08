@@ -393,6 +393,42 @@ OpenglDrawCircleOutlineOnScreen(v2 P, r32 Radius, r32 LineWidth, v4 Color)
 }
 
 void
+OpenglDrawLinesOnScreen(u32 VertexCount, v2 *VertexArray, r32 LineWidth, v4 Color)
+{
+    glLineWidth(LineWidth);
+    glEnable(GL_LINE_SMOOTH);
+    glBegin(GL_LINE_LOOP);
+    glColor4f(Color.r, Color.g, Color.b, Color.a);
+    for(u32 Index = 0;
+        Index < VertexCount;
+        ++Index)
+    {
+        v2 *Vertex = VertexArray + Index;
+        glVertex2f(Vertex->x, Vertex->y);
+    }
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    glEnd();
+    glLineWidth(1);
+    glDisable(GL_LINE_SMOOTH);
+}
+
+void
+OpenglDrawTrianglesOnScreen(u32 VertexCount, v2 *VertexArray, v4 Color)
+{
+    glBegin(GL_TRIANGLE_FAN);
+    glColor4f(Color.r, Color.g, Color.b, Color.a);
+    for(u32 Index = 0;
+        Index < VertexCount;
+        ++Index)
+    {
+        v2 *Vertex = VertexArray + Index;
+        glVertex2f(Vertex->x, Vertex->y);
+    }
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    glEnd();
+}
+
+void
 OpenglDrawRectOnScreen(rectangle2 R, v4 Color)
 {
     r32 VertPositions[] = 
@@ -1954,6 +1990,22 @@ OpenglDrawUI(renderer_frame *Frame)
         
         switch(Header->Type)
         {
+            case RendererOrthoEntryType_renderer_ortho_entry_lines:
+            {
+                renderer_ortho_entry_lines *Entry = (renderer_ortho_entry_lines *)Data;
+                OpenglDrawLinesOnScreen(Entry->VertexCount, Entry->VertexArray, Entry->LineWidth, Entry->Color);
+                
+                //BaseAddress += sizeof(*Entry);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_triangles:
+            {
+                renderer_ortho_entry_triangles *Entry = (renderer_ortho_entry_triangles *)Data;
+                OpenglDrawTrianglesOnScreen(Entry->VertexCount, Entry->VertexArray, Entry->Color);
+                
+                //BaseAddress += sizeof(*Entry);
+            } break;
+            
             case RendererOrthoEntryType_renderer_ortho_entry_circle:
             {
                 renderer_ortho_entry_circle *Entry = (renderer_ortho_entry_circle *)Data;

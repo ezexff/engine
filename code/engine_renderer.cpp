@@ -262,6 +262,31 @@ PushRenderElement_(renderer_push_buffer *PushBuffer, u32 Size, renderer_ortho_en
 }
 
 void
+PushLinesOnScreen(renderer_push_buffer *PushBuffer, u32 VertexCount, v2 *VertexArray, r32 LineWidth, v4 Color = V4(1, 1, 1, 1), r32 SortKey = 0.0f)
+{
+    renderer_ortho_entry_lines *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_lines, SortKey);
+    if(Entry)
+    {
+        Entry->Color = Color;
+        Entry->VertexCount = VertexCount;
+        Entry->VertexArray = VertexArray;
+        Entry->LineWidth = LineWidth;
+    }
+}
+
+void
+PushTrianglesOnScreen(renderer_push_buffer *PushBuffer, u32 VertexCount, v2 *VertexArray, v4 Color = V4(1, 1, 1, 1), r32 SortKey = 0.0f)
+{
+    renderer_ortho_entry_triangles *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_triangles, SortKey);
+    if(Entry)
+    {
+        Entry->Color = Color;
+        Entry->VertexCount = VertexCount;
+        Entry->VertexArray = VertexArray;
+    }
+}
+
+void
 PushCircleOnScreen(renderer_push_buffer *PushBuffer, v2 P, r32 Radius, v4 Color = V4(1, 1, 1, 1), r32 SortKey = 0.0f)
 {
     renderer_ortho_entry_circle *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_circle, SortKey);
