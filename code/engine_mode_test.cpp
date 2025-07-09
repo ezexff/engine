@@ -1,6 +1,24 @@
 #include "engine_ui_core.cpp"
 #include "engine_ui_widgets.cpp"
 
+v2 FindSumVector(u32 VertexCount, v2 *VertexArray)
+{
+    v2 Result = {};
+    
+    for(u32 Index = 0;
+        Index < VertexCount;
+        ++Index)
+    {
+        Result.x += VertexArray[Index].x;
+        Result.y += VertexArray[Index].y;
+    }
+    
+    Result.x = Result.x / (VertexCount);
+    Result.y = Result.y / (VertexCount);
+    
+    return(Result);
+}
+
 struct vertices_projection
 {
     r32 Min;
@@ -26,8 +44,20 @@ ProjectVertices(u32 VertexCount, v2 *VertexArray, v2 Axis)
     return(Result);
 }
 
-b32 IsPolygonsCollide(u32 VertexCountA, v2 *VertexArrayA, u32 VertexCountB, v2 *VertexArrayB)
+struct polygons_collide_result
 {
+    b32 IsCollides;
+    v2 Normal;
+    r32 Depth;
+};
+
+polygons_collide_result
+IsPolygonsCollide(u32 VertexCountA, v2 *VertexArrayA, u32 VertexCountB, v2 *VertexArrayB)
+{
+    polygons_collide_result Result;
+    Result.Normal = {};
+    Result.Depth = F32Max;
+    
     for(u32 Index = 0;
         Index < VertexCountA;
         ++Index)
@@ -42,7 +72,15 @@ b32 IsPolygonsCollide(u32 VertexCountA, v2 *VertexArrayA, u32 VertexCountB, v2 *
         
         if(A.Min >= B.Max || B.Min >= A.Max)
         {
-            return(false);
+            Result.IsCollides = false;
+            return(Result);
+        }
+        
+        r32 AxisDepth = Minimum(B.Max - A.Min, A.Max - B.Min);
+        if(AxisDepth < Result.Depth)
+        {
+            Result.Depth = AxisDepth;
+            Result.Normal = Axis;
         }
     }
     
@@ -60,11 +98,31 @@ b32 IsPolygonsCollide(u32 VertexCountA, v2 *VertexArrayA, u32 VertexCountB, v2 *
         
         if(A.Min >= B.Max || B.Min >= A.Max)
         {
-            return(false);
+            Result.IsCollides = false;
+            return(Result);
+        }
+        
+        r32 AxisDepth = Minimum(B.Max - A.Min, A.Max - B.Min);
+        if(AxisDepth < Result.Depth)
+        {
+            Result.Depth = AxisDepth;
+            Result.Normal = Axis;
         }
     }
     
-    return(true);
+    Result.IsCollides = true;
+    Result.Depth /= Length(Result.Normal);
+    Result.Normal = Normalize(Result.Normal);
+    
+    v2 CenterA = FindSumVector(VertexCountA, VertexArrayA);
+    v2 CenterB = FindSumVector(VertexCountB, VertexArrayB);
+    v2 Direction = CenterB - CenterA;
+    if(Inner(Direction, Result.Normal) < 0.0f)
+    {
+        Result.Normal = -Result.Normal;
+    }
+    
+    return(Result);
 }
 
 void
@@ -109,7 +167,7 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             ++Index)
         {
             test_rect *Rect = ModeTest->RectArray + Index;
-            Rect->P = V2((r32)RandomBetween(&Series, 500, 700), 500);
+            Rect->P = V2((r32)(500 + 60 * Index), (r32)RandomBetween(&Series, 500, 600));
             Rect->Size = 50.0f;
             Rect->VertexCount = ArrayCount(Rect->VertexArray);
             Rect->VertexArray[0] = V2(-0.5f, -0.5f);
@@ -154,6 +212,16 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             {
                 ConEntity->ddP.x += 1.0f;
             }
+            if(WasPressed(Controller->ActionUp))
+            {
+                ConEntity->EntityIndex += 1;
+            }
+            if(WasPressed(Controller->ActionDown))
+            {
+                ConEntity->EntityIndex -= 1;
+            }
+            
+            ConEntity->EntityIndex = Clamp(0, ConEntity->EntityIndex, ArrayCount(ModeTest->EntityArray) - 1);
         }
     }
     
@@ -225,8 +293,11 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     {
         // NOTE(ezexff): pre transform work
         test_rect *Rect = ModeTest->RectArray + RectIndex;
-        Rect->Angle += Input->dtForFrame;
-        if(Rect->Angle > 360){Rect->Angle -= 360;}
+        if(RectIndex == 5)
+        {
+            Rect->Angle += Input->dtForFrame;
+            if(Rect->Angle > 360){Rect->Angle -= 360;}
+        }
         
         // NOTE(ezexff): transform vertices
         m4x4 Model =  Translate(V3(Rect->P.x, Rect->P.y, 1.0f)) * Scale(Rect->Size) * ZRotation(Rect->Angle);
@@ -275,11 +346,15 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             
             if(EntityIndex != TestIndex)
             {
-                if(IsPolygonsCollide(Entity->VertexCount, Entity->TransformedVertexArray,
-                                     TestEntity->VertexCount, TestEntity->TransformedVertexArray))
+                polygons_collide_result Result = IsPolygonsCollide(Entity->VertexCount, Entity->TransformedVertexArray,
+                                                                   TestEntity->VertexCount, TestEntity->TransformedVertexArray);
+                if(Result.IsCollides)
                 {
                     Entity->OutlineColor = RedColor;
                     TestEntity->OutlineColor = RedColor;
+                    Result.Depth /= 2.0f;
+                    Entity->P += -Result.Normal * Result.Depth;
+                    TestEntity->P += Result. Normal * Result.Depth;
                 }
             }
         }

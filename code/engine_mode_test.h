@@ -42,7 +42,7 @@ struct mode_test
     controlled_entity ControlledEntityArray[ArrayCount(((game_input *)0)->Controllers)];
     test_entity EntityArray[10];
     
-    test_rect RectArray[2];
+    test_rect RectArray[10];
     /* 
         v4 ClearColor;
         

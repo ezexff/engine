@@ -1151,7 +1151,9 @@ TestNewUI(debug_state *DebugState)
         game_state *GameState = (game_state *)GlobalDebugMemory->PermanentStorage;
         mode_test *ModeTest = &GameState->ModeTest;
         
-        UI_Label("Entity0P = %.2f %.2f", ModeTest->EntityArray[0].P.x, ModeTest->EntityArray[0].P.y);
+        u32 EntityIndex = ModeTest->ControlledEntityArray[0].EntityIndex;
+        UI_Label("EntityIndex = %d", EntityIndex);
+        UI_Label("Entity0P = %.2f %.2f", ModeTest->EntityArray[EntityIndex].P.x, ModeTest->EntityArray[EntityIndex].P.y);
         
         UI_EndWindow();
     }

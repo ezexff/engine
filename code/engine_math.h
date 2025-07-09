@@ -36,6 +36,22 @@ inline r32 Clamp(r32 Min, r32 Value, r32 Max)
     return(Result);
 }
 
+inline u32 Clamp(u32 Min, u32 Value, u32 Max)
+{
+    u32 Result = Value;
+    
+    if(Result < Min)
+    {
+        Result = Min;
+    }
+    else if(Result > Max)
+    {
+        Result = Max;
+    }
+    
+    return(Result);
+}
+
 inline r32 Clamp01(r32 Value)
 {
     r32 Result = Clamp(0.0f, Value, 1.0f);
