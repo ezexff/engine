@@ -195,7 +195,7 @@ typedef void WINAPI type_glTexImage3D(GLenum target, GLint level, GLint internal
 typedef void WINAPI type_glTexSubImage3D(GLenum target,
                                          GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const GLvoid *data);
 
-
+//typedef void WINAPI type_glGetIntegerv(GLenum pname, GLint * data);
 
 
 #define OpenglFunction(Name) type_##Name *Name
@@ -229,6 +229,9 @@ struct opengl
     
 #define GL_RENDERBUFFER 0x8D41
 #define GL_CLIP_DISTANCE0 0x3000
+    
+#define GL_MAX_TEXTURE_IMAGE_UNITS 0x8872
+#define GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS 0x8B4C
     
     //#define GL_R8 33321
     
@@ -290,11 +293,15 @@ struct opengl
     OpenglFunction(glTexImage3D);
     OpenglFunction(glTexSubImage3D);
     
+    //OpenglFunction(glGetIntegerv);
+    
 #if ENGINE_INTERNAL
     // NOTE(ezexff): OpenGL info
     char *GLVendorStr;
     char *GLRendererStr;
     char *GLVersionStr;
+    char *ShadingLanguageVersion;
+    char *Extensions;
 #endif
 };
 

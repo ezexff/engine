@@ -174,7 +174,7 @@ Win32ProcessPendingMessages(game_controller_input *KeyboardController, game_inpu
                         {
 #if ENGINE_IMGUI
                             GlobalShowImGuiWindows = !GlobalShowImGuiWindows;
-                            ShowCursor(GlobalShowImGuiWindows);
+                            //ShowCursor(GlobalShowImGuiWindows);
 #endif
                         }
                     }
@@ -1075,6 +1075,7 @@ extern "C" void __stdcall WinMainCRTStartup(void)
 #else
                             Win32ProcessPendingMessages(NewKeyboardController, NewInput);
 #endif
+                            
                             if(GlobalIsWindowActive)
                             {
                                 if(!IsCenteringMouseCursorInitialized && Input->CenteringMouseCursor)

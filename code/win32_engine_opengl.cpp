@@ -11,6 +11,32 @@
 #include "engine_renderer_opengl.h"
 #include "engine_renderer_opengl.cpp"
 
+
+
+#define GL_SHADING_LANGUAGE_VERSION 0x8B8C
+
+// NOTE(casey): Windows-specific
+#define WGL_CONTEXT_MAJOR_VERSION_ARB           0x2091
+#define WGL_CONTEXT_MINOR_VERSION_ARB           0x2092
+#define WGL_CONTEXT_LAYER_PLANE_ARB             0x2093
+#define WGL_CONTEXT_FLAGS_ARB                   0x2094
+#define WGL_CONTEXT_PROFILE_MASK_ARB            0x9126
+
+#define WGL_CONTEXT_DEBUG_BIT_ARB               0x0001
+#define WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB  0x0002
+
+#define WGL_CONTEXT_CORE_PROFILE_BIT_ARB 0x00000001
+#define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+
+typedef HGLRC WINAPI wgl_create_context_attribts_arb(HDC hDC, HGLRC hShareContext,
+                                                     const int *attribList);
+
+//typedef BOOL WINAPI wgl_swap_interval_ext(int interval);
+//global wgl_swap_interval_ext *wglSwapInterval;
+
+
+
+
 void Win32ErrorMessageBox(char *Message)
 {
     MessageBoxA(0, Message, 0, MB_OK);
@@ -38,12 +64,74 @@ Win32InitOpengl(renderer_frame *Frame, HDC WindowDC)
     if(wglMakeCurrent(WindowDC, OpenGLRC))        
     {
 #if ENGINE_INTERNAL
-        //OutputDebugStringA("OpenGL context created\n");
-        
         Frame->Opengl.GLVendorStr = (char *)glGetString(GL_VENDOR);
         Frame->Opengl.GLRendererStr = (char *)glGetString(GL_RENDERER);
         Frame->Opengl.GLVersionStr = (char *)glGetString(GL_VERSION);
+        
+        Frame->Opengl.ShadingLanguageVersion = (char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
+        Frame->Opengl.Extensions = (char *)glGetString(GL_EXTENSIONS);
+        
+        OutputDebugStringA(Frame->Opengl.ShadingLanguageVersion);
+        OutputDebugStringA("\n");
+        OutputDebugStringA(Frame->Opengl.Extensions);
+        
+        char *At = Frame->Opengl.Extensions;
+        while(*At)
+        {
+            while(IsWhitespace(*At)) {++At;}
+            char *End = At;
+            while(*End && !IsWhitespace(*End)) {++End;}
+            
+            umm Count = End - At;        
+            
+            At = End;
+        }
 #endif
+        
+        /* 
+                wgl_create_context_attribts_arb *wglCreateContextAttribsARB =
+                (wgl_create_context_attribts_arb *)wglGetProcAddress("wglCreateContextAttribsARB");
+                if(wglCreateContextAttribsARB)
+                {
+                    // NOTE(casey): This is a modern version of OpenGL
+                    int Attribs[] =
+                    {
+                        WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+                        WGL_CONTEXT_MINOR_VERSION_ARB, 6,
+                        WGL_CONTEXT_FLAGS_ARB, 0
+        #if ENGINE_INTERNAL
+                        |WGL_CONTEXT_DEBUG_BIT_ARB
+        #endif
+                        ,
+                        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+                        0,
+                    };
+                    
+                    HGLRC ShareContext = 0;
+                    HGLRC ModernGLRC = wglCreateContextAttribsARB(WindowDC, ShareContext, Attribs);
+                    if(ModernGLRC)
+                    {
+                        if(wglMakeCurrent(WindowDC, ModernGLRC))
+                        {
+                            wglDeleteContext(OpenGLRC);
+                            OpenGLRC = ModernGLRC;
+                        }
+                    }
+                }
+                else
+                {
+                    Win32ErrorMessageBox("This is an antiquated version of OpenGL");
+                    InvalidCodePath;
+                }
+         */
+        
+        /* 
+                wglSwapInterval = (wgl_swap_interval_ext *)wglGetProcAddress("wglSwapIntervalEXT");
+                if(wglSwapInterval)
+                {
+                    wglSwapInterval(1);
+                }
+         */
         
 #define Win32GetOpenglFunction(Name) Frame->Opengl.Name = (type_##Name *)wglGetProcAddress(#Name)
         
@@ -104,6 +192,8 @@ Win32InitOpengl(renderer_frame *Frame, HDC WindowDC)
         Win32GetOpenglFunction(glDrawArraysInstanced);
         Win32GetOpenglFunction(glTexImage3D);
         Win32GetOpenglFunction(glTexSubImage3D);
+        
+        //Win32GetOpenglFunction(glGetIntegerv);
     }
     else
     {

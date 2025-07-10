@@ -46,8 +46,8 @@ ImGuiDrawStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *Deb
         
         if(Node->FirstChild != 0)
         {
-            int TmpTest = Depth + 1;
-            if(Depth < 1)
+            //int TmpTest = Depth + 1;
+            //if(Depth < 1)
             {
                 ImGuiDrawStoredBlockTree(Node->FirstChild, Depth + 1, DebugState, FrameClock);
             }
@@ -1151,9 +1151,30 @@ TestNewUI(debug_state *DebugState)
         game_state *GameState = (game_state *)GlobalDebugMemory->PermanentStorage;
         mode_test *ModeTest = &GameState->ModeTest;
         
+        local b32 TestMode = true;
+        UI_CheckBox("TestCheckBox", &TestMode);
+        if(TestMode)
+        {
+            GameState->GameModeID = GameMode_Test;
+        }
+        else
+        {
+            GameState->GameModeID = GameMode_World;
+        }
+        
         u32 EntityIndex = ModeTest->ControlledEntityArray[0].EntityIndex;
         UI_Label("EntityIndex = %d", EntityIndex);
         UI_Label("Entity0P = %.2f %.2f", ModeTest->EntityArray[EntityIndex].P.x, ModeTest->EntityArray[EntityIndex].P.y);
+        
+        if(UI_IsPressed(UI_Button("Index++")))
+        {
+            ModeTest->ControlledEntityArray[0].EntityIndex++;
+        }
+        if(UI_IsPressed(UI_Button("Index--")))
+        {
+            ModeTest->ControlledEntityArray[0].EntityIndex--;
+        }
+        ModeTest->ControlledEntityArray[0].EntityIndex = Clamp(0, ModeTest->ControlledEntityArray[0].EntityIndex, ArrayCount(ModeTest->EntityArray) - 1);
         
         UI_EndWindow();
     }

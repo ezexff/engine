@@ -1683,9 +1683,12 @@ OpenglDrawWater(renderer *Renderer, u32 ShaderProgramID, renderer_frame *Frame)
         Opengl->glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, Water->Reflection.NormalMap->OpenglID);
         Opengl->glUniform1i(OpenglGetUniformLocation(ShaderProgramID, "uNormalMapTexture"), 3);
-        Opengl->glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, Water->Refraction.DepthTexture);
-        Opengl->glUniform1i(OpenglGetUniformLocation(ShaderProgramID, "uRefractionDepthTexture"), 4);
+        // TODO(ezexff): FIX IT!!!
+        /* 
+                Opengl->glActiveTexture(GL_TEXTURE4);
+                glBindTexture(GL_TEXTURE_2D, Water->Refraction.DepthTexture);
+                Opengl->glUniform1i(OpenglGetUniformLocation(ShaderProgramID, "uRefractionDepthTexture"), 4);
+         */
         
 #if 0        
         for(u32 BaseAddress = 0;

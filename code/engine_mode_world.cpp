@@ -764,10 +764,13 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     // NOTE(ezexff): Mouse
     {
         // NOTE(ezexff): Camera z
-        if(Input->dMouseP.z != 0)
+        if(Input->dMouseP.z != 0 && Input->CenteringMouseCursor)
         {
             Renderer->Camera.P.z -= Input->dMouseP.z;
         }
+        
+        // TODO(ezexff): Tmp
+        local b32 TmpIsCenteringMouseCursor = false;
         
         // NOTE(ezexff): Keys
         if(WasPressed(Input->MouseButtons[PlatformMouseButton_Left]))
@@ -776,6 +779,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         }
         if(WasPressed(Input->MouseButtons[PlatformMouseButton_Middle]))
         {
+            TmpIsCenteringMouseCursor = !TmpIsCenteringMouseCursor;
             //Log->Add("[input]: VK_MBUTTON was pressed\n");
         }
         if(WasPressed(Input->MouseButtons[PlatformMouseButton_Right]))
@@ -792,49 +796,52 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         }
         
         // NOTE(ezexff): Mouse cursor input delta
-        Input->CenteringMouseCursor = true;
+        Input->CenteringMouseCursor = TmpIsCenteringMouseCursor;
+        if(TmpIsCenteringMouseCursor)
+        {
 #if ENGINE_INTERNAL
 #if ENGINE_IMGUI
-        if(!ImGuiHandle->ShowImGuiWindows)
+            if(!ImGuiHandle->ShowImGuiWindows)
 #endif
 #endif
-        {
-            r32 Sensitivity = 0.03;
-            
-            // Horizontal (camera yaw)
-            ModeWorld->Camera.Angle.yaw -= (r32)Input->dMouseP.x * Sensitivity;
-            if(ModeWorld->Camera.Angle.yaw < -180)
             {
-                ModeWorld->Camera.Angle.yaw += 360;
+                r32 Sensitivity = 0.03;
+                
+                // Horizontal (camera yaw)
+                ModeWorld->Camera.Angle.yaw -= (r32)Input->dMouseP.x * Sensitivity;
+                if(ModeWorld->Camera.Angle.yaw < -180)
+                {
+                    ModeWorld->Camera.Angle.yaw += 360;
+                }
+                if(ModeWorld->Camera.Angle.yaw > 180)
+                {
+                    ModeWorld->Camera.Angle.yaw -= 360;
+                }
+                
+                // Vertical (camera pitch)
+                ModeWorld->Camera.Angle.pitch += (r32)Input->dMouseP.y * Sensitivity;
+                if(ModeWorld->Camera.Angle.pitch < 0)
+                {
+                    ModeWorld->Camera.Angle.pitch = 0;
+                }
+                if(ModeWorld->Camera.Angle.pitch > 180)
+                {
+                    ModeWorld->Camera.Angle.pitch = 180;
+                }
+                
+                // Camera pitch (inverted)
+                /* 
+                            Frame->CameraPitchInverted -= (r32)Input->MouseDelta.y * Sensitivity;
+                            if(Frame->CameraPitchInverted < 0)
+                            {
+                                Frame->CameraPitchInverted = 0;
+                            }
+                            if(Frame->CameraPitchInverted > 180)
+                            {
+                                Frame->CameraPitchInverted = 180;
+                            }
+                 */
             }
-            if(ModeWorld->Camera.Angle.yaw > 180)
-            {
-                ModeWorld->Camera.Angle.yaw -= 360;
-            }
-            
-            // Vertical (camera pitch)
-            ModeWorld->Camera.Angle.pitch += (r32)Input->dMouseP.y * Sensitivity;
-            if(ModeWorld->Camera.Angle.pitch < 0)
-            {
-                ModeWorld->Camera.Angle.pitch = 0;
-            }
-            if(ModeWorld->Camera.Angle.pitch > 180)
-            {
-                ModeWorld->Camera.Angle.pitch = 180;
-            }
-            
-            // Camera pitch (inverted)
-            /* 
-                        Frame->CameraPitchInverted -= (r32)Input->MouseDelta.y * Sensitivity;
-                        if(Frame->CameraPitchInverted < 0)
-                        {
-                            Frame->CameraPitchInverted = 0;
-                        }
-                        if(Frame->CameraPitchInverted > 180)
-                        {
-                            Frame->CameraPitchInverted = 180;
-                        }
-             */
         }
     }
     END_BLOCK();

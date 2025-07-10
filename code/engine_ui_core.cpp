@@ -141,6 +141,7 @@ UI_AddRootNode(ui_widget_link *WidgetArray, char *String, u32 StyleTemplateIndex
         CachedNode->Flags = Flags;
         CachedNode->BackgroundColor = Template.BackgroundColor;
         CachedNode->StyleTemplateIndex = StyleTemplateIndex;
+        CachedNode->Rect = Rect;
     }
     
     // NOTE(ezexff): persist P and Size
@@ -203,24 +204,11 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
             if(Parent->LayoutAxis == Axis2_X)
             {
                 Rect.Min.x = Parent->Last->Rect.Max.x;
-                //if(UI_State->WindowArray.Last->Body)
-                {
-                    //if(Root->Body->IsOpened)
-                    {
-                        //Rect.Min.x -= Root->Body->ViewP.x;
-                    }
-                }
             }
             else if(Parent->LayoutAxis == Axis2_Y)
             {
+                //Rect.Min.x = Parent->Last->Rect.Max.x;
                 Rect.Min.y = Parent->Last->Rect.Max.y;
-                //if(UI_State->WindowArray.Last->Body)
-                {
-                    //if(Root->Body->IsOpened)
-                    {
-                        //Rect.Min.y -= Root->Body->ViewP.y;
-                    }
-                }
             }
             else
             {
@@ -288,7 +276,7 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
     ui_node *Node = 0;
     //if((Parent == UI_State->Root) || UI_State->OpenWindow)
     {
-        v2 StartTextOffset = {};
+        //v2 StartTextOffset = {};
 #if 1
         renderer *Renderer = (renderer *)UI_State->Frame->Renderer;
         if(Root->Body && !(Flags & UI_NodeFlag_Floating))
@@ -341,10 +329,14 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
                 if(!Parent->First)
                 {
                     Rect = {Rect.Min + BodyCache->ViewP, Rect.Max + BodyCache->ViewP};
+                    //Rect.Min.y += 100;
                 }
                 else
                 {
+                    //Rect = {Rect.Min, Rect.Max};
                     Rect = {Rect.Min, Rect.Max};
+                    Rect.Min.x = Rect.Min.x + BodyCache->ViewP.x;
+                    Rect.Max.x = Rect.Max.x + BodyCache->ViewP.x;
                 }
                 
                 //rectangle2 ViewRect = {Body->Rect.Min + BodyCache->ViewP, Body->Rect.Max + BodyCache->ViewP};
@@ -408,15 +400,24 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
             
             CachedNode->Key = Key;
             CachedNode->Flags = Flags;
-            
-            CachedNode->Rect = Rect;
+            CachedNode->BackgroundColor = Template.BackgroundColor;
             CachedNode->StyleTemplateIndex = StyleTemplateIndex;
+            CachedNode->Rect = Rect;
         }
         
         // NOTE(ezexff): persist P and Size
         Rect.Min += CachedNode->P;
         Rect.Max += CachedNode->P;
         Rect.Max += CachedNode->Size;
+        for(u32 Index = 0;
+            Index < Axis2_Count;
+            ++Index)
+        {
+            if((ParentTemplate.Size[Index].Type == UI_SizeKind_ChildrenSum) && !(Flags & UI_NodeFlag_Floating))
+            {
+                Parent->Rect.Max.E[Index] += CachedNode->Size.E[Index];
+            }
+        }
         
         // NOTE(ezexff): init per frame node
         Node = PushStruct(UI_State->TranArena, ui_node);
@@ -820,7 +821,7 @@ StyleTemplate.ClickedColor = V4(0, 0, 0, 1);
 StyleTemplate.PressedColor = V4(0, 0, 0, 1);
 */
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_X].Value = 70.0f;
+                StyleTemplate->Size[Axis2_X].Value = 80.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
                 StyleTemplate->Size[Axis2_Y].Value = 30.0f;
                 /* 
@@ -864,9 +865,9 @@ StyleTemplate.PressedColor = V4(0, 0, 0, 1);
                 StyleTemplate->BackgroundColor = RGBA(66, 150, 250, 1);
                 
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_ParentPercent;
-                StyleTemplate->Size[Axis2_X].Value = 1.0f;
+                StyleTemplate->Size[Axis2_X].Value = 0.8f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ParentPercent;
-                StyleTemplate->Size[Axis2_Y].Value = 1.0f;
+                StyleTemplate->Size[Axis2_Y].Value = 0.8f;
                 
             } break;
             
@@ -874,7 +875,7 @@ StyleTemplate.PressedColor = V4(0, 0, 0, 1);
             {
                 StyleTemplate->BackgroundColor = V4(0, 0, 0, 1);
                 StyleTemplate->Size[Axis2_X].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_X].Value = 900.0f;
+                StyleTemplate->Size[Axis2_X].Value = 400.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
                 //StyleTemplate->Size[Axis2_Y].Value = 400.0f;
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_ChildrenSum;
@@ -948,7 +949,7 @@ StyleTemplate.PressedColor = V4(0, 0, 0, 1);
                 StyleTemplate->Size[Axis2_Y].Value = 1.0f;
 #else
                 StyleTemplate->Size[Axis2_Y].Type = UI_SizeKind_Pixels;
-                StyleTemplate->Size[Axis2_Y].Value = 500.0f;
+                StyleTemplate->Size[Axis2_Y].Value = 300.0f;
 #endif
             } break;
             

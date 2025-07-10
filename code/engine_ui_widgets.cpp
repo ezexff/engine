@@ -38,6 +38,125 @@ UI_Label(char *Format, ...)
     va_end(ArgList);
 }
 
+internal u32
+UI_Button(char *ID, char *Text)
+{
+    u32 State = 0;
+    if(!UI_State->WindowArray.Last){InvalidCodePath};
+    ui_node *Window = UI_State->WindowArray.Last;
+    if(Window)
+    {
+        //InvalidCodePath;
+        if(Window->Body)
+        {
+            if(Window->Cache->Flags & UI_NodeFlag_Expanded)
+            {
+                ui_node *Node = UI_AddNode(Window,
+                                           Window->Body,
+                                           ID,
+                                           UI_StyleTemplate_Button,
+                                           UI_NodeFlag_Clickable|
+                                           UI_NodeFlag_DrawBorder|
+                                           UI_NodeFlag_DrawText|
+                                           UI_NodeFlag_DrawBackground|
+                                           UI_NodeFlag_HotAnimation|
+                                           UI_NodeFlag_ActiveAnimation,
+                                           Text);
+                State = UI_GetNodeState(Node);
+            }
+        }
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+    return(State);
+}
+
+internal u32
+UI_Button(char *Format, ...)
+{
+    va_list ArgList;
+    va_start(ArgList, Format);
+    
+    char Temp[1024];
+    FormatStringList(sizeof(Temp), Temp, Format, ArgList);
+    u32 State = UI_Button(Format, Temp);
+    va_end(ArgList);
+    return(State);
+}
+
+void
+UI_CheckBox(char *ID, b32 *Value)
+{
+    if(!UI_State->WindowArray.Last){InvalidCodePath};
+    ui_node *Window = UI_State->WindowArray.Last;
+    if(Window)
+    {
+        //InvalidCodePath;
+        if(Window->Body)
+        {
+            if(Window->Cache->Flags & UI_NodeFlag_Expanded)
+            {
+                ui_node *Node = UI_AddNode(Window,
+                                           Window->Body,
+                                           ID,
+                                           UI_StyleTemplate_Checkbox,
+                                           //UI_NodeFlag_DrawBackground|
+                                           UI_NodeFlag_Clickable|
+                                           UI_NodeFlag_DrawBorder|
+                                           UI_NodeFlag_DrawBackground);
+                Node->LayoutAxis = Axis2_X;
+                u32 State = UI_GetNodeState(Node);
+                if(UI_IsPressed(State))
+                {
+                    *Value = !*Value;
+                }
+                
+                // TODO(ezexff): Temp
+                if(*Value)
+                {
+                    Node->Cache->BackgroundColor = V4(.125f, .196f, .298f, 1);
+                }
+                else
+                {
+                    Node->Cache->BackgroundColor = RGBA(66, 150, 250, 1);
+                }
+                /* 
+                                if(*Value)
+                                {
+                                    ui_node *MarkNode = UI_AddNode(Window,
+                                                                   Node,
+                                                                   Concat(UI_State->TranArena, ID, "Mark"),
+                                                                   UI_StyleTemplate_CheckboxMark,
+                                                                   UI_NodeFlag_Clickable|
+                                                                   UI_NodeFlag_DrawBorder|
+                                                                   UI_NodeFlag_DrawBackground);
+                                }
+                 */
+            }
+        }
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+}
+
+/* 
+internal void
+UI_CheckBox(b32 *Value, char *Format, ...)
+{
+    va_list ArgList;
+    va_start(ArgList, Format);
+    
+    char Temp[1024];
+    FormatStringList(sizeof(Temp), Temp, Format, ArgList);
+    UI_CheckBox(Format, Temp, Value);
+    va_end(ArgList);
+}
+ */
+
 internal void
 UI_BeginWindow(char *ID, b32 *ExitButtonValue)
 {
@@ -155,10 +274,10 @@ UI_EndWindow()
     ui_node *Body = Window->Body;
     
     /* 
-        UI_State->WindowArray.Last->VerticalScrollbar = ...;
-        UI_State->WindowArray.Last->HorizontalScrollbar = ...;
-        UI_State->WindowArray.Last->ResizeButton = ...;
-     */
+    UI_State->WindowArray.Last->VerticalScrollbar = ...;
+    UI_State->WindowArray.Last->HorizontalScrollbar = ...;
+    UI_State->WindowArray.Last->ResizeButton = ...;
+ */
     if(Body)
     {
         v2 ResizeButtonDim = V2(10.0f, 10.0f); // TODO(ezexff): replace with getting dim from node
@@ -322,15 +441,48 @@ UI_EndWindow()
             VScrollBarCursor->Cache->Size.y = CursorHeight;
             
             /* 
-                        if(!UI_IsDragging(VScrollBarCursorState))
-                        {
-                            if(UI_State->Input->dMouseP.z != 0)
-                            {
-                                // TODO(ezexff): 
-                                Log->Add("implement scrolling in window by mouse scroll\n");
-                            }
-                        }
-             */
+            if(!UI_IsDragging(VScrollBarCursorState))
+            {
+                if(UI_State->Input->dMouseP.z != 0)
+                {
+                    // TODO(ezexff): 
+                    Log->Add("implement scrolling in window by mouse scroll\n");
+                }
+            }
+ */
+        }
+        
+        ui_node *ResizeButton = UI_AddNode(Window,
+                                           Body,
+                                           Concat(UI_State->TranArena, "ResizeButton#", Window->ID),
+                                           UI_StyleTemplate_WindowResizeButton,
+                                           UI_NodeFlag_Floating|
+                                           UI_NodeFlag_Clickable|
+                                           UI_NodeFlag_DrawBorder|
+                                           UI_NodeFlag_DrawBackground);
+        v2 BodyRightBottomCorner = V2(Body->Rect.Max.x, Body->Rect.Max.y);
+        ResizeButton->Rect.Min = V2(BodyRightBottomCorner.x - 10.0f, BodyRightBottomCorner.y - 10.0f);
+        ResizeButton->Rect.Max = BodyRightBottomCorner;
+        u32 ResizeButtonState = UI_GetNodeState(ResizeButton);
+        
+        // TODO(ezexff):  NEED REWORK WITH SCROLL BAR UPDATE!!!
+        if(UI_IsDragging(ResizeButtonState))
+        {
+            v2 NewSize = {};
+            NewSize.x += UI_State->Input->dMouseP.x;
+            NewSize.y -= UI_State->Input->dMouseP.y;
+            
+            r32 MinWindowWidth = 200;
+            r32 MinBodyHeight = 100;
+            v2 NewDim = GetDim(Window->Rect) + NewSize;
+            if(NewDim.x > MinWindowWidth)
+            {
+                Window->Cache->Size.x += NewSize.x;
+            }
+            if(NewDim.x > MinBodyHeight)
+            {
+                Body->Cache->Size.y += NewSize.y;
+            }
         }
     }
 }

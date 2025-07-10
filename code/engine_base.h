@@ -973,6 +973,34 @@ inline v4 RGBA(r32 R, r32 G, r32 B, r32 A)
     return(Result);
 }
 
+internal b32
+IsEndOfLine(char C)
+{
+    b32 Result = ((C == '\n') ||
+                  (C == '\r'));
+    
+    return(Result);
+}
+
+internal b32
+IsSpacing(char C)
+{
+    b32 Result = ((C == ' ') ||
+                  (C == '\t') ||
+                  (C == '\v') ||
+                  (C == '\f'));
+    
+    return(Result);
+}
+
+internal b32
+IsWhitespace(char C)
+{
+    b32 Result = (IsSpacing(C) || IsEndOfLine(C));
+    
+    return(Result);
+}
+
 //~ TODO(ezexff): mb start use this?
 /*#define DLIST_INSERT(Sentinel, Element)         \
 (Element)->Next = (Sentinel)->Next;         \
