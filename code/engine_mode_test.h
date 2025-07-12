@@ -1,6 +1,7 @@
 #include "engine_ui_core.h"
 #include "engine_ui_widgets.h"
 
+/* 
 struct test_entity
 {
     v2 P;
@@ -14,6 +15,7 @@ struct test_entity
     
     v4 Color;
 };
+ */
 
 struct controlled_entity
 {
@@ -22,17 +24,31 @@ struct controlled_entity
     v2 ddP;
 };
 
-struct test_rect
+enum test_entity_type
 {
+    TestEntityType_Rect,
+    TestEntityType_Circle,
+    
+    TestEntityType_Count,
+};
+
+struct test_entity
+{
+    s32 Type;
+    v4 Color;
+    v4 OutlineColor;
+    //m4x4 Model;
+    
+    // NOTE(ezexff): rect
     v2 P;
     r32 Size;
     r32 Angle;
     u32 VertexCount;
     v2 VertexArray[4];
     v2 TransformedVertexArray[4];
-    //m4x4 Model;
-    v4 Color;
-    v4 OutlineColor;
+    
+    // NOTE(ezexff): circle
+    r32 Radius;
 };
 
 struct mode_test
@@ -40,9 +56,8 @@ struct mode_test
     b32 IsInitialized;
     
     controlled_entity ControlledEntityArray[ArrayCount(((game_input *)0)->Controllers)];
-    test_entity EntityArray[10];
-    
-    test_rect RectArray[10];
+    //test_entity EntityArray[10];
+    test_entity EntityArray[20];
     /* 
         v4 ClearColor;
         

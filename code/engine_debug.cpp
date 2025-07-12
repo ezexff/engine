@@ -1164,7 +1164,8 @@ TestNewUI(debug_state *DebugState)
         
         u32 EntityIndex = ModeTest->ControlledEntityArray[0].EntityIndex;
         UI_Label("EntityIndex = %d", EntityIndex);
-        UI_Label("Entity0P = %.2f %.2f", ModeTest->EntityArray[EntityIndex].P.x, ModeTest->EntityArray[EntityIndex].P.y);
+        UI_Label("EntityType = %d", ModeTest->EntityArray[EntityIndex].Type);
+        UI_Label("EntityP = %.2f %.2f", ModeTest->EntityArray[EntityIndex].P.x, ModeTest->EntityArray[EntityIndex].P.y);
         
         if(UI_IsPressed(UI_Button("Index++")))
         {
