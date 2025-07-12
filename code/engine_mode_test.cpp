@@ -7,12 +7,27 @@ struct projection
     r32 Max;
 };
 
-struct collide_result
+struct intersect_result
 {
     b32 IsCollides;
     v2 Normal;
     r32 Depth;
 };
+
+intersect_result IntersectCircles(v2 P, r32 Radius, v2 TestP, r32 TestRadius)
+{
+    intersect_result Result = {};
+    r32 Distance = Length(TestP - P);
+    r32 Radii = Radius + TestRadius;
+    if(Distance < Radii)
+    {
+        Result.IsCollides = true;;
+        Result.Normal = Normalize(TestP - P);
+        Result.Depth = Radii - Distance;
+        
+    }
+    return(Result);
+}
 
 v2 FindSumVector(u32 VertexCount, v2 *VertexArray)
 {
@@ -94,10 +109,10 @@ ProjectVertices(u32 VertexCount, v2 *VertexArray, v2 Axis)
     return(Result);
 }
 
-collide_result
-IsCircleAndPolygonsCollides(v2 CircleCenter, r32 CircleRadius, u32 VertexCount, v2 *VertexArray)
+intersect_result
+IntersectCirclePolygon(v2 CircleCenter, r32 CircleRadius, u32 VertexCount, v2 *VertexArray)
 {
-    collide_result Result = {};
+    intersect_result Result = {};
     //Result.Normal = {};
     Result.Depth = F32Max;
     projection A = {};
@@ -163,11 +178,10 @@ IsCircleAndPolygonsCollides(v2 CircleCenter, r32 CircleRadius, u32 VertexCount, 
     return(Result);
 }
 
-collide_result
-IsRectanglesCollide(u32 VertexCountA, v2 *VertexArrayA, u32 VertexCountB, v2 *VertexArrayB)
+intersect_result
+IntersectPolygons(u32 VertexCountA, v2 *VertexArrayA, u32 VertexCountB, v2 *VertexArrayB)
 {
-    collide_result Result = {};
-    //Result.Normal = {};
+    intersect_result Result = {};
     Result.Depth = F32Max;
     
     for(u32 Index = 0;
@@ -251,35 +265,17 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     {
         UI_Init(&GameState->ConstArena, &TranState->TranArena);
         
-        random_series Series = RandomSeed(0);
-        /* 
-                for(u32 Index = 0;
-                    Index < ArrayCount(ModeTest->EntityArray);
-                    ++Index)
-                {
-                    test_entity *Entity = ModeTest->EntityArray + Index;
-                    Entity->P.x = 100 * ((r32)Index + 1);
-                    Entity->P.y = 500;
-                    Entity->Radius = 25.0f;
-                    Entity->Density = 10.0f;
-                    r32 Depth = 1.0f; // for z implement
-                    Entity->Mass = Entity->Radius * Depth * Entity->Density; // area * depth * density
-                    r32 R = RandomUnilateral(&Series);
-                    r32 G = RandomUnilateral(&Series);
-                    r32 B = RandomUnilateral(&Series);
-                    Entity->Color = V4(R, G, B, 1.0f);
-                }
-         */
-        
         // NOTE(ezexff): set controlling entity index
         ModeTest->ControlledEntityArray[0].EntityIndex = 0;
         
-        // TODO(ezexff): test rectangles
+        // NOTE(ezexff): create entities
+        random_series Series = RandomSeed(0);
         for(u32 Index = 0;
             Index < ArrayCount(ModeTest->EntityArray);
             ++Index)
         {
             test_entity *Entity = ModeTest->EntityArray + Index;
+            Entity->Type = RandomBetween(&Series, 0, TestEntityType_Count - 1);
             r32 R = RandomUnilateral(&Series);
             r32 G = RandomUnilateral(&Series);
             r32 B = RandomUnilateral(&Series);
@@ -288,7 +284,7 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             
             // NOTE(ezexff): rect
             Entity->P = V2((r32)(100 + 60 * Index), (r32)RandomBetween(&Series, 500, 600));
-            Entity->Size = 50.0f;
+            Entity->Size = (r32)RandomBetween(&Series, 40, 60);
             Entity->VertexCount = ArrayCount(Entity->VertexArray);
             Entity->VertexArray[0] = V2(-0.5f, -0.5f);
             Entity->VertexArray[1] = V2(0.5f, -0.5f);
@@ -297,8 +293,6 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             
             // NOTE(ezexff): circle
             Entity->Radius = (r32)RandomBetween(&Series, 15, 25);
-            
-            Entity->Type = RandomBetween(&Series, 0, TestEntityType_Count - 1);
         }
         
         ModeTest->IsInitialized = true;
@@ -346,111 +340,36 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         }
     }
     
-    // NOTE(ezexff): entities work
-    /* 
-        for(u32 EntityIndex = 0;
-            EntityIndex < ArrayCount(ModeTest->EntityArray);
-            ++EntityIndex)
-        {
-            test_entity *Entity = ModeTest->EntityArray + EntityIndex;
-            
-            // NOTE(ezexff): physics
-            {
-                // NOTE(ezexff): move controlled entity
-                for(u32 ControlIndex = 0;
-                    ControlIndex < ArrayCount(ModeTest->ControlledEntityArray);
-                    ++ControlIndex)
-                {
-                    controlled_entity *ConEntity = ModeTest->ControlledEntityArray + ControlIndex;
-                    r32 Speed = 500.f;
-                    if(ConEntity->EntityIndex == EntityIndex)
-                    {
-                        v2 Veloctiy = ConEntity->ddP * Speed * Input->dtForFrame;
-                        if(Veloctiy.x != 0 || Veloctiy.y != 0)
-                        {
-                            int Test = 0;
-                        }
-                        Entity->P += Veloctiy;
-                    }
-                }
-                // NOTE(ezexff): collision detection
-                for(u32 TestIndex = 0;
-                    TestIndex < ArrayCount(ModeTest->EntityArray);
-                    ++TestIndex)
-                {
-                    test_entity *TestEntity = ModeTest->EntityArray + TestIndex;
-                    if(EntityIndex != TestIndex)
-                    {
-                        r32 Distance = Length(TestEntity->P - Entity->P);
-                        r32 Radii = Entity->Radius + TestEntity->Radius;
-                        if(Distance < Radii)
-                        {
-                            v2 Normal = Normalize(TestEntity->P - Entity->P);
-                            r32 Depth = Radii - Distance;
-                            Depth /= 2.0f;
-                            
-                            Entity->P += -Normal * Depth;
-                            TestEntity->P += Normal * Depth;
-                        }
-                    }
-                }
-            }
-            
-            // NOTE(ezexff): draw
-            PushCircleOnScreen(&Renderer->PushBufferUI, Entity->P, Entity->Radius, Entity->Color, 10000);
-            PushCircleOutlineOnScreen(&Renderer->PushBufferUI, Entity->P, Entity->Radius, 3, V4(1, 1, 1, 1), 10000);
-        }
-     */
-    
     // NOTE(ezexff): test transform vertices
     v4 WhiteColor = V4(1, 1, 1, 1);
-    for(u32 RectIndex = 0;
-        RectIndex < ArrayCount(ModeTest->EntityArray);
-        ++RectIndex)
+    for(u32 EntityIndex = 0;
+        EntityIndex < ArrayCount(ModeTest->EntityArray);
+        ++EntityIndex)
     {
         // NOTE(ezexff): pre transform work
-        test_entity *Rect = ModeTest->EntityArray + RectIndex;
-        if(RectIndex == 5)
+        test_entity *Entity = ModeTest->EntityArray + EntityIndex;
+        if(EntityIndex == 5)
         {
-            Rect->Angle += Input->dtForFrame;
-            if(Rect->Angle > 360){Rect->Angle -= 360;}
+            Entity->Angle += Input->dtForFrame;
+            if(Entity->Angle > 360){Entity->Angle -= 360;}
         }
         
         // NOTE(ezexff): transform vertices
-        m4x4 Model =  Translate(V3(Rect->P.x, Rect->P.y, 1.0f)) * Scale(Rect->Size) * ZRotation(Rect->Angle);
-        u32 VertexCount = ArrayCount(Rect->VertexArray);
+        m4x4 Model =  Translate(V3(Entity->P.x, Entity->P.y, 1.0f)) * Scale(Entity->Size) * ZRotation(Entity->Angle);
+        u32 VertexCount = ArrayCount(Entity->VertexArray);
         for(u32 Index = 0;
-            Index < ArrayCount(Rect->VertexArray);
+            Index < ArrayCount(Entity->VertexArray);
             ++Index)
         {
-            v2 *OriginalVertex = Rect->VertexArray + Index;
-            v2 *TransformedVertex = Rect->TransformedVertexArray + Index;
+            v2 *OriginalVertex = Entity->VertexArray + Index;
+            v2 *TransformedVertex = Entity->TransformedVertexArray + Index;
             *TransformedVertex = (Model * V4(OriginalVertex->x, OriginalVertex->y, 0, 0)).xy;
         }
-        /* 
-                // NOTE(ezexff): move controlled entity
-                for(u32 ControlIndex = 0;
-                    ControlIndex < ArrayCount(ModeTest->ControlledEntityArray);
-                    ++ControlIndex)
-                {
-                    controlled_entity *ConEntity = ModeTest->ControlledEntityArray + ControlIndex;
-                    r32 Speed = 500.f;
-                    if(ConEntity->EntityIndex == RectIndex)
-                    {
-                        v2 Veloctiy = ConEntity->ddP * Speed * Input->dtForFrame;
-                        if(Veloctiy.x != 0 || Veloctiy.y != 0)
-                        {
-                            int Test = 0;
-                        }
-                        Rect->P += Veloctiy;
-                    }
-                }
-         */
         
-        Rect->OutlineColor = WhiteColor;
+        Entity->OutlineColor = WhiteColor;
     }
     
-    // NOTE(ezexff): collision detection
+    // NOTE(ezexff): move
     v4 RedColor = V4(1, 0, 0, 1);
     for(u32 EntityIndex = 0;
         EntityIndex < ArrayCount(ModeTest->EntityArray);
@@ -481,40 +400,38 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             
             if(EntityIndex != TestIndex)
             {
-                if((Entity->Type == TestEntityType_Rect) && (TestEntity->Type == TestEntityType_Circle))
+                intersect_result Result = {};
+                if(Entity->Type == TestEntityType_Rect)
                 {
-                    collide_result Result = IsCircleAndPolygonsCollides(TestEntity->P, TestEntity->Radius, Entity->VertexCount, Entity->TransformedVertexArray);
-                    if(Result.IsCollides)
+                    if(TestEntity->Type == TestEntityType_Rect)
                     {
-                        Entity->OutlineColor = RedColor;
-                        TestEntity->OutlineColor = RedColor;
-                        Result.Depth /= 2.0f;
-                        Entity->P += Result.Normal * Result.Depth;
-                        TestEntity->P += -Result.Normal * Result.Depth;
+                        Result = IntersectPolygons(Entity->VertexCount, Entity->TransformedVertexArray,
+                                                   TestEntity->VertexCount, TestEntity->TransformedVertexArray);
                     }
-                    /* 
-                                        collide_result Result = IsPolygonsCollide(Entity->VertexCount, Entity->TransformedVertexArray,
-                                                                                  TestEntity->VertexCount, TestEntity->TransformedVertexArray);
-                                        if(Result.IsCollides)
-                                        {
-                                            Entity->OutlineColor = RedColor;
-                                            TestEntity->OutlineColor = RedColor;
-                                            Result.Depth /= 2.0f;
-                                            Entity->P += -Result.Normal * Result.Depth;
-                                            TestEntity->P += Result. Normal * Result.Depth;
-                                        }
-                     */
-                } else if((TestEntity->Type == TestEntityType_Rect) && (TestEntity->Type == TestEntityType_Circle))
+                    else if(TestEntity->Type == TestEntityType_Circle)
+                    {
+                        Result = IntersectCirclePolygon(TestEntity->P, TestEntity->Radius, Entity->VertexCount, Entity->TransformedVertexArray);
+                        Result.Normal = -Result.Normal;
+                    }
+                }
+                else if(Entity->Type == TestEntityType_Circle)
                 {
-                    collide_result Result = IsCircleAndPolygonsCollides(Entity->P, Entity->Radius, TestEntity->VertexCount, TestEntity->TransformedVertexArray);
-                    if(Result.IsCollides)
+                    if(TestEntity->Type == TestEntityType_Rect)
                     {
-                        Entity->OutlineColor = RedColor;
-                        TestEntity->OutlineColor = RedColor;
-                        Result.Depth /= 2.0f;
-                        Entity->P += -Result.Normal * Result.Depth;
-                        TestEntity->P += Result.Normal * Result.Depth;
+                        Result = IntersectCirclePolygon(Entity->P, Entity->Radius, TestEntity->VertexCount, TestEntity->TransformedVertexArray);
                     }
+                    else if(TestEntity->Type == TestEntityType_Circle)
+                    {
+                        Result = IntersectCircles(Entity->P, Entity->Radius, TestEntity->P, TestEntity->Radius);
+                    }
+                }
+                if(Result.IsCollides)
+                {
+                    Entity->OutlineColor = RedColor;
+                    TestEntity->OutlineColor = RedColor;
+                    Result.Depth /= 2.0f;
+                    Entity->P += -Result.Normal * Result.Depth;
+                    TestEntity->P += Result.Normal * Result.Depth;
                 }
             }
         }
