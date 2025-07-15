@@ -1072,34 +1072,32 @@ TestNewUI(debug_state *DebugState)
     renderer_frame *Frame = &GlobalDebugMemory->Frame;
     game_input *Input = GlobalDebugInput;
     
-    BEGIN_BLOCK("UI_BeginFrame");
-    UI_BeginFrame(GameState, TranState, Frame, Input);
-    END_BLOCK();
-    
-    local b32 IsWindowVisible = true;
-    if(IsWindowVisible)
-    {
-        UI_BeginWindow("DebugTest", &IsWindowVisible);
-        
-        for(u32 Index = 1;
-            Index <= 30;
-            ++Index)
+    /* 
+        local b32 IsWindowVisible = true;
+        if(IsWindowVisible)
         {
-            UI_Label("Text%d", Index);
+            UI_BeginWindow("DebugTest", &IsWindowVisible);
+            
+            for(u32 Index = 1;
+                Index <= 30;
+                ++Index)
+            {
+                UI_Label("Text%d", Index);
+            }
+            
+            UI_EndWindow();
         }
         
-        UI_EndWindow();
-    }
-    
-    local b32 IsWindowVisible2 = true;
-    if(IsWindowVisible2)
-    {
-        UI_BeginWindow("DebugTest2", &IsWindowVisible2);
-        
-        UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
-        
-        UI_EndWindow();
-    }
+        local b32 IsWindowVisible2 = true;
+        if(IsWindowVisible2)
+        {
+            UI_BeginWindow("DebugTest2", &IsWindowVisible2);
+            
+            UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
+            
+            UI_EndWindow();
+        }
+     */
     
     BEGIN_BLOCK("UI_DebugCollationWindow");
     local b32 IsWindowVisible3 = true;
@@ -1142,47 +1140,6 @@ TestNewUI(debug_state *DebugState)
         
     }
     UI_EndWindow();
-    
-    local b32 IsWindowVisible4 = true;
-    if(IsWindowVisible4)
-    {
-        UI_BeginWindow("TestPhysics", &IsWindowVisible4);
-        
-        game_state *GameState = (game_state *)GlobalDebugMemory->PermanentStorage;
-        mode_test *ModeTest = &GameState->ModeTest;
-        
-        local b32 TestMode = true;
-        UI_CheckBox("TestCheckBox", &TestMode);
-        if(TestMode)
-        {
-            GameState->GameModeID = GameMode_Test;
-        }
-        else
-        {
-            GameState->GameModeID = GameMode_World;
-        }
-        
-        u32 EntityIndex = ModeTest->ControlledEntityArray[0].EntityIndex;
-        UI_Label("EntityIndex = %d", EntityIndex);
-        UI_Label("EntityType = %d", ModeTest->EntityArray[EntityIndex].Type);
-        UI_Label("EntityP = %.2f %.2f", ModeTest->EntityArray[EntityIndex].P.x, ModeTest->EntityArray[EntityIndex].P.y);
-        
-        if(UI_IsPressed(UI_Button("Index++")))
-        {
-            ModeTest->ControlledEntityArray[0].EntityIndex++;
-        }
-        if(UI_IsPressed(UI_Button("Index--")))
-        {
-            ModeTest->ControlledEntityArray[0].EntityIndex--;
-        }
-        ModeTest->ControlledEntityArray[0].EntityIndex = Clamp(0, ModeTest->ControlledEntityArray[0].EntityIndex, ArrayCount(ModeTest->EntityArray) - 1);
-        
-        UI_EndWindow();
-    }
-    END_BLOCK();
-    
-    BEGIN_BLOCK("UI_EndFrame");
-    UI_EndFrame();
     END_BLOCK();
 }
 
@@ -1516,4 +1473,13 @@ extern "C" DEBUG_GAME_FRAME_END(DEBUGGameFrameEnd)
         CollateDebugRecords(DebugState, EventCount, GlobalDebugTable->Events[EventArrayIndex]);
         DEBUGEnd(DebugState);
     }
+    
+    BEGIN_BLOCK("UI_EndFrame");
+    UI_EndFrame();
+    END_BLOCK();
+    
+    game_state *GameState = (game_state *)GlobalDebugMemory->PermanentStorage;
+    tran_state *TranState = (tran_state *)GlobalDebugMemory->TransientStorage;
+    CheckArena(&GameState->ConstArena);
+    CheckArena(&TranState->TranArena);
 }

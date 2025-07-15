@@ -1,6 +1,6 @@
 @echo off
 
-SET vcvarsallPath="C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
+REM SET vcvarsallPath="C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
 where /q cl
 IF %ERRORLEVEL% == 1 (call %vcvarsallPath% x64)
 
@@ -22,7 +22,8 @@ SET DefaultCompilerOpts=/fp:fast /GR- /Oi /nologo /EHa- /D_CRT_SECURE_NO_WARNING
 SET DebugCompilerOpts=/WX /W4 /wd4201 /wd4100 /wd4189 /wd4505 /wd4456
 SET DebugCompilerOpts=/MTd /Od /diagnostics:column /WL /FC /Z7 %DebugCompilerOpts% %DefaultCompilerOpts%
 SET DebugCompilerOpts=/DENGINE_INTERNAL=1 %DebugCompilerOpts%
-SET ReleaseCompilerOpts=/MT /w /O2 /DENGINE_INTERNAL=0 %DefaultCompilerOpts%
+SET ReleaseCompilerOpts=/MT /w /DENGINE_INTERNAL=0 %DefaultCompilerOpts%
+REM SET ReleaseCompilerOpts=/MT /w /O2 /DENGINE_INTERNAL=0 %DefaultCompilerOpts%
 REM Possible options: /GL (оптимизация всей программы)
 
 REM Includes
@@ -61,6 +62,7 @@ del *.ini >NUL 2>&1
 del *.obj >NUL 2>&1
 del *.exp >NUL 2>&1
 del *.lib >NUL 2>&1
+del *.rdi >NUL 2>&1
 )
 
 popd

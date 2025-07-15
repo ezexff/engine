@@ -263,8 +263,6 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     mode_test *ModeTest = &GameState->ModeTest;
     if(!ModeTest->IsInitialized)
     {
-        UI_Init(&GameState->ConstArena, &TranState->TranArena);
-        
         // NOTE(ezexff): set controlling entity index
         ModeTest->ControlledEntityArray[0].EntityIndex = 0;
         
@@ -348,7 +346,7 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     {
         // NOTE(ezexff): pre transform work
         test_entity *Entity = ModeTest->EntityArray + EntityIndex;
-        if(EntityIndex == 5)
+        if(EntityIndex == 1)
         {
             Entity->Angle += Input->dtForFrame;
             if(Entity->Angle > 360){Entity->Angle -= 360;}
@@ -469,8 +467,6 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             PushRectOnScreen(&Renderer->PushBufferUI, P, P + Dim, V4(0, 0, 1, 1), 100);
      */
     
-    
-    // NOTE(ezexff): UI
     {
 #if 0
         BEGIN_BLOCK("UI_TEST");

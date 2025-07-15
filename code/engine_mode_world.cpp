@@ -1660,9 +1660,6 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
     BEGIN_BLOCK("EndSim")
         EndSim(SimRegion, ModeWorld);
     EndTemporaryMemory(SimMemory);
-    
-    CheckArena(&GameState->ConstArena);
-    CheckArena(&TranState->TranArena);
     END_BLOCK();
     
 #if ENGINE_INTERNAL

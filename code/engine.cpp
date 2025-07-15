@@ -261,6 +261,11 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             }
         }
         
+        // NOTE(ezexff): init ui
+        {
+            UI_Init(&GameState->ConstArena, &TranState->TranArena);
+        }
+        
         // NOTE(ezexff): Init assets
         {
             TranState->Assets = AllocateGameAssets(TranArena, Megabytes(128), TranState);
@@ -446,6 +451,10 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         // TODO(casey): Warn on out-of-range refresh
     }*/
     
+    BEGIN_BLOCK("UI_BeginFrame");
+    UI_BeginFrame(GameState, TranState, Frame, Input);
+    END_BLOCK();
+    
     switch(GameState->GameModeID)
     {
         case GameMode_Test:
@@ -462,6 +471,55 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         
         InvalidDefaultCase;
     }
+    
+    // NOTE(ezexff): test ui
+#if 1
+    {
+        local b32 IsWindowVisible4 = true;
+        if(IsWindowVisible4)
+        {
+            UI_BeginWindow("TestPhysics", &IsWindowVisible4);
+            
+            r32 FPS = 1 / UI_State->Input->dtForFrame;
+            UI_Label("FPS = %.2f", FPS);
+            
+            local b32 TestMode = true;
+            UI_CheckBox("TestCheckBox", &TestMode);
+            if(TestMode)
+            {
+                GameState->GameModeID = GameMode_Test;
+            }
+            else
+            {
+                GameState->GameModeID = GameMode_World;
+            }
+            
+            mode_test *ModeTest = &GameState->ModeTest;
+            u32 EntityIndex = ModeTest->ControlledEntityArray[0].EntityIndex;
+            UI_Label("EntityIndex = %d", EntityIndex);
+            UI_Label("EntityType = %d", ModeTest->EntityArray[EntityIndex].Type);
+            UI_Label("EntityP = %.2f %.2f", ModeTest->EntityArray[EntityIndex].P.x, ModeTest->EntityArray[EntityIndex].P.y);
+            
+            if(UI_IsPressed(UI_Button("Index++")))
+            {
+                ModeTest->ControlledEntityArray[0].EntityIndex++;
+            }
+            if(UI_IsPressed(UI_Button("Index--")))
+            {
+                ModeTest->ControlledEntityArray[0].EntityIndex--;
+            }
+            ModeTest->ControlledEntityArray[0].EntityIndex = Clamp(0, ModeTest->ControlledEntityArray[0].EntityIndex, ArrayCount(ModeTest->EntityArray) - 1);
+            
+            UI_EndWindow();
+        }
+    }
+#endif
+    
+#if !ENGINE_INTERNAL
+    UI_EndFrame();
+    CheckArena(&GameState->ConstArena);
+    CheckArena(&TranState->TranArena);
+#endif
 }
 
 extern "C" GET_SOUND_SAMPLES_FUNC(GetSoundSamples)

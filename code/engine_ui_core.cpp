@@ -778,7 +778,7 @@ u32 UI_GetNodeState(ui_node *Node)
 internal void
 UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
 {
-    UI_State = PushStruct(TranArena, ui_state);
+    UI_State = PushStruct(ConstArena, ui_state);
     UI_State->FrameCount = 0;
     
     //UI_State->TestIsDragging = false;
@@ -1001,6 +1001,8 @@ UI_BeginFrame(game_state *GameState, tran_state *TranState, renderer_frame *Fram
     WeightVector.E[Tag_FontType] = 1.0f;
     UI_State->FontID = GetBestMatchFontFrom(UI_State->Assets, Asset_Font, &MatchVector, &WeightVector);
     
+    UI_State->WindowArray = {};
+    
     // NOTE(ezexff): frame memory
     UI_State->FrameMemory = BeginTemporaryMemory(UI_State->TranArena);
     
@@ -1193,6 +1195,7 @@ UI_EndFrame()
         Node != 0;
         Node = Node->Next)
     {
+        Assert(SortIndex <= UI_State->WindowCount);
         ui_node_sort_entry *ArrayLink = SortWindowArray + SortIndex;
         ArrayLink->Node = Node;
         SortIndex++;

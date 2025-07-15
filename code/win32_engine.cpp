@@ -1247,7 +1247,6 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                         SoundBuffer.Samples = Samples;
                         END_BLOCK();
                         
-                        
                         // NOTE(ezexff): Game update
                         BEGIN_BLOCK("GameUpdate");
                         if(!GlobalPause)
