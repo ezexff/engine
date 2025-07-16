@@ -497,7 +497,7 @@ MoveEntity(mode_world *ModeWorld, sim_region *SimRegion, sim_entity *Entity, r32
     r32 SurfaceFriction = 1.0f;
     r32 AccelSpeed = Accel * dt * WishSpeed * SurfaceFriction;
     
-    if (AccelSpeed > AddSpeed)
+    if(AccelSpeed > AddSpeed)
     {
         AccelSpeed = AddSpeed;
     }

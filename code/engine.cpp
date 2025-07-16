@@ -496,19 +496,24 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             
             mode_test *ModeTest = &GameState->ModeTest;
             u32 EntityIndex = ModeTest->ControlledEntityArray[0].EntityIndex;
+            test_entity *Entity = ModeTest->EntityArray + EntityIndex;
             UI_Label("EntityIndex = %d", EntityIndex);
-            UI_Label("EntityType = %d", ModeTest->EntityArray[EntityIndex].Type);
-            UI_Label("EntityP = %.2f %.2f", ModeTest->EntityArray[EntityIndex].P.x, ModeTest->EntityArray[EntityIndex].P.y);
+            UI_Label("Type = %d", Entity->Type);
+            UI_Label("ForceMagnitude = %.2f", Entity->ForceMagnitude);
+            UI_Label("P = %.2f %.2f", Entity->P.x, Entity->P.y);
+            UI_Label("dP = %.2f %.2f", Entity->dP.x, Entity->dP.y);
+            UI_Label("ddP = %.2f %.2f", Entity->ddP.x, Entity->ddP.y);
             
             if(UI_IsPressed(UI_Button("Index++")))
             {
                 ModeTest->ControlledEntityArray[0].EntityIndex++;
+                ModeTest->ControlledEntityArray[0].EntityIndex = Clamp(0, ModeTest->ControlledEntityArray[0].EntityIndex, ArrayCount(ModeTest->EntityArray) - 1);
             }
             if(UI_IsPressed(UI_Button("Index--")))
             {
                 ModeTest->ControlledEntityArray[0].EntityIndex--;
+                ModeTest->ControlledEntityArray[0].EntityIndex = Clamp(0, ModeTest->ControlledEntityArray[0].EntityIndex, ArrayCount(ModeTest->EntityArray) - 1);
             }
-            ModeTest->ControlledEntityArray[0].EntityIndex = Clamp(0, ModeTest->ControlledEntityArray[0].EntityIndex, ArrayCount(ModeTest->EntityArray) - 1);
             
             UI_EndWindow();
         }

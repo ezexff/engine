@@ -134,6 +134,13 @@ inline v2 operator*(v2 B, r32 A)
     return(Result);
 }
 
+inline v2 operator/(v2 B, r32 A)
+{
+    v2 Result = (1.0f / A) * B;
+    
+    return(Result);
+}
+
 inline v2 &operator*=(v2 &B, r32 A)
 {
     B = A * B;

@@ -20,8 +20,8 @@ struct test_entity
 struct controlled_entity
 {
     u32 EntityIndex;
-    
     v2 ddP;
+    //v2 ForceDirection;
 };
 
 enum test_entity_type
@@ -39,8 +39,18 @@ struct test_entity
     v4 OutlineColor;
     //m4x4 Model;
     
-    // NOTE(ezexff): rect
+    // NOTE(ezexff): move spec
+    r32 ForceMagnitude;
+    v2 Force;
     v2 P;
+    v2 dP;
+    v2 ddP;
+    r32 Density;
+    r32 Mass;
+    r32 Restitution;
+    
+    //~ NOTE(ezexff): entity types
+    // NOTE(ezexff): rect
     r32 Size;
     r32 Angle;
     u32 VertexCount;
@@ -56,8 +66,7 @@ struct mode_test
     b32 IsInitialized;
     
     controlled_entity ControlledEntityArray[ArrayCount(((game_input *)0)->Controllers)];
-    //test_entity EntityArray[10];
-    test_entity EntityArray[20];
+    test_entity EntityArray[30];
     /* 
         v4 ClearColor;
         
