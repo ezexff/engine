@@ -17,12 +17,17 @@ struct intersect_result
 void ResolveCollision(test_entity *A, test_entity *B, v2 Normal, r32 Depth)
 {
     v2 RelVel = B->dP - A->dP;
-    r32 e = Minimum(A->Restitution, B->Restitution);
-    r32 j = -(1.0f + e) * Inner(RelVel, Normal);
-    j /= (1.0f / A->Mass + 1.0f / B->Mass);
     
-    A->dP += -(j / A->Mass * Normal);
-    B->dP += j / B->Mass * Normal;
+    if(Inner(RelVel, Normal) <= 0.0f)
+    {
+        r32 e = Minimum(A->Restitution, B->Restitution);
+        r32 j = -(1.0f + e) * Inner(RelVel, Normal);
+        j /= A->InvMass + B->InvMass;
+        
+        v2 Impulse = j * Normal;
+        A->dP += -(Impulse * A->InvMass);
+        B->dP += Impulse * B->InvMass;
+    }
 }
 
 intersect_result IntersectCircles(v2 P, r32 Radius, v2 TestP, r32 TestRadius)
@@ -278,7 +283,7 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         ModeTest->ControlledEntityArray[0].EntityIndex = 0;
         
         // NOTE(ezexff): create entities
-        random_series Series = RandomSeed(0);
+        random_series Series = RandomSeed(200);
         for(u32 Index = 0;
             Index < ArrayCount(ModeTest->EntityArray);
             ++Index)
@@ -305,11 +310,21 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             Entity->Radius = Entity->Size / 2.0f;
             
             //~ NOTE(ezexff): physics
+            Entity->IsStatic = RandomBetween(&Series, 0, 1);
             //Entity->ForceMagnitude = (r32)RandomBetween(&Series, 100, 500);
             Entity->ForceMagnitude = 10.0f;
             Entity->Density = 1.2f;
             // NOTE(ezexff): mass = area * depth * density
             Entity->Mass = Entity->Size * Entity->Density;
+            if(Entity->IsStatic)
+            {
+                Entity->Color = RGBA(40, 40, 40, 255);
+                Entity->InvMass = 0.0f;
+            }
+            else
+            {
+                Entity->InvMass = 1.0f / Entity->Mass;
+            }
             Entity->Restitution = 0.5f;
             Entity->Restitution = Clamp01(Entity->Restitution);
         }
@@ -362,6 +377,7 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     
     // NOTE(ezexff): test transform vertices
     v4 WhiteColor = V4(1, 1, 1, 1);
+    v4 RedColor = V4(1, 0, 0, 1);
     for(u32 EntityIndex = 0;
         EntityIndex < ArrayCount(ModeTest->EntityArray);
         ++EntityIndex)
@@ -386,12 +402,18 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             *TransformedVertex = (Model * V4(OriginalVertex->x, OriginalVertex->y, 0, 0)).xy;
         }
         
-        Entity->OutlineColor = WhiteColor;
+        if(Entity->IsStatic)
+        {
+            Entity->OutlineColor = RedColor;
+        }
+        else
+        {
+            Entity->OutlineColor = WhiteColor;
+        }
     }
     
     // NOTE(ezexff): move
     r32 dt = Input->dtForFrame;
-    v4 RedColor = V4(1, 0, 0, 1);
     for(u32 EntityIndex = 0;
         EntityIndex < ArrayCount(ModeTest->EntityArray);
         ++EntityIndex)
@@ -408,7 +430,10 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             {
                 if(ConEntity->EntityIndex == EntityIndex)
                 {
-                    Entity->ddP = ConEntity->ddP;
+                    if(!Entity->IsStatic)
+                    {
+                        Entity->ddP = ConEntity->ddP;
+                    }
                     /* 
                                         Entity->ddP = ConEntity->ddP;
                                         r32 ddPLength = LengthSq(Entity->ddP);
@@ -438,6 +463,10 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             
             if(EntityIndex != TestIndex)
             {
+                if(Entity->IsStatic && TestEntity->IsStatic)
+                {
+                    continue;
+                }
                 intersect_result Result = {};
                 if(Entity->Type == TestEntityType_Rect)
                 {
@@ -465,11 +494,22 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
                 }
                 if(Result.IsCollides)
                 {
-                    Entity->OutlineColor = RedColor;
+                    if(Entity->IsStatic)
+                    {
+                        TestEntity->P += Result.Normal * Result.Depth;
+                    }
+                    else if(TestEntity->IsStatic)
+                    {
+                        Entity->P += -Result.Normal * Result.Depth;
+                    }
+                    else
+                    {
+                        r32 DepthDiv2 = Result.Depth / 2.0f;
+                        Entity->P += -Result.Normal * DepthDiv2;
+                        TestEntity->P += Result.Normal * DepthDiv2;
+                    }
                     TestEntity->OutlineColor = RedColor;
-                    r32 DepthDiv2 = Result.Depth / 2.0f;
-                    Entity->P += -Result.Normal * DepthDiv2;
-                    TestEntity->P += Result.Normal * DepthDiv2;
+                    Entity->OutlineColor = RedColor;
                     ResolveCollision(Entity, TestEntity, Result.Normal, Result.Depth);
                 }
             }

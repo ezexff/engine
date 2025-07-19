@@ -503,6 +503,9 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             UI_Label("P = %.2f %.2f", Entity->P.x, Entity->P.y);
             UI_Label("dP = %.2f %.2f", Entity->dP.x, Entity->dP.y);
             UI_Label("ddP = %.2f %.2f", Entity->ddP.x, Entity->ddP.y);
+            UI_Label("IsStatic = %d", Entity->IsStatic);
+            UI_Label("Mass = %.2f", Entity->Mass);
+            UI_Label("InvMass = %.2f", Entity->InvMass);
             
             if(UI_IsPressed(UI_Button("Index++")))
             {

@@ -40,6 +40,7 @@ struct test_entity
     //m4x4 Model;
     
     // NOTE(ezexff): move spec
+    b32 IsStatic;
     r32 ForceMagnitude;
     v2 Force;
     v2 P;
@@ -47,6 +48,7 @@ struct test_entity
     v2 ddP;
     r32 Density;
     r32 Mass;
+    r32 InvMass;
     r32 Restitution;
     
     //~ NOTE(ezexff): entity types
