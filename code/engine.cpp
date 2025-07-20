@@ -196,8 +196,8 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         
         // NOTE(ezexff): Set current game mode
         {
-            GameState->GameModeID = GameMode_Physics1;
-            //GameState->GameModeID = GameMode_Physics2;
+            //GameState->GameModeID = GameMode_Physics1;
+            GameState->GameModeID = GameMode_Physics2;
             //GameState->GameModeID = GameMode_World;
         }
         
@@ -493,6 +493,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             r32 FPS = 1 / UI_State->Input->dtForFrame;
             UI_Label("FPS = %.2f", FPS);
             UI_Label("MS = %.3f", Input->dtForFrame * 1000.0f);
+            UI_Label("MouseP = %.2f %.2f", Input->MouseP.x, Input->MouseP.y);
             
             if(UI_IsPressed(UI_Button("Physics1")))
             {
@@ -522,9 +523,9 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             if(GameState->GameModeID == GameMode_Physics1)
             {
                 UI_Label("TestPhysics1");
-                mode_physics1 *ModePhysics = &GameState->ModePhysics1;
-                u32 EntityIndex = ModePhysics->ControlledEntityArray[0].EntityIndex;
-                test_entity *Entity = ModePhysics->EntityArray + EntityIndex;
+                mode_physics1 *ModePhysics1 = &GameState->ModePhysics1;
+                u32 EntityIndex = ModePhysics1->ControlledEntityArray[0].EntityIndex;
+                test_entity *Entity = ModePhysics1->EntityArray + EntityIndex;
                 UI_Label("EntityIndex = %d", EntityIndex);
                 UI_Label("Type = %d", Entity->Type);
                 UI_Label("ForceMagnitude = %.2f", Entity->ForceMagnitude);
@@ -537,41 +538,20 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                 
                 if(UI_IsPressed(UI_Button("Index++")))
                 {
-                    ModePhysics->ControlledEntityArray[0].EntityIndex++;
-                    ModePhysics->ControlledEntityArray[0].EntityIndex = Clamp(0, ModePhysics->ControlledEntityArray[0].EntityIndex, ArrayCount(ModePhysics->EntityArray) - 1);
+                    ModePhysics1->ControlledEntityArray[0].EntityIndex++;
+                    ModePhysics1->ControlledEntityArray[0].EntityIndex = Clamp(0, ModePhysics1->ControlledEntityArray[0].EntityIndex, ArrayCount(ModePhysics1->EntityArray) - 1);
                 }
                 if(UI_IsPressed(UI_Button("Index--")))
                 {
-                    ModePhysics->ControlledEntityArray[0].EntityIndex--;
-                    ModePhysics->ControlledEntityArray[0].EntityIndex = Clamp(0, ModePhysics->ControlledEntityArray[0].EntityIndex, ArrayCount(ModePhysics->EntityArray) - 1);
+                    ModePhysics1->ControlledEntityArray[0].EntityIndex--;
+                    ModePhysics1->ControlledEntityArray[0].EntityIndex = Clamp(0, ModePhysics1->ControlledEntityArray[0].EntityIndex, ArrayCount(ModePhysics1->EntityArray) - 1);
                 }
             }
             else if(GameState->GameModeID == GameMode_Physics2)
             {
                 UI_Label("TestPhysics2");
-                mode_physics2 *ModePhysics = &GameState->ModePhysics2;
-                u32 EntityIndex = ModePhysics->ControlledEntityArray[0].EntityIndex;
-                test_entity *Entity = ModePhysics->EntityArray + EntityIndex;
-                UI_Label("EntityIndex = %d", EntityIndex);
-                UI_Label("Type = %d", Entity->Type);
-                UI_Label("ForceMagnitude = %.2f", Entity->ForceMagnitude);
-                UI_Label("P = %.2f %.2f", Entity->P.x, Entity->P.y);
-                UI_Label("dP = %.2f %.2f", Entity->dP.x, Entity->dP.y);
-                UI_Label("ddP = %.2f %.2f", Entity->ddP.x, Entity->ddP.y);
-                UI_Label("IsStatic = %d", Entity->IsStatic);
-                UI_Label("Mass = %.2f", Entity->Mass);
-                UI_Label("InvMass = %.2f", Entity->InvMass);
-                
-                if(UI_IsPressed(UI_Button("Index++")))
-                {
-                    ModePhysics->ControlledEntityArray[0].EntityIndex++;
-                    ModePhysics->ControlledEntityArray[0].EntityIndex = Clamp(0, ModePhysics->ControlledEntityArray[0].EntityIndex, ArrayCount(ModePhysics->EntityArray) - 1);
-                }
-                if(UI_IsPressed(UI_Button("Index--")))
-                {
-                    ModePhysics->ControlledEntityArray[0].EntityIndex--;
-                    ModePhysics->ControlledEntityArray[0].EntityIndex = Clamp(0, ModePhysics->ControlledEntityArray[0].EntityIndex, ArrayCount(ModePhysics->EntityArray) - 1);
-                }
+                mode_physics2 *ModePhysics2 = &GameState->ModePhysics2;
+                UI_Label("InitializedEntityCount = %d", ModePhysics2->InitializedEntityCount);
             }
             
             UI_EndWindow();

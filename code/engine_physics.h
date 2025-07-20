@@ -27,6 +27,7 @@ enum test_entity_type
 
 struct test_entity
 {
+    b32 IsInitialized;
     s32 Type;
     v4 Color;
     v4 OutlineColor;
@@ -45,6 +46,7 @@ struct test_entity
     
     //~ NOTE(ezexff): entity types
     // NOTE(ezexff): rect
+    v2 Dim;
     r32 Size;
     r32 Angle;
     u32 VertexCount;

@@ -14,7 +14,7 @@ UpdateAndRenderPhysics1(game_memory *Memory, game_input *Input)
         ModePhysics1->ControlledEntityArray[0].EntityIndex = 0;
         
         // NOTE(ezexff): create entities
-        random_series Series = RandomSeed(200);
+        random_series Series = RandomSeed(300);
         for(u32 Index = 0;
             Index < ArrayCount(ModePhysics1->EntityArray);
             ++Index)
@@ -279,11 +279,4 @@ UpdateAndRenderPhysics1(game_memory *Memory, game_input *Input)
             InvalidDefaultCase;
         }
     }
-    
-    /* 
-        v2 Offset = V2((r32)Frame->Dim.x / 2, (r32)Frame->Dim.y / 2);
-        v2 Dim = V2(50, 50);
-        v2 P = (Offset - 0.5f * Dim);
-            PushRectOnScreen(&Renderer->PushBufferUI, P, P + Dim, V4(0, 0, 1, 1), 100);
-     */
 }
