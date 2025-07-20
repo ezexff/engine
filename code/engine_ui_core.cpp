@@ -68,7 +68,7 @@ UI_CalcTextSizeInPixels(renderer_frame *Frame, game_assets *Assets, font_id Font
 }
 
 ui_node *
-UI_AddRootNode(ui_widget_link *WidgetArray, char *String, u32 StyleTemplateIndex, u32 Flags)
+UI_AddRootNode(char *String, u32 StyleTemplateIndex, u32 Flags)
 {
     if(!String){Assert("String can't be null");}
     
@@ -158,16 +158,16 @@ UI_AddRootNode(ui_widget_link *WidgetArray, char *String, u32 StyleTemplateIndex
     Widget->ID = PushString(UI_State->TranArena, String);
     CachedNode->ID = Widget->ID;
     
-    if(!WidgetArray->First)
+    if(!UI_State->WindowArray->First)
     {
-        WidgetArray->First = Widget;
+        UI_State->WindowArray->First = Widget;
     }
     else
     {
-        Widget->Prev = WidgetArray->Last;
-        WidgetArray->Last->Next = Widget;
+        Widget->Prev = UI_State->WindowArray->Last;
+        UI_State->WindowArray->Last->Next = Widget;
     }
-    WidgetArray->Last = Widget;
+    UI_State->WindowArray->Last = Widget;
     //Parent->ChildCount++;
     
     UI_State->NodeCount++;
@@ -1001,7 +1001,7 @@ UI_BeginFrame(game_state *GameState, tran_state *TranState, renderer_frame *Fram
     WeightVector.E[Tag_FontType] = 1.0f;
     UI_State->FontID = GetBestMatchFontFrom(UI_State->Assets, Asset_Font, &MatchVector, &WeightVector);
     
-    UI_State->WindowArray = {};
+    UI_State->WindowArray = PushStruct(UI_State->TranArena, ui_widget_link);
     
     // NOTE(ezexff): frame memory
     UI_State->FrameMemory = BeginTemporaryMemory(UI_State->TranArena);
@@ -1191,7 +1191,7 @@ UI_EndFrame()
     u32 Count = UI_State->WindowCount;
     ui_node_sort_entry *SortWindowArray = PushArray(UI_State->TranArena, Count, ui_node_sort_entry);
     u32 SortIndex = 0;
-    for(ui_node *Node = UI_State->WindowArray.First;
+    for(ui_node *Node = UI_State->WindowArray->First;
         Node != 0;
         Node = Node->Next)
     {

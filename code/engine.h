@@ -20,12 +20,18 @@
 
 #include "engine_random.h"
 
-#include "engine_mode_test.h"
+#include "engine_ui_core.h"
+#include "engine_ui_widgets.h"
+
+#include "engine_physics.h"
+#include "engine_mode_physics1.h"
+#include "engine_mode_physics2.h"
 #include "engine_mode_world.h"
 
 enum game_mode
 {
-    GameMode_Test,
+    GameMode_Physics1,
+    GameMode_Physics2,
     GameMode_World,
 };
 
@@ -36,7 +42,8 @@ struct game_state
     
     u32 GameModeID;
     mode_world ModeWorld;
-    mode_test ModeTest;
+    mode_physics1 ModePhysics1;
+    mode_physics2 ModePhysics2;
     
     //~ NOTE(ezexff): Audio
     audio_state AudioState;

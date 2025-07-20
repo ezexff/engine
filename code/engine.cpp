@@ -9,6 +9,14 @@
 #include "engine_world.cpp"
 #include "engine_sim_region.cpp"
 
+#include "engine_ui_core.cpp"
+#include "engine_ui_widgets.cpp"
+
+#include "engine_physics.cpp"
+#include "engine_mode_physics1.cpp"
+#include "engine_mode_physics2.cpp"
+#include "engine_mode_world.cpp"
+
 /* 
 internal void
 DEBUGTextLine(renderer_frame *Frame, game_assets *Assets, char *String, v2s P)
@@ -125,9 +133,6 @@ TestBubbleSort(void)
     u32 CheckResult = 321321;
 }
 
-#include "engine_mode_test.cpp"
-#include "engine_mode_world.cpp"
-
 struct test_work
 {
     task_with_memory *Task;
@@ -191,8 +196,9 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         
         // NOTE(ezexff): Set current game mode
         {
+            GameState->GameModeID = GameMode_Physics1;
+            //GameState->GameModeID = GameMode_Physics2;
             //GameState->GameModeID = GameMode_World;
-            GameState->GameModeID = GameMode_Test;
         }
         
         // NOTE(ezexff): Init sound mixer
@@ -457,10 +463,14 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
     
     switch(GameState->GameModeID)
     {
-        case GameMode_Test:
+        case GameMode_Physics1:
         {
-            UpdateAndRenderTest(Memory, Input);
-            //UpdateAndRenderDebug(GameState, GameState->WorldMode, RenderCommands, Input, GameState->CutScene);
+            UpdateAndRenderPhysics1(Memory, Input);
+        } break;
+        
+        case GameMode_Physics2:
+        {
+            UpdateAndRenderPhysics2(Memory, Input);
         } break;
         
         case GameMode_World:
@@ -475,47 +485,93 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
     // NOTE(ezexff): test ui
 #if 1
     {
-        local b32 IsWindowVisible4 = true;
-        if(IsWindowVisible4)
+        local b32 IsWindowVisible5 = true;
+        if(IsWindowVisible5)
         {
-            UI_BeginWindow("TestPhysics", &IsWindowVisible4);
+            UI_BeginWindow("Engine", &IsWindowVisible5);
             
             r32 FPS = 1 / UI_State->Input->dtForFrame;
             UI_Label("FPS = %.2f", FPS);
+            UI_Label("MS = %.3f", Input->dtForFrame * 1000.0f);
             
-            local b32 TestMode = true;
-            UI_CheckBox("TestCheckBox", &TestMode);
-            if(TestMode)
+            if(UI_IsPressed(UI_Button("Physics1")))
             {
-                GameState->GameModeID = GameMode_Test;
+                GameState->GameModeID = GameMode_Physics1;
             }
-            else
+            if(UI_IsPressed(UI_Button("Physics2")))
+            {
+                GameState->GameModeID = GameMode_Physics2;
+            }
+            if(UI_IsPressed(UI_Button("World")))
             {
                 GameState->GameModeID = GameMode_World;
             }
             
-            mode_test *ModeTest = &GameState->ModeTest;
-            u32 EntityIndex = ModeTest->ControlledEntityArray[0].EntityIndex;
-            test_entity *Entity = ModeTest->EntityArray + EntityIndex;
-            UI_Label("EntityIndex = %d", EntityIndex);
-            UI_Label("Type = %d", Entity->Type);
-            UI_Label("ForceMagnitude = %.2f", Entity->ForceMagnitude);
-            UI_Label("P = %.2f %.2f", Entity->P.x, Entity->P.y);
-            UI_Label("dP = %.2f %.2f", Entity->dP.x, Entity->dP.y);
-            UI_Label("ddP = %.2f %.2f", Entity->ddP.x, Entity->ddP.y);
-            UI_Label("IsStatic = %d", Entity->IsStatic);
-            UI_Label("Mass = %.2f", Entity->Mass);
-            UI_Label("InvMass = %.2f", Entity->InvMass);
+            UI_EndWindow();
+        }
+        
+        local b32 IsWindowVisible4 = true;
+        if(IsWindowVisible4)
+        {
+            UI_BeginWindow("Physics", &IsWindowVisible4);
             
-            if(UI_IsPressed(UI_Button("Index++")))
+            r32 FPS = 1 / UI_State->Input->dtForFrame;
+            UI_Label("FPS = %.2f", FPS);
+            UI_Label("MS = %.3f", Input->dtForFrame * 1000.0f);
+            
+            if(GameState->GameModeID == GameMode_Physics1)
             {
-                ModeTest->ControlledEntityArray[0].EntityIndex++;
-                ModeTest->ControlledEntityArray[0].EntityIndex = Clamp(0, ModeTest->ControlledEntityArray[0].EntityIndex, ArrayCount(ModeTest->EntityArray) - 1);
+                UI_Label("TestPhysics1");
+                mode_physics1 *ModePhysics = &GameState->ModePhysics1;
+                u32 EntityIndex = ModePhysics->ControlledEntityArray[0].EntityIndex;
+                test_entity *Entity = ModePhysics->EntityArray + EntityIndex;
+                UI_Label("EntityIndex = %d", EntityIndex);
+                UI_Label("Type = %d", Entity->Type);
+                UI_Label("ForceMagnitude = %.2f", Entity->ForceMagnitude);
+                UI_Label("P = %.2f %.2f", Entity->P.x, Entity->P.y);
+                UI_Label("dP = %.2f %.2f", Entity->dP.x, Entity->dP.y);
+                UI_Label("ddP = %.2f %.2f", Entity->ddP.x, Entity->ddP.y);
+                UI_Label("IsStatic = %d", Entity->IsStatic);
+                UI_Label("Mass = %.2f", Entity->Mass);
+                UI_Label("InvMass = %.2f", Entity->InvMass);
+                
+                if(UI_IsPressed(UI_Button("Index++")))
+                {
+                    ModePhysics->ControlledEntityArray[0].EntityIndex++;
+                    ModePhysics->ControlledEntityArray[0].EntityIndex = Clamp(0, ModePhysics->ControlledEntityArray[0].EntityIndex, ArrayCount(ModePhysics->EntityArray) - 1);
+                }
+                if(UI_IsPressed(UI_Button("Index--")))
+                {
+                    ModePhysics->ControlledEntityArray[0].EntityIndex--;
+                    ModePhysics->ControlledEntityArray[0].EntityIndex = Clamp(0, ModePhysics->ControlledEntityArray[0].EntityIndex, ArrayCount(ModePhysics->EntityArray) - 1);
+                }
             }
-            if(UI_IsPressed(UI_Button("Index--")))
+            else if(GameState->GameModeID == GameMode_Physics2)
             {
-                ModeTest->ControlledEntityArray[0].EntityIndex--;
-                ModeTest->ControlledEntityArray[0].EntityIndex = Clamp(0, ModeTest->ControlledEntityArray[0].EntityIndex, ArrayCount(ModeTest->EntityArray) - 1);
+                UI_Label("TestPhysics2");
+                mode_physics2 *ModePhysics = &GameState->ModePhysics2;
+                u32 EntityIndex = ModePhysics->ControlledEntityArray[0].EntityIndex;
+                test_entity *Entity = ModePhysics->EntityArray + EntityIndex;
+                UI_Label("EntityIndex = %d", EntityIndex);
+                UI_Label("Type = %d", Entity->Type);
+                UI_Label("ForceMagnitude = %.2f", Entity->ForceMagnitude);
+                UI_Label("P = %.2f %.2f", Entity->P.x, Entity->P.y);
+                UI_Label("dP = %.2f %.2f", Entity->dP.x, Entity->dP.y);
+                UI_Label("ddP = %.2f %.2f", Entity->ddP.x, Entity->ddP.y);
+                UI_Label("IsStatic = %d", Entity->IsStatic);
+                UI_Label("Mass = %.2f", Entity->Mass);
+                UI_Label("InvMass = %.2f", Entity->InvMass);
+                
+                if(UI_IsPressed(UI_Button("Index++")))
+                {
+                    ModePhysics->ControlledEntityArray[0].EntityIndex++;
+                    ModePhysics->ControlledEntityArray[0].EntityIndex = Clamp(0, ModePhysics->ControlledEntityArray[0].EntityIndex, ArrayCount(ModePhysics->EntityArray) - 1);
+                }
+                if(UI_IsPressed(UI_Button("Index--")))
+                {
+                    ModePhysics->ControlledEntityArray[0].EntityIndex--;
+                    ModePhysics->ControlledEntityArray[0].EntityIndex = Clamp(0, ModePhysics->ControlledEntityArray[0].EntityIndex, ArrayCount(ModePhysics->EntityArray) - 1);
+                }
             }
             
             UI_EndWindow();

@@ -1072,6 +1072,47 @@ TestNewUI(debug_state *DebugState)
     renderer_frame *Frame = &GlobalDebugMemory->Frame;
     game_input *Input = GlobalDebugInput;
     
+#if 0
+    BEGIN_BLOCK("UI_TEST");
+    //UI_BeginFrame(GameState, TranState, Frame, Input);
+    
+    local b32 IsWindowVisible1 = true;
+    if(IsWindowVisible1)
+    {
+        UI_BeginWindow("DebugTest", &IsWindowVisible1);
+        
+        r32 FPS = 1 / UI_State->Input->dtForFrame;
+        UI_Label("FPS = %.2f", FPS);
+        
+        local b32 TestCheckBox = true;
+        UI_CheckBox("TestCheckBox", &TestCheckBox);
+        
+        for(u32 Index = 1;
+            Index <= 30;
+            ++Index)
+        {
+            UI_Label("Text%d", Index);
+        }
+        
+        UI_EndWindow();
+    }
+    
+    local b32 IsWindowVisible2 = true;
+    if(IsWindowVisible2)
+    {
+        UI_BeginWindow("DebugTest3", &IsWindowVisible2);
+        
+        r32 FPS = 1 / UI_State->Input->dtForFrame;
+        UI_Label("FPS = %.2f", FPS);
+        UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
+        
+        UI_EndWindow();
+    }
+    
+    //UI_EndFrame();
+    END_BLOCK();
+#endif
+    
     /* 
         local b32 IsWindowVisible = true;
         if(IsWindowVisible)

@@ -1,8 +1,8 @@
 internal void
 UI_Label(char *ID, char *Text)
 {
-    if(!UI_State->WindowArray.Last){InvalidCodePath};
-    ui_node *Window = UI_State->WindowArray.Last;
+    if(!UI_State->WindowArray->Last){InvalidCodePath};
+    ui_node *Window = UI_State->WindowArray->Last;
     if(Window)
     {
         //InvalidCodePath;
@@ -42,8 +42,8 @@ internal u32
 UI_Button(char *ID, char *Text)
 {
     u32 State = 0;
-    if(!UI_State->WindowArray.Last){InvalidCodePath};
-    ui_node *Window = UI_State->WindowArray.Last;
+    if(!UI_State->WindowArray->Last){InvalidCodePath};
+    ui_node *Window = UI_State->WindowArray->Last;
     if(Window)
     {
         //InvalidCodePath;
@@ -89,8 +89,8 @@ UI_Button(char *Format, ...)
 void
 UI_CheckBox(char *ID, b32 *Value)
 {
-    if(!UI_State->WindowArray.Last){InvalidCodePath};
-    ui_node *Window = UI_State->WindowArray.Last;
+    if(!UI_State->WindowArray->Last){InvalidCodePath};
+    ui_node *Window = UI_State->WindowArray->Last;
     if(Window)
     {
         //InvalidCodePath;
@@ -160,8 +160,7 @@ UI_CheckBox(b32 *Value, char *Format, ...)
 internal void
 UI_BeginWindow(char *ID, b32 *ExitButtonValue)
 {
-    ui_node *Window = UI_AddRootNode(&UI_State->WindowArray,
-                                     ID,
+    ui_node *Window = UI_AddRootNode(Concat(UI_State->TranArena, "Window#", ID),
                                      UI_StyleTemplate_Window1,
                                      //UI_NodeFlag_DrawBackground|UI_NodeFlag_Floating|UI_NodeFlag_Clickable|UI_NodeFlag_DrawBorder);
                                      UI_NodeFlag_DrawBackground|UI_NodeFlag_Floating);
@@ -204,7 +203,7 @@ UI_BeginWindow(char *ID, b32 *ExitButtonValue)
                                          UI_NodeFlag_DrawBorder|
                                          UI_NodeFlag_DrawText,
                                          ID);
-        UI_State->WindowArray.Last->Title = Title;
+        UI_State->WindowArray->Last->Title = Title;
         
         // NOTE(ezexff): Empty space
         ui_node *TitleEmptySpace = UI_AddNode(Window,
@@ -250,7 +249,7 @@ UI_BeginWindow(char *ID, b32 *ExitButtonValue)
                                    UI_NodeFlag_DrawBorder|
                                    UI_NodeFlag_DrawBackground);
         Body->LayoutAxis = Axis2_Y;
-        UI_State->WindowArray.Last->Body = Body;
+        UI_State->WindowArray->Last->Body = Body;
         
         u32 BodyState = UI_GetNodeState(Body);
         if(UI_IsDragging(BodyState))
@@ -270,7 +269,7 @@ UI_BeginWindow(char *ID, b32 *ExitButtonValue)
 internal void
 UI_EndWindow()
 {
-    ui_node *Window = UI_State->WindowArray.Last;
+    ui_node *Window = UI_State->WindowArray->Last;
     ui_node *Body = Window->Body;
     
     /* 

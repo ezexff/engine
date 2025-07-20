@@ -178,7 +178,7 @@ struct ui_widget_link
 struct ui_state
 {
     //ui_node *Root;
-    ui_widget_link WindowArray;
+    ui_widget_link *WindowArray;
     u32 WindowCount;
     
     u64 FrameCount;

@@ -1,274 +1,5 @@
-#include "engine_ui_core.cpp"
-#include "engine_ui_widgets.cpp"
-
-struct projection
-{
-    r32 Min;
-    r32 Max;
-};
-
-struct intersect_result
-{
-    b32 IsCollides;
-    v2 Normal;
-    r32 Depth;
-};
-
-void ResolveCollision(test_entity *A, test_entity *B, v2 Normal, r32 Depth)
-{
-    v2 RelVel = B->dP - A->dP;
-    
-    if(Inner(RelVel, Normal) <= 0.0f)
-    {
-        r32 e = Minimum(A->Restitution, B->Restitution);
-        r32 j = -(1.0f + e) * Inner(RelVel, Normal);
-        j /= A->InvMass + B->InvMass;
-        
-        v2 Impulse = j * Normal;
-        A->dP += -(Impulse * A->InvMass);
-        B->dP += Impulse * B->InvMass;
-    }
-}
-
-intersect_result IntersectCircles(v2 P, r32 Radius, v2 TestP, r32 TestRadius)
-{
-    intersect_result Result = {};
-    r32 Distance = Length(TestP - P);
-    r32 Radii = Radius + TestRadius;
-    if(Distance < Radii)
-    {
-        Result.IsCollides = true;;
-        Result.Normal = Normalize(TestP - P);
-        Result.Depth = Radii - Distance;
-        
-    }
-    return(Result);
-}
-
-v2 FindSumVector(u32 VertexCount, v2 *VertexArray)
-{
-    v2 Result = {};
-    
-    for(u32 Index = 0;
-        Index < VertexCount;
-        ++Index)
-    {
-        Result.x += VertexArray[Index].x;
-        Result.y += VertexArray[Index].y;
-    }
-    
-    Result.x = Result.x / (VertexCount);
-    Result.y = Result.y / (VertexCount);
-    
-    return(Result);
-}
-
-s32 FindClosestPointOnPolygion(v2 CircleCenter, u32 VertexCount, v2 *VertexArray)
-{
-    s32 Result = -1;
-    r32 MinDistance = F32Max;
-    
-    for(u32 Index = 0;
-        Index < VertexCount;
-        ++Index)
-    {
-        r32 Distance = Length(VertexArray[Index] - CircleCenter);
-        if(Distance < MinDistance)
-        {
-            MinDistance = Distance;
-            Result = Index;
-        }
-    }
-    return(Result);
-}
-
-projection
-ProjectCircle(v2 Center, r32 Radius, v2 Axis)
-{
-    projection Result = {};
-    
-    v2 Direction = Normalize(Axis);
-    v2 DirectionAndRadius = Direction * Radius;
-    
-    v2 P1 = Center - DirectionAndRadius;
-    v2 P2 = Center + DirectionAndRadius;
-    
-    Result.Min = Inner(P1, Axis);
-    Result.Max = Inner(P2, Axis);
-    
-    if(Result.Min > Result.Min)
-    {
-        r32 Temp = Result.Min;
-        Result.Min = Result.Max;
-        Result.Max = Temp;
-    }
-    
-    return(Result);
-}
-
-projection
-ProjectVertices(u32 VertexCount, v2 *VertexArray, v2 Axis)
-{
-    projection Result = {};
-    Result.Min = F32Max;
-    Result.Max = F32Min;
-    
-    for(u32 Index = 0;
-        Index < VertexCount;
-        ++Index)
-    {
-        r32 Projection = Inner(VertexArray[Index], Axis);
-        if(Projection < Result.Min){ Result.Min = Projection;}
-        if(Projection > Result.Max){ Result.Max = Projection;}
-    }
-    
-    return(Result);
-}
-
-intersect_result
-IntersectCirclePolygon(v2 CircleCenter, r32 CircleRadius, u32 VertexCount, v2 *VertexArray)
-{
-    intersect_result Result = {};
-    //Result.Normal = {};
-    Result.Depth = F32Max;
-    projection A = {};
-    projection B = {};
-    v2 Axis = {};
-    
-    for(u32 Index = 0;
-        Index < VertexCount;
-        ++Index)
-    {
-        v2 *VA = VertexArray + Index;
-        v2 *VB = VertexArray + (Index + 1) % VertexCount;
-        v2 Edge = *VB - *VA;
-        Axis = V2(-Edge.y, Edge.x);
-        Axis = Normalize(Axis);
-        
-        A = ProjectVertices(VertexCount, VertexArray, Axis);
-        B = ProjectCircle(CircleCenter, CircleRadius, Axis);
-        
-        if(A.Min >= B.Max || B.Min >= A.Max)
-        {
-            Result.IsCollides = false;
-            return(Result);
-        }
-        
-        r32 AxisDepth = Minimum(B.Max - A.Min, A.Max - B.Min);
-        if(AxisDepth < Result.Depth)
-        {
-            Result.Depth = AxisDepth;
-            Result.Normal = Axis;
-        }
-    }
-    
-    s32 CpIndex = FindClosestPointOnPolygion(CircleCenter, VertexCount, VertexArray);
-    v2 Cp = VertexArray[CpIndex];
-    Axis = Cp - CircleCenter;
-    Axis = Normalize(Axis);
-    
-    A = ProjectVertices(VertexCount, VertexArray, Axis);
-    B = ProjectCircle(CircleCenter, CircleRadius, Axis);
-    
-    if(A.Min >= B.Max || B.Min >= A.Max)
-    {
-        Result.IsCollides = false;
-        return(Result);
-    }
-    
-    r32 AxisDepth = Minimum(B.Max - A.Min, A.Max - B.Min);
-    if(AxisDepth < Result.Depth)
-    {
-        Result.Depth = AxisDepth;
-        Result.Normal = Axis;
-    }
-    
-    Result.IsCollides = true;
-    
-    v2 PolygonCenter = FindSumVector(VertexCount, VertexArray);
-    v2 Direction = PolygonCenter - CircleCenter;
-    if(Inner(Direction, Result.Normal) < 0.0f)
-    {
-        Result.Normal = -Result.Normal;
-    }
-    return(Result);
-}
-
-intersect_result
-IntersectPolygons(u32 VertexCountA, v2 *VertexArrayA, u32 VertexCountB, v2 *VertexArrayB)
-{
-    intersect_result Result = {};
-    Result.Depth = F32Max;
-    
-    for(u32 Index = 0;
-        Index < VertexCountA;
-        ++Index)
-    {
-        v2 *VA = VertexArrayA + Index;
-        v2 *VB = VertexArrayA + (Index + 1) % VertexCountA;
-        v2 Edge = *VB - *VA;
-        v2 Axis = V2(-Edge.y, Edge.x);
-        Axis = Normalize(Axis);
-        
-        projection A = ProjectVertices(VertexCountA, VertexArrayA, Axis);
-        projection B = ProjectVertices(VertexCountB, VertexArrayB, Axis);
-        
-        if(A.Min >= B.Max || B.Min >= A.Max)
-        {
-            Result.IsCollides = false;
-            return(Result);
-        }
-        
-        r32 AxisDepth = Minimum(B.Max - A.Min, A.Max - B.Min);
-        if(AxisDepth < Result.Depth)
-        {
-            Result.Depth = AxisDepth;
-            Result.Normal = Axis;
-        }
-    }
-    
-    for(u32 Index = 0;
-        Index < VertexCountB;
-        ++Index)
-    {
-        v2 *VA = VertexArrayB + Index;
-        v2 *VB = VertexArrayB + (Index + 1) % VertexCountB;
-        v2 Edge = *VB - *VA;
-        v2 Axis = V2(-Edge.y, Edge.x);
-        Axis = Normalize(Axis);
-        
-        projection A = ProjectVertices(VertexCountA, VertexArrayA, Axis);
-        projection B = ProjectVertices(VertexCountB, VertexArrayB, Axis);
-        
-        if(A.Min >= B.Max || B.Min >= A.Max)
-        {
-            Result.IsCollides = false;
-            return(Result);
-        }
-        
-        r32 AxisDepth = Minimum(B.Max - A.Min, A.Max - B.Min);
-        if(AxisDepth < Result.Depth)
-        {
-            Result.Depth = AxisDepth;
-            Result.Normal = Axis;
-        }
-    }
-    
-    Result.IsCollides = true;
-    
-    v2 CenterA = FindSumVector(VertexCountA, VertexArrayA);
-    v2 CenterB = FindSumVector(VertexCountB, VertexArrayB);
-    v2 Direction = CenterB - CenterA;
-    if(Inner(Direction, Result.Normal) < 0.0f)
-    {
-        Result.Normal = -Result.Normal;
-    }
-    
-    return(Result);
-}
-
-void
-UpdateAndRenderTest(game_memory *Memory, game_input *Input)
+internal void
+UpdateAndRenderPhysics1(game_memory *Memory, game_input *Input)
 {
     game_state *GameState = (game_state *)Memory->PermanentStorage;
     tran_state *TranState = (tran_state *)Memory->TransientStorage;
@@ -276,19 +7,19 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     renderer_frame *Frame = &Memory->Frame;
     renderer *Renderer = (renderer *)Frame->Renderer;
     
-    mode_test *ModeTest = &GameState->ModeTest;
-    if(!ModeTest->IsInitialized)
+    mode_physics1 *ModePhysics1 = &GameState->ModePhysics1;
+    if(!ModePhysics1->IsInitialized)
     {
         // NOTE(ezexff): set controlling entity index
-        ModeTest->ControlledEntityArray[0].EntityIndex = 0;
+        ModePhysics1->ControlledEntityArray[0].EntityIndex = 0;
         
         // NOTE(ezexff): create entities
         random_series Series = RandomSeed(200);
         for(u32 Index = 0;
-            Index < ArrayCount(ModeTest->EntityArray);
+            Index < ArrayCount(ModePhysics1->EntityArray);
             ++Index)
         {
-            test_entity *Entity = ModeTest->EntityArray + Index;
+            test_entity *Entity = ModePhysics1->EntityArray + Index;
             Entity->Type = RandomBetween(&Series, 0, TestEntityType_Count - 1);
             r32 R = RandomUnilateral(&Series);
             r32 G = RandomUnilateral(&Series);
@@ -329,7 +60,7 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             Entity->Restitution = Clamp01(Entity->Restitution);
         }
         
-        ModeTest->IsInitialized = true;
+        ModePhysics1->IsInitialized = true;
     }
     
     // NOTE(ezexff): inputs
@@ -338,7 +69,7 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         ++ControllerIndex)
     {
         game_controller_input *Controller = GetController(Input, ControllerIndex);
-        controlled_entity *ConEntity = ModeTest->ControlledEntityArray + ControllerIndex;
+        controlled_entity *ConEntity = ModePhysics1->ControlledEntityArray + ControllerIndex;
         
         if(ControllerIndex == 0)
         {
@@ -364,12 +95,12 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
             if(WasPressed(Controller->ActionUp))
             {
                 ConEntity->EntityIndex += 1;
-                ConEntity->EntityIndex = Clamp(0, ConEntity->EntityIndex, ArrayCount(ModeTest->EntityArray) - 1);
+                ConEntity->EntityIndex = Clamp(0, ConEntity->EntityIndex, ArrayCount(ModePhysics1->EntityArray) - 1);
             }
             if(WasPressed(Controller->ActionDown))
             {
                 ConEntity->EntityIndex -= 1;
-                ConEntity->EntityIndex = Clamp(0, ConEntity->EntityIndex, ArrayCount(ModeTest->EntityArray) - 1);
+                ConEntity->EntityIndex = Clamp(0, ConEntity->EntityIndex, ArrayCount(ModePhysics1->EntityArray) - 1);
             }
             
         }
@@ -379,11 +110,11 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     v4 WhiteColor = V4(1, 1, 1, 1);
     v4 RedColor = V4(1, 0, 0, 1);
     for(u32 EntityIndex = 0;
-        EntityIndex < ArrayCount(ModeTest->EntityArray);
+        EntityIndex < ArrayCount(ModePhysics1->EntityArray);
         ++EntityIndex)
     {
         // NOTE(ezexff): pre transform work
-        test_entity *Entity = ModeTest->EntityArray + EntityIndex;
+        test_entity *Entity = ModePhysics1->EntityArray + EntityIndex;
         if(EntityIndex == 1)
         {
             Entity->Angle += Input->dtForFrame;
@@ -415,17 +146,17 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     // NOTE(ezexff): move
     r32 dt = Input->dtForFrame;
     for(u32 EntityIndex = 0;
-        EntityIndex < ArrayCount(ModeTest->EntityArray);
+        EntityIndex < ArrayCount(ModePhysics1->EntityArray);
         ++EntityIndex)
     {
-        test_entity *Entity = ModeTest->EntityArray + EntityIndex;
+        test_entity *Entity = ModePhysics1->EntityArray + EntityIndex;
         
         // NOTE(ezexff): hero
         for(u32 ControllerIndex = 0;
-            ControllerIndex < ArrayCount(ModeTest->ControlledEntityArray);
+            ControllerIndex < ArrayCount(ModePhysics1->ControlledEntityArray);
             ++ControllerIndex)
         {
-            controlled_entity *ConEntity = ModeTest->ControlledEntityArray + ControllerIndex;
+            controlled_entity *ConEntity = ModePhysics1->ControlledEntityArray + ControllerIndex;
             if(ControllerIndex == 0)
             {
                 if(ConEntity->EntityIndex == EntityIndex)
@@ -456,10 +187,10 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         
         // NOTE(ezexff): collision detection
         for(u32 TestIndex = 0;
-            TestIndex < ArrayCount(ModeTest->EntityArray);
+            TestIndex < ArrayCount(ModePhysics1->EntityArray);
             ++TestIndex)
         {
-            test_entity *TestEntity = ModeTest->EntityArray + TestIndex;
+            test_entity *TestEntity = ModePhysics1->EntityArray + TestIndex;
             
             if(EntityIndex != TestIndex)
             {
@@ -518,10 +249,10 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
     
     // NOTE(ezexff): draw
     for(u32 Index = 0;
-        Index < ArrayCount(ModeTest->EntityArray);
+        Index < ArrayCount(ModePhysics1->EntityArray);
         ++Index)
     {
-        test_entity *Entity = ModeTest->EntityArray + Index;
+        test_entity *Entity = ModePhysics1->EntityArray + Index;
         
         // NOTE(ezexff): only for testing
         {
@@ -555,45 +286,4 @@ UpdateAndRenderTest(game_memory *Memory, game_input *Input)
         v2 P = (Offset - 0.5f * Dim);
             PushRectOnScreen(&Renderer->PushBufferUI, P, P + Dim, V4(0, 0, 1, 1), 100);
      */
-    
-    {
-#if 0
-        BEGIN_BLOCK("UI_TEST");
-        UI_BeginFrame(GameState, TranState, Frame, Input);
-        
-        local b32 IsWindowVisible = true;
-        if(IsWindowVisible)
-        {
-            UI_BeginWindow("DebugTest", &IsWindowVisible);
-            
-            r32 FPS = 1 / UI_State->Input->dtForFrame;
-            UI_Label("FPS = %.2f", FPS);
-            
-            for(u32 Index = 1;
-                Index <= 30;
-                ++Index)
-            {
-                UI_Label("Text%d", Index);
-            }
-            
-            UI_EndWindow();
-        }
-        
-        local b32 IsWindowVisible3 = true;
-        if(IsWindowVisible3)
-        {
-            UI_BeginWindow("DebugTest3", &IsWindowVisible3);
-            
-            r32 FPS = 1 / UI_State->Input->dtForFrame;
-            UI_Label("FPS = %.2f", FPS);
-            
-            UI_Label("TestLongStringTestLongStringTestLongStringTestLongStringTestLongStringTestLongString");
-            
-            UI_EndWindow();
-        }
-        
-        UI_EndFrame();
-        END_BLOCK();
-#endif
-    }
 }
