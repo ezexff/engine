@@ -154,6 +154,8 @@ struct renderer
     renderer_terrain *Terrain;
     
     renderer_push_buffer PushBufferUI;
+    
+    renderer_push_buffer PushBufferPhysics;
 };
 
 enum renderer_flags

@@ -776,7 +776,7 @@ u32 UI_GetNodeState(ui_node *Node)
 }
 
 internal void
-UI_Init(memory_arena *ConstArena, memory_arena *TranArena)
+UI_Initialize(memory_arena *ConstArena, memory_arena *TranArena)
 {
     UI_State = PushStruct(ConstArena, ui_state);
     UI_State->FrameCount = 0;

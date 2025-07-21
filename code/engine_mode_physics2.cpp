@@ -22,7 +22,7 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
         Ground->VertexArray[1] = V2(0.5f, -0.5f);
         Ground->VertexArray[2] = V2(0.5f, 0.5f);
         Ground->VertexArray[3] = V2(-0.5f, 0.5f);
-        Ground->P = V2(1920 / 2, 1080 / 2);
+        Ground->P = V2(1920 / 2, 1080 / 3);
         Ground->Dim = V2(1920 * 0.6f, 70);
         Ground->Density = 1.0f;
         Ground->Restitution = 0.5f;
@@ -53,7 +53,7 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
                 Entity->VertexArray[1] = V2(0.5f, -0.5f);
                 Entity->VertexArray[2] = V2(0.5f, 0.5f);
                 Entity->VertexArray[3] = V2(-0.5f, 0.5f);
-                Entity->P = V2(Input->MouseP.x, Frame->Dim.y - Input->MouseP.y);
+                Entity->P = V2(Input->MouseP.x, Input->MouseP.y);
                 Entity->Dim = V2((r32)RandomBetween(&ModePhysics2->Series, 40, 60),
                                  (r32)RandomBetween(&ModePhysics2->Series, 40, 60));
                 Entity->Density = 2.0f;
@@ -83,7 +83,7 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
                 Entity->IsInitialized = true;
                 Entity->IsStatic = false;
                 Entity->Type = TestEntityType_Circle;
-                Entity->P = V2(Input->MouseP.x, Frame->Dim.y - Input->MouseP.y);
+                Entity->P = V2(Input->MouseP.x, Input->MouseP.y);
                 r32 Diameter = (r32)RandomBetween(&ModePhysics2->Series, 40, 60);
                 Entity->Radius = Diameter / 2.0f;
                 Entity->Dim = V2(Diameter, Diameter);
@@ -145,7 +145,7 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
                 //Entity->Force = Entity->ddP * Entity->ForceMagnitude;
                 //v2 Delta = Entity->Force / Entity->Mass;
                 //Entity->dP += Delta  * dt;
-                v2 Gravity = V2(0.0f, 9.81f);
+                v2 Gravity = V2(0.0f, -9.81f);
                 Entity->dP += Gravity * dt;
                 Entity->P += Entity->dP;
                 Entity->Force = {};
@@ -244,14 +244,14 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
             {
                 case TestEntityType_Rect:
                 {
-                    PushTrianglesOnScreen(&Renderer->PushBufferUI, Entity->VertexCount, Entity->TransformedVertexArray, Entity->Color, 10000);
-                    PushLinesOnScreen(&Renderer->PushBufferUI, Entity->VertexCount, Entity->TransformedVertexArray, 1, Entity->OutlineColor, 10000);
+                    PushTrianglesOnScreen(&Renderer->PushBufferPhysics, Entity->VertexCount, Entity->TransformedVertexArray, Entity->Color, 10000);
+                    PushLinesOnScreen(&Renderer->PushBufferPhysics, Entity->VertexCount, Entity->TransformedVertexArray, 1, Entity->OutlineColor, 10000);
                 } break;
                 
                 case TestEntityType_Circle:
                 {
-                    PushCircleOnScreen(&Renderer->PushBufferUI, Entity->P, Entity->Radius, Entity->Color, 10000);
-                    PushCircleOutlineOnScreen(&Renderer->PushBufferUI, Entity->P, Entity->Radius, 1, Entity->OutlineColor, 10000);
+                    PushCircleOnScreen(&Renderer->PushBufferPhysics, Entity->P, Entity->Radius, Entity->Color, 10000);
+                    PushCircleOutlineOnScreen(&Renderer->PushBufferPhysics, Entity->P, Entity->Radius, 1, Entity->OutlineColor, 10000);
                 } break;
                 
                 InvalidDefaultCase;

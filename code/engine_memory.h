@@ -167,6 +167,8 @@ PushSize_(memory_arena *Arena, memory_index SizeInit, arena_push_params Params =
 
 // NOTE(casey): This is generally not for production use, this is probably
 // only really something we need during testing, but who knows
+// TODO(ezexff): mb enable optimization
+#pragma optimize( "", off )
 inline char *
 PushString(memory_arena *Arena, char *Source)
 {
@@ -188,6 +190,7 @@ PushString(memory_arena *Arena, char *Source)
     
     return(Dest);
 }
+#pragma optimize( "", on )
 
 inline char *
 PushAndNullTerminate(memory_arena *Arena, u32 Length, char *Source)

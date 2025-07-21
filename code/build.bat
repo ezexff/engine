@@ -22,7 +22,7 @@ SET DefaultCompilerOpts=/fp:fast /GR- /Oi /nologo /EHa- /D_CRT_SECURE_NO_WARNING
 SET DebugCompilerOpts=/WX /W4 /wd4201 /wd4100 /wd4189 /wd4505 /wd4456
 SET DebugCompilerOpts=/MTd /Od /diagnostics:column /WL /FC /Z7 %DebugCompilerOpts% %DefaultCompilerOpts%
 SET DebugCompilerOpts=/DENGINE_INTERNAL=1 %DebugCompilerOpts%
-SET ReleaseCompilerOpts=/MT /w /DENGINE_INTERNAL=0 %DefaultCompilerOpts%
+SET ReleaseCompilerOpts=/MT /w /O2 /DENGINE_INTERNAL=0 %DefaultCompilerOpts%
 REM SET ReleaseCompilerOpts=/MT /w /O2 /DENGINE_INTERNAL=0 %DefaultCompilerOpts%
 REM Possible options: /GL (оптимизация всей программы)
 

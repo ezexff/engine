@@ -474,3 +474,11 @@ PushGlyph(push_buffer *PushBuffer, game_assets *Assets, u32 CodePoint, bitmap_id
         //++Frame->MissingResourceCount;
     }
 }
+
+internal void
+InitializePushBuffer(memory_arena *Arena, renderer_push_buffer *PushBuffer)
+{
+    PushBuffer->Base = PushBuffer->Memory;
+    PushBuffer->ElementCountMax = sizeof(PushBuffer->Memory) / 8; // min sort element size is 8 bytes (header + value)
+    PushBuffer->SortEntryArray = PushArray(Arena, PushBuffer->ElementCountMax, tile_sort_entry);
+}

@@ -330,6 +330,8 @@ internal PLATFORM_GET_ALL_FILE_OF_TYPE_END(Win32GetAllFilesOfTypeEnd)
     }
 }
 
+// TODO(ezexff): mb enable optimization
+#pragma optimize( "", off )
 internal PLATFORM_OPEN_FILE(Win32OpenNextFile)
 {
     win32_platform_file_group *Win32FileGroup = (win32_platform_file_group *)FileGroup->Platform;
@@ -375,6 +377,7 @@ internal PLATFORM_OPEN_FILE(Win32OpenNextFile)
     
     return(Result);
 }
+#pragma optimize( "", on )
 
 internal PLATFORM_FILE_ERROR(Win32FileError)
 {

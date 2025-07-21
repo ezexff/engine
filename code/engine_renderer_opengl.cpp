@@ -1936,7 +1936,106 @@ SortPushBufferEntries(renderer_push_buffer *PushBuffer)
     }
 }
 
-void
+internal void
+OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuffer)
+{
+    TIMED_FUNCTION();
+    
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, (r32)Frame->Dim.x, 0, (r32)Frame->Dim.y, 0.0f, 1.0f);
+    
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    
+    SortPushBufferEntries(PushBuffer);
+    tile_sort_entry *SortEntryArray = PushBuffer->SortEntryArray;
+    tile_sort_entry *SortEntry = SortEntryArray;
+    for(u32 SortEntryIndex = 0;
+        SortEntryIndex < PushBuffer->ElementCount;
+        ++SortEntryIndex, ++SortEntry)
+    {
+        renderer_entry_header *Header = (renderer_entry_header *)
+        (PushBuffer->Base + SortEntry->Offset);
+        
+        void *Data = (u8 *)Header + sizeof(*Header);
+        
+        switch(Header->Type)
+        {
+            case RendererOrthoEntryType_renderer_ortho_entry_lines:
+            {
+                renderer_ortho_entry_lines *Entry = (renderer_ortho_entry_lines *)Data;
+                OpenglDrawLinesOnScreen(Entry->VertexCount, Entry->VertexArray, Entry->LineWidth, Entry->Color);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_triangles:
+            {
+                renderer_ortho_entry_triangles *Entry = (renderer_ortho_entry_triangles *)Data;
+                OpenglDrawTrianglesOnScreen(Entry->VertexCount, Entry->VertexArray, Entry->Color);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_circle:
+            {
+                renderer_ortho_entry_circle *Entry = (renderer_ortho_entry_circle *)Data;
+                OpenglDrawCircleOnScreen(Entry->P, Entry->Radius, Entry->Color);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_circle_outline:
+            {
+                renderer_ortho_entry_circle_outline *Entry = (renderer_ortho_entry_circle_outline *)Data;
+                OpenglDrawCircleOutlineOnScreen(Entry->P, Entry->Radius, Entry->LineWidth, Entry->Color);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_rect:
+            {
+                InvalidCodePath;
+                renderer_ortho_entry_rect *Entry = (renderer_ortho_entry_rect *)Data;
+                v2 Min = Entry->P;
+                v2 Max = Entry->Dim;
+                OpenglDrawRectOnScreen({Min, Max}, Entry->Color);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_rect_outline:
+            {
+                InvalidCodePath;
+                renderer_ortho_entry_rect_outline *Entry = (renderer_ortho_entry_rect_outline *)Data;
+                OpenglDrawRectOutlineOnScreen(Entry->Rect, Entry->LineWidth, Entry->Color);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_bitmap:
+            {
+                InvalidCodePath;
+                renderer_ortho_entry_bitmap *Entry = (renderer_ortho_entry_bitmap *)Data;
+                OpenglDrawBitmapOnScreen(Entry->Bitmap, Entry->Rect, V4(0, 1, 0, 1), Entry->TexCoords);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_glyph:
+            {
+                InvalidCodePath;
+                //InvalidCodePath;
+            } break;
+            
+            InvalidDefaultCase;
+        }
+    }
+    glDisable(GL_BLEND);
+    
+    // NOTE(ezexff): clear push buffer
+    /* 
+        while(PushBuffer->Size--)
+        {
+            PushBuffer->Memory[PushBuffer->Size] = 0;
+        }
+     */
+    PushBuffer->Size = 0;
+    PushBuffer->ElementCount = 0;
+}
+
+
+internal void
 OpenglDrawUI(renderer_frame *Frame)
 {
     TIMED_FUNCTION();
@@ -2464,6 +2563,8 @@ OpenglEndFrame(renderer_frame *Frame)
     END_BLOCK();
     
     OpenglDrawUI(Frame);
+    
+    OpenglDrawPhysicsPushBuffer(Frame, &Renderer->PushBufferPhysics);
     
     Renderer->Flags = 0;
     
