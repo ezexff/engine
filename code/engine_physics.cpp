@@ -1,3 +1,123 @@
+internal segment_distance
+PointSegmentDistance(v2 P, v2 A, v2 B)
+{
+    segment_distance Result = {};
+    
+    v2 AB = B - A;
+    v2 AP = P - A;
+    
+    r32 Projection = Inner(AP, AB);
+    r32 ABLengthSquared = LengthSq(AB);
+    r32 d = Projection / ABLengthSquared;
+    
+    if(d <= 0.0f)
+    {
+        Result.ClosestPoint = A;
+    }
+    else if(d >= 1.0f)
+    {
+        Result.ClosestPoint = B;
+    }
+    else
+    {
+        Result.ClosestPoint = A + AB * d;
+    }
+    Result.DistanceSquared = DistanceSq(P, Result.ClosestPoint);
+    r32 Test = DistanceSq2(P, Result.ClosestPoint); // TODO(ezexff): temp remove
+    Assert(Result.DistanceSquared == Test);
+    return(Result);
+}
+
+internal contact_points
+FindContactPoint(v2 CenterA, u32 VertexCountA, v2 *VertexArrayA, v2 CenterB, u32 VertexCountB, v2 *VertexArrayB)
+{
+    contact_points Result = {};
+    r32 MinDistanceSquared = F32Max;
+    for(u32 Inner = 0;
+        Inner < VertexCountA;
+        ++Inner)
+    {
+        v2 P = VertexArrayA[Inner];
+        
+        for(u32 Outer = 0;
+            Outer < VertexCountB;
+            ++Outer)
+        {
+            v2 VA = VertexArrayB[Outer];
+            v2 VB = VertexArrayB[(Outer + 1) % VertexCountB];
+            segment_distance SD = PointSegmentDistance(P, VA, VB);
+            if(NearlyEqual(PHYSICS_EPSILON, SD.DistanceSquared, MinDistanceSquared))
+            {
+                if(!NearlyEqual(PHYSICS_EPSILON, SD.ClosestPoint, Result.P1))
+                {
+                    Result.P2 = SD.ClosestPoint;
+                    Result.Count = 2;
+                }
+            }
+            else if(SD.DistanceSquared < MinDistanceSquared)
+            {
+                MinDistanceSquared = SD.DistanceSquared;
+                Result.P1 = SD.ClosestPoint;
+                Result.Count = 1;
+            }
+        }
+    }
+    
+    for(u32 Inner = 0;
+        Inner < VertexCountB;
+        ++Inner)
+    {
+        v2 P = VertexArrayB[Inner];
+        
+        for(u32 Outer = 0;
+            Outer < VertexCountA;
+            ++Outer)
+        {
+            v2 VA = VertexArrayA[Outer];
+            v2 VB = VertexArrayA[(Outer + 1) % VertexCountA];
+            segment_distance SD = PointSegmentDistance(P, VA, VB);
+            if(NearlyEqual(PHYSICS_EPSILON, SD.DistanceSquared, MinDistanceSquared))
+            {
+                if(!NearlyEqual(PHYSICS_EPSILON, SD.ClosestPoint, Result.P1))
+                {
+                    Result.P2 = SD.ClosestPoint;
+                    Result.Count = 2;
+                }
+            }
+            else if(SD.DistanceSquared < MinDistanceSquared)
+            {
+                MinDistanceSquared = SD.DistanceSquared;
+                Result.P1 = SD.ClosestPoint;
+                Result.Count = 1;
+            }
+        }
+    }
+    return(Result);
+}
+
+internal v2
+FindContactPoint(v2 CircleCenter, r32 CircleRadius, v2 PolygonCenter, u32 VertexCount, v2 *VertexArray)
+{
+    v2 Contact = {};
+    r32 MinDistanceSquared = F32Max;
+    for(u32 Index = 0;
+        Index < VertexCount;
+        ++Index)
+    {
+        v2 VA = VertexArray[Index];
+        v2 VB = VertexArray[(Index + 1) % VertexCount];
+        segment_distance SD = PointSegmentDistance(CircleCenter, VA, VB);
+        
+        if(SD.DistanceSquared < MinDistanceSquared)
+        {
+            MinDistanceSquared = SD.DistanceSquared;
+            Contact = SD.ClosestPoint;
+        }
+    }
+    
+    return(Contact);
+}
+
 internal v2
 FindContactPoint(v2 CenterA, r32 RadiusA, v2 CenterB)
 {
@@ -16,18 +136,21 @@ FindContactPoints(test_entity *BodyA, test_entity *BodyB)
     {
         if(BodyB->Type == TestEntityType_Rect)
         {
-            
+            Result = FindContactPoint(BodyA->P, BodyA->VertexCount, BodyA->TransformedVertexArray,
+                                      BodyB->P, BodyB->VertexCount, BodyB->TransformedVertexArray);
         }
         else if(BodyB->Type == TestEntityType_Circle)
         {
-            
+            Result.P1 = FindContactPoint(BodyB->P, BodyB->Radius, BodyA->P, BodyA->VertexCount, BodyA->TransformedVertexArray);
+            Result.Count = 1;
         }
     }
     else if(BodyA->Type == TestEntityType_Circle)
     {
         if(BodyB->Type == TestEntityType_Rect)
         {
-            
+            Result.P1 = FindContactPoint(BodyA->P, BodyA->Radius, BodyB->P, BodyB->VertexCount, BodyB->TransformedVertexArray);
+            Result.Count = 1;
         }
         else if(BodyB->Type == TestEntityType_Circle)
         {
@@ -61,13 +184,15 @@ void ResolveCollisionOptimized(test_contact *Contact)
 intersect_result IntersectCircles(v2 P, r32 Radius, v2 TestP, r32 TestRadius)
 {
     intersect_result Result = {};
-    r32 Distance = Length(TestP - P);
+    r32 Distance1 = Distance2(TestP, P);
+    r32 Test = Distance(TestP, P); // TODO(ezexff): temp remove
+    Assert(Distance1 == Test);
     r32 Radii = Radius + TestRadius;
-    if(Distance < Radii)
+    if(Distance1 < Radii)
     {
         Result.IsCollides = true;;
         Result.Normal = Normalize(TestP - P);
-        Result.Depth = Radii - Distance;
+        Result.Depth = Radii - Distance1;
         
     }
     return(Result);

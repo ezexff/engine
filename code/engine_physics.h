@@ -1,3 +1,9 @@
+struct segment_distance
+{
+    r32 DistanceSquared;
+    v2 ClosestPoint;
+};
+
 struct projection
 {
     r32 Min;

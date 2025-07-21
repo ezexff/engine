@@ -1,3 +1,5 @@
+#define PHYSICS_EPSILON 0.0005f
+
 struct contact_points
 {
     v2 P1;
