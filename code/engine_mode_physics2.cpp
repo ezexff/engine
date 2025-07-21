@@ -22,11 +22,12 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
         Ground->VertexArray[1] = V2(0.5f, -0.5f);
         Ground->VertexArray[2] = V2(0.5f, 0.5f);
         Ground->VertexArray[3] = V2(-0.5f, 0.5f);
-        Ground->P = V2(1920 / 2, 1080 / 3);
+        Ground->P = V2(1920 / 2, 1080 / 6);
         Ground->Dim = V2(1920 * 0.6f, 70);
         Ground->Density = 1.0f;
         Ground->Restitution = 0.5f;
-        Ground->Mass = Ground->Dim.x * Ground->Dim.y * Ground->Density;
+        r32 Area = Ground->Dim.x * Ground->Dim.y;
+        Ground->Mass = Area * Ground->Density;
         Ground->InvMass = 0.0f;
         Ground->Color = V4(0, 1, 0, 1);
         Ground->OutlineColor = V4(1, 1, 1, 1);
@@ -58,7 +59,8 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
                                  (r32)RandomBetween(&ModePhysics2->Series, 40, 60));
                 Entity->Density = 2.0f;
                 Entity->Restitution = 0.6f;
-                Entity->Mass = Entity->Dim.x * Entity->Dim.y * Entity->Density;
+                r32 Area = Entity->Dim.x * Entity->Dim.y;
+                Entity->Mass = Area * Entity->Density;
                 Entity->InvMass = 1.0f / Entity->Mass;
                 r32 R = RandomUnilateral(&ModePhysics2->Series);
                 r32 G = RandomUnilateral(&ModePhysics2->Series);
@@ -89,7 +91,8 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
                 Entity->Dim = V2(Diameter, Diameter);
                 Entity->Density = 2.0f;
                 Entity->Restitution = 0.6f;
-                Entity->Mass = Entity->Dim.x * Entity->Dim.y * Entity->Density;
+                r32 Area = Entity->Radius * Entity->Radius * Pi32;
+                Entity->Mass = Area * Entity->Density;
                 Entity->InvMass = 1.0f / Entity->Mass;
                 r32 R = RandomUnilateral(&ModePhysics2->Series);
                 r32 G = RandomUnilateral(&ModePhysics2->Series);
@@ -102,7 +105,7 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
         }
     }
     
-    // NOTE(ezexff): test transform vertices
+    // NOTE(ezexff): transform rect vertices
     v4 WhiteColor = V4(1, 1, 1, 1);
     //v4 RedColor = V4(1, 0, 0, 1);
     for(u32 EntityIndex = 0;
@@ -112,110 +115,173 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
         // NOTE(ezexff): pre transform work
         test_entity *Entity = ModePhysics2->EntityArray + EntityIndex;
         if(Entity->IsInitialized)
-        {        
-            // NOTE(ezexff): transform vertices
-            v3 P = V3(Entity->P.x, Entity->P.y, 1.0f);
-            v3 Dim = V3(Entity->Dim.x , Entity->Dim.y, 1.0f);
-            m4x4 Model =  Translate(P) * Scale(Dim) * ZRotation(Entity->Angle);
-            u32 VertexCount = ArrayCount(Entity->VertexArray);
-            for(u32 Index = 0;
-                Index < ArrayCount(Entity->VertexArray);
-                ++Index)
-            {
-                v2 *OriginalVertex = Entity->VertexArray + Index;
-                v2 *TransformedVertex = Entity->TransformedVertexArray + Index;
-                *TransformedVertex = (Model * V4(OriginalVertex->x, OriginalVertex->y, 0, 0)).xy;
-            }
+        {
+            r32 MinX = F32Max;
+            r32 MinY = F32Max;
+            r32 MaxX = F32Min;
+            r32 MaxY = F32Min;
             
-            Entity->OutlineColor = WhiteColor;
+            if(Entity->Type == TestEntityType_Rect)
+            {
+                v3 P = V3(Entity->P.x, Entity->P.y, 1.0f);
+                v3 Dim = V3(Entity->Dim.x , Entity->Dim.y, 1.0f);
+                m4x4 Model =  Translate(P) * Scale(Dim) * ZRotation(Entity->Angle);
+                u32 VertexCount = ArrayCount(Entity->VertexArray);
+                for(u32 Index = 0;
+                    Index < ArrayCount(Entity->VertexArray);
+                    ++Index)
+                {
+                    v2 *OriginalVertex = Entity->VertexArray + Index;
+                    v2 *TransformedVertex = Entity->TransformedVertexArray + Index;
+                    *TransformedVertex = (Model * V4(OriginalVertex->x, OriginalVertex->y, 0, 0)).xy;
+                    
+                    if(TransformedVertex->x < MinX){MinX = TransformedVertex->x;}
+                    if(TransformedVertex->y < MinY){MinY = TransformedVertex->y;}
+                    if(TransformedVertex->x > MaxX){MaxX = TransformedVertex->x;}
+                    if(TransformedVertex->y > MaxY){MaxY = TransformedVertex->y;}
+                }
+                
+                Entity->OutlineColor = WhiteColor;
+            }
+            else if(Entity->Type == TestEntityType_Circle)
+            {
+                MinX = Entity->P.x - Entity->Radius;
+                MinY = Entity->P.y - Entity->Radius;
+                MaxX = Entity->P.x + Entity->Radius;
+                MaxY = Entity->P.y + Entity->Radius;
+            }
+            Entity->AABB = {V2(MinX, MinY), V2(MaxX, MaxY)};
         }
     }
     
     // NOTE(ezexff): move
+    u32 IterationMax = 1;
+    v2 Gravity = V2(0.0f, -9.81f);
+    Gravity *= 100.0f;
     r32 dt = Input->dtForFrame;
-    for(u32 EntityIndex = 0;
-        EntityIndex < ArrayCount(ModePhysics2->EntityArray);
-        ++EntityIndex)
-    {
-        test_entity *Entity = ModePhysics2->EntityArray + EntityIndex;
-        if(Entity->IsInitialized)
+    for(u32 Iteration = 0;
+        Iteration < IterationMax;
+        ++Iteration)
+    { 
+        for(u32 EntityIndex = 0;
+            EntityIndex < ArrayCount(ModePhysics2->EntityArray);
+            ++EntityIndex)
         {
-            if(!Entity->IsStatic)
-            {            
-                //Entity->Force = Entity->ddP * Entity->ForceMagnitude;
-                //v2 Delta = Entity->Force / Entity->Mass;
-                //Entity->dP += Delta  * dt;
-                v2 Gravity = V2(0.0f, -9.81f);
-                Entity->dP += Gravity * dt;
-                Entity->P += Entity->dP;
-                Entity->Force = {};
-            }
-            
-            // NOTE(ezexff): collision detection
-            for(u32 TestIndex = 0;
-                TestIndex < ArrayCount(ModePhysics2->EntityArray);
-                ++TestIndex)
+            test_entity *Entity = ModePhysics2->EntityArray + EntityIndex;
+            if(Entity->IsInitialized)
             {
-                test_entity *TestEntity = ModePhysics2->EntityArray + TestIndex;
-                
-                if(TestEntity->IsInitialized)
+                if(!Entity->IsStatic)
+                {            
+                    Entity->dP += Gravity * dt / (r32)IterationMax;
+                    Entity->P += Entity->dP * dt / (r32)IterationMax;
+                    Entity->Force = {};
+                }
+            }
+        }
+        
+        // NOTE(ezexff): clear contact array
+        ModePhysics2->ContactCount = 0;
+        for(u32 Index = 0;
+            Index < ModePhysics2->ContactCount;
+            ++Index)
+        {
+            ModePhysics2->ContactArray[Index] = {};
+        }
+        
+        // NOTE(ezexff): collision detection
+        for(u32 EntityIndex = 0;
+            EntityIndex < ArrayCount(ModePhysics2->EntityArray) - 1;
+            ++EntityIndex)
+        {
+            test_entity *Entity = ModePhysics2->EntityArray + EntityIndex;
+            if(Entity->IsInitialized)
+            {
+                for(u32 TestIndex = EntityIndex + 1;
+                    TestIndex < ArrayCount(ModePhysics2->EntityArray);
+                    ++TestIndex)
                 {
-                    if(EntityIndex != TestIndex)
+                    test_entity *TestEntity = ModePhysics2->EntityArray + TestIndex;
+                    
+                    if(TestEntity->IsInitialized)
                     {
-                        if(Entity->IsStatic && TestEntity->IsStatic)
                         {
-                            continue;
-                        }
-                        intersect_result Result = {};
-                        if(Entity->Type == TestEntityType_Rect)
-                        {
-                            if(TestEntity->Type == TestEntityType_Rect)
+                            if(Entity->IsStatic && TestEntity->IsStatic)
                             {
-                                Result = IntersectPolygonsOptimized(Entity->P, Entity->VertexCount, Entity->TransformedVertexArray,
-                                                                    TestEntity->P, TestEntity->VertexCount, TestEntity->TransformedVertexArray);
+                                continue;
                             }
-                            else if(TestEntity->Type == TestEntityType_Circle)
+                            
+                            if(!RectanglesIntersect(Entity->AABB, TestEntity->AABB))
                             {
-                                Result = IntersectCirclePolygonOptimized(TestEntity->P, TestEntity->Radius,
-                                                                         Entity->P, Entity->VertexCount, Entity->TransformedVertexArray);
-                                Result.Normal = -Result.Normal;
+                                continue;
                             }
-                        }
-                        else if(Entity->Type == TestEntityType_Circle)
-                        {
-                            if(TestEntity->Type == TestEntityType_Rect)
+                            
+                            intersect_result Result = {};
+                            if(Entity->Type == TestEntityType_Rect)
                             {
-                                Result = IntersectCirclePolygonOptimized(Entity->P, Entity->Radius,
-                                                                         TestEntity->P, TestEntity->VertexCount, TestEntity->TransformedVertexArray);
+                                if(TestEntity->Type == TestEntityType_Rect)
+                                {
+                                    Result = IntersectPolygonsOptimized(Entity->P, Entity->VertexCount, Entity->TransformedVertexArray,
+                                                                        TestEntity->P, TestEntity->VertexCount, TestEntity->TransformedVertexArray);
+                                }
+                                else if(TestEntity->Type == TestEntityType_Circle)
+                                {
+                                    Result = IntersectCirclePolygonOptimized(TestEntity->P, TestEntity->Radius,
+                                                                             Entity->P, Entity->VertexCount, Entity->TransformedVertexArray);
+                                    Result.Normal = -Result.Normal;
+                                }
                             }
-                            else if(TestEntity->Type == TestEntityType_Circle)
+                            else if(Entity->Type == TestEntityType_Circle)
                             {
-                                Result = IntersectCircles(Entity->P, Entity->Radius, TestEntity->P, TestEntity->Radius);
+                                if(TestEntity->Type == TestEntityType_Rect)
+                                {
+                                    Result = IntersectCirclePolygonOptimized(Entity->P, Entity->Radius,
+                                                                             TestEntity->P, TestEntity->VertexCount, TestEntity->TransformedVertexArray);
+                                }
+                                else if(TestEntity->Type == TestEntityType_Circle)
+                                {
+                                    Result = IntersectCircles(Entity->P, Entity->Radius, TestEntity->P, TestEntity->Radius);
+                                }
                             }
-                        }
-                        if(Result.IsCollides)
-                        {
-                            if(Entity->IsStatic)
+                            if(Result.IsCollides)
                             {
-                                TestEntity->P += Result.Normal * Result.Depth;
+                                if(Entity->IsStatic)
+                                {
+                                    TestEntity->P += Result.Normal * Result.Depth;
+                                }
+                                else if(TestEntity->IsStatic)
+                                {
+                                    Entity->P += -Result.Normal * Result.Depth;
+                                }
+                                else
+                                {
+                                    r32 DepthDiv2 = Result.Depth / 2.0f;
+                                    Entity->P += -Result.Normal * DepthDiv2;
+                                    TestEntity->P += Result.Normal * DepthDiv2;
+                                }
+                                //TestEntity->OutlineColor = RedColor;
+                                //Entity->OutlineColor = RedColor;
+                                contact_points ContactPoints = FindContactPoints(Entity, TestEntity);
+                                test_contact *Contact = &ModePhysics2->ContactArray[ModePhysics2->ContactCount];
+                                Assert(Entity);
+                                Assert(TestEntity);
+                                Contact->BodyA = Entity;
+                                Contact->BodyB = TestEntity;
+                                Contact->Normal = Result.Normal;
+                                Contact->Depth = Result.Depth;
+                                Contact->ContactPoints = ContactPoints;
+                                ModePhysics2->ContactCount++;
                             }
-                            else if(TestEntity->IsStatic)
-                            {
-                                Entity->P += -Result.Normal * Result.Depth;
-                            }
-                            else
-                            {
-                                r32 DepthDiv2 = Result.Depth / 2.0f;
-                                Entity->P += -Result.Normal * DepthDiv2;
-                                TestEntity->P += Result.Normal * DepthDiv2;
-                            }
-                            //TestEntity->OutlineColor = RedColor;
-                            //Entity->OutlineColor = RedColor;
-                            ResolveCollision(Entity, TestEntity, Result.Normal, Result.Depth);
                         }
                     }
                 }
             }
+        }
+        
+        for(u32 Index = 0;
+            Index < ModePhysics2->ContactCount;
+            ++Index)
+        {
+            ResolveCollisionOptimized(&ModePhysics2->ContactArray[Index]);
         }
     }
     
@@ -257,5 +323,32 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
                 InvalidDefaultCase;
             }
         }
+    }
+    
+    r32 Width = 10.0f;
+    v2 WidthDiv2 = V2(Width / 2.0f, Width / 2.0f);
+    for(u32 Index = 0;
+        Index < ModePhysics2->ContactCount;
+        ++Index)
+    {
+        contact_points CP = ModePhysics2->ContactArray[Index].ContactPoints;
+        if(CP.Count == 1)
+        {
+            rectangle2 Rect = {CP.P1 - WidthDiv2, CP.P1 + WidthDiv2};
+            PushRectOnScreen(&Renderer->PushBufferPhysics, Rect.Min, Rect.Max, V4(1, 0.5f, 0, 1), 10000);
+        }
+        else if(CP.Count == 2)
+        {
+            rectangle2 Rect1 = {CP.P1 - WidthDiv2, CP.P1 + WidthDiv2};
+            PushRectOnScreen(&Renderer->PushBufferPhysics, Rect1.Min, Rect1.Max, V4(1, 0.5f, 0, 1), 10000);
+            rectangle2 Rect2 = {CP.P2 - WidthDiv2, CP.P2 + WidthDiv2};
+            PushRectOnScreen(&Renderer->PushBufferPhysics, Rect2.Min, Rect2.Max, V4(1, 0.5f, 0, 1), 10000);
+        }
+        /* 
+                else
+                {
+                    InvalidCodePath
+                }
+         */
     }
 }

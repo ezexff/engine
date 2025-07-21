@@ -1991,7 +1991,8 @@ OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuf
             
             case RendererOrthoEntryType_renderer_ortho_entry_rect:
             {
-                InvalidCodePath;
+                //InvalidCodePath;
+                // TODO(ezexff): TEMP
                 renderer_ortho_entry_rect *Entry = (renderer_ortho_entry_rect *)Data;
                 v2 Min = Entry->P;
                 v2 Max = Entry->Dim;

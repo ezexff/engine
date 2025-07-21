@@ -43,8 +43,10 @@ struct test_entity
     r32 Mass;
     r32 InvMass;
     r32 Restitution;
+    rectangle2 AABB;
     
     //~ NOTE(ezexff): entity types
+    
     // NOTE(ezexff): rect
     v2 Dim;
     r32 Size;

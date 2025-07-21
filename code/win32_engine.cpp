@@ -22,7 +22,7 @@ game_controller_input *NewKeyboardController;
 IAudioClient* GlobalAudioClient;
 IAudioRenderClient* GlobalAudioRenderClient;
 #define FramesOfAudioLatency 1
-#define MonitorRefreshHz 2048
+#define MonitorRefreshHz 10000
 s32 GlobalGameUpdateHz = (MonitorRefreshHz);
 
 u64 GlobalTimerOffset;

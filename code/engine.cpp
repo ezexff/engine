@@ -498,6 +498,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             UI_Label("FPS = %.2f", FPS);
             UI_Label("MS = %.3f", Input->dtForFrame * 1000.0f);
             UI_Label("MouseP = %.2f %.2f", Input->MouseP.x, Input->MouseP.y);
+            UI_Label("dt = %f", Input->dtForFrame);
             
             if(UI_IsPressed(UI_Button("Physics1")))
             {
