@@ -29,7 +29,7 @@ PointSegmentDistance(v2 P, v2 A, v2 B)
 }
 
 internal contact_points
-FindContactPoint(v2 CenterA, u32 VertexCountA, v2 *VertexArrayA, v2 CenterB, u32 VertexCountB, v2 *VertexArrayB)
+FindPolygonsContactPoint(v2 CenterA, u32 VertexCountA, v2 *VertexArrayA, v2 CenterB, u32 VertexCountB, v2 *VertexArrayB)
 {
     contact_points Result = {};
     r32 MinDistanceSquared = F32Max;
@@ -96,7 +96,7 @@ FindContactPoint(v2 CenterA, u32 VertexCountA, v2 *VertexArrayA, v2 CenterB, u32
 }
 
 internal v2
-FindContactPoint(v2 CircleCenter, r32 CircleRadius, v2 PolygonCenter, u32 VertexCount, v2 *VertexArray)
+FindCirclePolygonContactPoint(v2 CircleCenter, r32 CircleRadius, v2 PolygonCenter, u32 VertexCount, v2 *VertexArray)
 {
     v2 Contact = {};
     r32 MinDistanceSquared = F32Max;
@@ -119,7 +119,7 @@ FindContactPoint(v2 CircleCenter, r32 CircleRadius, v2 PolygonCenter, u32 Vertex
 }
 
 internal v2
-FindContactPoint(v2 CenterA, r32 RadiusA, v2 CenterB)
+FindCirclesContactPoint(v2 CenterA, r32 RadiusA, v2 CenterB)
 {
     v2 AB = CenterB - CenterA;
     v2 Dir = Normalize(AB);
@@ -136,12 +136,13 @@ FindContactPoints(test_entity *BodyA, test_entity *BodyB)
     {
         if(BodyB->Type == TestEntityType_Rect)
         {
-            Result = FindContactPoint(BodyA->P, BodyA->VertexCount, BodyA->TransformedVertexArray,
-                                      BodyB->P, BodyB->VertexCount, BodyB->TransformedVertexArray);
+            Result = FindPolygonsContactPoint(BodyA->P, BodyA->VertexCount, BodyA->TransformedVertexArray,
+                                              BodyB->P, BodyB->VertexCount, BodyB->TransformedVertexArray);
         }
         else if(BodyB->Type == TestEntityType_Circle)
         {
-            Result.P1 = FindContactPoint(BodyB->P, BodyB->Radius, BodyA->P, BodyA->VertexCount, BodyA->TransformedVertexArray);
+            Result.P1 = FindCirclePolygonContactPoint(BodyB->P, BodyB->Radius,
+                                                      BodyA->P, BodyA->VertexCount, BodyA->TransformedVertexArray);
             Result.Count = 1;
         }
     }
@@ -149,23 +150,24 @@ FindContactPoints(test_entity *BodyA, test_entity *BodyB)
     {
         if(BodyB->Type == TestEntityType_Rect)
         {
-            Result.P1 = FindContactPoint(BodyA->P, BodyA->Radius, BodyB->P, BodyB->VertexCount, BodyB->TransformedVertexArray);
+            Result.P1 = FindCirclePolygonContactPoint(BodyA->P, BodyA->Radius,
+                                                      BodyB->P, BodyB->VertexCount, BodyB->TransformedVertexArray);
             Result.Count = 1;
         }
         else if(BodyB->Type == TestEntityType_Circle)
         {
-            Result.P1 = FindContactPoint(BodyA->P, BodyA->Radius, BodyB->P);
+            Result.P1 = FindCirclesContactPoint(BodyA->P, BodyA->Radius, BodyB->P);
             Result.Count = 1;
         }
     }
     return(Result);
 }
 
-void ResolveCollisionOptimized(test_contact *Contact)
+void ResolveCollisionOptimized(test_contact Contact)
 {
-    test_entity *A = Contact->BodyA;
-    test_entity *B = Contact->BodyB;
-    v2 Normal = Contact->Normal;
+    test_entity *A = Contact.BodyA;
+    test_entity *B = Contact.BodyB;
+    v2 Normal = Contact.Normal;
     
     v2 RelVel = B->dP - A->dP;
     

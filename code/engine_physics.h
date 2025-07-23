@@ -33,34 +33,44 @@ enum test_entity_type
 
 struct test_entity
 {
-    b32 IsInitialized;
-    s32 Type;
-    v4 Color;
-    v4 OutlineColor;
-    
-    // NOTE(ezexff): move spec
+    test_entity_type Type;
     b32 IsStatic;
-    r32 ForceMagnitude;
-    v2 Force;
+    b32 IsInitialized;
+    rectangle2 AABB; // collision detection optimization with AABB check
+    
+    //~ NOTE(ezexff): physics
     v2 P;
     v2 dP;
     v2 ddP;
+    
+    r32 Angle;
+    v2 dPAngular;
+    
     r32 Density;
+    r32 Restitution;
     r32 Mass;
     r32 InvMass;
-    r32 Restitution;
-    rectangle2 AABB;
+    r32 Inertia;
+    r32 InvInertia;
+    
+    
+    //~ NOTE(ezexff): draw
+    v4 Color;
+    v4 OutlineColor;
     
     //~ NOTE(ezexff): entity types
     
+    // NOTE(ezexff): circle
+    r32 Radius;
+    
     // NOTE(ezexff): rect
     v2 Dim;
-    r32 Size;
-    r32 Angle;
     u32 VertexCount;
     v2 VertexArray[4];
     v2 TransformedVertexArray[4];
     
-    // NOTE(ezexff): circle
-    r32 Radius;
+    //~ NOTE(ezexff): outdated (physics1)
+    r32 Size;
+    v2 Force;
+    r32 ForceMagnitude;
 };

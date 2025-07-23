@@ -5,17 +5,13 @@ inline r32 DegToRad(r32 Value)
     return(Result);
 }
 
-inline b32 NearlyEqual(r32 E, r32 A, r32 B)
-{
-    b32 Result = AbsoluteValue(A - B) < E;
-    return(Result);
-}
-
+/* 
 inline b32 NearlyEqual(r32 E, v2 A, v2 B)
 {
     b32 Result = NearlyEqual(E, A.x, B.x) && NearlyEqual(E, A.y, B.y);
     return(Result);
 }
+ */
 
 //~ NOTE(ezexff): Scalar operations
 inline r32 Square(r32 A)
@@ -267,6 +263,18 @@ inline v2 Clamp01(v2 Value)
     Result.x = Clamp01(Value.x);
     Result.y = Clamp01(Value.y);
     
+    return(Result);
+}
+
+inline b32 NearlyEqual(r32 E, r32 A, r32 B)
+{
+    b32 Result = AbsoluteValue(A - B) < E;
+    return(Result);
+}
+
+inline b32 NearlyEqual(r32 E, v2 A, v2 B)
+{
+    b32 Result = DistanceSq(A, B) < Square(E);
     return(Result);
 }
 

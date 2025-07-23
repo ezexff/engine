@@ -1,5 +1,11 @@
 #define PHYSICS_EPSILON 0.0005f
 
+struct contact_pair
+{
+    u32 IndexA;
+    u32 IndexB;
+};
+
 struct contact_points
 {
     v2 P1;
@@ -25,8 +31,11 @@ struct mode_physics2
     
     test_entity EntityArray[ENTITY_COUNT_MAX];
     
-    u32 ContactCount;
-    test_contact ContactArray[ENTITY_COUNT_MAX];
+    //u32 ContactCount;
+    //test_contact ContactArray[ENTITY_COUNT_MAX];
+    
+    u32 ContactPairCount;
+    contact_pair ContactPairArray[ENTITY_COUNT_MAX];
     
     random_series Series;
     

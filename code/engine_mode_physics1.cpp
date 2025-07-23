@@ -195,7 +195,7 @@ UpdateAndRenderPhysics1(game_memory *Memory, game_input *Input)
             ++Index)
         {
             test_entity *Entity = ModePhysics1->EntityArray + Index;
-            Entity->Type = RandomBetween(&Series, 0, TestEntityType_Count - 1);
+            Entity->Type = (test_entity_type)RandomBetween(&Series, 0, TestEntityType_Count - 1);
             r32 R = RandomUnilateral(&Series);
             r32 G = RandomUnilateral(&Series);
             r32 B = RandomUnilateral(&Series);
@@ -290,14 +290,14 @@ UpdateAndRenderPhysics1(game_memory *Memory, game_input *Input)
     {
         // NOTE(ezexff): pre transform work
         test_entity *Entity = ModePhysics1->EntityArray + EntityIndex;
-        if(EntityIndex == 1)
+        if(EntityIndex == 7)
         {
             Entity->Angle += Input->dtForFrame;
             if(Entity->Angle > 360){Entity->Angle -= 360;}
         }
         
         // NOTE(ezexff): transform vertices
-        m4x4 Model =  Translate(V3(Entity->P.x, Entity->P.y, 1.0f)) * Scale(Entity->Size) * ZRotation(Entity->Angle);
+        m4x4 Model =  Translate(V3(Entity->P.x, Entity->P.y, 1.0f)) * ZRotation(Entity->Angle) * Scale(Entity->Size);
         u32 VertexCount = ArrayCount(Entity->VertexArray);
         for(u32 Index = 0;
             Index < ArrayCount(Entity->VertexArray);
