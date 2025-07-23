@@ -163,7 +163,7 @@ FindContactPoints(test_entity *BodyA, test_entity *BodyB)
     return(Result);
 }
 
-void ResolveCollisionOptimized(test_contact Contact)
+void ResolveCollisionBasic(test_contact Contact)
 {
     test_entity *A = Contact.BodyA;
     test_entity *B = Contact.BodyB;
@@ -176,10 +176,234 @@ void ResolveCollisionOptimized(test_contact Contact)
         r32 e = Minimum(A->Restitution, B->Restitution);
         r32 j = -(1.0f + e) * Inner(RelVel, Normal);
         j /= A->InvMass + B->InvMass;
-        
         v2 Impulse = j * Normal;
-        A->dP += -(Impulse * A->InvMass);
+        
+        A->dP += -Impulse * A->InvMass;
         B->dP += Impulse * B->InvMass;
+    }
+}
+
+internal void
+ResolveCollisionWithRotation(test_contact Contact)
+{
+    test_entity *BodyA = Contact.BodyA;
+    test_entity *BodyB = Contact.BodyB;
+    v2 Normal = Contact.Normal;
+    v2 Contact1 = Contact.ContactPoints.P1;
+    v2 Contact2 = Contact.ContactPoints.P2;
+    u32 ContactCount = Contact.ContactPoints.Count;
+    
+    v2 ContactArray[2] = {Contact1, Contact2};
+    v2 ImpulseArray[2] = {};
+    v2 RAArray[2] = {};
+    v2 RBArray[2] = {};
+    
+    r32 e = Minimum(BodyA->Restitution, BodyB->Restitution);
+    for(u32 Index = 0;
+        Index < ContactCount;
+        ++Index)
+    {
+        v2 RA = ContactArray[Index] - BodyA->P;
+        v2 RB = ContactArray[Index] - BodyB->P;
+        
+        RAArray[Index] = RA;
+        RBArray[Index] = RB;
+        
+        v2 RAPerp = V2(-RA.y, RA.x);
+        v2 RBPerp = V2(-RB.y, RB.x);
+        
+        v2 AngularLinearVelocityA = RAPerp * BodyA->dPAngular;
+        v2 AngularLinearVelocityB = RBPerp * BodyB->dPAngular;
+        
+        v2 RelativeVelocity =
+        (BodyB->dP + AngularLinearVelocityB) -
+        (BodyA->dP + AngularLinearVelocityA);
+        
+        r32 ContactVelocityMagnitude = Inner(RelativeVelocity, Normal);
+        
+        if(ContactVelocityMagnitude <= 0.0f)
+        {
+            r32 RAPerpDotN = Inner(RAPerp, Normal);
+            r32 RBPerpDotN = Inner(RBPerp, Normal);
+            
+            r32 Denom = BodyA->InvMass + BodyB->InvMass +
+                Square(RAPerpDotN) * BodyA->InvInertia +
+                Square(RBPerpDotN) * BodyB->InvInertia;
+            
+            r32 j = -(1.0f + e) * ContactVelocityMagnitude;
+            j /= Denom;
+            j /= (r32)ContactCount;
+            v2 Impulse = j * Normal;
+            ImpulseArray[Index] = Impulse;
+        }
+    }
+    
+    for(u32 Index = 0;
+        Index < ContactCount;
+        ++Index)
+    {
+        v2 Impulse = ImpulseArray[Index];
+        v2 RA = RAArray[Index];
+        v2 RB = RBArray[Index];
+        
+        BodyA->dP += -Impulse * BodyA->InvMass;
+        BodyA->dPAngular += -Cross(RA, Impulse) * BodyA->InvInertia;
+        BodyB->dP += Impulse * BodyB->InvMass;
+        BodyB->dPAngular += Cross(RB, Impulse) * BodyB->InvInertia;
+        
+    }
+}
+
+internal void
+ResolveCollisionWithRotationAndFriction(test_contact Contact)
+{
+    test_entity *BodyA = Contact.BodyA;
+    test_entity *BodyB = Contact.BodyB;
+    v2 Normal = Contact.Normal;
+    v2 Contact1 = Contact.ContactPoints.P1;
+    v2 Contact2 = Contact.ContactPoints.P2;
+    u32 ContactCount = Contact.ContactPoints.Count;
+    
+    v2 ContactArray[2] = {Contact1, Contact2};
+    v2 ImpulseArray[2] = {};
+    v2 RAArray[2] = {};
+    v2 RBArray[2] = {};
+    v2 FrictionImpulseArray[2] = {};
+    r32 jArray[2] = {};
+    
+    r32 e = Minimum(BodyA->Restitution, BodyB->Restitution);
+    
+    r32 SF = (BodyA->StaticFriction + BodyB->StaticFriction) * 0.5f;
+    r32 DF = (BodyA->DynamicFriction + BodyB->DynamicFriction) * 0.5f;
+    
+    // NOTE(ezexff): rotation
+    for(u32 Index = 0;
+        Index < ContactCount;
+        ++Index)
+    {
+        v2 RA = ContactArray[Index] - BodyA->P;
+        v2 RB = ContactArray[Index] - BodyB->P;
+        
+        RAArray[Index] = RA;
+        RBArray[Index] = RB;
+        
+        v2 RAPerp = V2(-RA.y, RA.x);
+        v2 RBPerp = V2(-RB.y, RB.x);
+        
+        v2 AngularLinearVelocityA = RAPerp * BodyA->dPAngular;
+        v2 AngularLinearVelocityB = RBPerp * BodyB->dPAngular;
+        
+        v2 RelativeVelocity =
+        (BodyB->dP + AngularLinearVelocityB) -
+        (BodyA->dP + AngularLinearVelocityA);
+        
+        r32 ContactVelocityMagnitude = Inner(RelativeVelocity, Normal);
+        
+        if(ContactVelocityMagnitude <= 0.0f)
+        {
+            r32 RAPerpDotN = Inner(RAPerp, Normal);
+            r32 RBPerpDotN = Inner(RBPerp, Normal);
+            
+            r32 Denom = BodyA->InvMass + BodyB->InvMass +
+                Square(RAPerpDotN) * BodyA->InvInertia +
+                Square(RBPerpDotN) * BodyB->InvInertia;
+            
+            r32 j = -(1.0f + e) * ContactVelocityMagnitude;
+            j /= Denom;
+            j /= (r32)ContactCount;
+            
+            jArray[Index] = j;
+            
+            v2 Impulse = j * Normal;
+            ImpulseArray[Index] = Impulse;
+        }
+    }
+    
+    for(u32 Index = 0;
+        Index < ContactCount;
+        ++Index)
+    {
+        v2 Impulse = ImpulseArray[Index];
+        v2 RA = RAArray[Index];
+        v2 RB = RBArray[Index];
+        
+        BodyA->dP += -Impulse * BodyA->InvMass;
+        BodyA->dPAngular += -Cross(RA, Impulse) * BodyA->InvInertia;
+        BodyB->dP += Impulse * BodyB->InvMass;
+        BodyB->dPAngular += Cross(RB, Impulse) * BodyB->InvInertia;
+        
+    }
+    
+    // NOTE(ezexff): friction
+    for(u32 Index = 0;
+        Index < ContactCount;
+        ++Index)
+    {
+        v2 RA = ContactArray[Index] - BodyA->P;
+        v2 RB = ContactArray[Index] - BodyB->P;
+        
+        RAArray[Index] = RA;
+        RBArray[Index] = RB;
+        
+        v2 RAPerp = V2(-RA.y, RA.x);
+        v2 RBPerp = V2(-RB.y, RB.x);
+        
+        v2 AngularLinearVelocityA = RAPerp * BodyA->dPAngular;
+        v2 AngularLinearVelocityB = RBPerp * BodyB->dPAngular;
+        
+        v2 RelativeVelocity =
+        (BodyB->dP + AngularLinearVelocityB) -
+        (BodyA->dP + AngularLinearVelocityA);
+        
+        v2 Tangent = RelativeVelocity - Inner(RelativeVelocity, Normal) * Normal;
+        
+        if(NearlyEqual(PHYSICS_EPSILON, Tangent, V2(0, 0)))
+        {
+            continue;
+        }
+        else
+        {
+            Tangent = Normalize(Tangent);
+        }
+        
+        r32 RAPerpDotT = Inner(RAPerp, Tangent);
+        r32 RBPerpDotT = Inner(RBPerp, Tangent);
+        
+        r32 Denom = BodyA->InvMass + BodyB->InvMass +
+            Square(RAPerpDotT) * BodyA->InvInertia +
+            Square(RBPerpDotT) * BodyB->InvInertia;
+        
+        r32 jt = -Inner(RelativeVelocity, Tangent);
+        jt /= Denom;
+        jt /= (r32)ContactCount;
+        
+        v2 FrictionImpulse = {};
+        r32 j = jArray[Index];
+        if(AbsoluteValue(jt) <= j * SF)
+        {
+            FrictionImpulse = jt * Tangent;
+        }
+        else
+        {
+            FrictionImpulse = -j * Tangent * DF;
+        }
+        
+        FrictionImpulseArray[Index] = FrictionImpulse;
+    }
+    
+    for(u32 Index = 0;
+        Index < ContactCount;
+        ++Index)
+    {
+        v2 FrictionImpulse = FrictionImpulseArray[Index];
+        v2 RA = RAArray[Index];
+        v2 RB = RBArray[Index];
+        
+        BodyA->dP += -FrictionImpulse * BodyA->InvMass;
+        BodyA->dPAngular += -Cross(RA, FrictionImpulse) * BodyA->InvInertia;
+        BodyB->dP += FrictionImpulse * BodyB->InvMass;
+        BodyB->dPAngular += Cross(RB, FrictionImpulse) * BodyB->InvInertia;
+        
     }
 }
 

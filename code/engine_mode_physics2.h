@@ -35,7 +35,7 @@ struct mode_physics2
     //test_contact ContactArray[ENTITY_COUNT_MAX];
     
     u32 ContactPairCount;
-    contact_pair ContactPairArray[ENTITY_COUNT_MAX];
+    contact_pair ContactPairArray[ENTITY_COUNT_MAX * ENTITY_COUNT_MAX];
     
     random_series Series;
     

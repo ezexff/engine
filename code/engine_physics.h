@@ -44,7 +44,7 @@ struct test_entity
     v2 ddP;
     
     r32 Angle;
-    v2 dPAngular;
+    r32 dPAngular;
     
     r32 Density;
     r32 Restitution;
@@ -53,6 +53,8 @@ struct test_entity
     r32 Inertia;
     r32 InvInertia;
     
+    r32 StaticFriction;
+    r32 DynamicFriction;
     
     //~ NOTE(ezexff): draw
     v4 Color;
@@ -62,6 +64,9 @@ struct test_entity
     
     // NOTE(ezexff): circle
     r32 Radius;
+    u32 LineVertexCount;
+    v2 LineVertexArray[2];
+    v2 LineTransformedVertexArray[2];
     
     // NOTE(ezexff): rect
     v2 Dim;

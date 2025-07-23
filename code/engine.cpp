@@ -557,6 +557,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                 UI_Label("TestPhysics2");
                 mode_physics2 *ModePhysics2 = &GameState->ModePhysics2;
                 UI_Label("InitializedEntityCount = %d", ModePhysics2->InitializedEntityCount);
+                UI_Label("ContactPairCount = %d", ModePhysics2->ContactPairCount);
             }
             
             UI_EndWindow();

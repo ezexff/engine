@@ -34,6 +34,7 @@ Collide(test_entity *BodyA, test_entity *BodyB)
 internal void
 StepBodies(mode_physics2 *ModePhysics, r32 IterationMax, r32 dt, v2 Gravity)
 {
+    dt /= IterationMax;
     for(u32 EntityIndex = 0;
         EntityIndex < ArrayCount(ModePhysics->EntityArray);
         ++EntityIndex)
@@ -42,9 +43,10 @@ StepBodies(mode_physics2 *ModePhysics, r32 IterationMax, r32 dt, v2 Gravity)
         if(Entity->IsInitialized)
         {
             if(!Entity->IsStatic)
-            {            
-                Entity->dP += Gravity * dt / IterationMax;
-                Entity->P += Entity->dP * dt / IterationMax;
+            {
+                Entity->dP += Gravity * dt;
+                Entity->P += Entity->dP * dt;
+                Entity->Angle += Entity->dPAngular * dt;
             }
         }
     }
@@ -82,6 +84,7 @@ BroadPhase(mode_physics2 *ModePhysics, u32 Iteration, u32 IterationMax)
                     ModePhysics->ContactPairArray[ModePhysics->ContactPairCount].IndexA = IndexA;
                     ModePhysics->ContactPairArray[ModePhysics->ContactPairCount].IndexB = IndexB;
                     ModePhysics->ContactPairCount++;
+                    Assert(ModePhysics->ContactPairCount < ENTITY_COUNT_MAX * ENTITY_COUNT_MAX);
                 }
             }
         }
@@ -123,7 +126,9 @@ NarrowPhase(mode_physics2 *ModePhysics)
             Contact.Normal = Intersect.Normal;
             Contact.Depth = Intersect.Depth;
             Contact.ContactPoints = FindContactPoints(BodyA, BodyB);
-            ResolveCollisionOptimized(Contact);
+            //ResolveCollisionBasic(Contact);
+            //ResolveCollisionWithRotation(Contact);
+            ResolveCollisionWithRotationAndFriction(Contact);
         }
     }
 }
@@ -160,10 +165,14 @@ AddRawEntity(mode_physics2 *ModePhysics, test_entity_type Type, b32 IsStatic,
         {
             Entity->Type = Type;
             Entity->IsStatic = IsStatic;
+            
             Entity->P = P;
             Entity->Angle = Angle;
             Entity->Density = Density;
             Entity->Restitution = Restitution;
+            Entity->StaticFriction = 0.6f;
+            Entity->DynamicFriction = 0.4f;
+            
             Entity->Color = Color;
             Entity->OutlineColor = OutlineColor;
             
@@ -197,7 +206,6 @@ AddRectEntity(mode_physics2 *ModePhysics, b32 IsStatic,
     Entity->VertexArray[1] = V2(0.5f, -0.5f);
     Entity->VertexArray[2] = V2(0.5f, 0.5f);
     Entity->VertexArray[3] = V2(-0.5f, 0.5f);
-    
 }
 
 internal void
@@ -215,6 +223,9 @@ AddCircleEntity(mode_physics2 *ModePhysics, b32 IsStatic,
     Entity->Mass = Area * Entity->Density;
     Entity->Inertia = (1.0f / 2.0f) * Entity->Mass * Square(Entity->Radius);
     CalcInvMassAndInertia(Entity);
+    Entity->LineVertexCount = ArrayCount(Entity->LineVertexArray);
+    Entity->LineVertexArray[0] = V2(0.0f, 0.0f);
+    Entity->LineVertexArray[1] = V2(1.0f, 0.0f);
 }
 
 internal void
@@ -222,6 +233,9 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
 {
     game_state *GameState = (game_state *)Memory->PermanentStorage;
     tran_state *TranState = (tran_state *)Memory->TransientStorage;
+    
+    memory_arena *ConstArena = &GameState->ConstArena;
+    memory_arena *TranArena = &TranState->TranArena;
     
     renderer_frame *Frame = &Memory->Frame;
     renderer *Renderer = (renderer *)Frame->Renderer;
@@ -276,7 +290,7 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
                         Color, V4(1, 1, 1, 1));
     }
     
-    // NOTE(ezexff): transform rect vertices
+    // NOTE(ezexff): transform vertices
     v4 WhiteColor = V4(1, 1, 1, 1);
     //v4 RedColor = V4(1, 0, 0, 1);
     for(u32 EntityIndex = 0;
@@ -327,6 +341,18 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
                 MinY = Entity->P.y - Entity->Radius;
                 MaxX = Entity->P.x + Entity->Radius;
                 MaxY = Entity->P.y + Entity->Radius;
+                
+                v3 P = V3(Entity->P.x, Entity->P.y, 1.0f);
+                m4x4 Model = Translate(P) * ZRotation(Entity->Angle) * Scale(Entity->Radius);
+                u32 VertexCount = ArrayCount(Entity->LineVertexArray);
+                for(u32 Index = 0;
+                    Index < ArrayCount(Entity->VertexArray);
+                    ++Index)
+                {
+                    v2 *LineOriginalVertex = Entity->LineVertexArray + Index;
+                    v2 *LineTransformedVertex = Entity->LineTransformedVertexArray + Index;
+                    *LineTransformedVertex = (Model * V4(LineOriginalVertex->x, LineOriginalVertex->y, 0, 0)).xy;
+                }
             }
             Entity->AABB = {V2(MinX, MinY), V2(MaxX, MaxY)};
         }
@@ -371,6 +397,7 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
                 {
                     Entity->ddP = V2(0.0f, 0.0f);
                     Entity->dP = V2(0.0f, 0.0f);
+                    Entity->Angle = 0.0f;
                     Entity->IsInitialized = false;
                     ModePhysics2->InitializedEntityCount--;
                     continue;
@@ -389,6 +416,9 @@ UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
                 {
                     PushCircleOnScreen(&Renderer->PushBufferPhysics, Entity->P, Entity->Radius, Entity->Color, 10000);
                     PushCircleOutlineOnScreen(&Renderer->PushBufferPhysics, Entity->P, Entity->Radius, 1, Entity->OutlineColor, 10000);
+                    
+                    // NOTE(ezexff): line to see circle rotation
+                    PushLinesOnScreen(&Renderer->PushBufferPhysics, Entity->LineVertexCount, Entity->LineTransformedVertexArray, 1, Entity->OutlineColor, 10000);
                 } break;
                 
                 InvalidDefaultCase;

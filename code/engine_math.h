@@ -207,6 +207,13 @@ inline r32 Inner(v2 A, v2 B)
     return(Result);
 }
 
+inline r32 Cross(v2 A, v2 B)
+{
+    r32 Result = A.x * B.y - A.y * B.x;
+    
+    return(Result);
+}
+
 inline r32 LengthSq(v2 A)
 {
     r32 Result = Inner(A, A);
