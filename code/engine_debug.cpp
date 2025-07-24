@@ -1181,6 +1181,89 @@ TestNewUI(debug_state *DebugState)
         
     }
     UI_EndWindow();
+    
+    // NOTE(ezexff): fps graph
+    {
+        
+        debug_statistic *Stat = &DebugState->MsStat;
+        debug_graph *Graph = &DebugState->MsGraph;
+        u32 PointCount = ArrayCount(Graph->PointArray);
+        
+        // NOTE(ezexff): update graph data every second
+        if(Graph->Time >= 1.0f)
+        {
+            for(u32 Index = 0;
+                Index < PointCount - 1;
+                ++Index)
+            {
+                Graph->PointArray[Index] = Graph->PointArray[Index + 1];
+            }
+            Graph->PointArray[PointCount - 1] = (r32)Stat->Avg;
+            
+            Graph->Time -= 1.0f;
+            
+            DebugState->MsStatLastSecond = *Stat;
+            Stat->Min = F64Max;
+            Stat->Max = F64Min;
+            Stat->Sum = 0;
+            Stat->Count = 0;
+            Stat->Avg = 0;
+        }
+        else
+        {
+            r32 Ms = GlobalDebugInput->dtForFrame * 1000.0f;
+            Stat->Min = Minimum(Stat->Min, (r64)Ms);
+            Stat->Max = Maximum(Stat->Max, (r64)Ms);
+            Stat->Sum += (r64)Ms;
+            Stat->Count++;
+            Stat->Avg = Stat->Sum / Stat->Count;
+        }
+        
+        Graph->Time += GlobalDebugInput->dtForFrame;
+        
+        // NOTE(ezexff): draw graph
+        v2 GraphP = V2(100, (r32)Frame->Dim.y);
+        r32 PointSize = 5.0f; // in px
+        
+        renderer_frame *Frame = &GlobalDebugMemory->Frame;
+        renderer *Renderer = (renderer *)Frame->Renderer;
+        
+        r32 GraphMaxY = 100;
+        v2 GraphDim = {PointCount * PointSize, GraphMaxY};
+        rectangle2 BackgroundRect = {};
+        BackgroundRect.Min = GraphP;
+        BackgroundRect.Max = V2(GraphP.x + GraphDim.x, GraphP.y - GraphDim.y);
+        PushRectOnScreen(&Renderer->PushBufferUI, BackgroundRect.Min, BackgroundRect.Max, V4(1, 1, 1, 1), 100);
+        
+        r32 OldRange = 4; // oldmax - oldmin
+        r32 NewRange = GraphMaxY; // newmax - newmin
+        
+        for(u32 Index = 0;
+            Index < PointCount;
+            ++Index)
+        {
+            if(Graph->PointArray[Index] != 0)
+            {
+                r32 X = GraphP.x + (r32)Index * PointSize;
+                r32 Value = Graph->PointArray[Index];
+                v4 Color = Value < 1.0f ? V4(0, 1, 0, 1) : V4(1, 0, 0, 1);
+                Value = (Value * NewRange) / OldRange; // (((oldvalue - oldmin) * newrange) / oldrange) + newmin
+                r32 Y = GraphP.y - Value;
+                rectangle2 PointRect = {V2(X, Y), V2(X + PointSize, Y - PointSize)};
+                PushRectOnScreen(&Renderer->PushBufferUI, PointRect.Min, PointRect.Max, Color, 100);
+            }
+        }
+    }
+    
+    local b32 IsTestWndVisible = true;
+    UI_BeginWindow("MsAvgTest", &IsTestWndVisible);
+    
+    UI_Label("MsMin = %.2f", DebugState->MsStatLastSecond.Min);
+    UI_Label("MsMax = %.2f", DebugState->MsStatLastSecond.Max);
+    UI_Label("MsAvg = %.2f", DebugState->MsStatLastSecond.Avg);
+    
+    UI_EndWindow();
+    
     END_BLOCK();
 }
 
@@ -1454,7 +1537,6 @@ DEBUGEnd(debug_state *DebugState)
     TIMED_FUNCTION();
     
     // NOTE(ezexff): clear stat
-    DebugState->StatisticTimerInSeconds += GlobalDebugInput->dtForFrame;
     if(DebugState->StatisticTimerInSeconds >= DebugState->StatisticTimerMaxInSeconds)
     {
         DebugState->StatisticTimerInSeconds = 0;
@@ -1469,6 +1551,7 @@ DEBUGEnd(debug_state *DebugState)
             DebugState->BlockStatArray[Index].Count = 0;
         }
     };
+    DebugState->StatisticTimerInSeconds += GlobalDebugInput->dtForFrame;
     
 #if ENGINE_IMGUI
     ImGuiUpdateAndRender();

@@ -497,6 +497,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             r32 FPS = 1 / UI_State->Input->dtForFrame;
             UI_Label("FPS = %.2f", FPS);
             UI_Label("MS = %.3f", Input->dtForFrame * 1000.0f);
+            UI_Label("FrameDim = %d %d", Frame->Dim.x, Frame->Dim.y);
             UI_Label("MouseP = %.2f %.2f", Input->MouseP.x, Input->MouseP.y);
             UI_Label("dt = %f", Input->dtForFrame);
             

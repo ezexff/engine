@@ -39,6 +39,14 @@ struct debug_statistic
     u32 Count;
 };
 
+struct debug_graph
+{
+    r32 PointArray[90];
+    r32 YMin;
+    r32 YMax;
+    r32 Time;
+};
+
 struct debug_state
 {
     b32 Initialized;
@@ -90,6 +98,10 @@ struct debug_state
     debug_stored_block *OpenBlockArray[10];
     
     u32 TmpBlockCount;
+    
+    debug_statistic MsStat;
+    debug_statistic MsStatLastSecond;
+    debug_graph MsGraph;
 };
 
 inline b32
