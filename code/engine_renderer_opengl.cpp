@@ -4,7 +4,7 @@ OpenglGetUniformLocation(u32 Program, char *Name)
     s32 Result = Opengl->glGetUniformLocation(Program, Name);
     if(Result == -1)
     {
-        InvalidCodePath;
+        //InvalidCodePath;
     }
     return(Result);
 };

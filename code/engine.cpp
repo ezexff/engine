@@ -197,8 +197,8 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         // NOTE(ezexff): Set current game mode
         {
             //GameState->GameModeID = GameMode_Physics1;
-            GameState->GameModeID = GameMode_Physics2;
-            //GameState->GameModeID = GameMode_World;
+            //GameState->GameModeID = GameMode_Physics2;
+            GameState->GameModeID = GameMode_World;
         }
         
         // NOTE(ezexff): Init sound mixer

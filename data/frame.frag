@@ -140,6 +140,37 @@ void main()
     
     // задаем цвет фрагмента
     FragColor = vec4(Texel, 1.0);
+   
     
-    //FragColor = texture2D(ColorTexture, TexCoords0.xy);
+    // Test ray cast
+/*     FragColor = vec4(0, 0, 0, 1);
+    vec3 LightDir = vec3(-1, -1, 1);
+    vec3 SphereOrigin = vec3(0, 0, 0);
+    vec3 RayOrigin = vec3(0, 0, 1);
+    vec2 Coord = vec2(gl_FragCoord.x / 1920, gl_FragCoord.y / 1080);
+    Coord = Coord * 2.0f - 1.0f;
+    Coord.x = Coord.x * 1920.0 / 1080.0;
+
+    vec3 RayDirection = vec3(Coord.x, Coord.y, -1.0f);
+    float Radius = 0.5f;
+
+    float a = dot(RayDirection, RayDirection);
+    float b = 2.0f * dot(RayOrigin, RayDirection);
+    float c = dot(RayOrigin, RayOrigin) - Radius * Radius;
+    float Discriminant = b * b - 4.0f * a * c;
+    if(Discriminant >= 0.0f)
+    {
+        float FurthestT = -b + sqrt(Discriminant) / (2.0f * a);
+        float ClosestT = -b - sqrt(Discriminant) / (2.0f * a);
+        
+        vec3 HitPoint = RayOrigin + RayDirection * ClosestT;
+        vec3 Normal = normalize(HitPoint);
+        
+        float d = max(dot(Normal, -LightDir), 0.0f); // cos(angle), cos(> 90) == -1
+        
+        // vec3 Color = Normal * 0.5 + 0.5;
+        vec3 Color = vec3(1, 0, 1);
+        Color *= d;
+        FragColor = vec4(Color, 1.0f);
+    } */
 }

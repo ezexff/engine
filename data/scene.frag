@@ -223,4 +223,5 @@ void main()
     
     //FragColor = vec4(0.0, 1.0, 0, 1.0);
     // FragColor = texture2D(gSampler, TexCoords0.xy);
+    //FragColor = texture2D(ColorTexture, TexCoords0.xy);
 }
