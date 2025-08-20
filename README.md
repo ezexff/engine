@@ -39,7 +39,7 @@ Custom. Low-level programming. From scratch and without libs. Without CRT. Minim
     * Window scrolling with mouse wheel
     * Instanced fast text rendering
   * ImGui disable preprocessor switch
-  * Debug collation throught custom UI
+  * Debug collation through custom UI
   * Simple 2d physics
     * Transforms 2d polygons
     * Circle and polygons collision detection+resolution
@@ -67,7 +67,7 @@ Custom. Low-level programming. From scratch and without libs. Without CRT. Minim
   * Ortho push buffer for on screen rendering
 * **2023:** Started writing [3rd game engine](https://github.com/ezexff/engine) without libs. Using ImGui only in debug build version
   * New rendering system through push buffer
-  * Rendering static meshes throught one big VBO and animated meshes throught multiple VBOs
+  * Rendering static meshes through one big VBO and animated meshes through multiple VBOs
   * Grass instancing
   * Line segment intersection collisions
   * Fps lock
