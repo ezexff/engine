@@ -99,6 +99,8 @@ Custom. Low-level programming. From scratch and without libs. Without CRT. Minim
 
 [![2025 Engine](https://img.youtube.com/vi/2owUrXn3sZ4/0.jpg)](https://www.youtube.com/watch?v=2owUrXn3sZ4)
 
+[![Simple Explode](https://img.youtube.com/vi/3DWdf0qmBMg/0.jpg)](https://youtu.be/3DWdf0qmBMg)
+
 ### 2020-2022
 
 [![Simple Looting Game](https://img.youtube.com/vi/Fz5yPYOjlAI/0.jpg)](https://www.youtube.com/watch?v=Fz5yPYOjlAI)
