@@ -886,6 +886,7 @@ extern "C" void __stdcall WinMainCRTStartup(void)
                             0,
                             Instance,
                             0);
+        
         if(Window)
         {
             if(GlobalIsFullscreen)

@@ -15,6 +15,7 @@
 #include "engine_physics.cpp"
 #include "engine_mode_physics1.cpp"
 #include "engine_mode_physics2.cpp"
+#include "engine_mode_physics3.cpp"
 #include "engine_mode_world.cpp"
 
 /* 
@@ -198,7 +199,8 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         {
             //GameState->GameModeID = GameMode_Physics1;
             //GameState->GameModeID = GameMode_Physics2;
-            GameState->GameModeID = GameMode_World;
+            GameState->GameModeID = GameMode_Physics3;
+            //GameState->GameModeID = GameMode_World;
         }
         
         // NOTE(ezexff): Init sound mixer
@@ -477,6 +479,11 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             UpdateAndRenderPhysics2(Memory, Input);
         } break;
         
+        case GameMode_Physics3:
+        {
+            UpdateAndRenderPhysics3(Memory, Input);
+        } break;
+        
         case GameMode_World:
         {
             //UpdateAndRenderWorld(GameState, GameState->WorldMode, Input, RenderCommands, &HitTest);
@@ -508,6 +515,10 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             if(UI_IsPressed(UI_Button("Physics2")))
             {
                 GameState->GameModeID = GameMode_Physics2;
+            }
+            if(UI_IsPressed(UI_Button("Physics3")))
+            {
+                GameState->GameModeID = GameMode_Physics3;
             }
             if(UI_IsPressed(UI_Button("World")))
             {
@@ -559,6 +570,10 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                 mode_physics2 *ModePhysics2 = &GameState->ModePhysics2;
                 UI_Label("InitializedEntityCount = %d", ModePhysics2->InitializedEntityCount);
                 UI_Label("ContactPairCount = %d", ModePhysics2->ContactPairCount);
+            }
+            else if(GameState->GameModeID == GameMode_Physics2)
+            {
+                UI_Label("TestPhysics3");
             }
             
             UI_EndWindow();
