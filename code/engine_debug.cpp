@@ -1001,7 +1001,7 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
                 renderer *Renderer = (renderer *)Frame->Renderer;
                 ImGui::Text("CameraP#Task1 = %.3f %.3f %.3f", Renderer->Camera.P.x, Renderer->Camera.P.y, Renderer->Camera.P.z);
                 float *TestCameraP = (float *)&Renderer->Camera.P;
-                ImGui::DragFloat3("CameraP1#Task1", TestCameraP, 0.01f, -100.0f, 100.0f);
+                ImGui::DragFloat3("CameraP1#Task1", TestCameraP, 0.5f, 1.0f, 100.0f);
                 
                 ImGui::SeparatorText("ImportKML#Test1");
                 //ImGui::Text("PointArrayCount = %u", ModeTask1->PointArrayCount);
@@ -1019,10 +1019,6 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
                         // NOTE(ezexff): test xmllite
                         ParseKML(ModeTask1, FileName);
                     }
-                    else
-                    {
-                        //InvalidCodePath;
-                    }
                 }
                 ImGui::Text("CoordinateArrayCount = %u", ModeTask1->CoordinateArrayCount);
                 
@@ -1030,22 +1026,50 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
                 ImGui::Text("SimplifiedArrayCount = %u", ModeTask1->SimplifiedArrayCount);
                 ImGui::InputFloat("Epsilon", &ModeTask1->Epsilon, 0.00001f, 1.0f, "%.5f");
                 
+                if(DisableButton)
+                {
+                    ImGui::BeginDisabled();
+                    BeginDisabledButton = true;
+                }
                 if(ImGui::Button("DouglasPeucker"))
                 {
                     ModeTask1->SimplifiedArrayCount = 0;
-                    /* 
-                                        DouglasPeucker(ModeTask1->PointArray, &ModeTask1->PointArrayCount,ModeTask1->Epsilon, 0, ModeTask1->PointArrayCount - 1,
-                                        ModeTask1->SimplifiedArray, &ModeTask1->SimplifiedArrayCount);
-                     */
-                    DouglasPeucker(ModeTask1->CoordinateArray, ModeTask1->CoordinateArrayCount,
-                                   ModeTask1->Epsilon, 0, ModeTask1->CoordinateArrayCount - 1,
-                                   ModeTask1->SimplifiedArray, &ModeTask1->SimplifiedArrayCount);
+                    
+                    if(ModeTask1->CoordinateArrayCount > 0)
+                    {
+                        DouglasPeucker(ModeTask1->CoordinateArray, ModeTask1->CoordinateArrayCount,
+                                       ModeTask1->Epsilon, 0, ModeTask1->CoordinateArrayCount - 1,
+                                       ModeTask1->SimplifiedArray, &ModeTask1->SimplifiedArrayCount);
+                    }
+                }
+                if(ImGui::Button("DouglasPeuckerWork"))
+                {
+                    ModeTask1->SimplifiedArrayCount = 0;
+                    
+                    if(ModeTask1->CoordinateArrayCount > 0)
+                    {
+                        task_with_memory *Task = BeginTaskWithMemory(TranState);
+                        if(Task)
+                        {
+                            douglas_peucker_work *TaskWork = PushStruct(&Task->Arena, douglas_peucker_work);
+                            TaskWork->ModeTask1 = ModeTask1;
+                            TaskWork->Task = Task;
+                            
+                            DisableButton = true;
+                            Log->Add("[enginework] DouglasPeuckerWork added to queue\n");
+                            Platform.AddEntry(TranState->LowPriorityQueue, DouglasPeuckerWork, TaskWork);
+                        }
+                    }
+                }
+                if(DisableButton && BeginDisabledButton)
+                {
+                    BeginDisabledButton = false;
+                    ImGui::EndDisabled();
                 }
                 
                 if(ImGui::Button("Clear#DouglasPeucker"))
                 {
                     ModeTask1->SimplifiedArrayCount = 0;
-                    //ModeTask1->CoordinateArrayCount = 0;
                 }
                 
                 ImGui::End();

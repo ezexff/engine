@@ -1951,7 +1951,21 @@ OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuf
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     
-    glOrtho(0, (r32)Frame->Dim.x, 0, (r32)Frame->Dim.y, 0.0f, 1.0f);
+    r32 N = 1.0f / Camera->P.z;
+    r32 Left = -N * 0.5f;
+    r32 Right = N * 0.5f;
+    r32 Bottom = -N * 0.5f / Frame->AspectRatio;
+    r32 Top = N * 0.5f / Frame->AspectRatio;
+    glOrtho(Left, Right, Bottom, Top, 0.0f, 1.0f);
+    
+    //glOrtho(0, (r32)Frame->Dim.x, 0, (r32)Frame->Dim.y, 0.0f, 1.0f);
+    /* 
+        r32 Left = -(r32)Frame->Dim.x / 2.0f * Camera->P.z;
+        r32 Right = (r32)Frame->Dim.x / 2.0f * Camera->P.z;
+        r32 Bottom = Left;
+        r32 Top = Right;
+        glOrtho(Left, Right, Bottom, Top, 0.0f, 1.0f);
+         */
     /* 
         glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
         glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
@@ -1961,8 +1975,11 @@ OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuf
     
     //glMatrixMode(GL_MODELVIEW);
     //glLoadIdentity();
-    glTranslatef(-Camera->P.x, -Camera->P.y, 0.0f);
-    glScalef(Camera->P.z, Camera->P.z, 0.0f);
+    //glTranslatef(-Camera->P.x, -Camera->P.y, 0.0f);
+    //glTranslatef(-57500.0f -Camera->P.x * Camera->P.z, -53000.0f -Camera->P.y * Camera->P.z, 0.0f);
+    //glTranslatef(-57500.0f -Camera->P.x, -53000.0f -Camera->P.y, 0.0f);
+    glTranslatef(-Camera->P.x,-Camera->P.y, 0.0f);
+    //glScalef(Camera->P.z, Camera->P.z, 0.0f);
     
     SortPushBufferEntries(PushBuffer);
     tile_sort_entry *SortEntryArray = PushBuffer->SortEntryArray;

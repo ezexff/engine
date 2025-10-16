@@ -1,7 +1,10 @@
-inline bool
+internal bool DisableButton = false;
+internal bool BeginDisabledButton = false;
+
+inline b32
 IsNumber(wchar_t C)
 {
-    bool Result = ((C >= L'0') && (C <= L'9'));
+    b32 Result = ((C >= L'0') && (C <= L'9'));
     
     return(Result);
 }
@@ -90,8 +93,10 @@ ParseKML(mode_task1 *ModeTask1, char *FileName)
                             //Log->Add("%lf %lf\n", X, Y);
                             
                             // TODO(ezexff): mb start use double? r32 for testing
-                            ModeTask1->CoordinateArray[CoordinatesCount].x = (r32)((X - 45.0f) * 100000.0f);
-                            ModeTask1->CoordinateArray[CoordinatesCount].y = (r32)((Y - 52.0f) * 100000.0f);
+                            //ModeTask1->CoordinateArray[CoordinatesCount].x = (r32)((X - 45.0f) * 100000.0f);
+                            //ModeTask1->CoordinateArray[CoordinatesCount].y = (r32)((Y - 52.0f) * 100000.0f);
+                            ModeTask1->CoordinateArray[CoordinatesCount].x = (r32)X;
+                            ModeTask1->CoordinateArray[CoordinatesCount].y = (r32)Y;
                             Log->Add("%f %f\n",
                                      ModeTask1->CoordinateArray[CoordinatesCount].x, ModeTask1->CoordinateArray[CoordinatesCount].y);
                             
@@ -104,7 +109,7 @@ ParseKML(mode_task1 *ModeTask1, char *FileName)
                         }
                     };
                     ModeTask1->CoordinateArrayCount = CoordinatesCount;
-                    Log->Add("Readed %u cordinates\n", CoordinatesCount);
+                    Log->Add("Read %u cordinates\n", CoordinatesCount);
                     goto end_parse;
                 }
             } break;
@@ -153,6 +158,7 @@ std::string wideCharToUtf8(const std::wstring& wstr)
     return utf8_str;
 }
 
+/* 
 inline b32
 IsAlpha(char C)
 {
@@ -218,6 +224,7 @@ u32 ProcessOpen(char *At, char *Open, u32 OpenLen)
     
     return(0);
 }
+ */
 
 inline r32
 PerpendicularDistance(v2 p, v2 start, v2 end)
@@ -276,6 +283,47 @@ DouglasPeucker(v2 *PointArray, u32 PointArrayCount,
     }
 }
 
+struct douglas_peucker_work
+{
+    task_with_memory *Task;
+    
+    mode_task1 *ModeTask1;
+};
+internal PLATFORM_WORK_QUEUE_CALLBACK(DouglasPeuckerWork)
+{
+    douglas_peucker_work *Work = (douglas_peucker_work *)Data;
+    
+#if ENGINE_INTERNAL
+#if ENGINE_IMGUI
+    //ParseKML(ModeTask1, FileName);
+#endif
+#endif
+    
+    mode_task1 *ModeTask1 = Work->ModeTask1;
+    if(ModeTask1)
+    {
+        for(u32 Index = 0;
+            Index < 5;
+            ++Index)
+        {
+            Log->Add("[enginework] DouglasPeuckerWork tick %u of 5\n", Index + 1);
+            Sleep(1000);
+        }
+        
+        DouglasPeucker(ModeTask1->CoordinateArray, ModeTask1->CoordinateArrayCount,
+                       ModeTask1->Epsilon, 0, ModeTask1->CoordinateArrayCount - 1,
+                       ModeTask1->SimplifiedArray, &ModeTask1->SimplifiedArrayCount);
+        Log->Add("[enginework] DouglasPeuckerWork completed\n");
+        DisableButton = false;
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+    
+    EndTaskWithMemory(Work->Task);
+}
+
 internal void
 UpdateAndRenderTask1(game_memory *Memory, game_input *Input)
 {
@@ -292,7 +340,9 @@ UpdateAndRenderTask1(game_memory *Memory, game_input *Input)
     if(!ModeTask1->IsInitialized)
     {
         //ModeTask1->Scale = 1.0f;
-        ModeTask1->Epsilon = 0.0001f;
+        // TODO(ezexff): only for testing
+        Renderer->Camera.P = V3(45.577f, 52.539f, 35.0f);
+        ModeTask1->Epsilon = 0.00001f;
         /* 
                 ModeTask1->XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><kml xmlns=\"http://earth.google.com/kml/2.1\"><Placemark><name>Геленджик</name><description><![CDATA[<p>Геленджик, Краснодарский край, Россия.</p>Город располагается по&amp;nbsp;берегам Геленджикской бухты, но&amp;nbsp;не&amp;nbsp;равномерно (восточный берег исторически более населён).]]></description><LookAt id=\"khLookAt540_copy0\"><longitude>38.0576198113139</longitude><latitude>44.56963150481845</latitude><altitude>0</altitude><range>14693.40972993507</range><tilt>49.10268313434742</tilt><heading>37.85562764777833</heading></LookAt><Style><IconStyle><scale>0.9</scale><Icon><href>root://icons/palette-4.png</href><x>32</x><y>128</y><w>32</w><h>32</h></Icon></IconStyle><LabelStyle><scale>0.9</scale></LabelStyle></Style><Point id=\"khPoint541_copy0\"><coordinates>38.06284424434902,44.56842733252498,0</coordinates></Point></Placemark></kml>";
          */
@@ -379,8 +429,16 @@ UpdateAndRenderTask1(game_memory *Memory, game_input *Input)
     // NOTE(ezexff): inputs
     if(IsDown(Input->MouseButtons[PlatformMouseButton_Left]))
     {
-        Renderer->Camera.P.x -= Input->dMouseP.x;
-        Renderer->Camera.P.y -= Input->dMouseP.y; 
+        if(Input->dMouseP.x != 0)
+        {
+            //Log->Add("dMouseP.x = %3.f\n", Input->dMouseP.x);
+            Renderer->Camera.P.x -= Input->dMouseP.x / Renderer->Camera.P.z / 750.0f / Frame->AspectRatio;
+        }
+        if(Input->dMouseP.y != 0)
+        {
+            //Log->Add("dMouseP.y = %3.f\n", Input->dMouseP.y);
+            Renderer->Camera.P.y -= Input->dMouseP.y / Renderer->Camera.P.z / 750.0f / Frame->AspectRatio; 
+        }
     }
     /*
         if(WasPressed(Input->MouseButtons[PlatformMouseButton_Left]))
@@ -399,7 +457,8 @@ UpdateAndRenderTask1(game_memory *Memory, game_input *Input)
     
     if(UI_State->Input->dMouseP.z != 0)
     {
-        Renderer->Camera.P.z += UI_State->Input->dMouseP.z * 0.25f;
+        Renderer->Camera.P.z += UI_State->Input->dMouseP.z;
+        Renderer->Camera.P.z = Clamp(1.0f, Renderer->Camera.P.z, 1000.0f);
         //ModeTask1->Scale += Input->dMouseP.z;
         //ModeTask1->Scale = Clamp(1, ModeTask1->Scale, 10);
         /* 

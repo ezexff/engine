@@ -424,7 +424,7 @@ internal PLATFORM_GET_OPEN_FILE_NAME(Win32GetOpenFileName)
     //OpenFileName.hwndOwner = Window;
     OpenFileName.lpstrFile = (LPSTR)FileName;
     OpenFileName.nMaxFile = sizeof(FileName);
-    OpenFileName.lpstrFilter = ".txt";
+    OpenFileName.lpstrFilter = ".kml";
     OpenFileName.lpstrFileTitle = 0;
     OpenFileName.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
     
