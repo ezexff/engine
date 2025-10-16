@@ -6,7 +6,7 @@ IF %ERRORLEVEL% == 1 (call %vcvarsallPath% x64)
 
 REM BuildType can be ImGui or Debug or Release
 REM Before Debug build use once ImGui that will create necessary imgui*.obj files
-SET BuildType=Debug
+SET BuildType=debug
 
 SET BuildPath=..\build
 SET LibsPath=..\libs
@@ -29,7 +29,8 @@ REM Possible options: /GL (оптимизация всей программы)
 REM Includes
 SET ImGui=/I%LibsPath%\imgui
 SET ImPlot=/I%LibsPath%\implot
-SET DebugIncludes=%ImGui% %ImPlot%
+SET ezxml=/I%LibsPath%\ezxml
+SET DebugIncludes=%ImGui% %ImPlot% %ezxml%
 
 REM Linker options
 SET DefaultLinkerOpts=/incremental:no /opt:ref /STACK:0x100000,0x100000
@@ -39,16 +40,17 @@ IF NOT EXIST %BuildPath% mkdir %BuildPath%
 pushd %BuildPath%
 
 IF /i %BuildType%==ImGui (
-cl /c %DebugCompilerOpts% %DebugIncludes% %ImGuiTrUnits%
+REM Temporary /wd4756 for ImPlot
+cl /c %DebugCompilerOpts% /wd4756 %DebugIncludes% %ImGuiTrUnits%
 )
 
 IF /i %BuildType%==Debug (
 del *.pdb >NUL 2>NUL
 echo WAITING FOR PDB > lock.tmp
 cl %DebugCompilerOpts% %DebugIncludes% %RendererTrUnit% /LD /link %DefaultLinkerOpts% /PDB:win32_engine_opengl_%random%.pdb /EXPORT:Win32LoadRenderer /EXPORT:Win32BeginFrame /EXPORT:Win32EndFrame User32.lib Gdi32.lib opengl32.lib imgui*.obj implot*.obj
-cl %DebugCompilerOpts% %DebugIncludes% %EngineTrUnit% /Fm%EngineMap% /LD /link %DefaultLinkerOpts% /PDB:engine_%random%.pdb /EXPORT:GetSoundSamples /EXPORT:UpdateAndRender /EXPORT:DEBUGGameFrameEnd imgui*.obj implot*.obj
+cl %DebugCompilerOpts% %DebugIncludes% %EngineTrUnit% /Fm%EngineMap% /LD /link %DefaultLinkerOpts% /PDB:engine_%random%.pdb /EXPORT:GetSoundSamples /EXPORT:UpdateAndRender /EXPORT:DEBUGGameFrameEnd imgui*.obj implot*.obj XmlLite.lib shlwapi.lib
 del lock.tmp
-cl %DebugCompilerOpts% %DebugIncludes% %Win32TrUnit% /Fm%Win32Map% /link %DefaultLinkerOpts% /ENTRY:mainCRTStartup /SUBSYSTEM:WINDOWS User32.lib Gdi32.lib kernel32.lib Ole32.lib imgui*.obj implot*.obj
+cl %DebugCompilerOpts% %DebugIncludes% %Win32TrUnit% /Fm%Win32Map% /link %DefaultLinkerOpts% /ENTRY:mainCRTStartup /SUBSYSTEM:WINDOWS User32.lib Gdi32.lib kernel32.lib Ole32.lib imgui*.obj implot*.obj Comdlg32.lib
 )
 
 IF /i %BuildType%==Release (

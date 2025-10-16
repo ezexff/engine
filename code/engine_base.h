@@ -145,6 +145,17 @@ union v2u
     u32 E[2];
 };
 
+/* 
+union v2d
+{
+    struct
+    {
+        r64 x, y;
+    };
+    r64 E[2];
+};
+ */
+
 union v3
 {
     struct
@@ -266,7 +277,7 @@ struct buffer
     umm Count;
     u8 *Data; // NOTE(ezexff): wchar_t - 2 bytes per symbol
 };
-typedef buffer string;
+typedef buffer string1;
 
 inline u64
 StringLength(char *String)
@@ -299,7 +310,7 @@ StringLength(wchar_t *String)
 }
 
 inline b32
-operator==(string A, string B)
+operator==(string1 A, string1 B)
 {
     b32 Result = false;
     
@@ -319,7 +330,7 @@ operator==(string A, string B)
 }
 
 inline b32
-operator==(string A, char *B)
+operator==(string1 A, char *B)
 {
     b32 Result = false;
     
@@ -341,7 +352,7 @@ operator==(string A, char *B)
 }
 
 inline b32
-operator==(string A, wchar_t *B)
+operator==(string1 A, wchar_t *B)
 {
     b32 Result = false;
     

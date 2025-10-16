@@ -755,6 +755,7 @@ ImGuiUpdateAndRender()
                 GameState->GameModeID = CurrentModeID;
                 
                 //camera *Camera = 0;
+#if 0
                 switch(GameState->GameModeID)
                 {
                     case GameMode_Test:
@@ -835,6 +836,7 @@ ImGuiUpdateAndRender()
                     
                     InvalidDefaultCase;
                 }
+#endif
                 /*if(Camera != 0)
                 {
                 ImGui::SeparatorText("Camera");
@@ -848,6 +850,7 @@ ImGuiUpdateAndRender()
                     ImGui::InputFloat("Roll", &Camera->Angle.z, 0.01f, 1.0f, "%.3f");
                 }*/
                 
+#if 0
                 float *ClearColor = 0;
                 switch(GameState->GameModeID)
                 {
@@ -868,8 +871,8 @@ ImGuiUpdateAndRender()
                     ImGui::SeparatorText("Background");
                     ImGui::ColorEdit4("clear color", ClearColor);
                 }
+#endif
             }
-            
             ImGui::End();
         }
         
@@ -983,6 +986,70 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
             }
             
             ImGui::End();
+        }
+        
+        if(GameState->GameModeID == GameMode_Task1)
+        {
+            if(ImGuiHandle->ShowTask1Window)
+            {
+                ImGui::Begin("Task1", &ImGuiHandle->ShowTask1Window);
+                
+                mode_task1 *ModeTask1 = &GameState->ModeTask1;
+                //ImGui::Text("CameraP#Task1 = %.3f %.3f", ModeTask1->CameraP.x, ModeTask1->CameraP.y);
+                //ImGui::Text("Scale#Task1 = %.3f %.3f", ModeTask1->Scale);
+                ImGui::SeparatorText("Camera#Test1");
+                renderer *Renderer = (renderer *)Frame->Renderer;
+                ImGui::Text("CameraP#Task1 = %.3f %.3f %.3f", Renderer->Camera.P.x, Renderer->Camera.P.y, Renderer->Camera.P.z);
+                float *TestCameraP = (float *)&Renderer->Camera.P;
+                ImGui::DragFloat3("CameraP1#Task1", TestCameraP, 0.01f, -100.0f, 100.0f);
+                
+                ImGui::SeparatorText("ImportKML#Test1");
+                //ImGui::Text("PointArrayCount = %u", ModeTask1->PointArrayCount);
+                local char *FileName = "not loaded!";
+                ImGui::Text("Loaded file path: %s", FileName); // TODO(ezexff): use wchar_t
+                if(ImGui::Button("OpenKML"))
+                {
+                    FileName = Platform.GetOpenFileName();
+                    if(FileName)
+                    {
+                        Log->Add("[win32file] GetOpenFileName: %s\n", FileName);
+                        //read_file_result ReadFileResult = Platform.ReadEntireFile(TestText);
+                        //Log->Add("[win32file] ReadEntireFile:\n%s\n", ReadFileResult.Contents);
+                        
+                        // NOTE(ezexff): test xmllite
+                        ParseKML(ModeTask1, FileName);
+                    }
+                    else
+                    {
+                        //InvalidCodePath;
+                    }
+                }
+                ImGui::Text("CoordinateArrayCount = %u", ModeTask1->CoordinateArrayCount);
+                
+                ImGui::SeparatorText("Simpilfy#Test1");
+                ImGui::Text("SimplifiedArrayCount = %u", ModeTask1->SimplifiedArrayCount);
+                ImGui::InputFloat("Epsilon", &ModeTask1->Epsilon, 0.00001f, 1.0f, "%.5f");
+                
+                if(ImGui::Button("DouglasPeucker"))
+                {
+                    ModeTask1->SimplifiedArrayCount = 0;
+                    /* 
+                                        DouglasPeucker(ModeTask1->PointArray, &ModeTask1->PointArrayCount,ModeTask1->Epsilon, 0, ModeTask1->PointArrayCount - 1,
+                                        ModeTask1->SimplifiedArray, &ModeTask1->SimplifiedArrayCount);
+                     */
+                    DouglasPeucker(ModeTask1->CoordinateArray, ModeTask1->CoordinateArrayCount,
+                                   ModeTask1->Epsilon, 0, ModeTask1->CoordinateArrayCount - 1,
+                                   ModeTask1->SimplifiedArray, &ModeTask1->SimplifiedArrayCount);
+                }
+                
+                if(ImGui::Button("Clear#DouglasPeucker"))
+                {
+                    ModeTask1->SimplifiedArrayCount = 0;
+                    //ModeTask1->CoordinateArrayCount = 0;
+                }
+                
+                ImGui::End();
+            }
         }
     }
 #endif

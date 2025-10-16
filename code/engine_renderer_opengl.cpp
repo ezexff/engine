@@ -397,7 +397,8 @@ OpenglDrawLinesOnScreen(u32 VertexCount, v2 *VertexArray, r32 LineWidth, v4 Colo
 {
     glLineWidth(LineWidth);
     glEnable(GL_LINE_SMOOTH);
-    glBegin(GL_LINE_LOOP);
+    //glBegin(GL_LINE_LOOP);
+    glBegin(GL_LINE_STRIP);
     glColor4f(Color.r, Color.g, Color.b, Color.a);
     for(u32 Index = 0;
         Index < VertexCount;
@@ -1941,15 +1942,27 @@ OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuf
 {
     TIMED_FUNCTION();
     
+    renderer *Renderer = (renderer *)Frame->Renderer;
+    renderer_camera *Camera = &Renderer->Camera;
+    
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(0, (r32)Frame->Dim.x, 0, (r32)Frame->Dim.y, 0.0f, 1.0f);
     
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
+    glOrtho(0, (r32)Frame->Dim.x, 0, (r32)Frame->Dim.y, 0.0f, 1.0f);
+    /* 
+        glRotatef(-Camera->Angle.x, 1.0f, 0.0f, 0.0f);
+        glRotatef(-Camera->Angle.y, 0.0f, 0.0f, 1.0f);
+        glRotatef(-Camera->Angle.z, 0.0f, 1.0f, 0.0f);
+        glFrustum(-Frame->AspectRatio * Renderer->FOV, Frame->AspectRatio * Renderer->FOV, -Renderer->FOV, Renderer->FOV, Renderer->FOV * 2, 1000);
+     */
+    
+    //glMatrixMode(GL_MODELVIEW);
+    //glLoadIdentity();
+    glTranslatef(-Camera->P.x, -Camera->P.y, 0.0f);
+    glScalef(Camera->P.z, Camera->P.z, 0.0f);
     
     SortPushBufferEntries(PushBuffer);
     tile_sort_entry *SortEntryArray = PushBuffer->SortEntryArray;

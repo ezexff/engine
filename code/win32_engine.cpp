@@ -1,6 +1,7 @@
 #define COBJMACROS
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include "commdlg.h"
 #include <gl/gl.h>
 
 #include <mmdeviceapi.h>
@@ -413,7 +414,119 @@ internal PLATFORM_READ_DATA_FROM_FILE(Win32ReadDataFromFile)
     }
 }
 
+internal PLATFORM_GET_OPEN_FILE_NAME(Win32GetOpenFileName)
+{
+    char *Result = 0;
+    static char FileName[256];
+    
+    local OPENFILENAMEA OpenFileName = {};
+    OpenFileName.lStructSize = sizeof(OpenFileName);
+    //OpenFileName.hwndOwner = Window;
+    OpenFileName.lpstrFile = (LPSTR)FileName;
+    OpenFileName.nMaxFile = sizeof(FileName);
+    OpenFileName.lpstrFilter = ".txt";
+    OpenFileName.lpstrFileTitle = 0;
+    OpenFileName.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+    
+    if(GetOpenFileNameA(&OpenFileName))
+    {
+        Result = FileName;
+    }
+    else
+    {
+#if ENGINE_INTERNAL
+#if ENGINE_IMGUI
+        Log->Add("[win32file] error: GetOpenFileNameA\n");
+#endif
+#endif
+        Result = 0;
+    }
+    return(Result);
+}
 
+PLATFORM_FREE_FILE_MEMORY(Win32PlatformFreeFileMemory)
+{
+    if(Memory)
+    {
+        VirtualFree(Memory, 0, MEM_RELEASE);
+    }
+}
+
+PLATFORM_READ_ENTIRE_FILE(Win32PlatformReadEntireFile)
+{
+    read_file_result Result = {};
+    
+    HANDLE FileHandle = CreateFileA(Filename, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER FileSize;
+        if(GetFileSizeEx(FileHandle, &FileSize))
+        {
+            u32 FileSize32 = SafeTruncateUInt64(FileSize.QuadPart);
+            Result.Contents = VirtualAlloc(0, FileSize32, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            if(Result.Contents)
+            {
+                DWORD BytesRead;
+                if(ReadFile(FileHandle, Result.Contents, FileSize32, &BytesRead, 0) &&
+                   (FileSize32 == BytesRead))
+                {
+                    // NOTE(casey): File read successfully
+                    Result.ContentsSize = FileSize32;
+                }
+                else
+                {                    
+                    // TODO(casey): Logging
+                    Win32PlatformFreeFileMemory(Result.Contents);
+                    Result.Contents = 0;
+                }
+            }
+            else
+            {
+                // TODO(casey): Logging
+            }
+        }
+        else
+        {
+            // TODO(casey): Logging
+        }
+        
+        CloseHandle(FileHandle);
+    }
+    else
+    {
+        // TODO(casey): Logging
+    }
+    
+    return(Result);
+}
+
+PLATFORM_WRITE_ENTIRE_FILE(Win32PlatformWriteEntireFile)
+{
+    b32 Result = false;
+    
+    HANDLE FileHandle = CreateFileA(Filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    if(FileHandle != INVALID_HANDLE_VALUE)
+    {
+        DWORD BytesWritten;
+        if(WriteFile(FileHandle, Memory, MemorySize, &BytesWritten, 0))
+        {
+            // NOTE(casey): File read successfully
+            Result = (BytesWritten == MemorySize);
+        }
+        else
+        {
+            // TODO(casey): Logging
+        }
+        
+        CloseHandle(FileHandle);
+    }
+    else
+    {
+        // TODO(casey): Logging
+    }
+    
+    return(Result);
+}
 
 //~ NOTE(ezexff): Screen mode: fullscreen or windowed
 void
@@ -935,6 +1048,11 @@ extern "C" void __stdcall WinMainCRTStartup(void)
             GameMemory.PlatformAPI.ReadDataFromFile = Win32ReadDataFromFile;
             GameMemory.PlatformAPI.FileError = Win32FileError;
             
+            GameMemory.PlatformAPI.GetOpenFileName = Win32GetOpenFileName;
+            GameMemory.PlatformAPI.FreeFileMemory = Win32PlatformFreeFileMemory;
+            GameMemory.PlatformAPI.ReadEntireFile = Win32PlatformReadEntireFile;
+            GameMemory.PlatformAPI.WriteEntireFile = Win32PlatformWriteEntireFile;
+            
             
             // NOTE(ezexff): Init and load renderer
             renderer_frame *Frame = &GameMemory.Frame;
@@ -963,6 +1081,7 @@ extern "C" void __stdcall WinMainCRTStartup(void)
             ImGuiHandle->ShowGameWindow = true;
             ImGuiHandle->ShowDebugCollationWindow = true;
             ImGuiHandle->ShowLogWindow = true;
+            ImGuiHandle->ShowTask1Window = true;
             Frame->ImGuiHandle = ImGuiHandle;
             Log = &ImGuiHandle->Log;
 #endif

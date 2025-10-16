@@ -1,4 +1,4 @@
-#define ENGINE_IMGUI 0
+#define ENGINE_IMGUI 1
 #define ENGINE_UI    1
 
 //~ NOTE(ezexff): ImGui
@@ -181,6 +181,7 @@ struct imgui
     bool ShowFrameShadersEditorWindow;
     bool ShowBitmapPreviewWindow;
     bool ShowSimRegionWindow;
+    bool ShowTask1Window;
     
     // NOTE(ezexff): Sim Region borders
     bool DrawCameraBounds;

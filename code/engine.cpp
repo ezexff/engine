@@ -17,6 +17,7 @@
 #include "engine_mode_physics2.cpp"
 #include "engine_mode_physics3.cpp"
 #include "engine_mode_world.cpp"
+#include "engine_mode_task1.cpp"
 
 /* 
 internal void
@@ -199,8 +200,9 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
         {
             //GameState->GameModeID = GameMode_Physics1;
             //GameState->GameModeID = GameMode_Physics2;
-            GameState->GameModeID = GameMode_Physics3;
+            //GameState->GameModeID = GameMode_Physics3;
             //GameState->GameModeID = GameMode_World;
+            GameState->GameModeID = GameMode_Task1;
         }
         
         // NOTE(ezexff): Init sound mixer
@@ -320,7 +322,8 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             renderer *Renderer = (renderer *)Frame->Renderer;
             Renderer->FOV = 0.1f;
 #define PLAYER_EYE_HEIGHT_FROM_GROUND 1.75f  // TODO(ezexff): Replace
-            Renderer->Camera.P = V3(0, 0, PLAYER_EYE_HEIGHT_FROM_GROUND);
+            //Renderer->Camera.P = V3(0, 0, PLAYER_EYE_HEIGHT_FROM_GROUND);
+            Renderer->Camera.P = V3(0, 0, 1.0f);
             Renderer->ClearColor = V4(0.5, 0.5, 0.5, 1);
             
             //~ NOTE(ezexff): Push buffers
@@ -330,6 +333,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
                 Renderer->PushBufferUI.SortEntryArray = PushArray(&TranState->TranArena, Renderer->PushBufferUI.ElementCountMax, tile_sort_entry);
                 
                 InitializePushBuffer(TranArena, &Renderer->PushBufferPhysics);
+                //InitializePushBuffer(TranArena, &Renderer->PushBufferTask1);
             }
             
             //~ NOTE(ezexff): Skybox
@@ -490,6 +494,11 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             UpdateAndRenderWorld(Memory, Input);
         } break;
         
+        case GameMode_Task1:
+        {
+            UpdateAndRenderTask1(Memory, Input);
+        } break;
+        
         InvalidDefaultCase;
     }
     
@@ -523,6 +532,10 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             if(UI_IsPressed(UI_Button("World")))
             {
                 GameState->GameModeID = GameMode_World;
+            }
+            if(UI_IsPressed(UI_Button("Task1")))
+            {
+                GameState->GameModeID = GameMode_Task1;
             }
             
             UI_EndWindow();
@@ -574,6 +587,13 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             else if(GameState->GameModeID == GameMode_Physics2)
             {
                 UI_Label("TestPhysics3");
+            }
+            else if(GameState->GameModeID == GameMode_Task1)
+            {
+                mode_task1 *ModeTask1 = &GameState->ModeTask1;
+                UI_Label("TestTask1");
+                //UI_Label("PointArrayCount = %d", ModeTask1->PointArrayCount);
+                //UI_Label("SimplifiedArrayCount = %d", ModeTask1->SimplifiedArrayCount);
             }
             
             UI_EndWindow();

@@ -69,7 +69,7 @@ struct platform_file_handle
     
     // TODO(ezexff): Mb rework?
     u64 Size;
-    string Name;
+    string1 Name;
 };
 
 struct platform_file_group
@@ -88,6 +88,17 @@ enum platform_file_type
     PlatformFileType_Count,
 };
 
+struct thread_context
+{
+    s32 Placeholder;
+};
+
+struct read_file_result
+{
+    u32 ContentsSize;
+    void *Contents;
+};
+
 #define PLATFORM_GET_ALL_FILE_OF_TYPE_BEGIN(name) platform_file_group name(platform_file_type Type)
 #define PLATFORM_GET_ALL_FILE_OF_TYPE_END(name) void name(platform_file_group *FileGroup)
 #define PLATFORM_OPEN_FILE(name) platform_file_handle name(platform_file_group *FileGroup)
@@ -100,6 +111,15 @@ typedef PLATFORM_GET_ALL_FILE_OF_TYPE_END(platform_get_all_files_of_type_end);
 typedef PLATFORM_OPEN_FILE(platform_open_next_file);
 typedef PLATFORM_READ_DATA_FROM_FILE(platform_read_data_from_file);
 typedef PLATFORM_FILE_ERROR(platform_file_error);
+
+#define PLATFORM_GET_OPEN_FILE_NAME(name) char *name()
+typedef PLATFORM_GET_OPEN_FILE_NAME(platform_get_open_file_name);
+#define PLATFORM_FREE_FILE_MEMORY(name) void name(void *Memory)
+typedef PLATFORM_FREE_FILE_MEMORY(platform_free_file_memory);
+#define PLATFORM_READ_ENTIRE_FILE(name) read_file_result name(char *Filename)
+typedef PLATFORM_READ_ENTIRE_FILE(platform_read_entire_file);
+#define PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(thread_context *Thread, char *Filename, u32 MemorySize, void *Memory)
+typedef PLATFORM_WRITE_ENTIRE_FILE(platform_write_entire_file);
 
 struct platform_work_queue;
 #define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(platform_work_queue *Queue, void *Data)
@@ -122,6 +142,11 @@ struct platform_api
     platform_open_next_file *OpenNextFile;
     platform_read_data_from_file *ReadDataFromFile;
     platform_file_error *FileError;
+    
+    platform_get_open_file_name *GetOpenFileName;
+    platform_free_file_memory *FreeFileMemory;
+    platform_read_entire_file *ReadEntireFile;
+    platform_write_entire_file *WriteEntireFile;
     
     platform_add_entry *AddEntry;
     platform_complete_all_work *CompleteAllWork;

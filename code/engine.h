@@ -28,6 +28,7 @@
 #include "engine_mode_physics2.h"
 #include "engine_mode_physics3.h"
 #include "engine_mode_world.h"
+#include "engine_mode_task1.h"
 
 enum game_mode
 {
@@ -35,6 +36,7 @@ enum game_mode
     GameMode_Physics2,
     GameMode_Physics3,
     GameMode_World,
+    GameMode_Task1,
 };
 
 struct game_state
@@ -47,6 +49,7 @@ struct game_state
     mode_physics1 ModePhysics1;
     mode_physics2 ModePhysics2;
     mode_physics3 ModePhysics3;
+    mode_task1 ModeTask1;
     
     //~ NOTE(ezexff): Audio
     audio_state AudioState;
