@@ -1,6 +1,10 @@
 #include <string>
 #include <xmllite.h>
 #include <shlwapi.h>
+//#include <winsock2.h>
+//#include <ws2tcpip.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 /* 
 enum kml_tag
@@ -38,12 +42,12 @@ struct mode_task1
      */
     
     u32 SimplifiedArrayCount;
-    v2 SimplifiedArray[1024];
+    v2d SimplifiedArray[1024];
     
     //v2 CameraP;
     
     u32 CoordinateArrayCount;
-    v2 CoordinateArray[1024];
+    v2d CoordinateArray[1024];
     
     b32 IsInitialized;
 };

@@ -419,7 +419,7 @@ internal PLATFORM_GET_OPEN_FILE_NAME(Win32GetOpenFileName)
     char *Result = 0;
     static char FileName[256];
     
-    local OPENFILENAMEA OpenFileName = {};
+    local1 OPENFILENAMEA OpenFileName = {};
     OpenFileName.lStructSize = sizeof(OpenFileName);
     //OpenFileName.hwndOwner = Window;
     OpenFileName.lpstrFile = (LPSTR)FileName;

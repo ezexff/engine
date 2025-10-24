@@ -21,6 +21,13 @@ inline r32 Square(r32 A)
     return(Result);
 }
 
+inline r64 Square(r64 A)
+{
+    r64 Result = A * A;
+    
+    return(Result);
+}
+
 inline r32 Lerp(r32 A, r32 t, r32 B)
 {
     r32 Result = (1.0f - t) * A + t * B;

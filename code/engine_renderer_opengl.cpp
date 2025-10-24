@@ -414,6 +414,27 @@ OpenglDrawLinesOnScreen(u32 VertexCount, v2 *VertexArray, r32 LineWidth, v4 Colo
 }
 
 void
+OpenglDrawLinesOnScreen64(u32 VertexCount, v2d *VertexArray, r32 LineWidth, v4 Color)
+{
+    glLineWidth(LineWidth);
+    glEnable(GL_LINE_SMOOTH);
+    //glBegin(GL_LINE_LOOP);
+    glBegin(GL_LINE_STRIP);
+    glColor4f(Color.r, Color.g, Color.b, Color.a);
+    for(u32 Index = 0;
+        Index < VertexCount;
+        ++Index)
+    {
+        v2d *Vertex = VertexArray + Index;
+        glVertex2d(Vertex->x, Vertex->y);
+    }
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    glEnd();
+    glLineWidth(1);
+    glDisable(GL_LINE_SMOOTH);
+}
+
+void
 OpenglDrawTrianglesOnScreen(u32 VertexCount, v2 *VertexArray, v4 Color)
 {
     glBegin(GL_TRIANGLE_FAN);
@@ -1951,7 +1972,8 @@ OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuf
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     
-    r32 N = 1.0f / Camera->P.z;
+    r32 N = 100000.0f / Camera->P.z;
+    //r32 N = 1.0f / Camera->P.z;
     r32 Left = -N * 0.5f;
     r32 Right = N * 0.5f;
     r32 Bottom = -N * 0.5f / Frame->AspectRatio;
@@ -2043,10 +2065,18 @@ OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuf
                 OpenglDrawBitmapOnScreen(Entry->Bitmap, Entry->Rect, V4(0, 1, 0, 1), Entry->TexCoords);
             } break;
             
-            case RendererOrthoEntryType_renderer_ortho_entry_glyph:
+            /* 
+                        case RendererOrthoEntryType_renderer_ortho_entry_glyph:
+                        {
+                            InvalidCodePath;
+                            //InvalidCodePath;
+                        } break;
+             */
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_lines_d:
             {
-                InvalidCodePath;
-                //InvalidCodePath;
+                renderer_ortho_entry_lines_d *Entry = (renderer_ortho_entry_lines_d *)Data;
+                OpenglDrawLinesOnScreen64(Entry->VertexCount, Entry->VertexArray, Entry->LineWidth, Entry->Color);
             } break;
             
             InvalidDefaultCase;
@@ -2200,10 +2230,12 @@ OpenglDrawUI(renderer_frame *Frame)
                 //BaseAddress += sizeof(*Entry);
             } break;
             
-            case RendererOrthoEntryType_renderer_ortho_entry_glyph:
-            {
-                //InvalidCodePath;
-            } break;
+            /* 
+                        case RendererOrthoEntryType_renderer_ortho_entry_glyph:
+                        {
+                            //InvalidCodePath;
+                        } break;
+             */
             
             /* 
                         case RendererOrthoEntryType_renderer_ortho_entry_bitmap:
@@ -2356,6 +2388,7 @@ OpenglDrawUI(renderer_frame *Frame)
                         //renderer_ortho_entry_bitmap *Entry = (renderer_ortho_entry_bitmap *)Data;
                     } break;
                     
+#if 0
                     case RendererOrthoEntryType_renderer_ortho_entry_glyph:
                     {
                         renderer_ortho_entry_glyph *Entry = (renderer_ortho_entry_glyph *)Data;
@@ -2376,6 +2409,7 @@ OpenglDrawUI(renderer_frame *Frame)
                          */
                         
                     } break;
+#endif
                     InvalidDefaultCase;
                 }
             }

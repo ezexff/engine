@@ -1,5 +1,241 @@
 internal bool DisableButton = false;
 internal bool BeginDisabledButton = false;
+internal r64 GlobalMaxDistance = 0.0f;
+internal v2d GlobalMaxDistanceArray[2] = {};
+
+
+internal void
+PrintLastError()
+{
+    int ErrorCode = WSAGetLastError();
+    LPSTR ErrorString = 0;
+    int Size = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+                             0,
+                             ErrorCode,
+                             MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
+                             (LPSTR)&ErrorString, 0, 0);
+    printf("\n\n\nError code %d. Message(%d): %s", ErrorCode, Size, ErrorString);
+    //printf("\n\n\nError code %d. Message(%d): %s", ErrorCode, Size, ErrorString);
+    LocalFree(ErrorString);
+}
+
+internal void
+TestRequest()
+{
+#if 0
+    SOCKET Connection;
+    s32 Result = 0;
+    
+    WSAData lpWSAData;
+	WORD DLLVersion = MAKEWORD(2, 2);
+    Result = WSAStartup(DLLVersion, &lpWSAData);
+    if(Result != 0)
+    {
+        PrintLastError();
+        WSACleanup();
+        ExitProcess(0);
+    }
+    
+    SSL_library_init();
+    SSL_load_error_strings();
+    OpenSSL_add_all_algorithms();
+    
+    /* 
+        SOCKADDR_IN Addr;
+        int sizeofaddr = sizeof(Addr);
+        Addr.sin_addr.s_addr = inet_addr("104.17.246.40");
+        Addr.sin_port = htons(443);
+        Addr.sin_family = AF_INET;
+     */
+    
+    Connection = socket(AF_INET, SOCK_STREAM, 0);
+    if(Connection == INVALID_SOCKET)
+    {
+        PrintLastError();
+        WSACleanup();
+        ExitProcess(0);
+    }
+    
+    addrinfo hints, *res;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    getaddrinfo("api.maptiler.com", "443", &hints, &res); // Use port 443 for HTTPS
+    connect(sock, res->ai_addr, res->ai_addrlen);
+    freeaddrinfo(res);
+    
+    SSL_CTX* ssl_ctx = SSL_CTX_new(TLS_client_method());
+    SSL* ssl = SSL_new(ssl_ctx);
+    SSL_set_fd(ssl, (int)Connection);
+    if(SSL_connect(ssl) <= 0)
+    {
+        // TODO(ezexff): Handle SSL connection error
+        ExitProcess(0);
+    }
+    
+    // NOTE(ezexff): send message
+    //char Message[256] = "https://api.maptiler.com/tiles/satellite-v2/?key=QIjbJMNE3luox1FRle1Y";
+    //char Message[256] = 
+    //"GET https://api.maptiler.com/tiles/satellite-v2/?key=QIjbJMNE3luox1FRle1Y HTTP/1.1";
+    std::string request = "GET /tiles/satellite-v2/tiles.json?key=QIjbJMNE3luox1FRle1Y HTTP/1.1\r\n";
+    request += "Host: api.maptiler.com\r\n\r\n";
+    //request += "Connection: close\r\n\r\n";
+    //request += "Connection: close\r\n\r\n";
+    SSL_write(ssl, request.c_str(), (int)request.length());
+    
+    char Buffer[4096];
+    int bytesRead;
+    if((bytesRead = SSL_read(ssl, Buffer, sizeof(Buffer) - 1)) > 0)
+    {
+        Buffer[bytesRead] = '\0';
+        //printf("%s\n", Buffer);
+        Log->Add("Response: %s\n", Buffer);
+    }
+    //Result = send(Connection, request, sizeof(request), 0);
+    /* 
+        if(Result == SOCKET_ERROR)
+        {
+            PrintLastError();
+            WSACleanup();
+            ExitProcess(0);
+        }
+        else
+        {
+            char Response[256] = "";
+            //printf("[thread] tick\n");
+            s32 Result = 0;
+            Result = recv(Connection, Response, sizeof(Response), 0);
+            if(Result > 0)
+            {
+                printf(Response);
+            }
+            else
+            {
+                int ErrorCode = WSAGetLastError();
+                switch(ErrorCode)
+                {
+                    case WSAECONNRESET:
+                    {
+                        printf("[thread] Lost connection to server\n");
+                    } break;
+                    
+                    default:
+                    {
+                        PrintLastError();
+                    } break;
+                }
+            }
+        }
+        Sleep(1000);
+     */
+    
+    SSL_shutdown(ssl);
+    SSL_free(ssl);
+    SSL_CTX_free(ssl_ctx);
+    closesocket(Connection);
+    WSACleanup();
+#endif
+}
+
+inline r64
+RadToDeg64(r64 Value)
+{
+    r64 Result = Value * 180.0f / Pi32;
+    return(Result);
+}
+
+inline r64
+DegToRad64(r64 Value)
+{
+    r64 Result = Value * Pi32 / 180.0f;
+    
+    return(Result);
+}
+
+inline r64
+ForceAngle0To360(r64 Angle)
+{
+    r64 Result = fmod(Angle, 360.0);
+    if(Angle < 0)
+    {
+        Result += 360.0;
+    }
+    return(Result);
+}
+
+inline s32
+GetDegZone(r64 Lng)
+{
+    r64 LngDeg;
+    s32 Result = 0;
+    if(abs(Lng) < 10000)
+    {
+        LngDeg = ForceAngle0To360(Lng);
+        Result = (s32)trunc((6.0f + LngDeg) / 6);
+    }
+    
+    return(Result);
+}
+
+b32 KeepLastXYZone = false;
+
+inline v2d
+LatLngToXY(r64 CoorLat, r64 CoorLng)
+{
+    v2d Result = {};
+    
+    s32 LastXYZone = 0;
+    
+    s32 n, Buf_n;
+    r64 l, l2;
+    r64 sb2, sb4, sb6;
+    r64 LngDeg;
+    r64 SinLat, CosLat;
+    
+    LngDeg = RadToDeg64(CoorLng);
+    LngDeg = ForceAngle0To360(LngDeg);
+    
+    Buf_n = GetDegZone(LngDeg);
+    
+    if(KeepLastXYZone && (((abs(Buf_n - LastXYZone) < 2) || 
+                           ((Buf_n == 60) && (LastXYZone == 1)) || 
+                           ((Buf_n == 1) && (LastXYZone == 60)))))
+    {
+        n = LastXYZone;
+        if((Buf_n == 60) && (LastXYZone == 1)) {LngDeg = LngDeg - 360;}
+        if((Buf_n == 1) && (LastXYZone == 60)) {LngDeg = 360 + LngDeg;}
+    }
+    else
+    {
+        n = Buf_n;
+        LastXYZone = n;
+    }
+    
+    SinLat = sin(CoorLat);
+    CosLat = cos(CoorLat);
+    sb2 = SinLat*SinLat;
+    sb4 = sb2*sb2;
+    sb6 = sb2*sb4;
+    
+    l = DegToRad64(LngDeg - (3 + 6*(n-1)));
+    l2 = l*l;
+    
+    double Y = 6367558.4668*CoorLat - sin(2*CoorLat)*(16002.89 + 66.9607*sb2 + 0.3515*sb4 - l2*(1594561.25 + 5336.535*sb2 + 26.79*sb4 + 0.149*sb6 + l2*(672483.4 - 811219.9*sb2 + 5420.0*sb4 - 10.6*sb6 + l2*(278194.0 - 830174.0*sb2 + 572434.0*sb4 - 16010.0*sb6 + l2*(109500.0 - 574700.0*sb2 + 863700.0*sb4 - 398600.0*sb6)))));
+    
+    double X = (5.0 + 10*n)*1e5 + l*CosLat*(6378245.0 + 21346.1415*sb2 + 107.1590*sb4 + 0.5977*sb6 + l2*(1070204.16 - 2136826.66*sb2 + 17.988*sb4 - 11.99*sb6 + l2*(270806.0 - 1523417.0*sb2 + 1327645.0*sb4 - 21701.0*sb6 + l2*(79690.0 - 866190.0*sb2 + 1730360.0*sb4 - 945460.0*sb6))));
+    KeepLastXYZone = true;
+    Result = {X, Y};
+    return(Result);
+}
+
+inline v2d
+TestPerp(r64 x1, r64 y1, r64 x2, r64 y2, r64 x3, r64 y3)
+{
+    v2d Result = {};
+    Result.x = (((x2-x1)*(y2-y1)*(y3-y1)+x1*pow(y2-y1, 2)+x3*pow(x2-x1, 2))/(pow(y2-y1, 2)+pow(x2-x1, 2)));
+    Result.y = (y2-y1)*(Result.x-x1)/(x2-x1)+y1;
+    return(Result);
+}
 
 inline b32
 IsNumber(wchar_t C)
@@ -20,7 +256,7 @@ CheckHResult(HRESULT hr, char* message)
 }
 
 internal void
-ParseKML(mode_task1 *ModeTask1, char *FileName)
+ParseKML(renderer *Renderer, mode_task1 *ModeTask1, char *FileName)
 {
     HRESULT hr = S_OK;
     IXmlReader* pReader = NULL;
@@ -92,12 +328,16 @@ ParseKML(mode_task1 *ModeTask1, char *FileName)
                             ++EndCursor; // skip L' '
                             //Log->Add("%lf %lf\n", X, Y);
                             
-                            // TODO(ezexff): mb start use double? r32 for testing
-                            //ModeTask1->CoordinateArray[CoordinatesCount].x = (r32)((X - 45.0f) * 100000.0f);
-                            //ModeTask1->CoordinateArray[CoordinatesCount].y = (r32)((Y - 52.0f) * 100000.0f);
-                            ModeTask1->CoordinateArray[CoordinatesCount].x = (r32)X;
-                            ModeTask1->CoordinateArray[CoordinatesCount].y = (r32)Y;
-                            Log->Add("%f %f\n",
+                            // TODO(ezexff): mb start use double? r32 for testing (and fast calc)
+                            ModeTask1->CoordinateArray[CoordinatesCount] = LatLngToXY(DegToRad64((r64)Y), DegToRad64((r64)X));
+                            //ModeTask1->CoordinateArray[CoordinatesCount] = {(r64)X, (r64)Y};
+                            if(CoordinatesCount == 0)
+                            {
+                                Renderer->Camera.P = V3((r32)ModeTask1->CoordinateArray[CoordinatesCount].x, 
+                                                        (r32)ModeTask1->CoordinateArray[CoordinatesCount].y, 
+                                                        35.0f);
+                            }
+                            Log->Add("%lf %lf\n",
                                      ModeTask1->CoordinateArray[CoordinatesCount].x, ModeTask1->CoordinateArray[CoordinatesCount].y);
                             
                             CoordinatesCount++;
@@ -226,35 +466,36 @@ u32 ProcessOpen(char *At, char *Open, u32 OpenLen)
 }
  */
 
-inline r32
-PerpendicularDistance(v2 p, v2 start, v2 end)
+inline r64
+PerpendicularDistance(v2d p, v2d start, v2d end)
 {
-    r32 dx = end.x - start.x;
-    r32 dy = end.y - start.y;
-    r32 t = ((p.x - start.x) * dx + (p.y - start.y) * dy) / (dx * dx + dy * dy);
+    r64 dx = end.x - start.x;
+    r64 dy = end.y - start.y;
+    r64 t = ((p.x - start.x) * dx + (p.y - start.y) * dy) / (dx * dx + dy * dy);
     
     if (t < 0) t = 0;
     else if (t > 1) t = 1;
     
-    r32 closestX = start.x + t * dx;
-    r32 closestY = start.y + t * dy;
+    r64 closestX = start.x + t * dx;
+    r64 closestY = start.y + t * dy;
     
-    r32 Result = SquareRoot(Square(p.x - closestX) + Square(p.y - closestY));
+    
+    r64 Result = sqrt(Square(p.x - closestX) + Square(p.y - closestY));
     return(Result);
 }
 
 internal void
-DouglasPeucker(v2 *PointArray, u32 PointArrayCount,
-               r32 Epsilon, s32 Start, s32 End,
-               v2 *ResultArray, u32 *ResultArrayCount)
+DouglasPeucker(v2d *PointArray, u32 PointArrayCount,
+               r64 Epsilon, s32 Start, s32 End,
+               v2d *ResultArray, u32 *ResultArrayCount)
 {
-    r32 MaxDistance = 0.0f;
+    r64 MaxDistance = 0.0f;
     s32 FarthestIndex = -1;
     for(s32 Index = Start + 1;
         Index < End;
         ++Index)
     {
-        r32 PerpDistance = PerpendicularDistance(PointArray[Index], PointArray[Start], PointArray[End]);
+        r64 PerpDistance = PerpendicularDistance(PointArray[Index], PointArray[Start], PointArray[End]);
         if(PerpDistance > MaxDistance)
         {
             MaxDistance = PerpDistance;
@@ -273,6 +514,14 @@ DouglasPeucker(v2 *PointArray, u32 PointArrayCount,
     }
     else
     {
+        if(GlobalMaxDistance < MaxDistance)
+        {
+            GlobalMaxDistance = MaxDistance;
+            GlobalMaxDistanceArray[0] = TestPerp(PointArray[Start].x, PointArray[Start].y, 
+                                                 PointArray[End].x, PointArray[End].y,
+                                                 PointArray[FarthestIndex].x, PointArray[FarthestIndex].y);
+            GlobalMaxDistanceArray[1] = PointArray[FarthestIndex];
+        }
         if(*ResultArrayCount == 0)
         {
             ResultArray[*ResultArrayCount] = PointArray[Start];
@@ -281,6 +530,10 @@ DouglasPeucker(v2 *PointArray, u32 PointArrayCount,
         ResultArray[*ResultArrayCount] = PointArray[End];
         ++*ResultArrayCount;
     }
+    
+    //GlobalMaxDistance = Maximum(GlobalMaxDistance, MaxDistance);
+    //r32 MaxDistanceInMeters = MaxDistance * 111111.0f;
+    //Log->Add("MaxDistance = %f, %fmeters\n", MaxDistance, MaxDistanceInMeters);
 }
 
 struct douglas_peucker_work
@@ -339,9 +592,10 @@ UpdateAndRenderTask1(game_memory *Memory, game_input *Input)
     mode_task1 *ModeTask1 = &GameState->ModeTask1;
     if(!ModeTask1->IsInitialized)
     {
+        TestRequest();
         //ModeTask1->Scale = 1.0f;
         // TODO(ezexff): only for testing
-        Renderer->Camera.P = V3(45.577f, 52.539f, 35.0f);
+        Renderer->Camera.P = V3(0.0f, 0.0f, 35.0f);
         ModeTask1->Epsilon = 0.00001f;
         /* 
                 ModeTask1->XML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><kml xmlns=\"http://earth.google.com/kml/2.1\"><Placemark><name>Геленджик</name><description><![CDATA[<p>Геленджик, Краснодарский край, Россия.</p>Город располагается по&amp;nbsp;берегам Геленджикской бухты, но&amp;nbsp;не&amp;nbsp;равномерно (восточный берег исторически более населён).]]></description><LookAt id=\"khLookAt540_copy0\"><longitude>38.0576198113139</longitude><latitude>44.56963150481845</latitude><altitude>0</altitude><range>14693.40972993507</range><tilt>49.10268313434742</tilt><heading>37.85562764777833</heading></LookAt><Style><IconStyle><scale>0.9</scale><Icon><href>root://icons/palette-4.png</href><x>32</x><y>128</y><w>32</w><h>32</h></Icon></IconStyle><LabelStyle><scale>0.9</scale></LabelStyle></Style><Point id=\"khPoint541_copy0\"><coordinates>38.06284424434902,44.56842733252498,0</coordinates></Point></Placemark></kml>";
@@ -431,13 +685,12 @@ UpdateAndRenderTask1(game_memory *Memory, game_input *Input)
     {
         if(Input->dMouseP.x != 0)
         {
-            //Log->Add("dMouseP.x = %3.f\n", Input->dMouseP.x);
-            Renderer->Camera.P.x -= Input->dMouseP.x / Renderer->Camera.P.z / 750.0f / Frame->AspectRatio;
+            //Renderer->Camera.P.x -= Input->dMouseP.x / Renderer->Camera.P.z / 750.0f / Frame->AspectRatio;
+            Renderer->Camera.P.x -= Input->dMouseP.x / Renderer->Camera.P.z / Frame->AspectRatio * 100.0f;
         }
         if(Input->dMouseP.y != 0)
         {
-            //Log->Add("dMouseP.y = %3.f\n", Input->dMouseP.y);
-            Renderer->Camera.P.y -= Input->dMouseP.y / Renderer->Camera.P.z / 750.0f / Frame->AspectRatio; 
+            Renderer->Camera.P.y -= Input->dMouseP.y / Renderer->Camera.P.z / Frame->AspectRatio * 100.0f; 
         }
     }
     /*
@@ -497,10 +750,12 @@ UpdateAndRenderTask1(game_memory *Memory, game_input *Input)
     
     if(ModeTask1->CoordinateArrayCount)
     {
-        PushLinesOnScreen(&Renderer->PushBufferPhysics, ModeTask1->CoordinateArrayCount, ModeTask1->CoordinateArray, 1, V4(0, 0, 0, 1), 10000);
+        PushLinesOnScreen64(&Renderer->PushBufferPhysics, ModeTask1->CoordinateArrayCount, ModeTask1->CoordinateArray, 1, V4(0, 0, 0, 1), 10000);
     }
     if(ModeTask1->SimplifiedArrayCount)
     {
-        PushLinesOnScreen(&Renderer->PushBufferPhysics, ModeTask1->SimplifiedArrayCount, ModeTask1->SimplifiedArray, 1, V4(0, 1, 0, 1), 10000);
+        PushLinesOnScreen64(&Renderer->PushBufferPhysics, ModeTask1->SimplifiedArrayCount, ModeTask1->SimplifiedArray, 1, V4(0, 1, 0, 1), 10000);
+        
+        PushLinesOnScreen64(&Renderer->PushBufferPhysics, 2, GlobalMaxDistanceArray, 1, V4(0, 1, 1, 1), 10000);
     }
 }

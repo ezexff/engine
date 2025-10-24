@@ -29,8 +29,9 @@ REM Possible options: /GL (оптимизация всей программы)
 REM Includes
 SET ImGui=/I%LibsPath%\imgui
 SET ImPlot=/I%LibsPath%\implot
-SET ezxml=/I%LibsPath%\ezxml
-SET DebugIncludes=%ImGui% %ImPlot% %ezxml%
+REM SET ezxml=/I%LibsPath%\ezxml
+SET OpenSSL=/I%LibsPath%\openssl
+SET DebugIncludes=%ImGui% %ImPlot% %OpenSSL%
 
 REM Linker options
 SET DefaultLinkerOpts=/incremental:no /opt:ref /STACK:0x100000,0x100000
@@ -48,7 +49,7 @@ IF /i %BuildType%==Debug (
 del *.pdb >NUL 2>NUL
 echo WAITING FOR PDB > lock.tmp
 cl %DebugCompilerOpts% %DebugIncludes% %RendererTrUnit% /LD /link %DefaultLinkerOpts% /PDB:win32_engine_opengl_%random%.pdb /EXPORT:Win32LoadRenderer /EXPORT:Win32BeginFrame /EXPORT:Win32EndFrame User32.lib Gdi32.lib opengl32.lib imgui*.obj implot*.obj
-cl %DebugCompilerOpts% %DebugIncludes% %EngineTrUnit% /Fm%EngineMap% /LD /link %DefaultLinkerOpts% /PDB:engine_%random%.pdb /EXPORT:GetSoundSamples /EXPORT:UpdateAndRender /EXPORT:DEBUGGameFrameEnd imgui*.obj implot*.obj XmlLite.lib shlwapi.lib
+cl %DebugCompilerOpts% %DebugIncludes% %EngineTrUnit% /Fm%EngineMap% /LD /link %DefaultLinkerOpts% /PDB:engine_%random%.pdb /EXPORT:GetSoundSamples /EXPORT:UpdateAndRender /EXPORT:DEBUGGameFrameEnd imgui*.obj implot*.obj XmlLite.lib shlwapi.lib Ws2_32.lib %LibsPath%\openssl\libssl.lib %LibsPath%\openssl\libssl_static.lib %LibsPath%\openssl\libcrypto.lib %LibsPath%\openssl\libcrypto_static.lib 
 del lock.tmp
 cl %DebugCompilerOpts% %DebugIncludes% %Win32TrUnit% /Fm%Win32Map% /link %DefaultLinkerOpts% /ENTRY:mainCRTStartup /SUBSYSTEM:WINDOWS User32.lib Gdi32.lib kernel32.lib Ole32.lib imgui*.obj implot*.obj Comdlg32.lib
 )

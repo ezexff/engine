@@ -275,6 +275,19 @@ PushLinesOnScreen(renderer_push_buffer *PushBuffer, u32 VertexCount, v2 *VertexA
 }
 
 void
+PushLinesOnScreen64(renderer_push_buffer *PushBuffer, u32 VertexCount, v2d *VertexArray, r32 LineWidth, v4 Color = V4(1, 1, 1, 1), r32 SortKey = 0.0f)
+{
+    renderer_ortho_entry_lines_d *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_lines_d, SortKey);
+    if(Entry)
+    {
+        Entry->Color = Color;
+        Entry->VertexCount = VertexCount;
+        Entry->VertexArray = VertexArray;
+        Entry->LineWidth = LineWidth;
+    }
+}
+
+void
 PushTrianglesOnScreen(renderer_push_buffer *PushBuffer, u32 VertexCount, v2 *VertexArray, v4 Color = V4(1, 1, 1, 1), r32 SortKey = 0.0f)
 {
     renderer_ortho_entry_triangles *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_triangles, SortKey);

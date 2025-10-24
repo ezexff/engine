@@ -26,7 +26,7 @@ typedef size_t memory_index;
 #if !defined(internal)
 #define internal static
 #endif
-#define local static
+#define local1 static
 #define global static
 
 // NOTE(ezexff): Floating point fix for no CRT release compile (MSVC)
@@ -145,7 +145,6 @@ union v2u
     u32 E[2];
 };
 
-/* 
 union v2d
 {
     struct
@@ -154,7 +153,6 @@ union v2d
     };
     r64 E[2];
 };
- */
 
 union v3
 {

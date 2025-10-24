@@ -770,7 +770,7 @@ UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
         }
         
         // TODO(ezexff): Tmp
-        local b32 TmpIsCenteringMouseCursor = false;
+        local1 b32 TmpIsCenteringMouseCursor = false;
         
         // NOTE(ezexff): Keys
         if(WasPressed(Input->MouseButtons[PlatformMouseButton_Left]))

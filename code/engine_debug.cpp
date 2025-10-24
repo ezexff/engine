@@ -1005,7 +1005,7 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
                 
                 ImGui::SeparatorText("ImportKML#Test1");
                 //ImGui::Text("PointArrayCount = %u", ModeTask1->PointArrayCount);
-                local char *FileName = "not loaded!";
+                local1 char *FileName = "not loaded!";
                 ImGui::Text("Loaded file path: %s", FileName); // TODO(ezexff): use wchar_t
                 if(ImGui::Button("OpenKML"))
                 {
@@ -1017,14 +1017,18 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
                         //Log->Add("[win32file] ReadEntireFile:\n%s\n", ReadFileResult.Contents);
                         
                         // NOTE(ezexff): test xmllite
-                        ParseKML(ModeTask1, FileName);
+                        ParseKML(Renderer, ModeTask1, FileName);
                     }
                 }
                 ImGui::Text("CoordinateArrayCount = %u", ModeTask1->CoordinateArrayCount);
                 
                 ImGui::SeparatorText("Simpilfy#Test1");
                 ImGui::Text("SimplifiedArrayCount = %u", ModeTask1->SimplifiedArrayCount);
-                ImGui::InputFloat("Epsilon", &ModeTask1->Epsilon, 0.00001f, 1.0f, "%.5f");
+                //ImGui::InputFloat("Epsilon", &ModeTask1->Epsilon, 0.00001f, 1.0f, "%.5f");
+                local1 r32 EpsilonInMeters = 100.0f;
+                ImGui::InputFloat("EpsilonInMeters", &EpsilonInMeters, 1.0f, 1.0f, "%.5f");
+                ModeTask1->Epsilon = EpsilonInMeters;
+                ImGui::Text("Epsilon = %f", ModeTask1->Epsilon);
                 
                 if(DisableButton)
                 {
@@ -1037,9 +1041,19 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
                     
                     if(ModeTask1->CoordinateArrayCount > 0)
                     {
+                        u64 Clock = __rdtsc();
+                        
+                        GlobalMaxDistance = 0.0f;
+                        GlobalMaxDistanceArray[0] = {0.0f, 0.0f};
+                        GlobalMaxDistanceArray[1] = {0.0f, 0.0f};
                         DouglasPeucker(ModeTask1->CoordinateArray, ModeTask1->CoordinateArrayCount,
                                        ModeTask1->Epsilon, 0, ModeTask1->CoordinateArrayCount - 1,
                                        ModeTask1->SimplifiedArray, &ModeTask1->SimplifiedArrayCount);
+                        Log->Add("MaxDistance = %lfmeters\n", GlobalMaxDistance);
+                        
+                        Clock = __rdtsc() - Clock;
+                        r32 ClockInSeconds = Clock / (3.8f * 1000 * 1000 * 1000.0f);
+                        Log->Add("DouglasPeuckerTime = %lucycles, %fseconds\n", Clock, ClockInSeconds);
                     }
                 }
                 if(ImGui::Button("DouglasPeuckerWork"))
@@ -1232,7 +1246,7 @@ TestNewUI(debug_state *DebugState)
      */
     
     BEGIN_BLOCK("UI_DebugCollationWindow");
-    local b32 IsWindowVisible3 = true;
+    local1 b32 IsWindowVisible3 = true;
     if(IsWindowVisible3)
     {
         UI_BeginWindow("DebugCollation", &IsWindowVisible3);
@@ -1346,7 +1360,7 @@ TestNewUI(debug_state *DebugState)
         }
     }
     
-    local b32 IsTestWndVisible = true;
+    local1 b32 IsTestWndVisible = true;
     UI_BeginWindow("MsAvgTest", &IsTestWndVisible);
     
     UI_Label("MsMin = %.2f", DebugState->MsStatLastSecond.Min);

@@ -505,7 +505,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
     // NOTE(ezexff): test ui
 #if 1
     {
-        local b32 IsWindowVisible5 = true;
+        local1 b32 IsWindowVisible5 = true;
         if(IsWindowVisible5)
         {
             UI_BeginWindow("Engine", &IsWindowVisible5);
@@ -541,7 +541,7 @@ extern "C" UPDATE_AND_RENDER_FUNC(UpdateAndRender)
             UI_EndWindow();
         }
         
-        local b32 IsWindowVisible4 = true;
+        local1 b32 IsWindowVisible4 = true;
         if(IsWindowVisible4)
         {
             UI_BeginWindow("Physics", &IsWindowVisible4);

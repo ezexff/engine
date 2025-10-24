@@ -235,6 +235,14 @@ struct renderer_ortho_entry_lines
     r32 LineWidth;
 };
 
+struct renderer_ortho_entry_lines_d
+{
+    v4 Color;
+    u32 VertexCount;
+    v2d *VertexArray;
+    r32 LineWidth;
+};
+
 struct renderer_ortho_entry_triangles
 {
     v4 Color;
@@ -290,7 +298,8 @@ struct renderer_ortho_entry_glyph
 
 enum renderer_ortho_entry_type
 {
-    RendererOrthoEntryType_renderer_ortho_entry_lines,
+    RendererOrthoEntryType_renderer_ortho_entry_lines, // r32
+    RendererOrthoEntryType_renderer_ortho_entry_lines_d, // r64
     RendererOrthoEntryType_renderer_ortho_entry_triangles,
     
     RendererOrthoEntryType_renderer_ortho_entry_circle,
