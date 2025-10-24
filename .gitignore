@@ -3,3 +3,4 @@
 !/data/*.frag
 !/data/*.vert
 /tmp/*
+!/libs/openssl
