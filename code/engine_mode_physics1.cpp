@@ -173,7 +173,7 @@ void ResolveCollision(test_entity *A, test_entity *B, v2 Normal, r32 Depth)
     }
 }
 
-internal void
+internal1 void
 UpdateAndRenderPhysics1(game_memory *Memory, game_input *Input)
 {
     game_state *GameState = (game_state *)Memory->PermanentStorage;

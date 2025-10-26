@@ -1,5 +1,5 @@
 #if ENGINE_INTERNAL
-internal void
+internal1 void
 OutputTestSineWave(game_state *GameState, game_sound_output_buffer *SoundBuffer)
 {
     int WavePeriod = SoundBuffer->SamplesPerSecond / GameState->ToneHz;
@@ -23,7 +23,7 @@ OutputTestSineWave(game_state *GameState, game_sound_output_buffer *SoundBuffer)
 }
 #endif
 
-internal void
+internal1 void
 OutputPlayingSounds(audio_state *AudioState,
                     game_sound_output_buffer *SoundBuffer, game_assets *Assets,
                     memory_arena *TempArena)
@@ -268,7 +268,7 @@ OutputPlayingSounds(audio_state *AudioState,
     EndTemporaryMemory(MixerMemory);
 }
 
-internal void
+internal1 void
 InitializeAudioState(audio_state *AudioState, memory_arena *PermArena)
 {
     AudioState->PermArena = PermArena;
@@ -278,7 +278,7 @@ InitializeAudioState(audio_state *AudioState, memory_arena *PermArena)
     AudioState->MasterVolume = V2(1.0f, 1.0f);
 }
 
-internal playing_sound *
+internal1 playing_sound *
 PlaySound(audio_state *AudioState, sound_id SoundID)
 {
     if(!AudioState->FirstFreePlayingSound)
@@ -303,7 +303,7 @@ PlaySound(audio_state *AudioState, sound_id SoundID)
     return(PlayingSound);
 }
 
-internal void
+internal1 void
 ChangeVolume(audio_state *AudioState, playing_sound *Sound, r32 FadeDurationInSeconds, v2 Volume)
 {
     if(Sound)
@@ -321,7 +321,7 @@ ChangeVolume(audio_state *AudioState, playing_sound *Sound, r32 FadeDurationInSe
     }
 }
 
-internal void
+internal1 void
 ChangePitch(audio_state *AudioState, playing_sound *Sound, r32 dSample)
 {
     if(Sound)

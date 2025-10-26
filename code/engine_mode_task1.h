@@ -1,10 +1,20 @@
 #include <string>
 #include <xmllite.h>
 #include <shlwapi.h>
-//#include <winsock2.h>
-//#include <ws2tcpip.h>
+
+//#include "httplib.h"
+//#include <tls.h>
+#include <curl/curl.h>
+
+#define STB_IMAGE_IMPLEMENTATION  
+#include "stb_image.h"
+
+/* 
+#include <ws2tcpip.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+ */
+
 
 /* 
 enum kml_tag

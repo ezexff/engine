@@ -23,11 +23,11 @@ typedef uintptr_t umm;
 
 typedef size_t memory_index;
 
-#if !defined(internal)
-#define internal static
+#if !defined(internal1)
+#define internal1 static
 #endif
 #define local1 static
-#define global static
+#define global1 static
 
 // NOTE(ezexff): Floating point fix for no CRT release compile (MSVC)
 #if !(ENGINE_INTERNAL)
@@ -74,10 +74,6 @@ typedef r64 f64;
 #define F32Min -FLT_MAX
 #define F64Max DBL_MAX
 #define F64Min -DBL_MAX
-
-#if !defined(internal)
-#define internal static
-#endif
 
 #define Pi32 3.14159265359f
 #define Pi32_2 1.57079632679f // pi/2 TODO(me): remove?
@@ -422,7 +418,7 @@ StringsAreEqual(umm ALength, char *A, char *B)
 }
 
 //~ NOTE(ezexff): from hmh shared file
-internal s32
+internal1 s32
 S32FromZInternal(char **AtInit)
 {
     s32 Result = 0;
@@ -441,7 +437,7 @@ S32FromZInternal(char **AtInit)
     return(Result);
 }
 
-internal s32
+internal1 s32
 S32FromZ(char *At)
 {
     char *Ignored = At;
@@ -482,7 +478,7 @@ OutChars(format_dest *Dest, char *Value)
 char DecChars[] = "0123456789";
 char LowerHexChars[] = "0123456789abcdef";
 char UpperHexChars[] = "0123456789ABCDEF";
-internal void
+internal1 void
 U64ToASCII(format_dest *Dest, u64 Value, u32 Base, char *Digits)
 {
     Assert(Base != 0);
@@ -508,7 +504,7 @@ U64ToASCII(format_dest *Dest, u64 Value, u32 Base, char *Digits)
     }
 }
 
-internal void
+internal1 void
 F64ToASCII(format_dest *Dest, f64 Value, u32 Precision)
 {
     if(Value < 0)
@@ -535,7 +531,7 @@ F64ToASCII(format_dest *Dest, f64 Value, u32 Precision)
     }
 }
 
-internal umm
+internal1 umm
 FormatStringList(umm DestSize, char *DestInit, char *Format, va_list ArgList)
 {
     format_dest Dest = {DestSize, DestInit};
@@ -899,7 +895,7 @@ FormatStringList(umm DestSize, char *DestInit, char *Format, va_list ArgList)
     return(Result);
 }
 
-internal umm
+internal1 umm
 FormatString(umm DestSize, char *Dest, char *Format, ...)
 {
     va_list ArgList;
@@ -982,7 +978,7 @@ inline v4 RGBA(r32 R, r32 G, r32 B, r32 A)
     return(Result);
 }
 
-internal b32
+internal1 b32
 IsEndOfLine(char C)
 {
     b32 Result = ((C == '\n') ||
@@ -991,7 +987,7 @@ IsEndOfLine(char C)
     return(Result);
 }
 
-internal b32
+internal1 b32
 IsSpacing(char C)
 {
     b32 Result = ((C == ' ') ||
@@ -1002,7 +998,7 @@ IsSpacing(char C)
     return(Result);
 }
 
-internal b32
+internal1 b32
 IsWhitespace(char C)
 {
     b32 Result = (IsSpacing(C) || IsEndOfLine(C));

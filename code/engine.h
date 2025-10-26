@@ -1,3 +1,5 @@
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#include <winsock2.h>
 #include <windows.h>
 #include <gl/gl.h>
 
@@ -107,7 +109,7 @@ struct tran_state
     r32 MaxTerrainHeight;*/
 };
 
-internal task_with_memory *
+internal1 task_with_memory *
 BeginTaskWithMemory(tran_state *TranState)
 {
     task_with_memory *FoundTask = 0;
@@ -129,7 +131,7 @@ BeginTaskWithMemory(tran_state *TranState)
     return(FoundTask);
 }
 
-internal void
+internal1 void
 EndTaskWithMemory(task_with_memory *Task)
 {
     EndTemporaryMemory(Task->MemoryFlush);

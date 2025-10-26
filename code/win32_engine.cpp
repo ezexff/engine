@@ -30,7 +30,7 @@ u64 GlobalTimerOffset;
 u64 GlobalTimerFrequency;
 
 #if ENGINE_INTERNAL
-global debug_table GlobalDebugTable_;
+global1 debug_table GlobalDebugTable_;
 debug_table *GlobalDebugTable = &GlobalDebugTable_;
 #if ENGINE_IMGUI
 b32 GlobalShowImGuiWindows = true; // All ImGui windows visibility
@@ -267,7 +267,7 @@ struct win32_platform_file_group
     WIN32_FIND_DATAW FindData;
 };
 
-internal PLATFORM_GET_ALL_FILE_OF_TYPE_BEGIN(Win32GetAllFilesOfTypeBegin)
+internal1 PLATFORM_GET_ALL_FILE_OF_TYPE_BEGIN(Win32GetAllFilesOfTypeBegin)
 {
     platform_file_group Result = {};
     win32_platform_file_group *Win32FileGroup = 
@@ -320,7 +320,7 @@ internal PLATFORM_GET_ALL_FILE_OF_TYPE_BEGIN(Win32GetAllFilesOfTypeBegin)
     return(Result);
 }
 
-internal PLATFORM_GET_ALL_FILE_OF_TYPE_END(Win32GetAllFilesOfTypeEnd)
+internal1 PLATFORM_GET_ALL_FILE_OF_TYPE_END(Win32GetAllFilesOfTypeEnd)
 {
     win32_platform_file_group *Win32FileGroup = (win32_platform_file_group *)FileGroup->Platform;
     if(Win32FileGroup)
@@ -333,7 +333,7 @@ internal PLATFORM_GET_ALL_FILE_OF_TYPE_END(Win32GetAllFilesOfTypeEnd)
 
 // TODO(ezexff): mb enable optimization
 #pragma optimize( "", off )
-internal PLATFORM_OPEN_FILE(Win32OpenNextFile)
+internal1 PLATFORM_OPEN_FILE(Win32OpenNextFile)
 {
     win32_platform_file_group *Win32FileGroup = (win32_platform_file_group *)FileGroup->Platform;
     platform_file_handle Result = {};
@@ -380,7 +380,7 @@ internal PLATFORM_OPEN_FILE(Win32OpenNextFile)
 }
 #pragma optimize( "", on )
 
-internal PLATFORM_FILE_ERROR(Win32FileError)
+internal1 PLATFORM_FILE_ERROR(Win32FileError)
 {
 #if ENGINE_INTERNAL
 #if ENGINE_IMGUI
@@ -390,7 +390,7 @@ internal PLATFORM_FILE_ERROR(Win32FileError)
     Handle->NoErrors = false;
 }
 
-internal PLATFORM_READ_DATA_FROM_FILE(Win32ReadDataFromFile)
+internal1 PLATFORM_READ_DATA_FROM_FILE(Win32ReadDataFromFile)
 {
     if(PlatformNoFileErrors(Source))
     {
@@ -414,7 +414,7 @@ internal PLATFORM_READ_DATA_FROM_FILE(Win32ReadDataFromFile)
     }
 }
 
-internal PLATFORM_GET_OPEN_FILE_NAME(Win32GetOpenFileName)
+internal1 PLATFORM_GET_OPEN_FILE_NAME(Win32GetOpenFileName)
 {
     char *Result = 0;
     static char FileName[256];
@@ -786,7 +786,7 @@ struct platform_work_queue
     platform_work_queue_entry Entries[256];
 };
 
-internal void
+internal1 void
 Win32AddEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback, void *Data)
 {
     // TODO(casey): Switch to InterlockedCompareExchange eventually
@@ -802,7 +802,7 @@ Win32AddEntry(platform_work_queue *Queue, platform_work_queue_callback *Callback
     ReleaseSemaphore(Queue->SemaphoreHandle, 1, 0);
 }
 
-internal b32
+internal1 b32
 Win32DoNextWorkQueueEntry(platform_work_queue *Queue)
 {
     b32 WeShouldSleep = false;
@@ -829,7 +829,7 @@ Win32DoNextWorkQueueEntry(platform_work_queue *Queue)
     return(WeShouldSleep);
 }
 
-internal void
+internal1 void
 Win32CompleteAllWork(platform_work_queue *Queue)
 {
     while(Queue->CompletionGoal != Queue->CompletionCount)
@@ -857,7 +857,7 @@ ThreadProc(LPVOID lpParameter)
     //    return(0);
 }
 
-internal PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork)
+internal1 PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork)
 {
 #if ENGINE_INTERNAL
 #if ENGINE_IMGUI
@@ -866,7 +866,7 @@ internal PLATFORM_WORK_QUEUE_CALLBACK(DoWorkerWork)
 #endif
 }
 
-internal void
+internal1 void
 Win32MakeQueue(platform_work_queue *Queue, u32 ThreadCount)
 {
     Queue->CompletionGoal = 0;

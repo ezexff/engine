@@ -1,4 +1,4 @@
-internal intersect_result
+internal1 intersect_result
 Collide(test_entity *BodyA, test_entity *BodyB)
 {
     intersect_result Result = {};
@@ -31,7 +31,7 @@ Collide(test_entity *BodyA, test_entity *BodyB)
     return(Result);
 }
 
-internal void
+internal1 void
 StepBodies(mode_physics2 *ModePhysics, r32 IterationMax, r32 dt, v2 Gravity)
 {
     dt /= IterationMax;
@@ -52,7 +52,7 @@ StepBodies(mode_physics2 *ModePhysics, r32 IterationMax, r32 dt, v2 Gravity)
     }
 }
 
-internal void
+internal1 void
 BroadPhase(mode_physics2 *ModePhysics, u32 Iteration, u32 IterationMax)
 {
     // NOTE(ezexff): collision detection
@@ -91,7 +91,7 @@ BroadPhase(mode_physics2 *ModePhysics, u32 Iteration, u32 IterationMax)
     }
 }
 
-internal void
+internal1 void
 NarrowPhase(mode_physics2 *ModePhysics)
 {
     for(u32 Index = 0;
@@ -148,7 +148,7 @@ CalcInvMassAndInertia(test_entity *Entity)
     }
 }
 
-internal test_entity *
+internal1 test_entity *
 AddRawEntity(mode_physics2 *ModePhysics, test_entity_type Type, b32 IsStatic,
              v2 P, r32 Angle,
              r32 Density, r32 Restitution,
@@ -186,7 +186,7 @@ AddRawEntity(mode_physics2 *ModePhysics, test_entity_type Type, b32 IsStatic,
     return(Result);
 }
 
-internal void
+internal1 void
 AddRectEntity(mode_physics2 *ModePhysics, b32 IsStatic,
               v2 P, v2 Dim, r32 Angle,
               r32 Density, r32 Restitution,
@@ -208,7 +208,7 @@ AddRectEntity(mode_physics2 *ModePhysics, b32 IsStatic,
     Entity->VertexArray[3] = V2(-0.5f, 0.5f);
 }
 
-internal void
+internal1 void
 AddCircleEntity(mode_physics2 *ModePhysics, b32 IsStatic,
                 v2 P, r32 Radius, r32 Angle,
                 r32 Density, r32 Restitution,
@@ -228,7 +228,7 @@ AddCircleEntity(mode_physics2 *ModePhysics, b32 IsStatic,
     Entity->LineVertexArray[1] = V2(1.0f, 0.0f);
 }
 
-internal void
+internal1 void
 UpdateAndRenderPhysics2(game_memory *Memory, game_input *Input)
 {
     game_state *GameState = (game_state *)Memory->PermanentStorage;

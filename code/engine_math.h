@@ -837,7 +837,7 @@ inline m4x4 Translate(v3 T)
     return (R);
 }
 
-internal m4x4 operator*(m4x4 A, m4x4 B)
+internal1 m4x4 operator*(m4x4 A, m4x4 B)
 {
     // NOTE(casey): This is written to be instructive, not optimal!
     
@@ -857,7 +857,7 @@ internal m4x4 operator*(m4x4 A, m4x4 B)
     return (R);
 }
 
-internal v4 operator*(m4x4 A, v4 B)
+internal1 v4 operator*(m4x4 A, v4 B)
 {
     v4 R = {};
     

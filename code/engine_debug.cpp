@@ -1,7 +1,7 @@
 #include "engine_debug.h"
 
 #if ENGINE_IMGUI
-internal void
+internal1 void
 ImGuiDrawStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *DebugState, r64 FrameClock)
 {
     for(debug_stored_block *Node = InNode;
@@ -56,7 +56,7 @@ ImGuiDrawStoredBlockTree(debug_stored_block *InNode, u32 Depth, debug_state *Deb
 }
 #endif
 
-internal void
+internal1 void
 ImGuiUpdateAndRender()
 {
 #if ENGINE_IMGUI
@@ -1017,7 +1017,7 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
                         //Log->Add("[win32file] ReadEntireFile:\n%s\n", ReadFileResult.Contents);
                         
                         // NOTE(ezexff): test xmllite
-                        ParseKML(Renderer, ModeTask1, FileName);
+                        ParseKML(Frame, Renderer, ModeTask1, FileName);
                     }
                 }
                 ImGui::Text("CoordinateArrayCount = %u", ModeTask1->CoordinateArrayCount);
@@ -1093,7 +1093,7 @@ OpenglCompileShader(Opengl, GL_VERTEX_SHADER, &Frame->Vert);
 #endif
 }
 
-internal void
+internal1 void
 DrawStoredBlockTreeV2(debug_stored_block *InNode, u32 Depth, debug_state *DebugState, r64 FrameClock)
 {
     for(debug_stored_block *Node = InNode;
@@ -1165,7 +1165,7 @@ DrawStoredBlockTreeV2(debug_stored_block *InNode, u32 Depth, debug_state *DebugS
     }
 }
 
-internal void
+internal1 void
 TestNewUI(debug_state *DebugState)
 {
     TIMED_FUNCTION();
@@ -1394,7 +1394,7 @@ DEBUGInitFrame(debug_state *DebugState)
 }
  */
 
-internal void
+internal1 void
 CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventArray)
 {
     TIMED_FUNCTION();
@@ -1579,7 +1579,7 @@ CollateDebugRecords(debug_state *DebugState, u32 EventCount, debug_event *EventA
     }
 }
 
-internal void
+internal1 void
 DEBUGStart(debug_state *DebugState, u32 MainGenerationID)
 {
     TIMED_FUNCTION();
@@ -1636,7 +1636,7 @@ DEBUGStart(debug_state *DebugState, u32 MainGenerationID)
     }
 }
 
-internal void
+internal1 void
 DEBUGEnd(debug_state *DebugState)
 {
     TIMED_FUNCTION();
@@ -1668,7 +1668,7 @@ DEBUGEnd(debug_state *DebugState)
 }
 
 // TODO(casey): Really want to get rid of main generation ID
-internal u32
+internal1 u32
 DEBUGGetMainGenerationID(game_memory *Memory)
 {
     u32 Result = 0;

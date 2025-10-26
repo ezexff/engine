@@ -30,7 +30,7 @@ UI_GetCachedNode(u32 Key)
     return(CachedNode);
 }
 
-internal v2
+internal1 v2
 UI_CalcTextSizeInPixels(renderer_frame *Frame, game_assets *Assets, font_id FontID, char *String)
 {
     v2 Result = {};
@@ -458,7 +458,7 @@ UI_AddNode(ui_node *Root, ui_node *Parent, char *ID, u32 StyleTemplateIndex, u32
     return(Node);
 }
 
-internal void
+internal1 void
 UI_BeginInteract()
 {
     //ui_node *CachedNode = UI_GetCachedNode(UI_State->HotInteraction->String);
@@ -495,7 +495,7 @@ UI_BeginInteract()
     }
 }
 
-internal void
+internal1 void
 UI_EndInteract()
 {
     //ui_node *CachedNode = UI_GetCachedNode(UI_State->Interaction->String);
@@ -512,7 +512,7 @@ UI_EndInteract()
     UI_State->Interaction = 0;
 }
 
-internal void
+internal1 void
 UI_Interact()
 {
     TIMED_FUNCTION();
@@ -582,7 +582,7 @@ UI_Interact()
     }
 }
 
-internal void
+internal1 void
 UI_DrawText(ui_node *Node, rectangle2 ClippedRect)
 {
     game_assets *Assets = UI_State->Assets;
@@ -775,7 +775,7 @@ u32 UI_GetNodeState(ui_node *Node)
     return(Result);
 }
 
-internal void
+internal1 void
 UI_Initialize(memory_arena *ConstArena, memory_arena *TranArena)
 {
     UI_State = PushStruct(ConstArena, ui_state);
@@ -984,7 +984,7 @@ StyleTemplate->Size[Axis2_Y].Value = 10.0f;
     }
 }
 
-internal void
+internal1 void
 UI_BeginFrame(game_state *GameState, tran_state *TranState, renderer_frame *Frame, game_input *Input)
 {
     // TODO(ezexff): Mb rework (do without engine services)?
@@ -1056,7 +1056,7 @@ UI_BeginFrame(game_state *GameState, tran_state *TranState, renderer_frame *Fram
  */
 }
 
-internal void
+internal1 void
 UI_ProcessNodeTree(ui_node *Node)
 {
     if(!Node->Key){InvalidCodePath;}
@@ -1175,7 +1175,7 @@ struct ui_node_sort_entry
     ui_node *Node;
 };
 
-internal void
+internal1 void
 UI_EndFrame()
 {
     //if(UI_State->OpenWindow)

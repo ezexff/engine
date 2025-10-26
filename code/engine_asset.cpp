@@ -16,7 +16,7 @@ struct load_asset_work
     finalize_asset_operation FinalizeOperation;
     u32 FinalState;
 };
-internal void
+internal1 void
 LoadAssetWorkDirectly(load_asset_work *Work)
 {
     Platform.ReadDataFromFile(Work->Handle, Work->Offset, Work->Size, Work->Destination);
@@ -61,7 +61,7 @@ LoadAssetWorkDirectly(load_asset_work *Work)
     
     Work->Asset->State = Work->FinalState;
 }
-internal PLATFORM_WORK_QUEUE_CALLBACK(LoadAssetWork)
+internal1 PLATFORM_WORK_QUEUE_CALLBACK(LoadAssetWork)
 {
     load_asset_work *Work = (load_asset_work *)Data;
     
@@ -87,7 +87,7 @@ GetFileHandleFor(game_assets *Assets, u32 FileIndex)
     return(Result);
 }
 
-internal asset_memory_block *
+internal1 asset_memory_block *
 InsertBlock(asset_memory_block *Prev, u64 Size, void *Memory)
 {
     Assert(Size > sizeof(asset_memory_block));
@@ -101,7 +101,7 @@ InsertBlock(asset_memory_block *Prev, u64 Size, void *Memory)
     return(Block);
 }
 
-internal asset_memory_block *
+internal1 asset_memory_block *
 FindBlockForSize(game_assets *Assets, memory_index Size)
 {
     asset_memory_block *Result = 0;
@@ -127,7 +127,7 @@ FindBlockForSize(game_assets *Assets, memory_index Size)
     return(Result);
 }
 
-internal b32
+internal1 b32
 MergeIfPossible(game_assets *Assets, asset_memory_block *First, asset_memory_block *Second)
 {
     b32 Result = false;
@@ -154,7 +154,7 @@ MergeIfPossible(game_assets *Assets, asset_memory_block *First, asset_memory_blo
     return(Result);
 }
 
-internal b32
+internal1 b32
 GenerationHasCompleted(game_assets *Assets, u32 CheckID)
 {
     b32 Result = true;
@@ -173,7 +173,7 @@ GenerationHasCompleted(game_assets *Assets, u32 CheckID)
     return(Result);
 }
 
-internal asset_memory_header *
+internal1 asset_memory_header *
 AcquireAssetMemory(game_assets *Assets, u32 Size, u32 AssetIndex)
 {
     asset_memory_header *Result = 0;
@@ -259,7 +259,7 @@ struct asset_memory_size
     u32 Section;
 };
 
-internal void
+internal1 void
 LoadBitmap(game_assets *Assets, bitmap_id ID, b32 Immediate)
 {
     asset *Asset = Assets->Assets + ID.Value;        
@@ -335,7 +335,7 @@ LoadBitmap(game_assets *Assets, bitmap_id ID, b32 Immediate)
     }    
 }
 
-internal void
+internal1 void
 LoadSound(game_assets *Assets, sound_id ID)
 {
     asset *Asset = Assets->Assets + ID.Value;        
@@ -390,7 +390,7 @@ LoadSound(game_assets *Assets, sound_id ID)
     }
 }
 
-internal void
+internal1 void
 LoadFont(game_assets *Assets, font_id ID, b32 Immediate)
 {
     // TODO(casey): Merge all this boilerplate!!!!  Same between LoadBitmap, LoadSound, and LoadFont
@@ -477,7 +477,7 @@ LoadFont(game_assets *Assets, font_id ID, b32 Immediate)
     }    
 }
 
-internal u32
+internal1 u32
 GetFirstAssetFrom(game_assets *Assets, asset_type_id TypeID)
 {
     u32 Result = 0;
@@ -525,7 +525,7 @@ GetGlyphFromCodePoint(eab_font *Info, loaded_font *Font, u32 CodePoint)
     return(Result);
 }
 
-internal bitmap_id
+internal1 bitmap_id
 GetBitmapForGlyph(game_assets *Assets, eab_font *Info, loaded_font *Font, u32 DesiredCodePoint)
 {
     u32 Glyph = GetGlyphFromCodePoint(Info, Font, DesiredCodePoint);    
@@ -535,7 +535,7 @@ GetBitmapForGlyph(game_assets *Assets, eab_font *Info, loaded_font *Font, u32 De
     return(Result);
 }
 
-internal r32
+internal1 r32
 GetHorizontalAdvanceForPair(eab_font *Info, loaded_font *Font, u32 DesiredPrevCodePoint, u32 DesiredCodePoint)
 {
     u32 PrevGlyph = GetGlyphFromCodePoint(Info, Font, DesiredPrevCodePoint);
@@ -763,7 +763,7 @@ AllocateGameAssets(memory_arena *Arena, memory_index Size, tran_state *TranState
 }
 
 // TODO(ezexff): Think about how keep shaders on storage (asset file or smth else)
-internal void
+internal1 void
 DEBUGLoadShaders(memory_arena *ConstArena, renderer_shaders *Shaders)
 {
     platform_file_group FileGroup = Platform.GetAllFilesOfTypeBegin(PlatformFileType_VertFile);
@@ -905,7 +905,7 @@ DEBUGLoadShaders(memory_arena *ConstArena, renderer_shaders *Shaders)
     Platform.GetAllFilesOfTypeEnd(&FileGroup);
 }
 
-internal u32
+internal1 u32
 GetBestMatchAssetFrom(game_assets *Assets, asset_type_id TypeID, 
                       asset_vector *MatchVector, asset_vector *WeightVector)
 {
@@ -947,7 +947,7 @@ GetBestMatchAssetFrom(game_assets *Assets, asset_type_id TypeID,
     return(Result);
 }
 
-internal u32
+internal1 u32
 GetRandomAssetFrom(game_assets *Assets, asset_type_id TypeID, random_series *Series)
 {
     
@@ -994,7 +994,7 @@ GetRandomSoundFrom(game_assets *Assets, asset_type_id TypeID, random_series *Ser
     return(Result);
 }
 
-internal font_id
+internal1 font_id
 GetBestMatchFontFrom(game_assets *Assets, asset_type_id TypeID, asset_vector *MatchVector, asset_vector *WeightVector)
 {
     font_id Result = {GetBestMatchAssetFrom(Assets, TypeID, MatchVector, WeightVector)};

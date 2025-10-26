@@ -97,7 +97,7 @@ DEBUGTextLine(renderer_frame *Frame, game_assets *Assets, char *String, v2s P)
 }
  */
 
-internal void
+internal1 void
 TestBubbleSort(void)
 {
     u32 Array[10] = 
@@ -139,7 +139,7 @@ struct test_work
 {
     task_with_memory *Task;
 };
-internal PLATFORM_WORK_QUEUE_CALLBACK(TestWork)
+internal1 PLATFORM_WORK_QUEUE_CALLBACK(TestWork)
 {
     test_work *Work = (test_work *)Data;
     

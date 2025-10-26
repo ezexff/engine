@@ -258,7 +258,7 @@ IsValid(sound_id ID)
     return(Result);
 }
 
-internal void LoadSound(game_assets *Assets, sound_id ID);
+internal1 void LoadSound(game_assets *Assets, sound_id ID);
 inline void PrefetchSound(game_assets *Assets, sound_id ID) {LoadSound(Assets, ID);}
 
 inline sound_id 

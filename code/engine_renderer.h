@@ -1,3 +1,5 @@
+r32 DefaultTexCoords[8] = {0,0, 1,0, 1,1, 0,1};
+
 enum frame_effect
 {
     FrameEffect_Abberation,

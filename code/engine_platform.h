@@ -3,6 +3,13 @@
 #include "immintrin.h"
 #include "engine_intrinsics.h"
 
+#define GEOAPIFY 0 // 0 - maptiler api
+#if GEOAPIFY
+#define TILE_SIZE 256
+#else
+#define TILE_SIZE 512
+#endif
+
 //~ NOTE(ezexff): Functions
 inline u32
 SafeTruncateUInt64(u64 Value) // Need it for safety reading files

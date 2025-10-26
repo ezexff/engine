@@ -1923,7 +1923,7 @@ OpenglInitFrameFBO(renderer_frame *Frame)
     Opengl->glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-internal void
+internal1 void
 SortPushBufferEntries(renderer_push_buffer *PushBuffer)
 {
     TIMED_FUNCTION();
@@ -1958,7 +1958,7 @@ SortPushBufferEntries(renderer_push_buffer *PushBuffer)
     }
 }
 
-internal void
+internal1 void
 OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuffer)
 {
     TIMED_FUNCTION();
@@ -1969,11 +1969,157 @@ OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuf
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
+    glLoadIdentity();
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    //glOrtho(0, (r32)Frame->Dim.x, 0, (r32)Frame->Dim.y, 0.0f, 1.0f);
+    
+    //r32 TileSize = 256.0f;
+    r32 TileSize = TILE_SIZE;
+    {
+        r32 N = TileSize + TileSize * Camera->P.z;
+        r32 Left = -N * 0.5f;
+        r32 Right = N * 0.5f;
+        r32 Bottom = -N * 0.5f / Frame->AspectRatio;
+        r32 Top = N * 0.5f / Frame->AspectRatio;
+        glOrtho(Left, Right, Bottom, Top, 0.0f, 1.0f);
+        glTranslatef(-Camera->P.x,-Camera->P.y, 0.0f);
+    }
+    
+    SortPushBufferEntries(PushBuffer);
+    tile_sort_entry *SortEntryArray = PushBuffer->SortEntryArray;
+    tile_sort_entry *SortEntry = SortEntryArray;
+    for(u32 SortEntryIndex = 0;
+        SortEntryIndex < PushBuffer->ElementCount;
+        ++SortEntryIndex, ++SortEntry)
+    {
+        renderer_entry_header *Header = (renderer_entry_header *)
+        (PushBuffer->Base + SortEntry->Offset);
+        
+        void *Data = (u8 *)Header + sizeof(*Header);
+        
+        switch(Header->Type)
+        {
+            case RendererOrthoEntryType_renderer_ortho_entry_lines:
+            {
+                renderer_ortho_entry_lines *Entry = (renderer_ortho_entry_lines *)Data;
+                //OpenglDrawLinesOnScreen(Entry->VertexCount, Entry->VertexArray, Entry->LineWidth, Entry->Color);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_triangles:
+            {
+                renderer_ortho_entry_triangles *Entry = (renderer_ortho_entry_triangles *)Data;
+                //OpenglDrawTrianglesOnScreen(Entry->VertexCount, Entry->VertexArray, Entry->Color);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_circle:
+            {
+                renderer_ortho_entry_circle *Entry = (renderer_ortho_entry_circle *)Data;
+                OpenglDrawCircleOnScreen(Entry->P, Entry->Radius, Entry->Color);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_circle_outline:
+            {
+                renderer_ortho_entry_circle_outline *Entry = (renderer_ortho_entry_circle_outline *)Data;
+                //OpenglDrawCircleOutlineOnScreen(Entry->P, Entry->Radius, Entry->LineWidth, Entry->Color);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_rect:
+            {
+                //InvalidCodePath;
+                // TODO(ezexff): TEMP
+                /* 
+                                renderer_ortho_entry_rect *Entry = (renderer_ortho_entry_rect *)Data;
+                                v2 Min = Entry->P;
+                                v2 Max = Entry->Dim;
+                                OpenglDrawRectOnScreen({Min, Max}, Entry->Color);
+                 */
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_rect_outline:
+            {
+                InvalidCodePath;
+                //renderer_ortho_entry_rect_outline *Entry = (renderer_ortho_entry_rect_outline *)Data;
+                //OpenglDrawRectOutlineOnScreen(Entry->Rect, Entry->LineWidth, Entry->Color);
+            } break;
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_bitmap:
+            {
+                renderer_ortho_entry_bitmap *Entry = (renderer_ortho_entry_bitmap *)Data;
+                //OpenglDrawBitmapOnScreen(Entry->Bitmap, Entry->Rect, V4(1, 0, 0, 1), Entry->TexCoords);
+                //InvalidCodePath;
+                loaded_bitmap *Bitmap = Entry->Bitmap;
+                rectangle2 R = Entry->Rect;
+                r32 *TexCoords = Entry->TexCoords;
+                if(!Bitmap->OpenglID)
+                {
+                    glGenTextures(1, &Bitmap->OpenglID);
+                    glBindTexture(GL_TEXTURE_2D, Bitmap->OpenglID);
+                    
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                    
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Bitmap->Width, Bitmap->Height, 0,
+                                 Bitmap->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Bitmap->Memory);
+                }
+                
+                r32 VertPositions[] = 
+                {
+                    R.Min.x, R.Min.y, // 0
+                    R.Max.x, R.Min.y, // 1
+                    R.Max.x, R.Max.y, // 2
+                    R.Min.x, R.Max.y, // 3
+                };
+                
+                glEnable(GL_TEXTURE_2D);
+                
+                Opengl->glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, Bitmap->OpenglID);
+                
+                glEnableClientState(GL_VERTEX_ARRAY);
+                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                
+                glVertexPointer(2, GL_FLOAT, 0, VertPositions);
+                glTexCoordPointer(2, GL_FLOAT, 0, TexCoords);
+                glDrawArrays(GL_QUADS, 0, 4);
+                
+                glDisableClientState(GL_VERTEX_ARRAY);
+                glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                
+                glDisable(GL_TEXTURE_2D);
+            } break;
+            
+            /* 
+                        case RendererOrthoEntryType_renderer_ortho_entry_glyph:
+                        {
+                            InvalidCodePath;
+                            //InvalidCodePath;
+                        } break;
+             */
+            
+            case RendererOrthoEntryType_renderer_ortho_entry_lines_d:
+            {
+                //renderer_ortho_entry_lines_d *Entry = (renderer_ortho_entry_lines_d *)Data;
+                //OpenglDrawLinesOnScreen64(Entry->VertexCount, Entry->VertexArray, Entry->LineWidth, Entry->Color);
+            } break;
+            
+            InvalidDefaultCase;
+        }
+    }
+    
+    
+    
+    glLoadIdentity();
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     
-    r32 N = 100000.0f / Camera->P.z;
+    //r32 N = 100000.0f / Camera->P.z;
     //r32 N = 1.0f / Camera->P.z;
+    //r32 N = 256.0f * 165.0f / Camera->P.z;
+    //r32 N = 512.0f + 512.0f * Camera->P.z;
+    r32 N = TileSize + TileSize * Camera->P.z;
     r32 Left = -N * 0.5f;
     r32 Right = N * 0.5f;
     r32 Bottom = -N * 0.5f / Frame->AspectRatio;
@@ -2000,12 +2146,15 @@ OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuf
     //glTranslatef(-Camera->P.x, -Camera->P.y, 0.0f);
     //glTranslatef(-57500.0f -Camera->P.x * Camera->P.z, -53000.0f -Camera->P.y * Camera->P.z, 0.0f);
     //glTranslatef(-57500.0f -Camera->P.x, -53000.0f -Camera->P.y, 0.0f);
+    /* 
+        r32 MetersPerPixel = 40075.016686f * 1000.f / 512.0f;
+        r32 Resolution  = MetersPerPixel / (r32)pow(2, 11.0f);
+        glScalef(Resolution, Resolution, 0.0f);
+     */
     glTranslatef(-Camera->P.x,-Camera->P.y, 0.0f);
-    //glScalef(Camera->P.z, Camera->P.z, 0.0f);
     
-    SortPushBufferEntries(PushBuffer);
-    tile_sort_entry *SortEntryArray = PushBuffer->SortEntryArray;
-    tile_sort_entry *SortEntry = SortEntryArray;
+    SortEntryArray = PushBuffer->SortEntryArray;
+    SortEntry = SortEntryArray;
     for(u32 SortEntryIndex = 0;
         SortEntryIndex < PushBuffer->ElementCount;
         ++SortEntryIndex, ++SortEntry)
@@ -2032,7 +2181,7 @@ OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuf
             case RendererOrthoEntryType_renderer_ortho_entry_circle:
             {
                 renderer_ortho_entry_circle *Entry = (renderer_ortho_entry_circle *)Data;
-                OpenglDrawCircleOnScreen(Entry->P, Entry->Radius, Entry->Color);
+                //OpenglDrawCircleOnScreen(Entry->P, Entry->Radius, Entry->Color);
             } break;
             
             case RendererOrthoEntryType_renderer_ortho_entry_circle_outline:
@@ -2060,9 +2209,52 @@ OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuf
             
             case RendererOrthoEntryType_renderer_ortho_entry_bitmap:
             {
-                InvalidCodePath;
                 renderer_ortho_entry_bitmap *Entry = (renderer_ortho_entry_bitmap *)Data;
-                OpenglDrawBitmapOnScreen(Entry->Bitmap, Entry->Rect, V4(0, 1, 0, 1), Entry->TexCoords);
+                //OpenglDrawBitmapOnScreen(Entry->Bitmap, Entry->Rect, V4(1, 0, 0, 1), Entry->TexCoords);
+                //InvalidCodePath;
+                /* 
+                                loaded_bitmap *Bitmap = Entry->Bitmap;
+                                rectangle2 R = Entry->Rect;
+                                r32 *TexCoords = Entry->TexCoords;
+                                if(!Bitmap->OpenglID)
+                                {
+                                    glGenTextures(1, &Bitmap->OpenglID);
+                                    glBindTexture(GL_TEXTURE_2D, Bitmap->OpenglID);
+                                    
+                                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                                    
+                                    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Bitmap->Width, Bitmap->Height, 0,
+                                                 Bitmap->BytesPerPixel == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, Bitmap->Memory);
+                                }
+                                
+                                r32 VertPositions[] = 
+                                {
+                                    R.Min.x, R.Min.y, // 0
+                                    R.Max.x, R.Min.y, // 1
+                                    R.Max.x, R.Max.y, // 2
+                                    R.Min.x, R.Max.y, // 3
+                                };
+                                
+                                glEnable(GL_TEXTURE_2D);
+                                
+                                Opengl->glActiveTexture(GL_TEXTURE0);
+                                glBindTexture(GL_TEXTURE_2D, Bitmap->OpenglID);
+                                
+                                glEnableClientState(GL_VERTEX_ARRAY);
+                                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                                
+                                glVertexPointer(2, GL_FLOAT, 0, VertPositions);
+                                glTexCoordPointer(2, GL_FLOAT, 0, TexCoords);
+                                glDrawArrays(GL_QUADS, 0, 4);
+                                
+                                glDisableClientState(GL_VERTEX_ARRAY);
+                                glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                                
+                                glDisable(GL_TEXTURE_2D);
+                 */
             } break;
             
             /* 
@@ -2082,6 +2274,7 @@ OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuf
             InvalidDefaultCase;
         }
     }
+    
     glDisable(GL_BLEND);
     
     // NOTE(ezexff): clear push buffer
@@ -2096,7 +2289,7 @@ OpenglDrawPhysicsPushBuffer(renderer_frame *Frame, renderer_push_buffer *PushBuf
 }
 
 
-internal void
+internal1 void
 OpenglDrawUI(renderer_frame *Frame)
 {
     TIMED_FUNCTION();

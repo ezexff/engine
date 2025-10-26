@@ -1,4 +1,4 @@
-internal void
+internal1 void
 UI_Label(char *ID, char *Text)
 {
     if(!UI_State->WindowArray->Last){InvalidCodePath};
@@ -26,7 +26,7 @@ UI_Label(char *ID, char *Text)
     }
 }
 
-internal void
+internal1 void
 UI_Label(char *Format, ...)
 {
     va_list ArgList;
@@ -38,7 +38,7 @@ UI_Label(char *Format, ...)
     va_end(ArgList);
 }
 
-internal u32
+internal1 u32
 UI_Button(char *ID, char *Text)
 {
     u32 State = 0;
@@ -73,7 +73,7 @@ UI_Button(char *ID, char *Text)
     return(State);
 }
 
-internal u32
+internal1 u32
 UI_Button(char *Format, ...)
 {
     va_list ArgList;
@@ -157,7 +157,7 @@ UI_CheckBox(b32 *Value, char *Format, ...)
 }
  */
 
-internal void
+internal1 void
 UI_BeginWindow(char *ID, b32 *ExitButtonValue)
 {
     ui_node *Window = UI_AddRootNode(Concat(UI_State->TranArena, "Window#", ID),
@@ -266,7 +266,7 @@ UI_BeginWindow(char *ID, b32 *ExitButtonValue)
     }
 }
 
-internal void
+internal1 void
 UI_EndWindow()
 {
     ui_node *Window = UI_State->WindowArray->Last;

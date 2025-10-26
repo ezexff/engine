@@ -98,7 +98,7 @@ GetWorldChunk(world *World, s32 ChunkX, s32 ChunkY, s32 ChunkZ, memory_arena *Ar
     return (Chunk);
 }
 
-internal void 
+internal1 void 
 InitializeWorld(world *World, v3 ChunkDimInMeters)
 {
     World->ChunkDimInMeters = ChunkDimInMeters;
@@ -258,7 +258,7 @@ ChangeEntityLocationRaw(mode_world *ModeWorld, u32 LowEntityIndex, world_positio
     }
 }
 
-internal void 
+internal1 void 
 ChangeEntityLocation(mode_world *ModeWorld, u32 LowEntityIndex, low_entity *LowEntity,
                      world_position NewPInit)
 {

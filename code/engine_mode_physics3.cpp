@@ -1,4 +1,4 @@
-internal void
+internal1 void
 UpdateAndRenderPhysics3(game_memory *Memory, game_input *Input)
 {
     game_state *GameState = (game_state *)Memory->PermanentStorage;

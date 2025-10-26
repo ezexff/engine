@@ -1,4 +1,4 @@
-internal sim_entity_hash *
+internal1 sim_entity_hash *
 GetHashFromStorageIndex(sim_region *SimRegion, u32 StorageIndex)
 {
     Assert(StorageIndex);
@@ -47,7 +47,7 @@ GetSimSpaceP(sim_region *SimRegion, low_entity *Stored)
     return(Result);
 }
 
-internal sim_entity *
+internal1 sim_entity *
 AddEntity(mode_world *ModeWorld, sim_region *SimRegion, u32 StorageIndex, low_entity *Source,
           v3 *SimP);
 inline void 
@@ -77,7 +77,7 @@ StoreEntityReference(entity_reference *Ref)
     }
 }
 
-internal sim_entity *
+internal1 sim_entity *
 AddEntityRaw(mode_world *ModeWorld, sim_region *SimRegion, u32 StorageIndex, low_entity *Source)
 {
     Assert(StorageIndex);
@@ -124,7 +124,7 @@ EntityOverlapsRectangle(v3 P, sim_entity_collision_volume Volume, rectangle3 Rec
     return(Result);
 }
 
-internal sim_entity *
+internal1 sim_entity *
 AddEntity(mode_world *ModeWorld, sim_region *SimRegion, u32 StorageIndex, low_entity *Source,
           v3 *SimP)
 {
@@ -146,7 +146,7 @@ AddEntity(mode_world *ModeWorld, sim_region *SimRegion, u32 StorageIndex, low_en
     return (Dest);
 }
 
-internal sim_region *
+internal1 sim_region *
 BeginSim(mode_world *ModeWorld, rectangle3 Bounds, r32 dt)
 {
     world_position Origin = ModeWorld->Camera.P;
@@ -226,7 +226,7 @@ BeginSim(mode_world *ModeWorld, rectangle3 Bounds, r32 dt)
     return (SimRegion);
 }
 
-internal void 
+internal1 void 
 EndSim(sim_region *Region, mode_world *ModeWorld)
 {
     // TODO(casey): Maybe don't take a game state here, low entities should be stored
@@ -287,7 +287,7 @@ EndSim(sim_region *Region, mode_world *ModeWorld)
     }
 }
 
-internal b32 
+internal1 b32 
 CanCollide(mode_world *ModeWorld, sim_entity *A, sim_entity *B)
 {
     b32 Result = false;
@@ -327,7 +327,7 @@ CanCollide(mode_world *ModeWorld, sim_entity *A, sim_entity *B)
     return(Result);
 }
 
-internal b32
+internal1 b32
 HandleCollision(mode_world *ModeWorld, sim_entity *A, sim_entity *B)
 {
     b32 StopsOnCollision = false;
@@ -363,7 +363,7 @@ HandleCollision(mode_world *ModeWorld, sim_entity *A, sim_entity *B)
     return (StopsOnCollision);
 }
 
-internal b32 
+internal1 b32 
 CanOverlap(mode_world *ModeWorld, sim_entity *Mover, sim_entity *Region)
 {
     b32 Result = false;
@@ -379,7 +379,7 @@ CanOverlap(mode_world *ModeWorld, sim_entity *Mover, sim_entity *Region)
     return(Result);
 }
 
-internal void 
+internal1 void 
 HandleOverlap(mode_world *ModeWorld, sim_entity *Mover, sim_entity *Region, r32 dt, r32 *Ground)
 {
     if(Region->Type == EntityType_Stairwell)
@@ -388,7 +388,7 @@ HandleOverlap(mode_world *ModeWorld, sim_entity *Mover, sim_entity *Region, r32 
     }
 }
 
-internal b32 
+internal1 b32 
 SpeculativeCollide(sim_entity *Mover, sim_entity *Region, v3 TestP)
 {
     b32 Result = true;
@@ -409,7 +409,7 @@ SpeculativeCollide(sim_entity *Mover, sim_entity *Region, v3 TestP)
     return(Result);
 }
 
-internal b32 
+internal1 b32 
 EntitiesOverlap(sim_entity *Entity, sim_entity *TestEntity, v3 Epsilon = V3(0, 0, 0))
 {
     b32 Result = false;
@@ -447,7 +447,7 @@ struct test_wall
     v3 Normal;
 };
 
-internal void
+internal1 void
 MoveEntity(mode_world *ModeWorld, sim_region *SimRegion, sim_entity *Entity, r32 dt, move_spec *MoveSpec, v3 ddP,
            v3 WishDir, r32 WishSpeed, r32 Accel)
 {

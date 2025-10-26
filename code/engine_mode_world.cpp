@@ -1,4 +1,4 @@
-internal v3
+internal1 v3
 CalcNormal(v3 P1, v3 P2, v3 P3)
 {
 #if 0
@@ -61,7 +61,7 @@ V = p3 - p1 then the normal N = U X V and can be calculated by:
     return(Result);
 }
 
-internal void
+internal1 void
 CreateTerrainModel(memory_arena *WorldArena, loaded_model Model)
 {
     Model.MeshesCount = 1;
@@ -112,7 +112,7 @@ CreateTerrainModel(memory_arena *WorldArena, loaded_model Model)
     }
 }
 
-internal void
+internal1 void
 FillGroundChunk(renderer_terrain *Terrain, ground_buffer *GroundBuffer, world_position *ChunkP)
 {
     GroundBuffer->P = *ChunkP;
@@ -252,7 +252,7 @@ FillGroundChunk(renderer_terrain *Terrain, ground_buffer *GroundBuffer, world_po
 }
 
 // NOTE(ezexff): Collision rules
-internal void
+internal1 void
 AddCollisionRule(mode_world *ModeWorld, u32 StorageIndexA, u32 StorageIndexB, b32 CanCollide)
 {
     // TODO(casey): Collapse this with ShouldCollide
@@ -301,7 +301,7 @@ AddCollisionRule(mode_world *ModeWorld, u32 StorageIndexA, u32 StorageIndexB, b3
     }
 }
 
-internal void
+internal1 void
 ClearCollisionRulesFor(mode_world *ModeWorld, u32 StorageIndex)
 {
     // TODO(casey): Need to make a better data structure that allows
@@ -390,7 +390,7 @@ struct add_low_entity_result
     low_entity *Low;
     u32 LowIndex;
 };
-internal add_low_entity_result
+internal1 add_low_entity_result
 AddLowEntity(mode_world *ModeWorld, entity_type Type, world_position P)
 {
     Assert(ModeWorld->LowEntityCount < ArrayCount(ModeWorld->LowEntities));
@@ -415,7 +415,7 @@ AddLowEntity(mode_world *ModeWorld, entity_type Type, world_position P)
     return (Result);
 }
 
-internal add_low_entity_result 
+internal1 add_low_entity_result 
 AddGroundedEntity(mode_world *ModeWorld, entity_type Type, world_position P,
                   sim_entity_collision_volume_group *Collision)
 {
@@ -424,7 +424,7 @@ AddGroundedEntity(mode_world *ModeWorld, entity_type Type, world_position P,
     return (Entity);
 }
 
-internal add_low_entity_result 
+internal1 add_low_entity_result 
 AddStandardRoom(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
 {
     world_position P = ChunkPositionFromTilePosition(ModeWorld->World, AbsTileX, AbsTileY, AbsTileZ);
@@ -434,7 +434,7 @@ AddStandardRoom(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
     return (Entity);
 }
 
-internal add_low_entity_result 
+internal1 add_low_entity_result 
 AddWater(mode_world *ModeWorld, s32 ChunkX, s32 ChunkY, s32 ChunkZ)
 {
     world_position P = CenteredChunkPoint(ChunkX, ChunkY, ChunkZ);
@@ -444,7 +444,7 @@ AddWater(mode_world *ModeWorld, s32 ChunkX, s32 ChunkY, s32 ChunkZ)
     return (Entity);
 }
 
-internal add_low_entity_result 
+internal1 add_low_entity_result 
 AddWall(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
 {
     world_position P = ChunkPositionFromTilePosition(ModeWorld->World, AbsTileX, AbsTileY, AbsTileZ);
@@ -454,7 +454,7 @@ AddWall(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
     return (Entity);
 }
 
-internal add_low_entity_result 
+internal1 add_low_entity_result 
 AddStair(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
 {
     world_position P = ChunkPositionFromTilePosition(ModeWorld->World, AbsTileX, AbsTileY, AbsTileZ);
@@ -466,7 +466,7 @@ AddStair(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
     return (Entity);
 }
 
-internal void 
+internal1 void 
 InitHitPoints(low_entity *EntityLow, u32 HitPointCount)
 {
     Assert(HitPointCount <= ArrayCount(EntityLow->Sim.HitPoint));
@@ -481,7 +481,7 @@ InitHitPoints(low_entity *EntityLow, u32 HitPointCount)
     }
 }
 
-internal add_low_entity_result 
+internal1 add_low_entity_result 
 AddSword(mode_world *ModeWorld)
 {
     add_low_entity_result Entity = AddLowEntity(ModeWorld, EntityType_Sword, NullPosition());
@@ -493,7 +493,7 @@ AddSword(mode_world *ModeWorld)
     return (Entity);
 }
 
-internal add_low_entity_result 
+internal1 add_low_entity_result 
 AddPlayer(mode_world *ModeWorld)
 {
     world_position P = ModeWorld->Camera.P;
@@ -513,7 +513,7 @@ AddPlayer(mode_world *ModeWorld)
     return (Entity);
 }
 
-internal add_low_entity_result
+internal1 add_low_entity_result
 AddMonstar(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
 {
     world_position P = ChunkPositionFromTilePosition(ModeWorld->World, AbsTileX, AbsTileY, AbsTileZ);
@@ -525,7 +525,7 @@ AddMonstar(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
     return (Entity);
 }
 
-internal add_low_entity_result 
+internal1 add_low_entity_result 
 AddFamiliar(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
 {
     world_position P = ChunkPositionFromTilePosition(ModeWorld->World, AbsTileX, AbsTileY, AbsTileZ);
@@ -535,7 +535,7 @@ AddFamiliar(mode_world *ModeWorld, u32 AbsTileX, u32 AbsTileY, u32 AbsTileZ)
     return (Entity);
 }
 
-internal void
+internal1 void
 UpdateAndRenderWorld(game_memory *Memory, game_input *Input)
 {
 #if ENGINE_INTERNAL

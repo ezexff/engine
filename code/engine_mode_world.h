@@ -73,5 +73,5 @@ struct mode_world
 };
 
 struct game_state;
-internal void AddCollisionRule(mode_world *ModeWorld, u32 StorageIndexA, u32 StorageIndexB, b32 CanCollide);
-internal void ClearCollisionRulesFor(mode_world *ModeWorld, u32 StorageIndex);
+internal1 void AddCollisionRule(mode_world *ModeWorld, u32 StorageIndexA, u32 StorageIndexB, b32 CanCollide);
+internal1 void ClearCollisionRulesFor(mode_world *ModeWorld, u32 StorageIndex);

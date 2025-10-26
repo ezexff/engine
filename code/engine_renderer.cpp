@@ -288,6 +288,35 @@ PushLinesOnScreen64(renderer_push_buffer *PushBuffer, u32 VertexCount, v2d *Vert
 }
 
 void
+DEBUGPushBitmapOnScreen(renderer_push_buffer *PushBuffer, loaded_bitmap *Bitmap,
+                        rectangle2 Rect,
+                        r32 SortKey = 0.0f,
+                        r32 *TexCoords = DefaultTexCoords)
+{
+    if(Bitmap->Memory)
+    {
+        renderer_ortho_entry_bitmap *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_bitmap, SortKey);
+        if(Entry)
+        {
+            Entry->Bitmap = Bitmap;
+            Entry->Rect = Rect;
+            Entry->TexCoords[0] = TexCoords[0];
+            Entry->TexCoords[1] = TexCoords[1];
+            Entry->TexCoords[2] = TexCoords[2];
+            Entry->TexCoords[3] = TexCoords[3];
+            Entry->TexCoords[4] = TexCoords[4];
+            Entry->TexCoords[5] = TexCoords[5];
+            Entry->TexCoords[6] = TexCoords[6];
+            Entry->TexCoords[7] = TexCoords[7];
+        }
+    }
+    else
+    {
+        //InvalidCodePath;
+    }
+}
+
+void
 PushTrianglesOnScreen(renderer_push_buffer *PushBuffer, u32 VertexCount, v2 *VertexArray, v4 Color = V4(1, 1, 1, 1), r32 SortKey = 0.0f)
 {
     renderer_ortho_entry_triangles *Entry = PushOrthoRenderElement(PushBuffer, renderer_ortho_entry_triangles, SortKey);
@@ -350,8 +379,6 @@ PushRectOutlineOnScreen(renderer_push_buffer *PushBuffer, rectangle2 Rect, r32 L
     }
 }
 
-r32 DefaultTexCoords[8] = {0,0, 1,0, 1,1, 0,1};
-
 void
 PushBitmapOnScreen(renderer_push_buffer *PushBuffer, game_assets *Assets, bitmap_id ID, rectangle2 Rect,
                    r32 SortKey = 0.0f, r32 *TexCoords = DefaultTexCoords)
@@ -408,7 +435,7 @@ PushGlyphOnScreen(renderer_push_buffer *PushBuffer, game_assets *Assets, bitmap_
 }
 
 //~ NOTE(ezexff): new push buffer
-internal push_buffer
+internal1 push_buffer
 CreatePushBuffer(memory_arena *Arena, u32 MaxSize)
 {
     push_buffer Result = {};
@@ -488,7 +515,7 @@ PushGlyph(push_buffer *PushBuffer, game_assets *Assets, u32 CodePoint, bitmap_id
     }
 }
 
-internal void
+internal1 void
 InitializePushBuffer(memory_arena *Arena, renderer_push_buffer *PushBuffer)
 {
     PushBuffer->Base = PushBuffer->Memory;

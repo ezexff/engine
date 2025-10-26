@@ -1,4 +1,4 @@
-internal segment_distance
+internal1 segment_distance
 PointSegmentDistance(v2 P, v2 A, v2 B)
 {
     segment_distance Result = {};
@@ -28,7 +28,7 @@ PointSegmentDistance(v2 P, v2 A, v2 B)
     return(Result);
 }
 
-internal contact_points
+internal1 contact_points
 FindPolygonsContactPoint(v2 CenterA, u32 VertexCountA, v2 *VertexArrayA, v2 CenterB, u32 VertexCountB, v2 *VertexArrayB)
 {
     contact_points Result = {};
@@ -95,7 +95,7 @@ FindPolygonsContactPoint(v2 CenterA, u32 VertexCountA, v2 *VertexArrayA, v2 Cent
     return(Result);
 }
 
-internal v2
+internal1 v2
 FindCirclePolygonContactPoint(v2 CircleCenter, r32 CircleRadius, v2 PolygonCenter, u32 VertexCount, v2 *VertexArray)
 {
     v2 Contact = {};
@@ -118,7 +118,7 @@ FindCirclePolygonContactPoint(v2 CircleCenter, r32 CircleRadius, v2 PolygonCente
     return(Contact);
 }
 
-internal v2
+internal1 v2
 FindCirclesContactPoint(v2 CenterA, r32 RadiusA, v2 CenterB)
 {
     v2 AB = CenterB - CenterA;
@@ -127,7 +127,7 @@ FindCirclesContactPoint(v2 CenterA, r32 RadiusA, v2 CenterB)
     return(Result);
 }
 
-internal contact_points
+internal1 contact_points
 FindContactPoints(test_entity *BodyA, test_entity *BodyB)
 {
     contact_points Result = {};
@@ -183,7 +183,7 @@ void ResolveCollisionBasic(test_contact Contact)
     }
 }
 
-internal void
+internal1 void
 ResolveCollisionWithRotation(test_contact Contact)
 {
     test_entity *BodyA = Contact.BodyA;
@@ -254,7 +254,7 @@ ResolveCollisionWithRotation(test_contact Contact)
     }
 }
 
-internal void
+internal1 void
 ResolveCollisionWithRotationAndFriction(test_contact Contact)
 {
     test_entity *BodyA = Contact.BodyA;

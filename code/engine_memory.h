@@ -255,7 +255,7 @@ SubArena(memory_arena *Result, memory_arena *Arena, memory_index Size, arena_pus
 //#include <stdarg.h>
 
 //~ TODO(ezexff): test functions for string
-internal char *
+internal1 char *
 Concat(memory_arena *Arena, char *A, char *B)
 {
     char *Result;
@@ -294,14 +294,14 @@ Concat(memory_arena *Arena, char *A, char *B)
     return(Result);
 }
 
-internal char *
+internal1 char *
 Concat(memory_arena *Arena, char *A, char *B, char *C)
 {
     char *Result = Concat(Arena, A, Concat(Arena, B, C));
     return(Result);
 }
 
-internal char *
+internal1 char *
 Concat(memory_arena *Arena, char *A, char *B, char *C, char *D)
 {
     char *Result = Concat(Arena, A, B, Concat(Arena, C, D));
@@ -323,7 +323,7 @@ DigitsCount(u32 Value)
 }
  */
 
-internal char *
+internal1 char *
 U32ToString(memory_arena *Arena, u32 Value)
 {
     char Buffer[32];
